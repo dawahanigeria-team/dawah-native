@@ -44,7 +44,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(({ style }) => {
 
   const progressBarStyle: ViewStyle = {
     height: 2,
-    backgroundColor: designTokens.colors.background.secondary,
+    backgroundColor: designTokens.colors.system.background.secondary,
   };
 
   const progressFillStyle: ViewStyle = {
@@ -88,7 +88,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(({ style }) => {
       {/* Glass effect container */}
       <BlurView 
         intensity={18} 
-        style={{ backgroundColor: designTokens.colors.overlay.light }}
+        style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
       >
         <View style={contentStyle}>
           {/* Artwork */}

@@ -1,7 +1,9 @@
 import React, { useState, memo } from 'react';
-import { View, Modal, TouchableOpacity, ViewStyle, FlatList } from 'react-native';
+import { Modal, TouchableOpacity, ViewStyle, FlatList } from 'react-native';
 import { designTokens } from '../../theme/designTokens';
-import { Text, Icon, Touchable } from './';
+import { Text } from './Text';
+import { Icon } from './Icon';
+import { Touchable } from './Touchable';
 
 interface DropdownOption {
   label: string;
@@ -38,7 +40,7 @@ export const Dropdown: React.FC<DropdownProps> = memo(({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: designTokens.colors.background.secondary,
+    backgroundColor: designTokens.colors.system.background.secondary,
     paddingHorizontal: designTokens.spacing.md,
     paddingVertical: designTokens.spacing.sm,
     borderRadius: designTokens.borderRadius.lg,
@@ -55,7 +57,7 @@ export const Dropdown: React.FC<DropdownProps> = memo(({
   };
   
   const contentStyle: ViewStyle = {
-    backgroundColor: designTokens.colors.background.secondary,
+    backgroundColor: designTokens.colors.system.background.secondary,
     borderRadius: designTokens.borderRadius.xl,
     maxHeight: 300,
     padding: designTokens.spacing.md,
@@ -70,7 +72,7 @@ export const Dropdown: React.FC<DropdownProps> = memo(({
   };
   
   const selectedOptionStyle: ViewStyle = {
-    backgroundColor: designTokens.colors.background.tertiary,
+    backgroundColor: designTokens.colors.system.background.tertiary,
   };
   
   return (
@@ -84,7 +86,7 @@ export const Dropdown: React.FC<DropdownProps> = memo(({
       >
         <Text
           variant="body"
-          color={selectedOption ? "primary" : "muted"}
+          color={selectedOption ? "label" : "tertiaryLabel"}
           numberOfLines={1}
         >
           {selectedOption?.label || placeholder}
@@ -92,7 +94,7 @@ export const Dropdown: React.FC<DropdownProps> = memo(({
         <Icon
           name="chevron-down"
           size="sm"
-          color={designTokens.colors.text.muted}
+          color="muted"
           style={{ 
             transform: [{ rotate: isOpen ? '180deg' : '0deg' }],
             marginLeft: designTokens.spacing.sm,
@@ -133,8 +135,8 @@ export const Dropdown: React.FC<DropdownProps> = memo(({
                 >
                   <Text
                     variant="body"
-                    color="primary"
-                    weight={item.value === selectedValue ? "semibold" : "normal"}
+                    color="label"
+                    weight={item.value === selectedValue ? "semibold" : "regular"}
                     style={item.value === selectedValue ? { color: designTokens.colors.brand.primary } : {}}
                   >
                     {item.label}

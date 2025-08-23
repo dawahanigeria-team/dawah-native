@@ -1,24 +1,37 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Platform } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { designTokens } from '../../src/theme/designTokens';
 
 export default function TabLayout() {
+  const handleTabPress = () => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#C6FF00',
-        tabBarInactiveTintColor: '#8B8CA1',
+        tabBarActiveTintColor: designTokens.colors.brand.primary,
+        tabBarInactiveTintColor: designTokens.colors.system.label.tertiary,
         tabBarStyle: {
-          backgroundColor: '#1E1E2A',
-          borderTopColor: 'rgba(255,255,255,0.08)',
-          borderTopWidth: 1,
-          height: 84,
-          paddingBottom: 20,
-          paddingTop: 4,
+          backgroundColor: designTokens.colors.system.background.secondary,
+          borderTopColor: designTokens.colors.system.separator.primary,
+          borderTopWidth: 0.5, // iOS standard separator width
+          height: Platform.OS === 'ios' ? 83 : 84, // iOS standard tab bar height
+          paddingBottom: Platform.OS === 'ios' ? 20 : 16,
+          paddingTop: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '600',
-          marginTop: 4,
+          fontSize: designTokens.typography.fontSize.caption1,
+          fontWeight: designTokens.typography.fontWeight.medium,
+          fontFamily: designTokens.typography.fontFamily.system,
+          marginTop: 2,
+        },
+        tabBarIconStyle: {
+          marginBottom: 2,
         },
         headerShown: false,
       }}
@@ -30,10 +43,13 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons 
               name={focused ? 'home' : 'home-outline'} 
-              size={size} 
+              size={focused ? 26 : 24} 
               color={color} 
             />
           ),
+        }}
+        listeners={{
+          tabPress: handleTabPress,
         }}
       />
       <Tabs.Screen
@@ -42,11 +58,14 @@ export default function TabLayout() {
           title: 'Search',
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons 
-              name={focused ? 'search' : 'search'} 
-              size={size} 
+              name="search" 
+              size={focused ? 26 : 24} 
               color={color} 
             />
           ),
+        }}
+        listeners={{
+          tabPress: handleTabPress,
         }}
       />
       <Tabs.Screen
@@ -56,10 +75,13 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons 
               name={focused ? 'library' : 'library-outline'} 
-              size={size} 
+              size={focused ? 26 : 24} 
               color={color} 
             />
           ),
+        }}
+        listeners={{
+          tabPress: handleTabPress,
         }}
       />
       <Tabs.Screen
@@ -69,10 +91,13 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons 
               name={focused ? 'person' : 'person-outline'} 
-              size={size} 
+              size={focused ? 26 : 24} 
               color={color} 
             />
           ),
+        }}
+        listeners={{
+          tabPress: handleTabPress,
         }}
       />
     </Tabs>

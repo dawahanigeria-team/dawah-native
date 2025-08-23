@@ -17,28 +17,41 @@ export const spacing = {
   '6xl': 64, // 64px
 } as const;
 
-// Typography scale
+// Typography scale - Apple iOS Text Styles
 export const typography = {
   fontSize: {
-    xs: 12,   // 12px
-    sm: 14,   // 14px
-    base: 16, // 16px
-    lg: 18,   // 18px
-    xl: 20,   // 20px
-    '2xl': 24, // 24px
-    '3xl': 30, // 30px
-    '4xl': 36, // 36px
+    // iOS Dynamic Type sizes (base values)
+    largeTitle: 34,  // Large Title
+    title1: 28,      // Title 1 
+    title2: 22,      // Title 2
+    title3: 20,      // Title 3
+    headline: 17,    // Headline
+    body: 17,        // Body
+    callout: 16,     // Callout
+    subheadline: 15, // Subheadline
+    footnote: 13,    // Footnote
+    caption1: 12,    // Caption 1
+    caption2: 11,    // Caption 2
   },
   fontWeight: {
-    normal: '400',
+    ultraLight: '100',
+    thin: '200', 
+    light: '300',
+    regular: '400',
     medium: '500',
     semibold: '600',
     bold: '700',
+    heavy: '800',
+    black: '900',
   },
   lineHeight: {
-    tight: 1.2,
-    normal: 1.4,
-    relaxed: 1.6,
+    tight: 1.1,    // For large titles
+    normal: 1.3,   // iOS standard
+    relaxed: 1.4,  // For better readability
+  },
+  fontFamily: {
+    system: 'System', // iOS will use SF Pro automatically
+    mono: 'Menlo',    // iOS monospace font
   },
 } as const;
 
@@ -87,74 +100,92 @@ export const shadows = {
   },
 } as const;
 
-// Color system with semantic naming
+// iOS Semantic Color System - supports both light and dark modes
 export const colors = {
-  // Brand colors
+  // iOS System Colors (adapt to appearance)
+  system: {
+    background: {
+      primary: '#000000',        // systemBackground (dark)
+      secondary: '#1C1C1E',      // secondarySystemBackground (dark)
+      tertiary: '#2C2C2E',       // tertiarySystemBackground (dark)
+      grouped: '#000000',        // systemGroupedBackground (dark)
+    },
+    
+    label: {
+      primary: '#FFFFFF',        // label (dark mode)
+      secondary: 'rgba(235, 235, 245, 0.6)',  // secondaryLabel
+      tertiary: 'rgba(235, 235, 245, 0.3)',   // tertiaryLabel
+      quaternary: 'rgba(235, 235, 245, 0.18)', // quaternaryLabel
+    },
+    
+    fill: {
+      primary: 'rgba(120, 120, 128, 0.2)',    // systemFill
+      secondary: 'rgba(120, 120, 128, 0.16)',  // secondarySystemFill
+      tertiary: 'rgba(118, 118, 128, 0.12)',  // tertiarySystemFill
+      quaternary: 'rgba(118, 118, 128, 0.08)', // quaternarySystemFill
+    },
+    
+    separator: {
+      primary: 'rgba(84, 84, 88, 0.65)',     // separator
+      opaque: '#38383A',                      // opaqueSeparator
+    },
+  },
+  
+  // Brand colors - maintaining identity while following iOS patterns
   brand: {
-    primary: '#C6FF00',     // Dawah Nigeria green
-    secondary: '#7AA2FF',   // Blue accent
-    tertiary: '#62D26F',    // Green accent
+    primary: '#30D158',        // iOS Green (adjusted for accessibility)
+    secondary: '#007AFF',      // iOS Blue
+    accent: '#5AC8FA',         // iOS Light Blue
   },
   
-  // Background colors
-  background: {
-    primary: '#0A0A0A',     // Main dark background
-    secondary: '#1A1A1A',   // Elevated surfaces
-    tertiary: '#2A2A2A',    // Cards and containers
-  },
-  
-  // Text colors
-  text: {
-    primary: '#FFFFFF',     // Primary text
-    secondary: '#E5E5E5',   // Secondary text
-    muted: '#8B8CA1',       // Muted text
-    inverse: '#000000',     // Text on light backgrounds
-  },
-  
-  // Semantic colors
+  // iOS Semantic Colors
   semantic: {
-    success: '#62D26F',
-    warning: '#F6C445',
-    error: '#FF6B6B',
-    info: '#7AA2FF',
+    red: '#FF3B30',           // systemRed
+    orange: '#FF9500',        // systemOrange  
+    yellow: '#FFCC00',        // systemYellow
+    green: '#30D158',         // systemGreen
+    mint: '#00C7BE',          // systemMint
+    teal: '#30B0C7',          // systemTeal
+    cyan: '#32D2DC',          // systemCyan
+    blue: '#007AFF',          // systemBlue
+    indigo: '#5856D6',        // systemIndigo
+    purple: '#AF52DE',        // systemPurple
+    pink: '#FF2D92',          // systemPink
+    brown: '#A2845E',         // systemBrown
   },
   
-  // Interactive states
-  interactive: {
-    hover: 'rgba(198, 255, 0, 0.1)',
-    pressed: 'rgba(198, 255, 0, 0.2)',
-    disabled: 'rgba(139, 140, 161, 0.3)',
-    focus: 'rgba(198, 255, 0, 0.3)',
-  },
-  
-  // Overlay colors
-  overlay: {
-    light: 'rgba(255, 255, 255, 0.1)',
-    medium: 'rgba(255, 255, 255, 0.2)',
-    dark: 'rgba(0, 0, 0, 0.3)',
-    darker: 'rgba(0, 0, 0, 0.7)',
-  },
-  
-  // Border colors
-  border: {
-    primary: 'rgba(139, 140, 161, 0.2)',
-    secondary: 'rgba(139, 140, 161, 0.1)',
-    focus: '#C6FF00',
+  // Control states
+  control: {
+    normal: 'rgba(120, 120, 128, 0.2)',
+    highlighted: 'rgba(120, 120, 128, 0.4)', 
+    disabled: 'rgba(120, 120, 128, 0.12)',
+    selected: '#007AFF',
   },
 } as const;
 
-// Hit target sizes (44x44 minimum for accessibility)
+// iOS Hit target sizes (44x44 minimum for accessibility)
 export const hitTargets = {
-  minimum: 44,
-  comfortable: 48,
-  large: 56,
+  minimum: 44,        // Apple HIG minimum
+  comfortable: 48,    // Recommended size
+  large: 52,          // Large controls
+  extraLarge: 60,     // Extra large (floating buttons)
 } as const;
 
-// Animation durations
+// iOS Animation durations and curves
 export const animations = {
-  fast: 150,
-  normal: 250,
-  slow: 350,
+  // Duration (ms)
+  immediate: 0,
+  fast: 200,         // Quick transitions
+  normal: 350,       // Standard iOS duration
+  slow: 500,         // Deliberate transitions
+  
+  // Easing curves (React Native compatible)
+  easing: {
+    easeInOut: 'ease-in-out',
+    easeOut: 'ease-out', 
+    easeIn: 'ease-in',
+    spring: 'spring',   // Use with react-native-reanimated
+  },
 } as const;
 
 // Z-index scale

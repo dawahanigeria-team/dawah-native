@@ -5,7 +5,7 @@ import { designTokens, BorderRadius } from '../../theme/designTokens';
 import { Text } from './Text';
 
 interface ButtonProps extends Omit<TouchableOpacityProps, 'style'> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
+  variant?: 'filled' | 'tinted' | 'gray' | 'plain' | 'destructive';
   size?: 'small' | 'medium' | 'large';
   borderRadius?: BorderRadius;
   fullWidth?: boolean;
@@ -41,41 +41,37 @@ export const Button: React.FC<ButtonProps> = memo(({
     const isDisabled = disabled || loading;
     
     switch (variant) {
-      case 'primary':
+      case 'filled':
         return {
           backgroundColor: isDisabled 
-            ? designTokens.colors.interactive.disabled 
+            ? designTokens.colors.control.disabled 
             : designTokens.colors.brand.primary,
           borderWidth: 0,
         };
-      case 'secondary':
+      case 'tinted':
         return {
           backgroundColor: isDisabled 
-            ? designTokens.colors.interactive.disabled 
-            : designTokens.colors.background.secondary,
-          borderWidth: 1,
-          borderColor: isDisabled 
-            ? designTokens.colors.interactive.disabled 
-            : designTokens.colors.border.primary,
+            ? designTokens.colors.control.disabled 
+            : designTokens.colors.system.fill.secondary,
+          borderWidth: 0,
         };
-      case 'outline':
+      case 'gray':
         return {
-          backgroundColor: 'transparent',
-          borderWidth: 1,
-          borderColor: isDisabled 
-            ? designTokens.colors.interactive.disabled 
-            : designTokens.colors.brand.primary,
+          backgroundColor: isDisabled 
+            ? designTokens.colors.control.disabled 
+            : designTokens.colors.system.fill.primary,
+          borderWidth: 0,
         };
-      case 'ghost':
+      case 'plain':
         return {
           backgroundColor: 'transparent',
           borderWidth: 0,
         };
-      case 'danger':
+      case 'destructive':
         return {
           backgroundColor: isDisabled 
-            ? designTokens.colors.interactive.disabled 
-            : designTokens.colors.semantic.error,
+            ? designTokens.colors.control.disabled 
+            : designTokens.colors.semantic.red,
           borderWidth: 0,
         };
       default:
@@ -119,29 +115,30 @@ export const Button: React.FC<ButtonProps> = memo(({
     const isDisabled = disabled || loading;
     
     if (isDisabled) {
-      return 'muted';
+      return 'quaternaryLabel';
     }
     
     switch (variant) {
-      case 'primary':
-      case 'danger':
-        return 'inverse';
-      case 'secondary':
-      case 'outline':
-      case 'ghost':
+      case 'filled':
+      case 'destructive':
+        return 'label'; // White on colored background
+      case 'tinted':
+      case 'gray':
+        return 'label';
+      case 'plain':
       default:
-        return 'primary';
+        return 'systemBlue';
     }
   };
 
   const getTextVariant = () => {
     switch (size) {
       case 'small':
-        return 'bodySmall';
+        return 'footnote';
       case 'medium':
         return 'body';
       case 'large':
-        return 'body';
+        return 'headline';
       default:
         return 'body';
     }
@@ -174,13 +171,13 @@ export const Button: React.FC<ButtonProps> = memo(({
       {loading ? (
         <ActivityIndicator 
           size="small" 
-          color={getTextColor() === 'inverse' ? designTokens.colors.text.inverse : designTokens.colors.text.primary}
+          color={getTextColor() === 'label' ? '#FFFFFF' : designTokens.colors.system.label.primary}
         />
       ) : (
         <Text 
           variant={getTextVariant()} 
           color={getTextColor()}
-          weight="semibold"
+          weight={variant === 'plain' ? 'regular' : 'semibold'}
           style={{
             marginLeft: leftIcon ? designTokens.spacing.sm : 0,
             marginRight: rightIcon ? designTokens.spacing.sm : 0,

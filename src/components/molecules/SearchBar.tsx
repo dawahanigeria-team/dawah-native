@@ -72,12 +72,12 @@ export const SearchBar: React.FC<SearchBarProps> = memo(({
   const containerStyle: ViewStyle = {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: designTokens.colors.background.secondary,
-    borderRadius: designTokens.borderRadius.full,
-    paddingHorizontal: designTokens.spacing.lg,
+    backgroundColor: designTokens.colors.system.fill.tertiary,
+    borderRadius: designTokens.borderRadius.lg, // iOS uses slightly less rounded corners
+    paddingHorizontal: designTokens.spacing.md,
     paddingVertical: designTokens.spacing.sm,
     marginHorizontal: 0,
-    minHeight: 48,
+    minHeight: 36, // iOS standard search bar height
     borderWidth: 0,
     opacity: disabled ? 0.6 : 1,
     ...style,
@@ -85,11 +85,12 @@ export const SearchBar: React.FC<SearchBarProps> = memo(({
 
   const inputStyle = {
     flex: 1,
-    fontSize: designTokens.typography.fontSize.base,
-    fontWeight: designTokens.typography.fontWeight.normal,
-    color: designTokens.colors.text.primary,
-    marginLeft: designTokens.spacing.md,
-    marginRight: designTokens.spacing.md,
+    fontSize: designTokens.typography.fontSize.body,
+    fontWeight: designTokens.typography.fontWeight.regular,
+    fontFamily: designTokens.typography.fontFamily.system,
+    color: designTokens.colors.system.label.primary,
+    marginLeft: designTokens.spacing.sm,
+    marginRight: designTokens.spacing.sm,
   };
 
   const showClearButton = showClear && currentValue.length > 0;
@@ -106,7 +107,7 @@ export const SearchBar: React.FC<SearchBarProps> = memo(({
       <TextInput
         style={inputStyle}
         placeholder={placeholder}
-        placeholderTextColor={designTokens.colors.text.muted}
+        placeholderTextColor={designTokens.colors.system.label.tertiary}
         value={currentValue}
         onChangeText={debounceSearch}
         returnKeyType="search"

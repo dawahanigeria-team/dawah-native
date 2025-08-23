@@ -1,12 +1,23 @@
 import React, { memo } from 'react';
 import { ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { designTokens, TextColor } from '../../theme/designTokens';
+import { designTokens } from '../../theme/designTokens';
+
+type IconColorVariant = 
+  | 'label' 
+  | 'secondaryLabel' 
+  | 'tertiaryLabel' 
+  | 'quaternaryLabel' 
+  | 'systemBlue' 
+  | 'systemGreen'
+  | 'systemRed'
+  | 'brand'
+  | 'muted';
 
 interface IconProps {
   name: keyof typeof Ionicons.glyphMap;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
-  color?: TextColor | string;
+  color?: IconColorVariant | string;
   style?: ViewStyle;
   accessibilityLabel?: string;
 }
@@ -14,7 +25,7 @@ interface IconProps {
 export const Icon: React.FC<IconProps> = memo(({
   name,
   size = 'md',
-  color = 'primary',
+  color = 'label',
   style,
   accessibilityLabel,
 }) => {
@@ -38,12 +49,30 @@ export const Icon: React.FC<IconProps> = memo(({
   };
 
   const getColorValue = () => {
-    // Check if it's a design token color
-    if (color in designTokens.colors.text) {
-      return designTokens.colors.text[color as TextColor];
+    // Handle design token colors
+    switch (color) {
+      case 'label':
+        return designTokens.colors.system.label.primary;
+      case 'secondaryLabel':
+        return designTokens.colors.system.label.secondary;
+      case 'tertiaryLabel':
+        return designTokens.colors.system.label.tertiary;
+      case 'quaternaryLabel':
+        return designTokens.colors.system.label.quaternary;
+      case 'systemBlue':
+        return designTokens.colors.semantic.blue;
+      case 'systemGreen':
+        return designTokens.colors.semantic.green;
+      case 'systemRed':
+        return designTokens.colors.semantic.red;
+      case 'brand':
+        return designTokens.colors.brand.primary;
+      case 'muted':
+        return designTokens.colors.system.label.tertiary;
+      default:
+        // Use the color as-is (for hex colors, etc.)
+        return color || designTokens.colors.system.label.primary;
     }
-    // Otherwise, use the color as-is (for custom colors like brand colors)
-    return color;
   };
 
   return (

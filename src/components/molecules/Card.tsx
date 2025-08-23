@@ -124,7 +124,7 @@ export const Card: React.FC<CardProps> = memo(
                     position: "absolute",
                     bottom: designTokens.spacing.sm,
                     left: designTokens.spacing.sm,
-                    backgroundColor: designTokens.colors.overlay.darker,
+                    backgroundColor: 'rgba(0, 0, 0, 0.7)',
                     paddingHorizontal: designTokens.spacing.sm,
                     paddingVertical: designTokens.spacing.xs,
                     borderRadius: designTokens.borderRadius.md,
@@ -167,7 +167,7 @@ export const Card: React.FC<CardProps> = memo(
     const renderLandscapeVariant = () => {
       const containerStyle: ViewStyle = {
         flexDirection: "row",
-        backgroundColor: designTokens.colors.background.secondary,
+        backgroundColor: designTokens.colors.system.background.secondary,
         borderRadius: designTokens.borderRadius.xl,
         padding: designTokens.spacing.lg,
         marginBottom: designTokens.spacing.md,

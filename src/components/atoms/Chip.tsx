@@ -35,33 +35,33 @@ export const Chip: React.FC<ChipProps> = memo(({
         return {
           backgroundColor: isSelected
             ? designTokens.colors.brand.primary
-            : designTokens.colors.background.secondary,
+            : designTokens.colors.system.background.secondary,
           borderWidth: isSelected ? 0 : 1,
-          borderColor: isSelected ? 'transparent' : designTokens.colors.border.secondary,
+          borderColor: isSelected ? 'transparent' : designTokens.colors.system.separator.primary,
         };
       case 'secondary':
         return {
           backgroundColor: isSelected
             ? designTokens.colors.brand.primary
-            : designTokens.colors.background.secondary,
+            : designTokens.colors.system.background.secondary,
           borderWidth: isSelected ? 0 : 1,
-          borderColor: isSelected ? 'transparent' : designTokens.colors.border.secondary,
+          borderColor: isSelected ? 'transparent' : designTokens.colors.system.separator.primary,
         };
       case 'outline':
         return {
           backgroundColor: isSelected
             ? designTokens.colors.brand.primary
-            : designTokens.colors.background.secondary,
+            : designTokens.colors.system.background.secondary,
           borderWidth: isSelected ? 0 : 1,
-          borderColor: isSelected ? 'transparent' : designTokens.colors.border.secondary,
+          borderColor: isSelected ? 'transparent' : designTokens.colors.system.separator.primary,
         };
       case 'muted':
         return {
           backgroundColor: isSelected
             ? designTokens.colors.brand.primary
-            : designTokens.colors.background.secondary,
+            : designTokens.colors.system.background.secondary,
           borderWidth: isSelected ? 0 : 1,
-          borderColor: isSelected ? 'transparent' : designTokens.colors.border.secondary,
+          borderColor: isSelected ? 'transparent' : designTokens.colors.system.separator.primary,
         };
       case 'selected':
         return {
@@ -72,13 +72,13 @@ export const Chip: React.FC<ChipProps> = memo(({
         return {
           backgroundColor: designTokens.colors.background.secondary,
           borderWidth: 1,
-          borderColor: designTokens.colors.border.secondary,
+          borderColor: designTokens.colors.system.separator.primary,
         };
       default:
         return {
           backgroundColor: designTokens.colors.background.secondary,
           borderWidth: 1,
-          borderColor: designTokens.colors.border.secondary,
+          borderColor: designTokens.colors.system.separator.primary,
         };
     }
   };
@@ -113,7 +113,7 @@ export const Chip: React.FC<ChipProps> = memo(({
   };
 
   const getTextColor = () => {
-    if (disabled) return 'muted';
+    if (disabled) return 'quaternaryLabel';
     
     const isSelected = selected && !disabled;
     
@@ -122,22 +122,22 @@ export const Chip: React.FC<ChipProps> = memo(({
       case 'secondary':
       case 'outline':
       case 'muted':
-        return isSelected ? 'inverse' : 'primary';
+        return isSelected ? 'label' : 'label';
       default:
-        return 'primary';
+        return 'label';
     }
   };
 
   const getTextVariant = () => {
     switch (size) {
       case 'small':
-        return 'caption';
+        return 'caption2';
       case 'medium':
-        return 'bodySmall';
+        return 'footnote';
       case 'large':
-        return 'body';
+        return 'callout';
       default:
-        return 'bodySmall';
+        return 'footnote';
     }
   };
 

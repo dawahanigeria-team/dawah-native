@@ -105,7 +105,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = memo(({
                 left: 0,
                 right: 0,
                 height: '60%',
-                backgroundColor: designTokens.colors.overlay.darker,
+                backgroundColor: 'rgba(0, 0, 0, 0.7)',
                 opacity: 0.8,
               }} />
             </View>
@@ -127,11 +127,11 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = memo(({
                   DN
                 </Badge>
                 <Text 
-                  variant="caption" 
-                  color="primary"
+                  variant="caption1" 
+                  color="label"
                   style={{ 
                     marginLeft: designTokens.spacing.sm,
-                    color: designTokens.colors.text.secondary,
+                    color: 'rgba(235, 235, 245, 0.6)',
                   }}
                 >
                   {formatDuration(item.durationSec)}
@@ -139,12 +139,12 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = memo(({
               </View>
               
               <Text 
-                variant="h4" 
-                color="primary"
+                variant="title3" 
+                color="label"
                 weight="bold"
                 numberOfLines={2}
                 style={{ 
-                  lineHeight: designTokens.typography.fontSize.xl * 1.2,
+                  lineHeight: designTokens.typography.fontSize.title3 * 1.2,
                 }}
               >
                 {item.title}
@@ -158,7 +158,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = memo(({
               right: designTokens.spacing.lg,
             }}>
               <View style={{
-                backgroundColor: designTokens.colors.overlay.light,
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
                 borderRadius: designTokens.borderRadius.full,
                 padding: designTokens.spacing.sm,
                 backdropFilter: 'blur(10px)',
@@ -166,7 +166,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = memo(({
                 <Icon 
                   name="play" 
                   size="lg" 
-                  color="primary"
+                  color="label"
                   accessibilityLabel="Play episode"
                 />
               </View>
@@ -219,7 +219,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = memo(({
                 marginHorizontal: designTokens.spacing.xs,
                 backgroundColor: index === currentIndex 
                   ? designTokens.colors.brand.primary
-                  : `${designTokens.colors.text.muted}4D`, // 30% opacity
+                  : 'rgba(235, 235, 245, 0.3)' // 30% opacity
               }}
               accessibilityLabel={`Page ${index + 1} of ${items.length}`}
             />

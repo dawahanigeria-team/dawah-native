@@ -147,14 +147,14 @@ export default function LibraryScreen() {
   const renderEmptyState = (tab: LibraryTab) => (
     <View style={tw`flex-1 items-center justify-center py-20`}>
       <View
-        style={tw`w-16 h-16 bg-[#2A2A2F] rounded-full items-center justify-center mb-4`}
+        style={[tw`w-16 h-16 rounded-full items-center justify-center mb-4`, { backgroundColor: '#2C2C2E' }]}
       >
-        <Ionicons name={getTabIcon(tab)} size={32} color="#8B8CA1" />
+        <Ionicons name={getTabIcon(tab)} size={32} color="rgba(235, 235, 245, 0.3)" />
       </View>
-      <Text style={tw`text-white text-lg font-semibold mb-2`}>
+      <Text style={[tw`text-lg font-semibold mb-2`, { color: '#FFFFFF' }]}>
         No {tab.toLowerCase()} yet
       </Text>
-      <Text style={tw`text-[#8B8CA1] text-center px-8`}>
+      <Text style={[tw`text-center px-8`, { color: 'rgba(235, 235, 245, 0.6)' }]}>
         {tab === "Downloads" && "Download episodes to listen offline"}
         {tab === "History" && "Your listening history will appear here"}
         {tab === "Liked" && "Like episodes to see them here"}
@@ -189,28 +189,28 @@ export default function LibraryScreen() {
   };
 
   return (
-    <SafeAreaView style={tw`flex-1 bg-[#0A0A0F]`}>
+    <SafeAreaView style={[tw`flex-1`, { backgroundColor: '#000000' }]}>
       {/* Header */}
       <View style={tw`px-4 py-3`}>
-        <Text style={tw`text-white text-2xl font-bold`}>Library</Text>
+        <Text style={[tw`text-2xl font-bold`, { color: '#FFFFFF' }]}>Library</Text>
       </View>
 
       {/* Segmented Control */}
       <View style={tw`px-4 mb-6`}>
-        <View style={tw`bg-[#2A2A2F] rounded-2xl p-1 flex-row`}>
+        <View style={[tw`rounded-2xl p-1 flex-row`, { backgroundColor: '#2C2C2E' }]}>
           {tabs.map((tab) => (
             <TouchableOpacity
               key={tab}
               style={[
                 tw`flex-1 py-2 px-1 rounded-xl items-center`,
-                activeTab === tab && tw`bg-[#3A3A3F]`,
+                activeTab === tab && { backgroundColor: 'rgba(120, 120, 128, 0.2)' },
               ]}
               onPress={() => handleTabPress(tab)}
             >
               <Text
                 style={[
                   tw`text-sm font-medium`,
-                  activeTab === tab ? tw`text-white` : tw`text-[#8B8CA1]`,
+                  { color: activeTab === tab ? '#FFFFFF' : 'rgba(235, 235, 245, 0.6)' },
                 ]}
               >
                 {tab}

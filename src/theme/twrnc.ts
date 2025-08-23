@@ -40,55 +40,79 @@ export const getHitTarget = (size: keyof typeof designTokens.hitTargets) => {
 };
 
 // Create style objects for common design token combinations
-export const createTextStyle = (variant: 'h1' | 'h2' | 'h3' | 'h4' | 'body' | 'bodySmall' | 'caption') => {
+export const createTextStyle = (variant: 'largeTitle' | 'title1' | 'title2' | 'title3' | 'headline' | 'body' | 'callout' | 'subheadline' | 'footnote' | 'caption1' | 'caption2') => {
   switch (variant) {
-    case 'h1':
+    case 'largeTitle':
       return {
-        fontSize: designTokens.typography.fontSize['4xl'],
-        fontWeight: designTokens.typography.fontWeight.bold,
-        color: designTokens.colors.text.primary,
+        fontSize: designTokens.typography.fontSize.largeTitle,
+        fontWeight: designTokens.typography.fontWeight.regular,
+        color: designTokens.colors.system.label.primary,
       };
-    case 'h2':
+    case 'title1':
       return {
-        fontSize: designTokens.typography.fontSize['3xl'],
-        fontWeight: designTokens.typography.fontWeight.bold,
-        color: designTokens.colors.text.primary,
+        fontSize: designTokens.typography.fontSize.title1,
+        fontWeight: designTokens.typography.fontWeight.regular,
+        color: designTokens.colors.system.label.primary,
       };
-    case 'h3':
+    case 'title2':
       return {
-        fontSize: designTokens.typography.fontSize['2xl'],
+        fontSize: designTokens.typography.fontSize.title2,
+        fontWeight: designTokens.typography.fontWeight.regular,
+        color: designTokens.colors.system.label.primary,
+      };
+    case 'title3':
+      return {
+        fontSize: designTokens.typography.fontSize.title3,
+        fontWeight: designTokens.typography.fontWeight.regular,
+        color: designTokens.colors.system.label.primary,
+      };
+    case 'headline':
+      return {
+        fontSize: designTokens.typography.fontSize.headline,
         fontWeight: designTokens.typography.fontWeight.semibold,
-        color: designTokens.colors.text.primary,
-      };
-    case 'h4':
-      return {
-        fontSize: designTokens.typography.fontSize.xl,
-        fontWeight: designTokens.typography.fontWeight.semibold,
-        color: designTokens.colors.text.primary,
+        color: designTokens.colors.system.label.primary,
       };
     case 'body':
       return {
-        fontSize: designTokens.typography.fontSize.base,
-        fontWeight: designTokens.typography.fontWeight.normal,
-        color: designTokens.colors.text.primary,
+        fontSize: designTokens.typography.fontSize.body,
+        fontWeight: designTokens.typography.fontWeight.regular,
+        color: designTokens.colors.system.label.primary,
       };
-    case 'bodySmall':
+    case 'callout':
       return {
-        fontSize: designTokens.typography.fontSize.sm,
-        fontWeight: designTokens.typography.fontWeight.normal,
-        color: designTokens.colors.text.primary,
+        fontSize: designTokens.typography.fontSize.callout,
+        fontWeight: designTokens.typography.fontWeight.regular,
+        color: designTokens.colors.system.label.primary,
       };
-    case 'caption':
+    case 'subheadline':
       return {
-        fontSize: designTokens.typography.fontSize.xs,
-        fontWeight: designTokens.typography.fontWeight.normal,
-        color: designTokens.colors.text.muted,
+        fontSize: designTokens.typography.fontSize.subheadline,
+        fontWeight: designTokens.typography.fontWeight.regular,
+        color: designTokens.colors.system.label.primary,
+      };
+    case 'footnote':
+      return {
+        fontSize: designTokens.typography.fontSize.footnote,
+        fontWeight: designTokens.typography.fontWeight.regular,
+        color: designTokens.colors.system.label.primary,
+      };
+    case 'caption1':
+      return {
+        fontSize: designTokens.typography.fontSize.caption1,
+        fontWeight: designTokens.typography.fontWeight.regular,
+        color: designTokens.colors.system.label.secondary,
+      };
+    case 'caption2':
+      return {
+        fontSize: designTokens.typography.fontSize.caption2,
+        fontWeight: designTokens.typography.fontWeight.regular,
+        color: designTokens.colors.system.label.secondary,
       };
     default:
       return {
-        fontSize: designTokens.typography.fontSize.base,
-        fontWeight: designTokens.typography.fontWeight.normal,
-        color: designTokens.colors.text.primary,
+        fontSize: designTokens.typography.fontSize.body,
+        fontWeight: designTokens.typography.fontWeight.regular,
+        color: designTokens.colors.system.label.primary,
       };
   }
 };

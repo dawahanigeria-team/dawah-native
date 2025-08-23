@@ -126,22 +126,28 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={tw`flex-1 bg-[#0A0A0F]`}>
+    <SafeAreaView style={[tw`flex-1`, { backgroundColor: '#000000' }]}>
       {/* Header */}
-      <View style={tw`flex-row items-center justify-between px-4 py-2`}>
+      <View style={tw`flex-row items-center justify-between px-4 py-3`}>
         <View style={tw`flex-row items-center`}>
           <View
-            style={tw`bg-[#C6FF00] w-8 h-8 rounded-lg items-center justify-center mr-3`}
+            style={[tw`w-8 h-8 rounded-lg items-center justify-center mr-3`, 
+                   { backgroundColor: '#30D158' }]}
           >
-            <Text style={tw`text-[#0A0A0F] font-bold text-lg`}>DN</Text>
+            <Text style={[tw`font-bold text-lg`, { color: '#000000' }]}>DN</Text>
           </View>
-          <Text style={tw`text-white text-xl font-bold`}>
+          <Text style={[tw`text-xl font-bold`, { color: '#FFFFFF' }]}>
             Dawah Nigeria
           </Text>
         </View>
 
         <View style={tw`flex-row items-center`}>
-          <TouchableOpacity style={tw`mr-4`}>
+          <TouchableOpacity 
+            style={tw`mr-4`}
+            accessibilityLabel="Notifications"
+            accessibilityHint="Tap to view notifications"
+            accessibilityRole="button"
+          >
             <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>

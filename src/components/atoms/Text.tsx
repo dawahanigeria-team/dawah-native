@@ -1,89 +1,159 @@
 import React from 'react';
-import { Text as RNText, TextProps as RNTextProps, StyleSheet } from 'react-native';
-import { designTokens, FontSize, FontWeight, TextColor } from '../../theme/designTokens';
+import { Text as RNText, TextProps as RNTextProps } from 'react-native';
+import { designTokens, FontWeight } from '../../theme/designTokens';
+
+type IOSTextStyle = 
+  | 'largeTitle' 
+  | 'title1' 
+  | 'title2' 
+  | 'title3' 
+  | 'headline' 
+  | 'body' 
+  | 'callout' 
+  | 'subheadline' 
+  | 'footnote' 
+  | 'caption1' 
+  | 'caption2';
+
+type ColorVariant = 
+  | 'label' 
+  | 'secondaryLabel' 
+  | 'tertiaryLabel' 
+  | 'quaternaryLabel' 
+  | 'systemBlue' 
+  | 'systemGreen'
+  | 'systemRed'
+  | 'brand';
 
 interface TextProps extends Omit<RNTextProps, 'style'> {
-  variant?: 'h1' | 'h2' | 'h3' | 'h4' | 'body' | 'bodySmall' | 'caption' | 'overline';
-  color?: TextColor;
+  variant?: IOSTextStyle;
+  color?: ColorVariant;
   weight?: FontWeight;
   align?: 'left' | 'center' | 'right';
+  maxFontSizeMultiplier?: number; // For accessibility - limits Dynamic Type scaling
   style?: RNTextProps['style'];
 }
 
 export const Text: React.FC<TextProps> = ({
   variant = 'body',
-  color = 'primary',
+  color = 'label',
   weight,
   align = 'left',
+  maxFontSizeMultiplier = 1.5, // Reasonable limit for Dynamic Type
   style,
   children,
   ...props
 }) => {
   const getVariantStyles = () => {
     switch (variant) {
-      case 'h1':
+      case 'largeTitle':
         return {
-          fontSize: designTokens.typography.fontSize['4xl'],
-          fontWeight: designTokens.typography.fontWeight.bold,
-          lineHeight: designTokens.typography.fontSize['4xl'] * designTokens.typography.lineHeight.tight,
+          fontSize: designTokens.typography.fontSize.largeTitle,
+          fontWeight: designTokens.typography.fontWeight.regular,
+          lineHeight: designTokens.typography.fontSize.largeTitle * designTokens.typography.lineHeight.tight,
+          fontFamily: designTokens.typography.fontFamily.system,
         };
-      case 'h2':
+      case 'title1':
         return {
-          fontSize: designTokens.typography.fontSize['3xl'],
-          fontWeight: designTokens.typography.fontWeight.bold,
-          lineHeight: designTokens.typography.fontSize['3xl'] * designTokens.typography.lineHeight.tight,
+          fontSize: designTokens.typography.fontSize.title1,
+          fontWeight: designTokens.typography.fontWeight.regular,
+          lineHeight: designTokens.typography.fontSize.title1 * designTokens.typography.lineHeight.tight,
+          fontFamily: designTokens.typography.fontFamily.system,
         };
-      case 'h3':
+      case 'title2':
         return {
-          fontSize: designTokens.typography.fontSize['2xl'],
+          fontSize: designTokens.typography.fontSize.title2,
+          fontWeight: designTokens.typography.fontWeight.regular,
+          lineHeight: designTokens.typography.fontSize.title2 * designTokens.typography.lineHeight.normal,
+          fontFamily: designTokens.typography.fontFamily.system,
+        };
+      case 'title3':
+        return {
+          fontSize: designTokens.typography.fontSize.title3,
+          fontWeight: designTokens.typography.fontWeight.regular,
+          lineHeight: designTokens.typography.fontSize.title3 * designTokens.typography.lineHeight.normal,
+          fontFamily: designTokens.typography.fontFamily.system,
+        };
+      case 'headline':
+        return {
+          fontSize: designTokens.typography.fontSize.headline,
           fontWeight: designTokens.typography.fontWeight.semibold,
-          lineHeight: designTokens.typography.fontSize['2xl'] * designTokens.typography.lineHeight.normal,
-        };
-      case 'h4':
-        return {
-          fontSize: designTokens.typography.fontSize.xl,
-          fontWeight: designTokens.typography.fontWeight.semibold,
-          lineHeight: designTokens.typography.fontSize.xl * designTokens.typography.lineHeight.normal,
+          lineHeight: designTokens.typography.fontSize.headline * designTokens.typography.lineHeight.normal,
+          fontFamily: designTokens.typography.fontFamily.system,
         };
       case 'body':
         return {
-          fontSize: designTokens.typography.fontSize.base,
-          fontWeight: designTokens.typography.fontWeight.normal,
-          lineHeight: designTokens.typography.fontSize.base * designTokens.typography.lineHeight.normal,
+          fontSize: designTokens.typography.fontSize.body,
+          fontWeight: designTokens.typography.fontWeight.regular,
+          lineHeight: designTokens.typography.fontSize.body * designTokens.typography.lineHeight.normal,
+          fontFamily: designTokens.typography.fontFamily.system,
         };
-      case 'bodySmall':
+      case 'callout':
         return {
-          fontSize: designTokens.typography.fontSize.sm,
-          fontWeight: designTokens.typography.fontWeight.normal,
-          lineHeight: designTokens.typography.fontSize.sm * designTokens.typography.lineHeight.normal,
+          fontSize: designTokens.typography.fontSize.callout,
+          fontWeight: designTokens.typography.fontWeight.regular,
+          lineHeight: designTokens.typography.fontSize.callout * designTokens.typography.lineHeight.normal,
+          fontFamily: designTokens.typography.fontFamily.system,
         };
-      case 'caption':
+      case 'subheadline':
         return {
-          fontSize: designTokens.typography.fontSize.xs,
-          fontWeight: designTokens.typography.fontWeight.normal,
-          lineHeight: designTokens.typography.fontSize.xs * designTokens.typography.lineHeight.normal,
+          fontSize: designTokens.typography.fontSize.subheadline,
+          fontWeight: designTokens.typography.fontWeight.regular,
+          lineHeight: designTokens.typography.fontSize.subheadline * designTokens.typography.lineHeight.normal,
+          fontFamily: designTokens.typography.fontFamily.system,
         };
-      case 'overline':
+      case 'footnote':
         return {
-          fontSize: designTokens.typography.fontSize.xs,
-          fontWeight: designTokens.typography.fontWeight.semibold,
-          lineHeight: designTokens.typography.fontSize.xs * designTokens.typography.lineHeight.normal,
-          textTransform: 'uppercase' as const,
-          letterSpacing: 0.5,
+          fontSize: designTokens.typography.fontSize.footnote,
+          fontWeight: designTokens.typography.fontWeight.regular,
+          lineHeight: designTokens.typography.fontSize.footnote * designTokens.typography.lineHeight.normal,
+          fontFamily: designTokens.typography.fontFamily.system,
+        };
+      case 'caption1':
+        return {
+          fontSize: designTokens.typography.fontSize.caption1,
+          fontWeight: designTokens.typography.fontWeight.regular,
+          lineHeight: designTokens.typography.fontSize.caption1 * designTokens.typography.lineHeight.normal,
+          fontFamily: designTokens.typography.fontFamily.system,
+        };
+      case 'caption2':
+        return {
+          fontSize: designTokens.typography.fontSize.caption2,
+          fontWeight: designTokens.typography.fontWeight.regular,
+          lineHeight: designTokens.typography.fontSize.caption2 * designTokens.typography.lineHeight.normal,
+          fontFamily: designTokens.typography.fontFamily.system,
         };
       default:
         return {
-          fontSize: designTokens.typography.fontSize.base,
-          fontWeight: designTokens.typography.fontWeight.normal,
-          lineHeight: designTokens.typography.fontSize.base * designTokens.typography.lineHeight.normal,
+          fontSize: designTokens.typography.fontSize.body,
+          fontWeight: designTokens.typography.fontWeight.regular,
+          lineHeight: designTokens.typography.fontSize.body * designTokens.typography.lineHeight.normal,
+          fontFamily: designTokens.typography.fontFamily.system,
         };
     }
   };
 
   const getColorStyle = () => {
-    return {
-      color: designTokens.colors.text[color],
-    };
+    switch (color) {
+      case 'label':
+        return { color: designTokens.colors.system.label.primary };
+      case 'secondaryLabel':
+        return { color: designTokens.colors.system.label.secondary };
+      case 'tertiaryLabel':
+        return { color: designTokens.colors.system.label.tertiary };
+      case 'quaternaryLabel':
+        return { color: designTokens.colors.system.label.quaternary };
+      case 'systemBlue':
+        return { color: designTokens.colors.semantic.blue };
+      case 'systemGreen':
+        return { color: designTokens.colors.semantic.green };
+      case 'systemRed':
+        return { color: designTokens.colors.semantic.red };
+      case 'brand':
+        return { color: designTokens.colors.brand.primary };
+      default:
+        return { color: designTokens.colors.system.label.primary };
+    }
   };
 
   const getFontWeight = () => {
@@ -106,7 +176,12 @@ export const Text: React.FC<TextProps> = ({
   ];
 
   return (
-    <RNText style={combinedStyle} {...props}>
+    <RNText 
+      style={combinedStyle} 
+      maxFontSizeMultiplier={maxFontSizeMultiplier}
+      allowFontScaling={true}
+      {...props}
+    >
       {children}
     </RNText>
   );

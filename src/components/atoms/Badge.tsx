@@ -26,25 +26,25 @@ export const Badge: React.FC<BadgeProps> = memo(({
         };
       case 'secondary':
         return {
-          backgroundColor: designTokens.colors.background.secondary,
+          backgroundColor: designTokens.colors.system.background.secondary,
           borderWidth: 1,
-          borderColor: designTokens.colors.border.primary,
+          borderColor: designTokens.colors.system.separator.primary,
         };
       case 'success':
         return {
-          backgroundColor: designTokens.colors.semantic.success,
+          backgroundColor: designTokens.colors.semantic.green,
         };
       case 'warning':
         return {
-          backgroundColor: designTokens.colors.semantic.warning,
+          backgroundColor: designTokens.colors.semantic.orange,
         };
       case 'error':
         return {
-          backgroundColor: designTokens.colors.semantic.error,
+          backgroundColor: designTokens.colors.semantic.red,
         };
       case 'info':
         return {
-          backgroundColor: designTokens.colors.semantic.info,
+          backgroundColor: designTokens.colors.semantic.blue,
         };
       default:
         return {

@@ -86,7 +86,7 @@ export const ActionGrid: React.FC<ActionGridProps> = memo(({
     };
 
     const cardStyle: ViewStyle = {
-      backgroundColor: designTokens.colors.background.secondary,
+      backgroundColor: designTokens.colors.system.background.secondary,
       borderRadius: designTokens.borderRadius[borderRadius],
       padding: designTokens.spacing.lg,
       alignItems: 'center',
@@ -123,13 +123,13 @@ export const ActionGrid: React.FC<ActionGridProps> = memo(({
           </View>
           
           <Text 
-            variant="bodySmall" 
-            color="primary"
+            variant="footnote" 
+            color="label"
             weight="medium"
             align="center"
             numberOfLines={2}
             style={{
-              lineHeight: designTokens.typography.fontSize.sm * 1.2,
+              lineHeight: designTokens.typography.fontSize.footnote * 1.2,
             }}
           >
             {item.title}
