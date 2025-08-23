@@ -4,6 +4,7 @@ import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../../src/components/molecules/Card";
 import { usePlayerStore } from "../../src/stores/playerStore";
+import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Episode, Series } from "../../src/types/types";
 
@@ -147,14 +148,34 @@ export default function LibraryScreen() {
   const renderEmptyState = (tab: LibraryTab) => (
     <View style={tw`flex-1 items-center justify-center py-20`}>
       <View
-        style={[tw`w-16 h-16 rounded-full items-center justify-center mb-4`, { backgroundColor: '#2C2C2E' }]}
+        style={[
+          tw`w-16 h-16 rounded-full items-center justify-center mb-4`,
+          { backgroundColor: designTokens.colors.system.background.tertiary },
+        ]}
       >
-        <Ionicons name={getTabIcon(tab)} size={32} color="rgba(235, 235, 245, 0.3)" />
+        <Ionicons
+          name={getTabIcon(tab)}
+          size={32}
+          color={designTokens.colors.system.label.tertiary}
+          accessibilityLabel={`${tab} icon`}
+        />
       </View>
-      <Text style={[tw`text-lg font-semibold mb-2`, { color: '#FFFFFF' }]}>
+      <Text
+        style={[
+          tw`text-lg font-semibold mb-2`,
+          { color: designTokens.colors.system.label.primary },
+        ]}
+        accessibilityRole="header"
+      >
         No {tab.toLowerCase()} yet
       </Text>
-      <Text style={[tw`text-center px-8`, { color: 'rgba(235, 235, 245, 0.6)' }]}>
+      <Text
+        style={[
+          tw`text-center px-8`,
+          { color: designTokens.colors.system.label.secondary },
+        ]}
+        accessibilityRole="text"
+      >
         {tab === "Downloads" && "Download episodes to listen offline"}
         {tab === "History" && "Your listening history will appear here"}
         {tab === "Liked" && "Like episodes to see them here"}
@@ -189,28 +210,58 @@ export default function LibraryScreen() {
   };
 
   return (
-    <SafeAreaView style={[tw`flex-1`, { backgroundColor: '#000000' }]}>
+    <SafeAreaView
+      style={[
+        tw`flex-1`,
+        { backgroundColor: designTokens.colors.system.background.primary },
+      ]}
+    >
       {/* Header */}
       <View style={tw`px-4 py-3`}>
-        <Text style={[tw`text-2xl font-bold`, { color: '#FFFFFF' }]}>Library</Text>
+        <Text
+          style={[
+            tw`text-2xl font-bold`,
+            { color: designTokens.colors.system.label.primary },
+          ]}
+          accessibilityRole="header"
+        >
+          Library
+        </Text>
       </View>
 
       {/* Segmented Control */}
       <View style={tw`px-4 mb-6`}>
-        <View style={[tw`rounded-2xl p-1 flex-row`, { backgroundColor: '#2C2C2E' }]}>
+        <View
+          style={[
+            tw`rounded-2xl p-1 flex-row`,
+            { backgroundColor: designTokens.colors.system.background.tertiary },
+          ]}
+        >
           {tabs.map((tab) => (
             <TouchableOpacity
               key={tab}
               style={[
                 tw`flex-1 py-2 px-1 rounded-xl items-center`,
-                activeTab === tab && { backgroundColor: 'rgba(120, 120, 128, 0.2)' },
+                activeTab === tab && {
+                  backgroundColor: designTokens.colors.system.fill.primary,
+                },
               ]}
               onPress={() => handleTabPress(tab)}
+              accessibilityRole="tab"
+              accessibilityLabel={`${tab} tab`}
+              accessibilityHint={`Tap to view ${tab.toLowerCase()} content`}
+              accessibilityState={{ selected: activeTab === tab }}
+              activeOpacity={0.8}
             >
               <Text
                 style={[
                   tw`text-sm font-medium`,
-                  { color: activeTab === tab ? '#FFFFFF' : 'rgba(235, 235, 245, 0.6)' },
+                  {
+                    color:
+                      activeTab === tab
+                        ? designTokens.colors.system.label.primary
+                        : designTokens.colors.system.label.secondary,
+                  },
                 ]}
               >
                 {tab}
@@ -225,6 +276,7 @@ export default function LibraryScreen() {
         style={tw`flex-1`}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={tw`pb-24`}
+        accessibilityLabel="Library content"
       >
         {renderContent()}
       </ScrollView>

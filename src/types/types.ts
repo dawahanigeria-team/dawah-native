@@ -47,6 +47,12 @@ export interface PlayerState {
   progress: number;
   duration: number;
   isExpanded: boolean;
+  isLoading: boolean;
+  playbackSpeed: number;
+  volume: number;
+  isDownloaded: boolean;
+  isDownloading: boolean;
+  downloadProgress: number;
 }
 
 export type RootTabParamList = {

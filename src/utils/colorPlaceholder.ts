@@ -1,33 +1,60 @@
-// Color palette for image placeholders
-const placeholderColors = [
-  '#4F46E5', // Indigo
-  '#7C3AED', // Violet
-  '#DC2626', // Red
-  '#059669', // Emerald
-  '#D97706', // Amber
-  '#0891B2', // Cyan
-  '#C2410C', // Orange
-  '#15803D', // Green
-  '#9333EA', // Purple
-  '#DB2777', // Pink
-  '#0F766E', // Teal
-  '#7F1D1D', // Dark Red
-];
+import { designTokens } from "../theme/designTokens";
 
+// Generate consistent colors based on string hash
 export const getPlaceholderColor = (id: string): string => {
-  // Generate a consistent color based on the ID
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = id.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const index = Math.abs(hash) % placeholderColors.length;
-  return placeholderColors[index];
+  const hash = id.split("").reduce((a, b) => {
+    a = ((a << 5) - a + b.charCodeAt(0)) & 0xffffffff;
+    return a;
+  }, 0);
+
+  // Use a more sophisticated color palette inspired by iOS
+  const colors = [
+    "#FF6B6B", // Coral
+    "#4ECDC4", // Teal
+    "#45B7D1", // Blue
+    "#96CEB4", // Mint
+    "#FFEAA7", // Yellow
+    "#DDA0DD", // Plum
+    "#98D8C8", // Sea Green
+    "#F7DC6F", // Gold
+    "#BB8FCE", // Lavender
+    "#85C1E9", // Sky Blue
+  ];
+
+  return colors[Math.abs(hash) % colors.length];
 };
 
+// Generate initials from title
 export const getInitials = (title: string): string => {
-  return title
-    .split(' ')
+  if (!title) return "?";
+
+  const words = title.trim().split(/\s+/);
+  if (words.length === 1) {
+    return title.charAt(0).toUpperCase();
+  }
+
+  return words
     .slice(0, 2)
-    .map(word => word.charAt(0).toUpperCase())
-    .join('');
+    .map((word) => word.charAt(0).toUpperCase())
+    .join("");
+};
+
+// Generate a more sophisticated placeholder component
+export const getPlaceholderStyle = (id: string, size: number) => {
+  const color = getPlaceholderColor(id);
+
+  return {
+    width: size,
+    height: size,
+    backgroundColor: color,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    borderRadius: designTokens.borderRadius.lg,
+    // Add subtle gradient effect
+    shadowColor: color,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  };
 };

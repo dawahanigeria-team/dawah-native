@@ -4,7 +4,7 @@
     "title": "Introduction to Tafsir Methodology",
     "durationSec": 3600,
     "coverUrl": "https://images.unsplash.com/photo-1542810634-71277d95dcbb?w=300&h=300&fit=crop",
-    "audioUrl": "https://example.com/audio1.mp3",
+    "audioUrl": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
     "seriesId": "1",
     "plays": 1250,
     "liked": true
@@ -14,7 +14,7 @@
     "title": "Understanding Surah Al-Fatiha",
     "durationSec": 2700,
     "coverUrl": "https://images.unsplash.com/photo-1542810634-71277d95dcbb?w=300&h=300&fit=crop",
-    "audioUrl": "https://example.com/audio2.mp3",
+    "audioUrl": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
     "seriesId": "1",
     "plays": 980,
     "liked": false
@@ -24,7 +24,7 @@
     "title": "Building Good Character in Daily Life",
     "durationSec": 3300,
     "coverUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=300&h=300&fit=crop",
-    "audioUrl": "https://example.com/audio3.mp3",
+    "audioUrl": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
     "seriesId": "2",
     "plays": 756,
     "liked": true

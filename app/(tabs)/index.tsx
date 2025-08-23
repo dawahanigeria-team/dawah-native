@@ -1,13 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ActionGrid } from "../../src/components/organisms/ActionGrid";
 import { Card } from "../../src/components/molecules/Card";
+import { SearchBar } from "../../src/components/molecules/SearchBar";
+import { ActionGrid } from "../../src/components/organisms/ActionGrid";
 import { HeroCarousel } from "../../src/components/organisms/HeroCarousel";
 import { Row } from "../../src/components/organisms/Row";
-import { SearchBar } from "../../src/components/molecules/SearchBar";
 import { usePlayerStore } from "../../src/stores/playerStore";
+import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Episode, Series } from "../../src/types/types";
 
@@ -109,15 +110,14 @@ const mockSeries: Series[] = [
 
 export default function HomeScreen() {
   const { playEpisode } = usePlayerStore();
-  const [searchQuery, setSearchQuery] = useState("");
 
   const handleEpisodePress = (episode: Episode) => {
     playEpisode(episode);
   };
 
   const handleSearch = (query: string) => {
-    setSearchQuery(query);
     // In a real app, this would trigger a search
+    console.log("Search query:", query);
   };
 
   const handleMicPress = () => {
@@ -126,30 +126,61 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={[tw`flex-1`, { backgroundColor: '#000000' }]}>
+    <SafeAreaView
+      style={[
+        tw`flex-1`,
+        { backgroundColor: designTokens.colors.system.background.primary },
+      ]}
+    >
       {/* Header */}
-      <View style={tw`flex-row items-center justify-between px-4 py-3`}>
-        <View style={tw`flex-row items-center`}>
+      <View style={tw`px-4 py-3`}>
+        <View style={tw`flex-row items-center justify-between`}>
+          {/* Left side - Logo */}
           <View
-            style={[tw`w-8 h-8 rounded-lg items-center justify-center mr-3`, 
-                   { backgroundColor: '#30D158' }]}
+            style={[
+              tw`w-8 h-8 rounded-lg items-center justify-center`,
+              { backgroundColor: designTokens.colors.brand.primary },
+            ]}
+            accessibilityLabel="Dawah Nigeria logo"
+            accessibilityRole="image"
           >
-            <Text style={[tw`font-bold text-lg`, { color: '#000000' }]}>DN</Text>
+            <Text
+              style={[
+                tw`font-bold text-lg`,
+                { color: designTokens.colors.system.background.primary },
+              ]}
+            >
+              DN
+            </Text>
           </View>
-          <Text style={[tw`text-xl font-bold`, { color: '#FFFFFF' }]}>
+
+          {/* Center - App Title */}
+          <Text
+            style={[
+              tw`text-xl font-bold flex-1 text-center`,
+              { color: designTokens.colors.system.label.primary },
+            ]}
+            accessibilityRole="header"
+          >
             Dawah Nigeria
           </Text>
-        </View>
 
-        <View style={tw`flex-row items-center`}>
-          <TouchableOpacity 
-            style={tw`mr-4`}
-            accessibilityLabel="Notifications"
-            accessibilityHint="Tap to view notifications"
-            accessibilityRole="button"
-          >
-            <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
+          {/* Right side - Notifications */}
+          <View style={tw`w-8`}>
+            <TouchableOpacity
+              style={tw`items-center justify-center`}
+              accessibilityLabel="Notifications"
+              accessibilityHint="Tap to view notifications"
+              accessibilityRole="button"
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="notifications-outline"
+                size={24}
+                color={designTokens.colors.system.label.primary}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -162,6 +193,7 @@ export default function HomeScreen() {
         style={tw`flex-1`}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={tw`pb-20`}
+        accessibilityLabel="Home content"
       >
         {/* Hero Carousel */}
         <HeroCarousel
@@ -172,14 +204,69 @@ export default function HomeScreen() {
         {/* Action Grid */}
         <ActionGrid />
 
-        {/* Recent Episodes */}
+        {/* Recently Played */}
         <Row
-          title="Recent"
+          title="Recently Played"
           subtitle="Continue where you left off"
-          onSeeAll={() => console.log("See all recent")}
+          onSeeAll={() => console.log("See all recently played")}
         >
           {mockEpisodes.slice(0, 3).map((episode, index) => (
-            <View key={episode.id} style={tw`${index < mockEpisodes.slice(0, 3).length - 1 ? 'mr-4' : ''} w-80`}>
+            <View
+              key={episode.id}
+              style={tw`${
+                index < mockEpisodes.slice(0, 3).length - 1 ? "mr-4" : ""
+              } w-80`}
+            >
+              <Card
+                variant="landscape"
+                data={episode}
+                onPress={() => handleEpisodePress(episode)}
+                showTime={true}
+                showMeta={true}
+                metaValue="Sheikh Ahmad Tijani"
+              />
+            </View>
+          ))}
+        </Row>
+
+        {/* Recently Posted */}
+        <Row
+          title="Recently Posted"
+          subtitle="Latest content from our scholars"
+          onSeeAll={() => console.log("See all recently posted")}
+        >
+          {mockEpisodes.slice(0, 3).map((episode, index) => (
+            <View
+              key={`recent-${episode.id}`}
+              style={tw`${
+                index < mockEpisodes.slice(0, 3).length - 1 ? "mr-4" : ""
+              } w-80`}
+            >
+              <Card
+                variant="landscape"
+                data={episode}
+                onPress={() => handleEpisodePress(episode)}
+                showTime={true}
+                showMeta={true}
+                metaValue="Sheikh Ahmad Tijani"
+              />
+            </View>
+          ))}
+        </Row>
+
+        {/* Featured Lectures */}
+        <Row
+          title="Featured Lectures"
+          subtitle="Handpicked content for you"
+          onSeeAll={() => console.log("See all featured")}
+        >
+          {mockEpisodes.slice(0, 3).map((episode, index) => (
+            <View
+              key={`featured-${episode.id}`}
+              style={tw`${
+                index < mockEpisodes.slice(0, 3).length - 1 ? "mr-4" : ""
+              } w-80`}
+            >
               <Card
                 variant="landscape"
                 data={episode}
@@ -194,17 +281,24 @@ export default function HomeScreen() {
 
         {/* Trending Series */}
         <Row title="Trending" onSeeAll={() => console.log("See all trending")}>
-          {mockSeries.map((series, index) => (
-            <View key={series.id} style={tw`${index < mockSeries.length - 1 ? 'mr-4' : ''}`}>
-              <Card
-                variant="square"
-                data={series}
-                onPress={() => console.log("Series pressed:", series.title)}
-                showBadge={true}
-                badgeText="DN"
-              />
-            </View>
-          ))}
+          {mockSeries
+            .concat(mockSeries, mockSeries, mockSeries, mockSeries)
+            .slice(0, 15)
+            .map((series, index) => (
+              <View
+                key={`trending-${series.id}-${index}`}
+                style={tw`${index < 14 ? "mr-4" : ""}`}
+              >
+                <View style={{ width: 140 }}>
+                  <Card
+                    variant="square"
+                    data={series}
+                    onPress={() => console.log("Series pressed:", series.title)}
+                    showBadge={false}
+                  />
+                </View>
+              </View>
+            ))}
         </Row>
 
         {/* Quran Recitations */}
@@ -212,17 +306,25 @@ export default function HomeScreen() {
           title="Quran Recitations"
           onSeeAll={() => console.log("See all Quran")}
         >
-          {mockEpisodes.slice(0, 4).map((episode, index) => (
-            <View key={episode.id} style={tw`${index < mockEpisodes.slice(0, 4).length - 1 ? 'mr-4' : ''}`}>
-              <Card
-                variant="square"
-                data={episode}
-                onPress={() => handleEpisodePress(episode)}
-                showMeta={true}
-                metaValue="Sheikh Usman Dan Fodio"
-              />
-            </View>
-          ))}
+          {mockEpisodes
+            .concat(mockEpisodes, mockEpisodes, mockEpisodes, mockEpisodes)
+            .slice(0, 15)
+            .map((episode, index) => (
+              <View
+                key={`quran-${episode.id}-${index}`}
+                style={tw`${index < 14 ? "mr-4" : ""}`}
+              >
+                <View style={{ width: 140 }}>
+                  <Card
+                    variant="square"
+                    data={episode}
+                    onPress={() => handleEpisodePress(episode)}
+                    showMeta={true}
+                    metaValue="Sheikh Usman Dan Fodio"
+                  />
+                </View>
+              </View>
+            ))}
         </Row>
       </ScrollView>
     </SafeAreaView>

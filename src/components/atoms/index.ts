@@ -1,7 +1,9 @@
-export { Text } from './Text';
-export { Button } from './Button';
-export { Icon } from './Icon';
-export { Badge } from './Badge';
-export { Touchable } from './Touchable';
-export { Chip } from './Chip';
-export { Dropdown } from './Dropdown';
+export { Badge } from "./Badge";
+export { Button } from "./Button";
+export { Chip } from "./Chip";
+export { Dropdown } from "./Dropdown";
+export { ErrorBoundary } from "./ErrorBoundary";
+export { Icon } from "./Icon";
+export { Loading } from "./Loading";
+export { Text } from "./Text";
+export { Touchable } from "./Touchable";
