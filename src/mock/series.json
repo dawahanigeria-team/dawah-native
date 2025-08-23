@@ -1,0 +1,42 @@
+[
+  {
+    "id": "1",
+    "title": "Tafsir Al-Qur'an",
+    "coverUrl": "https://images.unsplash.com/photo-1542810634-71277d95dcbb?w=300&h=300&fit=crop",
+    "language": "Hausa",
+    "tags": ["Tafsir", "Qur'an", "Islamic Studies"],
+    "lecturerId": "1"
+  },
+  {
+    "id": "2",
+    "title": "Akhlaq & Character Building",
+    "coverUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=300&h=300&fit=crop",
+    "language": "English",
+    "tags": ["Akhlaq", "Character", "Ethics"],
+    "lecturerId": "2"
+  },
+  {
+    "id": "3",
+    "title": "Women in Islam",
+    "coverUrl": "https://images.unsplash.com/photo-1487412720507-e7abf03fe3bf?w=300&h=300&fit=crop",
+    "language": "Yoruba",
+    "tags": ["Women", "Islamic Rights", "Empowerment"],
+    "lecturerId": "3"
+  },
+  {
+    "id": "4",
+    "title": "Islamic History & Civilization",
+    "coverUrl": "https://images.unsplash.com/photo-1447069388813-9e89e38406f7?w=300&h=300&fit=crop",
+    "language": "Hausa",
+    "tags": ["History", "Civilization", "Islamic Heritage"],
+    "lecturerId": "4"
+  },
+  {
+    "id": "5",
+    "title": "Daily Duas & Remembrance",
+    "coverUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=300&h=300&fit=crop",
+    "language": "English",
+    "tags": ["Duas", "Dhikr", "Daily Practice"],
+    "lecturerId": "2"
+  }
+]

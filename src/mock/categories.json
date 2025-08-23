@@ -1,0 +1,38 @@
+[
+  {
+    "id": "1",
+    "name": "Tafsir",
+    "icon": "book-outline",
+    "coverUrl": "https://images.unsplash.com/photo-1542810634-71277d95dcbb?w=300&h=300&fit=crop"
+  },
+  {
+    "id": "2",
+    "name": "Akhlaq",
+    "icon": "heart-outline",
+    "coverUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=300&h=300&fit=crop"
+  },
+  {
+    "id": "3",
+    "name": "Aqidah",
+    "icon": "shield-checkmark-outline",
+    "coverUrl": "https://images.unsplash.com/photo-1447069388813-9e89e38406f7?w=300&h=300&fit=crop"
+  },
+  {
+    "id": "4",
+    "name": "Salah",
+    "icon": "body-outline",
+    "coverUrl": "https://images.unsplash.com/photo-1487412720507-e7abf03fe3bf?w=300&h=300&fit=crop"
+  },
+  {
+    "id": "5",
+    "name": "Qur'an",
+    "icon": "library-outline",
+    "coverUrl": "https://images.unsplash.com/photo-1542810634-71277d95dcbb?w=300&h=300&fit=crop"
+  },
+  {
+    "id": "6",
+    "name": "Hadith",
+    "icon": "chatbubble-ellipses-outline",
+    "coverUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=300&h=300&fit=crop"
+  }
+]

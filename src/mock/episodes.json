@@ -1,0 +1,62 @@
+[
+  {
+    "id": "1",
+    "title": "Introduction to Tafsir Methodology",
+    "durationSec": 3600,
+    "coverUrl": "https://images.unsplash.com/photo-1542810634-71277d95dcbb?w=300&h=300&fit=crop",
+    "audioUrl": "https://example.com/audio1.mp3",
+    "seriesId": "1",
+    "plays": 1250,
+    "liked": true
+  },
+  {
+    "id": "2",
+    "title": "Understanding Surah Al-Fatiha",
+    "durationSec": 2700,
+    "coverUrl": "https://images.unsplash.com/photo-1542810634-71277d95dcbb?w=300&h=300&fit=crop",
+    "audioUrl": "https://example.com/audio2.mp3",
+    "seriesId": "1",
+    "plays": 980,
+    "liked": false
+  },
+  {
+    "id": "3",
+    "title": "Building Good Character in Daily Life",
+    "durationSec": 3300,
+    "coverUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=300&h=300&fit=crop",
+    "audioUrl": "https://example.com/audio3.mp3",
+    "seriesId": "2",
+    "plays": 756,
+    "liked": true
+  },
+  {
+    "id": "4",
+    "title": "The Rights of Women in Islamic Law",
+    "durationSec": 4200,
+    "coverUrl": "https://images.unsplash.com/photo-1487412720507-e7abf03fe3bf?w=300&h=300&fit=crop",
+    "audioUrl": "https://example.com/audio4.mp3",
+    "seriesId": "3",
+    "plays": 892,
+    "liked": false
+  },
+  {
+    "id": "5",
+    "title": "The Golden Age of Islamic Civilization",
+    "durationSec": 4800,
+    "coverUrl": "https://images.unsplash.com/photo-1447069388813-9e89e38406f7?w=300&h=300&fit=crop",
+    "audioUrl": "https://example.com/audio5.mp3",
+    "seriesId": "4",
+    "plays": 654,
+    "liked": true
+  },
+  {
+    "id": "6",
+    "title": "Morning Adhkar and Their Benefits",
+    "durationSec": 1800,
+    "coverUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=300&h=300&fit=crop",
+    "audioUrl": "https://example.com/audio6.mp3",
+    "seriesId": "5",
+    "plays": 1123,
+    "liked": true
+  }
+]

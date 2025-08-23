@@ -1,0 +1,130 @@
+import React, { memo } from 'react';
+import { View, ViewStyle } from 'react-native';
+import { designTokens, BorderRadius } from '../../theme/designTokens';
+import { Text } from './Text';
+
+interface BadgeProps {
+  variant?: 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info';
+  size?: 'small' | 'medium' | 'large';
+  borderRadius?: BorderRadius;
+  children: React.ReactNode;
+  style?: ViewStyle;
+}
+
+export const Badge: React.FC<BadgeProps> = memo(({
+  variant = 'primary',
+  size = 'medium',
+  borderRadius = 'full',
+  children,
+  style,
+}) => {
+  const getVariantStyles = (): ViewStyle => {
+    switch (variant) {
+      case 'primary':
+        return {
+          backgroundColor: designTokens.colors.brand.primary,
+        };
+      case 'secondary':
+        return {
+          backgroundColor: designTokens.colors.background.secondary,
+          borderWidth: 1,
+          borderColor: designTokens.colors.border.primary,
+        };
+      case 'success':
+        return {
+          backgroundColor: designTokens.colors.semantic.success,
+        };
+      case 'warning':
+        return {
+          backgroundColor: designTokens.colors.semantic.warning,
+        };
+      case 'error':
+        return {
+          backgroundColor: designTokens.colors.semantic.error,
+        };
+      case 'info':
+        return {
+          backgroundColor: designTokens.colors.semantic.info,
+        };
+      default:
+        return {
+          backgroundColor: designTokens.colors.brand.primary,
+        };
+    }
+  };
+
+  const getSizeStyles = (): ViewStyle => {
+    switch (size) {
+      case 'small':
+        return {
+          paddingHorizontal: designTokens.spacing.sm,
+          paddingVertical: designTokens.spacing.xs,
+        };
+      case 'medium':
+        return {
+          paddingHorizontal: designTokens.spacing.md,
+          paddingVertical: designTokens.spacing.sm,
+        };
+      case 'large':
+        return {
+          paddingHorizontal: designTokens.spacing.lg,
+          paddingVertical: designTokens.spacing.md,
+        };
+      default:
+        return {
+          paddingHorizontal: designTokens.spacing.md,
+          paddingVertical: designTokens.spacing.sm,
+        };
+    }
+  };
+
+  const getTextColor = () => {
+    switch (variant) {
+      case 'primary':
+      case 'success':
+      case 'warning':
+      case 'error':
+      case 'info':
+        return 'inverse';
+      case 'secondary':
+      default:
+        return 'primary';
+    }
+  };
+
+  const getTextVariant = () => {
+    switch (size) {
+      case 'small':
+        return 'caption';
+      case 'medium':
+        return 'bodySmall';
+      case 'large':
+        return 'body';
+      default:
+        return 'bodySmall';
+    }
+  };
+
+  const combinedStyle: ViewStyle = {
+    alignSelf: 'flex-start',
+    borderRadius: designTokens.borderRadius[borderRadius],
+    ...getVariantStyles(),
+    ...getSizeStyles(),
+    ...style,
+  };
+
+  return (
+    <View style={combinedStyle}>
+      <Text 
+        variant={getTextVariant()} 
+        color={getTextColor()}
+        weight="semibold"
+        align="center"
+      >
+        {children}
+      </Text>
+    </View>
+  );
+});
+
+Badge.displayName = 'Badge';
