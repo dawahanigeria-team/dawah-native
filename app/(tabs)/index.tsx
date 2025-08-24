@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -11,6 +12,7 @@ import { usePlayerStore } from "../../src/stores/playerStore";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Episode, Series } from "../../src/types/types";
+import { getRandomScholar } from "../../src/utils/scholarNames";
 
 // Mock data - in a real app this would come from an API
 const mockEpisodes: Episode[] = [
@@ -24,6 +26,9 @@ const mockEpisodes: Episode[] = [
     seriesId: "1",
     plays: 1250,
     liked: true,
+    language: "English",
+    downloads: 250,
+    createdAt: "2024-03-15T10:00:00Z",
   },
   {
     id: "2",
@@ -35,6 +40,9 @@ const mockEpisodes: Episode[] = [
     seriesId: "1",
     plays: 980,
     liked: false,
+    language: "English",
+    downloads: 180,
+    createdAt: "2024-03-10T14:30:00Z",
   },
   {
     id: "3",
@@ -46,6 +54,9 @@ const mockEpisodes: Episode[] = [
     seriesId: "2",
     plays: 756,
     liked: true,
+    language: "Hausa",
+    downloads: 120,
+    createdAt: "2024-03-05T09:15:00Z",
   },
   {
     id: "4",
@@ -57,6 +68,9 @@ const mockEpisodes: Episode[] = [
     seriesId: "3",
     plays: 892,
     liked: false,
+    language: "Yoruba",
+    downloads: 160,
+    createdAt: "2024-02-28T16:45:00Z",
   },
   {
     id: "5",
@@ -68,6 +82,9 @@ const mockEpisodes: Episode[] = [
     seriesId: "4",
     plays: 654,
     liked: true,
+    language: "English",
+    downloads: 95,
+    createdAt: "2024-02-20T11:20:00Z",
   },
 ];
 
@@ -208,7 +225,7 @@ export default function HomeScreen() {
         <Row
           title="Recently Played"
           subtitle="Continue where you left off"
-          onSeeAll={() => console.log("See all recently played")}
+          onSeeAll={() => router.push("/section/recently-played")}
         >
           {mockEpisodes.slice(0, 3).map((episode, index) => (
             <View
@@ -223,7 +240,7 @@ export default function HomeScreen() {
                 onPress={() => handleEpisodePress(episode)}
                 showTime={true}
                 showMeta={true}
-                metaValue="Sheikh Ahmad Tijani"
+                metaValue={getRandomScholar(`recently-played-${episode.id}`)}
               />
             </View>
           ))}
@@ -233,7 +250,7 @@ export default function HomeScreen() {
         <Row
           title="Recently Posted"
           subtitle="Latest content from our scholars"
-          onSeeAll={() => console.log("See all recently posted")}
+          onSeeAll={() => router.push("/section/recently-posted")}
         >
           {mockEpisodes.slice(0, 3).map((episode, index) => (
             <View
@@ -248,7 +265,7 @@ export default function HomeScreen() {
                 onPress={() => handleEpisodePress(episode)}
                 showTime={true}
                 showMeta={true}
-                metaValue="Sheikh Ahmad Tijani"
+                metaValue={getRandomScholar(`recently-posted-${episode.id}`)}
               />
             </View>
           ))}
@@ -258,7 +275,7 @@ export default function HomeScreen() {
         <Row
           title="Featured Lectures"
           subtitle="Handpicked content for you"
-          onSeeAll={() => console.log("See all featured")}
+          onSeeAll={() => router.push("/section/featured-lectures")}
         >
           {mockEpisodes.slice(0, 3).map((episode, index) => (
             <View
@@ -273,14 +290,14 @@ export default function HomeScreen() {
                 onPress={() => handleEpisodePress(episode)}
                 showTime={true}
                 showMeta={true}
-                metaValue="Sheikh Ahmad Tijani"
+                metaValue={getRandomScholar(`featured-${episode.id}`)}
               />
             </View>
           ))}
         </Row>
 
         {/* Trending Series */}
-        <Row title="Trending" onSeeAll={() => console.log("See all trending")}>
+        <Row title="Trending" onSeeAll={() => router.push("/section/trending")}>
           {mockSeries
             .concat(mockSeries, mockSeries, mockSeries, mockSeries)
             .slice(0, 15)
@@ -304,7 +321,7 @@ export default function HomeScreen() {
         {/* Quran Recitations */}
         <Row
           title="Quran Recitations"
-          onSeeAll={() => console.log("See all Quran")}
+          onSeeAll={() => router.push("/section/quran-recitations")}
         >
           {mockEpisodes
             .concat(mockEpisodes, mockEpisodes, mockEpisodes, mockEpisodes)

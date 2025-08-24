@@ -25,6 +25,9 @@ export interface Episode {
   seriesId: string;
   plays: number;
   liked: boolean;
+  language: string;
+  downloads: number;
+  createdAt: string; // ISO date string
 }
 
 export interface Category {

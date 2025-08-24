@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import { usePathname } from "expo-router";
 import React, { memo, useEffect, useState } from "react";
 import {
   Dimensions,
@@ -22,6 +23,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { usePlayerStore } from "../../stores/playerStore";
 import { designTokens } from "../../theme/designTokens";
 import { getInitials, getPlaceholderStyle } from "../../utils/colorPlaceholder";
@@ -31,7 +33,6 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 const MINI_PLAYER_HEIGHT = 72;
 const TAB_BAR_HEIGHT = 83; // iOS standard tab bar height
-const EXPANDED_PLAYER_HEIGHT = screenHeight - TAB_BAR_HEIGHT - 50; // Leave space for tab bar and safe area
 
 interface MiniPlayerProps {
   onExpand?: () => void;
@@ -40,6 +41,8 @@ interface MiniPlayerProps {
 
 export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
   ({ onExpand, onMinimize }) => {
+    const pathname = usePathname();
+    const insets = useSafeAreaInsets();
     const {
       currentEpisode,
       isPlaying,
@@ -64,14 +67,27 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
     const opacity = useSharedValue(1);
     const dragY = useSharedValue(0);
 
+    // Check if we're on a tab screen
+    const isTabScreen = pathname?.includes('/(tabs)') || 
+                       pathname === '/' || 
+                       pathname === '/search' || 
+                       pathname === '/library' || 
+                       pathname === '/profile';
+    
+    // Calculate expanded height based on whether we're on a tab screen
+    // Use full screen height with only top safe area
+    const EXPANDED_PLAYER_HEIGHT = isTabScreen 
+      ? screenHeight - TAB_BAR_HEIGHT - insets.top
+      : screenHeight - insets.top;
+
     // Gesture handler for drag-to-minimize
     const gestureHandler = useAnimatedGestureHandler({
-      onStart: (_, context: any) => {
-        context.startY = dragY.value;
+      onStart: (_, context) => {
+        (context as { startY: number }).startY = dragY.value;
       },
-      onActive: (event, context: any) => {
+      onActive: (event, context) => {
         if (isExpanded) {
-          dragY.value = context.startY + event.translationY;
+          dragY.value = (context as { startY: number }).startY + event.translationY;
         }
       },
       onEnd: (event) => {
@@ -400,7 +416,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                 color="secondaryLabel"
                 style={{ textAlign: "center", marginBottom: 4 }}
               >
-                Sheikh Ahmad Tijani
+                Sheikh Abubakar Gumi
               </Text>
               <Text
                 variant="caption1"
@@ -724,7 +740,13 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
     );
 
     return (
-      <GestureHandlerRootView style={styles.container}>
+      <GestureHandlerRootView style={[
+        styles.container,
+        {
+          // Dynamically position based on whether we're on a tab screen
+          bottom: isTabScreen ? TAB_BAR_HEIGHT : 0,
+        }
+      ]}>
         <Animated.View style={[styles.player, animatedStyle]}>
           {isExpanded ? renderExpandedPlayer() : renderMiniPlayer()}
         </Animated.View>
@@ -736,7 +758,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    bottom: TAB_BAR_HEIGHT, // Position above the tab bar
+    // bottom is set dynamically based on route
     left: 0,
     right: 0,
     zIndex: 1000,

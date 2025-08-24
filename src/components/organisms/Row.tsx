@@ -89,7 +89,7 @@ export const Row: React.FC<RowProps> = memo(
                   marginRight: designTokens.spacing.xs,
                 }}
               >
-                See All
+                More
               </Text>
               {showChevron && (
                 <Icon

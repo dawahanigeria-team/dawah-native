@@ -21,6 +21,9 @@ const mockDownloads: Episode[] = [
     seriesId: "1",
     plays: 1250,
     liked: true,
+    language: "English",
+    downloads: 250,
+    createdAt: "2024-03-15T10:00:00Z",
   },
   {
     id: "2",
@@ -32,6 +35,9 @@ const mockDownloads: Episode[] = [
     seriesId: "1",
     plays: 980,
     liked: false,
+    language: "English",
+    downloads: 180,
+    createdAt: "2024-03-10T14:30:00Z",
   },
 ];
 
@@ -46,6 +52,9 @@ const mockHistory: Episode[] = [
     seriesId: "2",
     plays: 756,
     liked: true,
+    language: "Hausa",
+    downloads: 120,
+    createdAt: "2024-03-05T09:15:00Z",
   },
   {
     id: "4",
@@ -57,6 +66,9 @@ const mockHistory: Episode[] = [
     seriesId: "3",
     plays: 892,
     liked: false,
+    language: "Yoruba",
+    downloads: 160,
+    createdAt: "2024-02-28T16:45:00Z",
   },
 ];
 
@@ -71,6 +83,9 @@ const mockLiked: Episode[] = [
     seriesId: "4",
     plays: 654,
     liked: true,
+    language: "English",
+    downloads: 95,
+    createdAt: "2024-02-20T11:20:00Z",
   },
 ];
 
@@ -201,7 +216,7 @@ export default function LibraryScreen() {
               onPress={() => handleItemPress(item)}
               showTime={"durationSec" in item}
               showMeta={true}
-              metaValue="Sheikh Ahmad Tijani"
+              metaValue="Sheikh Nasir Kabara"
             />
           </View>
         ))}

@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import React, { memo, useState } from "react";
 import { View, ViewStyle } from "react-native";
@@ -10,7 +9,7 @@ import { formatDuration } from "../../utils/formatTime";
 import { Badge, Icon, Text, Touchable } from "../atoms";
 
 interface CardProps {
-  variant: "square" | "landscape" | "list";
+  variant: "square" | "landscape" | "list" | "section";
   data: Episode | Series;
   onPress?: () => void;
   showTime?: boolean;
@@ -52,11 +51,12 @@ export const Card: React.FC<CardProps> = memo(
     };
 
     const handlePress = () => {
+      // Always play the episode if it's an episode
       if (isEpisode && episode) {
-        // Play the episode in the mini player (will start expanded)
         playEpisode(episode);
       }
-      // Call the original onPress if provided
+
+      // Call the custom onPress handler if provided
       onPress?.();
     };
 
@@ -178,13 +178,17 @@ export const Card: React.FC<CardProps> = memo(
       const containerStyle: ViewStyle = {
         flexDirection: "row",
         backgroundColor: designTokens.colors.system.background.secondary,
-        borderRadius: designTokens.borderRadius.xl,
-        padding: designTokens.spacing.lg,
-        marginBottom: designTokens.spacing.md,
-        minHeight: designTokens.hitTargets.large,
-        ...designTokens.shadows.lg, // Use larger shadow for more depth
-        borderWidth: 1,
-        borderColor: designTokens.colors.system.separator.primary,
+        borderRadius: designTokens.borderRadius["2xl"], // More rounded for modern look
+        padding: designTokens.spacing.xl, // Increased padding for breathing room
+        marginBottom: designTokens.spacing.lg,
+        minHeight: 120, // Increased height for better proportions
+        // Apple-style subtle shadow
+        shadowColor: designTokens.colors.system.label.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+        elevation: 4,
+        // Remove border for cleaner look
         ...style,
       };
 
@@ -196,108 +200,157 @@ export const Card: React.FC<CardProps> = memo(
           accessibilityHint="Tap to view details"
           accessibilityRole="button"
         >
-          {data.coverUrl && !imageError ? (
-            <Image
-              source={{ uri: data.coverUrl }}
+          {/* Album Art Container */}
+          <View
+            style={{
+              position: "relative",
+              marginRight: designTokens.spacing.lg,
+            }}
+          >
+            {data.coverUrl && !imageError ? (
+              <Image
+                source={{ uri: data.coverUrl }}
+                style={{
+                  width: 72, // Larger album art for better visual impact
+                  height: 72,
+                  borderRadius: designTokens.borderRadius.xl,
+                }}
+                contentFit="cover"
+                accessibilityIgnoresInvertColors={true}
+                onError={() => {
+                  setImageError(true);
+                }}
+              />
+            ) : (
+              <View style={getPlaceholderStyle(data.id, 72)}>
+                <Text
+                  style={{
+                    fontSize: designTokens.typography.fontSize.title3,
+                    fontWeight: designTokens.typography.fontWeight.bold,
+                    color: designTokens.colors.system.label.primary,
+                  }}
+                >
+                  {getInitials(data.title)}
+                </Text>
+              </View>
+            )}
+
+            {/* Subtle overlay for depth */}
+            <View
               style={{
-                width: designTokens.spacing["5xl"] - designTokens.spacing.md, // 48px
-                height: designTokens.spacing["5xl"] - designTokens.spacing.md, // 48px
-                borderRadius: designTokens.borderRadius.lg,
-              }}
-              contentFit="cover"
-              accessibilityIgnoresInvertColors={true}
-              onError={() => {
-                setImageError(true);
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                borderRadius: designTokens.borderRadius.xl,
+                backgroundColor: "rgba(0,0,0,0.05)",
               }}
             />
-          ) : (
-            <View
-              style={getPlaceholderStyle(
-                data.id,
-                designTokens.spacing["5xl"] - designTokens.spacing.md
-              )}
-            >
-              <Text
-                style={{
-                  fontSize: designTokens.typography.fontSize.headline,
-                  fontWeight: designTokens.typography.fontWeight.bold,
-                  color: designTokens.colors.system.label.primary,
-                }}
-              >
-                {getInitials(data.title)}
-              </Text>
-            </View>
-          )}
+          </View>
 
+          {/* Content Area */}
           <View
             style={{
               flex: 1,
-              marginLeft: designTokens.spacing.lg,
-              justifyContent: "center",
+              justifyContent: "space-between",
+              paddingVertical: designTokens.spacing.xs,
             }}
           >
-            <Text
-              variant="headline"
-              color="label"
-              weight="semibold"
-              numberOfLines={2}
-              style={{
-                lineHeight:
-                  designTokens.typography.fontSize.headline *
-                  designTokens.typography.lineHeight.normal,
-                marginBottom: designTokens.spacing.xs,
-              }}
-            >
-              {data.title}
-            </Text>
-            {showMeta && metaValue && (
+            {/* Top Content */}
+            <View>
               <Text
-                variant="subheadline"
-                color="secondaryLabel"
+                variant="body"
+                color="label"
+                weight="semibold"
+                numberOfLines={2}
                 style={{
-                  marginBottom: designTokens.spacing.sm,
+                  lineHeight: 22,
+                  marginBottom: designTokens.spacing.xs,
+                  fontSize: 17, // iOS body text size
                 }}
               >
-                {metaValue}
+                {data.title}
               </Text>
-            )}
+              {showMeta && metaValue && (
+                <Text
+                  variant="subheadline"
+                  color="secondaryLabel"
+                  numberOfLines={1}
+                  style={{
+                    marginBottom: designTokens.spacing.xs,
+                    fontSize: 15, // iOS subheadline size
+                  }}
+                >
+                  {metaValue}
+                </Text>
+              )}
+            </View>
+
+            {/* Bottom Content */}
             {showTime && episode && (
               <View
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
-                  marginTop: designTokens.spacing.xs,
+                  justifyContent: "space-between",
                 }}
               >
-                <Ionicons
-                  name="time-outline"
-                  size={16}
-                  color={designTokens.colors.system.label.secondary}
-                  style={{ marginRight: designTokens.spacing.xs }}
-                />
-                <Text variant="caption1" color="secondaryLabel">
-                  {formatDuration(episode.durationSec)}
-                </Text>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 4,
+                      height: 4,
+                      borderRadius: 2,
+                      backgroundColor:
+                        designTokens.colors.system.label.tertiary,
+                      marginRight: designTokens.spacing.xs,
+                    }}
+                  />
+                  <Text
+                    variant="caption1"
+                    color="tertiaryLabel"
+                    style={{
+                      fontSize: 13, // iOS caption size
+                      fontWeight: "500",
+                    }}
+                  >
+                    {formatDuration(episode.durationSec)}
+                  </Text>
+                </View>
               </View>
             )}
           </View>
 
+          {/* Play Button */}
           <View
             style={{
               justifyContent: "center",
-              padding: designTokens.spacing.sm,
+              alignItems: "center",
             }}
           >
             <View
               style={{
-                width: designTokens.spacing["5xl"],
-                height: designTokens.spacing["5xl"],
-                borderRadius: designTokens.spacing["5xl"] / 2,
+                width: 52, // Larger for better touch target
+                height: 52,
+                borderRadius: 26,
                 backgroundColor: designTokens.colors.brand.primary,
                 alignItems: "center",
                 justifyContent: "center",
-                ...designTokens.shadows.lg,
+                // Apple-style play button shadow
                 shadowColor: designTokens.colors.brand.primary,
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 8,
+                elevation: 6,
+                // Subtle inner shadow effect
+                borderWidth: 1,
+                borderColor: "rgba(255,255,255,0.1)",
               }}
             >
               <Icon
@@ -305,6 +358,9 @@ export const Card: React.FC<CardProps> = memo(
                 size="lg"
                 color="#000000"
                 accessibilityLabel="Play button"
+                style={{
+                  marginLeft: 2, // Optical alignment for play icon
+                }}
               />
             </View>
           </View>
@@ -391,6 +447,201 @@ export const Card: React.FC<CardProps> = memo(
       );
     };
 
+    const renderSectionVariant = () => {
+      const containerStyle: ViewStyle = {
+        width: "100%",
+        minHeight: 120, // Optimized height for better space efficiency
+        paddingVertical: designTokens.spacing.lg, // Reduced padding for compactness
+        paddingHorizontal: designTokens.spacing.xl,
+        backgroundColor: designTokens.colors.system.background.secondary,
+        borderRadius: designTokens.borderRadius["2xl"], // More rounded for modern look
+        marginBottom: designTokens.spacing.md, // Reduced margin for tighter spacing
+        // Apple-style subtle shadow
+        shadowColor: designTokens.colors.system.label.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+        elevation: 4,
+        // Remove border for cleaner look
+        ...style,
+      };
+
+      // Optimized album art size for section variant
+      const imageSize = 80; // Slightly smaller for better proportions
+
+      return (
+        <Touchable
+          onPress={handlePress}
+          accessibilityLabel={getAccessibilityLabel()}
+          accessibilityHint="Tap to play"
+          accessibilityRole="button"
+          style={containerStyle}
+        >
+          <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+            {/* Album Art Container */}
+            <View
+              style={{
+                position: "relative",
+                marginRight: designTokens.spacing.lg,
+              }}
+            >
+              {data.coverUrl && !imageError ? (
+                <Image
+                  source={{ uri: data.coverUrl }}
+                  style={{
+                    width: imageSize,
+                    height: imageSize,
+                    borderRadius: designTokens.borderRadius.xl,
+                  }}
+                  contentFit="cover"
+                  accessibilityIgnoresInvertColors={true}
+                  onError={() => {
+                    setImageError(true);
+                  }}
+                />
+              ) : (
+                <View style={getPlaceholderStyle(data.id, imageSize)}>
+                  <Text
+                    style={{
+                      fontSize: designTokens.typography.fontSize.title3,
+                      fontWeight: designTokens.typography.fontWeight.bold,
+                      color: designTokens.colors.system.label.primary,
+                    }}
+                  >
+                    {getInitials(data.title)}
+                  </Text>
+                </View>
+              )}
+
+              {/* Subtle overlay for depth */}
+              <View
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  borderRadius: designTokens.borderRadius.xl,
+                  backgroundColor: "rgba(0,0,0,0.05)",
+                }}
+              />
+            </View>
+
+            {/* Content - Vertically Layered */}
+            <View
+              style={{
+                flex: 1,
+                justifyContent: "space-between",
+                paddingVertical: designTokens.spacing.xs,
+              }}
+            >
+              {/* Top Content */}
+              <View>
+                <Text
+                  variant="body"
+                  color="label"
+                  weight="semibold"
+                  numberOfLines={2}
+                  style={{
+                    marginBottom: designTokens.spacing.sm,
+                    lineHeight: 22,
+                    fontSize: 17, // iOS body text size
+                  }}
+                >
+                  {data.title}
+                </Text>
+
+                {showMeta && metaValue && (
+                  <Text
+                    variant="subheadline"
+                    color="secondaryLabel"
+                    numberOfLines={1}
+                    style={{
+                      marginBottom: designTokens.spacing.sm,
+                      lineHeight: 18,
+                      fontSize: 15, // iOS subheadline size
+                    }}
+                  >
+                    {metaValue}
+                  </Text>
+                )}
+              </View>
+
+              {/* Bottom Content */}
+              {showTime && episode && (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 4,
+                      height: 4,
+                      borderRadius: 2,
+                      backgroundColor:
+                        designTokens.colors.system.label.tertiary,
+                      marginRight: designTokens.spacing.xs,
+                    }}
+                  />
+                  <Text
+                    variant="caption1"
+                    color="tertiaryLabel"
+                    style={{
+                      fontSize: 13, // iOS caption size
+                      fontWeight: "500",
+                    }}
+                  >
+                    {formatDuration(episode.durationSec)}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Play Button */}
+            <View
+              style={{
+                justifyContent: "center",
+                alignItems: "center",
+                marginLeft: designTokens.spacing.md,
+              }}
+            >
+              <View
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                  backgroundColor: designTokens.colors.brand.primary,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  // Apple-style play button shadow
+                  shadowColor: designTokens.colors.brand.primary,
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 6,
+                  elevation: 4,
+                  // Subtle inner shadow effect
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.1)",
+                }}
+              >
+                <Icon
+                  name="play"
+                  size="md"
+                  color="#000000"
+                  accessibilityLabel="Play button"
+                  style={{
+                    marginLeft: 1, // Optical alignment for play icon
+                  }}
+                />
+              </View>
+            </View>
+          </View>
+        </Touchable>
+      );
+    };
+
     const renderContent = () => {
       switch (variant) {
         case "square":
@@ -399,6 +650,8 @@ export const Card: React.FC<CardProps> = memo(
           return renderLandscapeVariant();
         case "list":
           return renderListVariant();
+        case "section":
+          return renderSectionVariant();
         default:
           return renderSquareVariant();
       }
