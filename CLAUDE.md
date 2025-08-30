@@ -9,69 +9,77 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Run on Android emulator**: `npm run android`
 - **Run on web**: `npm run web`
 - **Lint code**: `npm run lint`
-- **Type checking**: Use `npx tsc --noEmit` (no dedicated script in package.json)
+- **Type checking**: `npx tsc --noEmit` (no dedicated script - consider adding to package.json)
+- **Run expo with clear cache**: `npx expo start --clear`
 
 ## Project Architecture
 
-This is a React Native Expo app using file-based routing with the following key architectural decisions:
+React Native Expo app using file-based routing with the following structure:
 
-### Routing Structure
-- Uses Expo Router with file-based routing
-- Main layout: `app/_layout.tsx` (Stack navigator with hidden headers)
-- Tab navigation: `app/(tabs)/_layout.tsx` with 4 tabs (Home, Search, Library, Profile)
-- Individual screens: `app/(tabs)/[screen].tsx` and `app/index.tsx`
-
-### Source Code Organization (`src/`)
-```
-src/
-├── components/          # Atomic design system
-│   ├── atoms/          # Basic UI elements (Button, Text, Icon, etc.)
-│   ├── molecules/      # Composed components (Card, SearchBar, etc.)
-│   ├── organisms/      # Complex components (ActionGrid, MiniPlayer, etc.)
-│   └── templates/      # Page-level layouts
-├── stores/             # State management (using simpler-state)
-├── theme/              # Design system and tokens
-├── types/              # TypeScript definitions
-├── utils/              # Helper functions
-├── screens/            # Screen components
-├── data/               # Static data files
-└── mock/               # Mock data for development
-```
+### Routing
+- **Expo Router** with file-based routing
+- Main Stack: `app/_layout.tsx` (wraps everything with ErrorBoundary and MiniPlayer)
+- Tab Navigator: `app/(tabs)/_layout.tsx` (4 tabs with iOS-style haptic feedback)
+- Dynamic routes: `app/section/[type].tsx` for parameterized screens
 
 ### State Management
-- Primary: `simpler-state` library for global state
-- Store files: `playerStore.ts`, `themeStore.ts`
+- **simpler-state** for global state management
+- Key stores in `src/stores/`:
+  - `playerStore.ts`: Audio player state, queue management, playback controls
+  - `themeStore.ts`: Theme preferences
 - Import from `src/stores/index.ts`
 
-### Design System
-- **Design Tokens**: Comprehensive system in `src/theme/designTokens.ts`
-- **iOS-First**: Follows Apple HIG with semantic color system supporting dark mode
-- **Styling**: Uses both TailwindCSS (via twrnc) and design tokens
-- **Typography**: iOS Dynamic Type scale (largeTitle, title1-3, body, etc.)
-- **Colors**: iOS semantic color system with brand colors
+### Component Organization (Atomic Design)
+```
+src/components/
+├── atoms/       # Basic UI elements (Button, Text, Icon, ErrorBoundary)
+├── molecules/   # Composed components (SearchBar, LectureCard)
+├── organisms/   # Complex components (MiniPlayer, HeroCarousel, LectureList)
+└── templates/   # Page layouts
+```
 
-### Key Libraries
-- **Expo Router**: File-based routing
-- **Expo Vector Icons**: Ionicons for tab navigation
-- **React Native Reanimated**: Animations (configured in babel.config.js)
-- **twrnc**: TailwindCSS for React Native
-- **simpler-state**: Lightweight state management
-- **Expo Haptics**: iOS haptic feedback
+### Design System
+- **iOS-First Design**: Following Apple HIG with semantic colors
+- **Design Tokens**: `src/theme/designTokens.ts` 
+  - iOS Dynamic Type scale (largeTitle, title1-3, body, etc.)
+  - iOS semantic color system with dark mode support
+  - Minimum 44pt hit targets for accessibility
+- **Styling**: TailwindCSS via `twrnc` + design tokens
+- **Haptics**: iOS haptic feedback on tab navigation
+
+### API Integration
+- **Base URL**: `https://backend.dawahbox.com`
+- **API Service**: `src/services/api.ts`
+- **Authentication**: Header `x-project: 206cf92c-8a46-45ef-bf3f-a6ef92fc6f25`
+- **Audio Player Service**: `src/services/audioPlayer.ts` with Expo AV integration
+
+### Audio Player Features
+- Queue management with repeat modes (off/one/all)
+- Playback speed control
+- Sleep timer
+- Background audio support
+- Lecture and Episode playback support
 
 ### TypeScript Configuration
 - **Strict mode enabled**
-- **Path aliases**: `@/*` maps to `src/*`
+- **Path alias**: `@/*` → `src/*`
 - **Base URL**: Project root
 
-### App Features
-This appears to be a Dawah (Islamic education) app with:
-- Audio content (lecturers, series, episodes)
-- Library with Quran, Tafsir, and Islamic content
-- Search functionality
-- Audio player with state management
+### Key Dependencies
+- **expo-router**: File-based routing
+- **expo-av**: Audio/video playback
+- **expo-haptics**: iOS haptic feedback
+- **react-native-reanimated**: Animations (configured in babel.config.js)
+- **simpler-state**: State management
+- **twrnc**: TailwindCSS for React Native
 
-### Development Notes
-- Uses iOS-style tab navigation with haptic feedback
-- Dark mode first design approach
-- Component library follows atomic design principles
-- All major UI components are in `src/components/` with proper exports
+### Testing & Quality
+- Run lint before committing: `npm run lint`
+- Type check: `npx tsc --noEmit`
+- Consider adding pre-commit hooks for automated checks
+
+### API Response Patterns
+- Lectures use `nid` as ID field (not `id`)
+- Title field is capitalized (`Title` not `title`)
+- Duration format: "HH:MM:SS" string
+- Media URLs from `https://media.dawahnigeria.com`

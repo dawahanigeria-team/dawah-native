@@ -68,15 +68,16 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
     const dragY = useSharedValue(0);
 
     // Check if we're on a tab screen
-    const isTabScreen = pathname?.includes('/(tabs)') || 
-                       pathname === '/' || 
-                       pathname === '/search' || 
-                       pathname === '/library' || 
-                       pathname === '/profile';
-    
+    const isTabScreen =
+      pathname?.includes("/(tabs)") ||
+      pathname === "/" ||
+      pathname === "/search" ||
+      pathname === "/library" ||
+      pathname === "/profile";
+
     // Calculate expanded height based on whether we're on a tab screen
     // Use full screen height with only top safe area
-    const EXPANDED_PLAYER_HEIGHT = isTabScreen 
+    const EXPANDED_PLAYER_HEIGHT = isTabScreen
       ? screenHeight - TAB_BAR_HEIGHT - insets.top
       : screenHeight - insets.top;
 
@@ -87,7 +88,8 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       },
       onActive: (event, context) => {
         if (isExpanded) {
-          dragY.value = (context as { startY: number }).startY + event.translationY;
+          dragY.value =
+            (context as { startY: number }).startY + event.translationY;
         }
       },
       onEnd: (event) => {
@@ -740,13 +742,15 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
     );
 
     return (
-      <GestureHandlerRootView style={[
-        styles.container,
-        {
-          // Dynamically position based on whether we're on a tab screen
-          bottom: isTabScreen ? TAB_BAR_HEIGHT : 0,
-        }
-      ]}>
+      <GestureHandlerRootView
+        style={[
+          styles.container,
+          {
+            // Dynamically position based on whether we're on a tab screen
+            bottom: isTabScreen ? TAB_BAR_HEIGHT : 0,
+          },
+        ]}
+      >
         <Animated.View style={[styles.player, animatedStyle]}>
           {isExpanded ? renderExpandedPlayer() : renderMiniPlayer()}
         </Animated.View>
