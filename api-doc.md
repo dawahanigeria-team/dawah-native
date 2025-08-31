@@ -1,334 +1,633 @@
-# DawahNigeria Mobile App API Documentation
+# DawahBox API Documentation for Frontend Developers
 
-## Overview
+## Base URL
 
-The DawahNigeria mobile app integrates with the DawahBox backend API to provide Islamic lectures, recitations, and religious content. This document outlines the API endpoints, authentication, and data structures used by the app.
-
-## Base Configuration
-
-- **Base URL**: `https://backend.dawahbox.com`
-- **Dev URL**: `https://dev-backend.dawahbox.com`
-- **API Key**: `206cf92c-8a46-45ef-bf3f-a6ef92fc6f25`
-- **Timeout**: 30 seconds
-- **Retry Attempts**: 3 (with exponential backoff)
+```
+https://backend.dawahbox.com
+```
 
 ## Authentication
 
-The API uses a project-based authentication system:
+Most endpoints require the `x-project` header with value: `206cf92c-8a46-45ef-bf3f-a6ef92fc6f25`
 
-- **Header**: `x-project: 206cf92c-8a46-45ef-bf3f-a6ef92fc6f25`
-- **Content-Type**: `application/json`
+## Table of Contents
 
-## API Endpoints
+1. [Search API](#search-api)
+2. [Lectures API](#lectures-api)
+3. [Albums API](#albums-api)
+4. [Lecturers (RP) API](#lecturers-rp-api)
+5. [Playlists API](#playlists-api)
+6. [Authentication API](#authentication-api)
+7. [Charts API](#charts-api)
+8. [Comments API](#comments-api)
+9. [Social Features API](#social-features-api)
+10. [Content Management API](#content-management-api)
+11. [Ramadan API](#ramadan-api)
+12. [Video API](#video-api)
 
-### 1. Lectures API
+---
 
-#### Get Lecture List
+## Search API
 
-```http
-GET /api/leclistingapi.php
+### Search Content
+
+**Endpoint:** `GET /api/searchApi.php`
+
+Search for lectures, lecturers, albums, or playlists with advanced filtering.
+
+**Parameters:**
+
+- `type` (required): `lectures`, `lecturers`, `albums`, `playlists`
+- `value` (required): Search term (minimum 2 characters)
+- `field` (optional): Specific field to search in
+- `quick` (optional): Boolean for typeahead results (max 10 items)
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Results per page (max 50, default: 20)
+
+**Example:**
+
+```javascript
+// Quick search for typeahead
+fetch("/api/searchApi.php?type=lectures&value=tafseer&quick=true");
+
+// Full search with pagination
+fetch("/api/searchApi.php?type=lectures&value=quran&page=1&limit=20");
 ```
-
-**Query Parameters:**
-
-- `lim` (optional): Number of results per page
-- `langid` (optional): Language ID filter
-- `sort` (optional): Sort order (`asc` or `desc`)
-- `page` (optional): Page number for pagination
 
 **Response:**
-
-```typescript
-interface PaginatedResponse<Lecture> {
-  success: boolean;
-  data: Lecture[];
-  total?: number;
-  page?: number;
-}
-```
-
-#### Get Specific Lecture
-
-```http
-GET /api/leclistingapi.php?lecid={id}
-```
-
-**Query Parameters:**
-
-- `lecid`: Lecture ID (increments view count)
-
-**Response:**
-
-```typescript
-interface ApiResponse<Lecture> {
-  success: boolean;
-  data: Lecture;
-  message?: string;
-  error?: string;
-}
-```
-
-#### Get Popular Lectures
-
-```http
-GET /api/popular_lec_api.php
-```
-
-**Query Parameters:**
-
-- `lim` (optional): Number of results
-- `langid` (optional): Language ID filter
-
-#### Get Lecture Charts
-
-```http
-GET /api/leclisting_charts_api.php?action={period}
-```
-
-**Query Parameters:**
-
-- `action`: Time period (`daily`, `weekly`, `monthly`)
-
-#### Record Download
-
-```http
-POST /api/download_api.php
-```
-
-**Request Body:**
 
 ```json
 {
-  "lecid": 123
+  "success": true,
+  "total": 150,
+  "page": 1,
+  "total_pages": 8,
+  "data": [...]
 }
 ```
 
-### 2. Search API
+---
 
-#### Global Search
+## Lectures API
 
-```http
-GET /api/searchApi.php?type=global&value={query}
-```
+### Get Lecture Listings
 
-**Query Parameters:**
+**Endpoint:** `GET /api/leclistingapi.php`
 
-- `type`: Search type (`global`, `lectures`, `lecturers`, `albums`, `recitations`)
-- `value`: Search query string
+**Parameters:**
+
 - `page` (optional): Page number
 - `limit` (optional): Results per page
-- `quick` (optional): Quick search mode (`true` for limited results)
+- `lim` + `langid` (optional): Limit by language
+- `lecid` (optional): Get specific lecture by ID
 
-**Response:**
+**Examples:**
 
-```typescript
-interface SearchResponse<T> {
-  success: boolean;
-  total: number;
-  page: number;
-  total_pages: number;
-  data: T[];
-}
+```javascript
+// Get paginated lectures
+fetch("/api/leclistingapi.php?page=1&limit=20");
+
+// Get lectures by language
+fetch("/api/leclistingapi.php?lim=50&langid=8");
+
+// Get specific lecture
+fetch("/api/leclistingapi.php?lecid=123");
 ```
 
-#### Quick Search (Typeahead)
+### Get Recent Lectures
 
-```http
-GET /api/searchApi.php?type={type}&value={query}&quick=true
-```
+**Endpoint:** `GET /api/leclisting_recent.php`
 
-Returns limited results (max 10) for real-time search suggestions.
+**Parameters:**
 
-### 3. Resource Persons API
-
-#### Get All Resource Persons
-
-```http
-GET /api/all_rps_api.php
-```
-
-**Query Parameters:**
-
-- `langid` (optional): Language ID filter
-- `alpha` (optional): Filter by first letter
-- `lim` (optional): Number of results per page
+- `action` (required): Set to `get_recent`
+- `limit` (optional): Number of lectures (default: 30)
 - `page` (optional): Page number
 
-#### Get Specific Resource Person
+**Example:**
 
-```http
-GET /api/all_rps_api.php?rpid={id}
+```javascript
+fetch("/api/leclisting_recent.php?action=get_recent&limit=10");
 ```
 
-### 4. Albums API
+### Get Popular Lectures
 
-#### Get Albums
+**Endpoint:** `GET /api/popular_lec_api.php`
 
-```http
-GET /api/albums_api.php
+**Parameters:**
+
+- `lim` (optional): Number of lectures (default: 20)
+- `langid` (optional): Filter by language ID
+
+**Example:**
+
+```javascript
+fetch("/api/popular_lec_api.php?lim=100&langid=8");
 ```
 
-**Query Parameters:**
+### Get Lecture Charts
 
-- `langid` (optional): Language ID filter
-- `lim` (optional): Number of results
+**Endpoint:** `GET /api/leclisting_charts_api.php`
+
+**Parameters:**
+
+- `action` (required): `daily`, `weekly`, `monthly`
+
+**Example:**
+
+```javascript
+fetch("/api/leclisting_charts_api.php?action=daily");
+```
+
+### Lecture Favorites
+
+**Endpoint:** `POST /api/leclisting_favorites.php`
+
+**Headers:**
+
+- `x-project: 206cf92c-8a46-45ef-bf3f-a6ef92fc6f25`
+
+**Body:**
+
+```json
+{
+  "user_id": 123,
+  "lecture_id": 456,
+  "action": "add" // or "remove"
+}
+```
+
+---
+
+## Albums API
+
+### Get Album Details
+
+**Endpoint:** `GET /api/albumapi3.php`
+
+**Parameters:**
+
+- `aid` (required): Album ID
+- `page` (optional): Page number for album tracks
+
+**Example:**
+
+```javascript
+fetch("/api/albumapi3.php?aid=123&page=1");
+```
+
+### Get Album Charts
+
+**Endpoint:** `GET /api/albumlisting_charts_api.php`
+
+**Parameters:**
+
+- `action` (required): `daily`, `weekly`, `monthly`
+
+**Example:**
+
+```javascript
+fetch("/api/albumlisting_charts_api.php?action=weekly");
+```
+
+---
+
+## Lecturers (RP) API
+
+### Get All Lecturers
+
+**Endpoint:** `GET /api/all_reciter_api.php`
+
+**Parameters:**
+
+- `lim` (optional): Limit results (default: 20)
 - `page` (optional): Page number
+- `reciterid` (optional): Get specific lecturer
 
-### 5. Reciters API
+**Example:**
 
-#### Get Reciters
-
-```http
-GET /api/reciters_api.php
+```javascript
+fetch("/api/all_reciter_api.php?lim=50&page=1");
 ```
 
-**Query Parameters:**
+### Get Lecturer Charts
 
-- `langid` (optional): Language ID filter
-- `lim` (optional): Number of results
+**Endpoint:** `GET /api/rplisting_charts_api.php`
 
-## Data Models
+**Parameters:**
 
-### Lecture
+- `action` (required): `daily`, `weekly`, `monthly`
 
-```typescript
-interface Lecture {
-  id: number;
-  mp3_title: string;
-  mp3_description?: string;
-  mp3_url: string; // Direct MP3 download/stream URL
-  mp3_duration: string; // Format: "HH:MM:SS"
-  mp3_img?: string; // Lecture thumbnail image
-  key_name?: string; // Topic/keyword
-  cat_name?: string; // Category
-  lang_name?: string; // Language
-  views: number;
-  downloads: number;
-  favorites: number;
-  share: number;
-  comment: number;
-  lecturer_name?: string;
-  rp_id?: number; // Resource Person ID
-  album_title?: string;
-  album_id?: number;
-  reciter_name?: string;
-  reciter_id?: number;
+**Example:**
+
+```javascript
+fetch("/api/rplisting_charts_api.php?action=monthly");
+```
+
+---
+
+## Playlists API
+
+### Get User Playlists
+
+**Endpoint:** `GET /api/playlistApi.php`
+
+**Parameters:**
+
+- `user_id` (required): User ID
+
+**Example:**
+
+```javascript
+fetch("/api/playlistApi.php?user_id=123");
+```
+
+### Create/Update Playlist
+
+**Endpoint:** `POST /api/playlistApi.php`
+
+**Headers:**
+
+- `x-project: 206cf92c-8a46-45ef-bf3f-a6ef92fc6f25`
+
+**Body:**
+
+```json
+{
+  "action": "create", // or "update", "add_audio", "remove_audio"
+  "user_id": 123,
+  "playlist_name": "My Playlist",
+  "is_private": false,
+  "audio_ids": [1, 2, 3] // for add_audio action
 }
 ```
 
-### Resource Person
+### Get Playlist Charts
 
-```typescript
-interface ResourcePerson {
-  id: number;
-  name: string;
-  img?: string; // Profile image URL
-  biography?: string;
-  lang_id?: number;
-  lang_name?: string;
-  lectureCount?: number;
+**Endpoint:** `GET /api/playlist_charts_api.php`
+
+**Parameters:**
+
+- `action` (required): `daily`, `weekly`, `monthly`
+
+---
+
+## Authentication API
+
+### User Authentication
+
+**Endpoint:** `POST /api/user_auth.php`
+
+**Headers:**
+
+- `x-project: 206cf92c-8a46-45ef-bf3f-a6ef92fc6f25`
+
+**Body:**
+
+```json
+{
+  "action": "login", // or "register", "social_login"
+  "email": "user@example.com",
+  "password": "password123",
+  "name": "User Name" // for registration
 }
 ```
 
-### Album
+### Forgot Password
 
-```typescript
-interface Album {
-  id: number;
-  title: string;
-  description?: string;
-  image?: string; // Album cover image
-  lecturer_name?: string;
-  rp_id?: number;
-  track_count?: number;
-  total_duration?: string;
-  lang_name?: string;
-  category?: string;
+**Endpoint:** `POST /api/forgot_passwordApi.php`
+
+**Headers:**
+
+- `x-project: 206cf92c-8a46-45ef-bf3f-a6ef92fc6f25`
+
+**Body:**
+
+```json
+{
+  "action": "request", // or "reset"
+  "email": "user@example.com",
+  "code": "123456", // for reset action
+  "new_password": "newpass123" // for reset action
 }
 ```
 
-## Media URLs
+---
 
-### Audio Files
+## Charts API
 
-- **Base URL**: `https://media.dawahnigeria.com/`
-- **Path Structure**: `dnlectures3/{LecturerName}/{SeriesName}/{FileName}.mp3`
-- **Example**: `https://media.dawahnigeria.com/dnlectures3/Ustadh%20Abdulfattah%20Sarumi%20(Ilorin)/Adeenu%20Yusrun/Ustadh%20Abdulfattah%20Sarumi%20(Ilorin)_Ad-Deenu%20Yusrun%20-%20Ruqya%2007(08-08-25)%20(Yoruba)_DN.mp3`
+All chart endpoints return top 20 items sorted by the specified time period.
 
-### Images
+### Available Chart Endpoints
 
-- **Base URL**: `https://media.dawahnigeria.com/`
-- **Path Structure**: `dnimages/large/{imageId}.jpeg`
-- **Example**: `https://media.dawahnigeria.com/dnimages/large/728.jpeg`
+- `GET /api/leclisting_charts_api.php?action={daily|weekly|monthly}`
+- `GET /api/albumlisting_charts_api.php?action={daily|weekly|monthly}`
+- `GET /api/playlist_charts_api.php?action={daily|weekly|monthly}`
+- `GET /api/rplisting_charts_api.php?action={daily|weekly|monthly}`
+
+---
+
+## Comments API
+
+### Get Comments
+
+**Endpoint:** `GET /api/commentApi.php`
+
+**Parameters:**
+
+- `content_id` (required): ID of the content
+
+**Example:**
+
+```javascript
+fetch("/api/commentApi.php?content_id=123");
+```
+
+### Add Comment
+
+**Endpoint:** `POST /api/commentApi.php`
+
+**Headers:**
+
+- `x-project: 206cf92c-8a46-45ef-bf3f-a6ef92fc6f25`
+
+**Body:**
+
+```json
+{
+  "user_id": 123,
+  "content_id": 456,
+  "type": "audio", // or "album", "playlist"
+  "comment": "Great lecture!"
+}
+```
+
+---
+
+## Social Features API
+
+### Share Content
+
+**Endpoint:** `POST /api/shareApi.php`
+
+**Headers:**
+
+- `x-project: 206cf92c-8a46-45ef-bf3f-a6ef92fc6f25`
+
+**Body:**
+
+```json
+{
+  "user_id": 123,
+  "item_id": 456,
+  "type": "audio" // or "album", "rp"
+}
+```
+
+### Record Download
+
+**Endpoint:** `POST /api/download_api.php`
+
+**Headers:**
+
+- `x-project: 206cf92c-8a46-45ef-bf3f-a6ef92fc6f25`
+
+**Body:**
+
+```json
+{
+  "lec_id": 123
+}
+```
+
+---
+
+## Content Management API
+
+### Get Languages
+
+**Endpoint:** `GET /api/all_lang_api.php`
+
+**Parameters:**
+
+- `lang_id` (optional): Get specific language
+
+**Example:**
+
+```javascript
+fetch("/api/all_lang_api.php");
+```
+
+### Get Keywords
+
+**Endpoint:** `GET /api/all_keyword_api.php`
+
+**Parameters:**
+
+- `key_id` (optional): Get specific keyword
+
+### Get Genres
+
+**Endpoint:** `GET /api/genre_api.php`
+
+**Parameters:**
+
+- `document_type` (optional): `rp` or `album`
+- `document_ids` (optional): Array of IDs
+
+### Special Features
+
+**Endpoint:** `POST /api/specialFeatureApi.php`
+
+**Headers:**
+
+- `x-project: 206cf92c-8a46-45ef-bf3f-a6ef92fc6f25`
+
+**Body:**
+
+```json
+{
+  "action": "create_row",
+  "name": "Feature Name",
+  "description": "Feature Description",
+  "keywordId": 123
+}
+```
+
+---
+
+## Ramadan API
+
+### Get Ramadan Years
+
+**Endpoint:** `GET /api/ramadanlisting_api.php`
+
+**Parameters:**
+
+- `action` (required): `getAllRamadanYear`
+
+**Example:**
+
+```javascript
+fetch("/api/ramadanlisting_api.php?action=getAllRamadanYear");
+```
+
+### Get Ramadan Content by Year
+
+**Endpoint:** `GET /api/ramadanlisting_api.php`
+
+**Parameters:**
+
+- `action` (required): `getDocumentsGroupedByKeyLang`
+- `key_id` (required): Ramadan year key ID
+
+**Example:**
+
+```javascript
+fetch(
+  "/api/ramadanlisting_api.php?action=getDocumentsGroupedByKeyLang&key_id=123"
+);
+```
+
+---
+
+## Video API
+
+### Get Videos
+
+**Endpoint:** `GET /api/video_listingApi.php`
+
+**Parameters:**
+
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Results per page (default: 30)
+
+**Example:**
+
+```javascript
+fetch("/api/video_listingApi.php?page=1&limit=20");
+```
+
+---
 
 ## Error Handling
 
-### HTTP Status Codes
+All APIs return errors in this format:
 
-- `200`: Success
-- `400`: Bad Request
-- `401`: Unauthorized
-- `404`: Not Found
-- `500`: Internal Server Error
-
-### Error Response Format
-
-```typescript
-interface AppError {
-  code: string;
-  message: string;
-  details?: Record<string, unknown>;
+```json
+{
+  "success": false,
+  "error": "Error message",
+  "status": "error"
 }
 ```
 
-### Common Error Codes
+## Common Response Formats
 
-- `NETWORK_ERROR`: Network connectivity issues
-- `UNKNOWN_ERROR`: Unexpected errors
-- `HTTP_${status}`: HTTP status code errors
+### Success Response
 
-## Rate Limiting & Caching
-
-- **Retry Logic**: Exponential backoff with 3 attempts
-- **Timeout**: 30 seconds per request
-- **Caching**: Client-side caching for frequently accessed data
-- **Pagination**: Standard pagination with `page` and `lim` parameters
-
-## Usage Examples
-
-### Fetch Recent Lectures
-
-```typescript
-const lectures = await lecturesApi.getLectures({
-  lim: 20,
-  sort: "desc",
-  page: 1,
-});
+```json
+{
+  "success": true,
+  "data": [...],
+  "message": "Operation successful"
+}
 ```
 
-### Search for Specific Topic
+### Paginated Response
 
-```typescript
-const results = await searchApi.searchLectures("Ramadan", {
-  limit: 50,
-  page: 1,
-});
+```json
+{
+  "success": true,
+  "total": 150,
+  "page": 1,
+  "total_pages": 8,
+  "data": [...]
+}
 ```
 
-### Get Lecturer's Lectures
+## Usage Tips
 
-```typescript
-const person = await personsApi.getPerson(123);
-const lectures = await lecturesApi.getLectures({
-  rp_id: person.id,
-  lim: 100,
-});
+1. **Always include the `x-project` header** for POST requests
+2. **Handle pagination** properly for large datasets
+3. **Use quick search** for typeahead/autocomplete features
+4. **Cache static data** like languages, keywords, and genres
+5. **Implement proper error handling** for all API calls
+6. **Use appropriate HTTP methods** (GET for reading, POST for writing)
+7. **Validate parameters** before making API calls
+
+## JavaScript Examples
+
+### Basic Fetch with Error Handling
+
+```javascript
+async function apiCall(endpoint, options = {}) {
+  try {
+    const response = await fetch(
+      `https://dev-backend.dawahbox.com${endpoint}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "x-project": "206cf92c-8a46-45ef-bf3f-a6ef92fc6f25",
+          ...options.headers,
+        },
+        ...options,
+      }
+    );
+
+    const data = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.error || "API call failed");
+    }
+
+    return data;
+  } catch (error) {
+    console.error("API Error:", error);
+    throw error;
+  }
+}
+
+// Usage examples:
+const lectures = await apiCall("/api/leclistingapi.php?page=1&limit=20");
+const searchResults = await apiCall(
+  "/api/searchApi.php?type=lectures&value=quran"
+);
 ```
 
-## Notes
+### React Hook Example
 
-- All audio files are streamed directly from the media server
-- Images are served from the same media domain
-- The API supports multiple languages (English, Yoruba, Hausa, Arabic)
-- Download tracking is implemented for analytics
-- Background audio playback is supported in the mobile app
+```javascript
+import { useState, useEffect } from "react";
+
+function useDawahBoxAPI(endpoint) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setLoading(true);
+        const result = await apiCall(endpoint);
+        setData(result.data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, [endpoint]);
+
+  return { data, loading, error };
+}
+
+// Usage:
+const {
+  data: lectures,
+  loading,
+  error,
+} = useDawahBoxAPI("/api/leclistingapi.php?page=1");
+```
