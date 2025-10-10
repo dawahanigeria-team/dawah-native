@@ -1,7 +1,12 @@
 import { designTokens } from "../theme/designTokens";
 
 // Generate consistent colors based on string hash
-export const getPlaceholderColor = (id: string): string => {
+export const getPlaceholderColor = (id: string | undefined): string => {
+  // Fallback if id is undefined or empty
+  if (!id || typeof id !== 'string') {
+    return "#4ECDC4"; // Default teal color
+  }
+
   const hash = id.split("").reduce((a, b) => {
     a = ((a << 5) - a + b.charCodeAt(0)) & 0xffffffff;
     return a;
@@ -40,7 +45,7 @@ export const getInitials = (title: string): string => {
 };
 
 // Generate a more sophisticated placeholder component
-export const getPlaceholderStyle = (id: string, size: number) => {
+export const getPlaceholderStyle = (id: string | undefined, size: number) => {
   const color = getPlaceholderColor(id);
 
   return {

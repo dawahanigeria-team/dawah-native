@@ -58,18 +58,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="search"
-        options={{
-          title: "Search",
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name="search" size={focused ? 26 : 24} color={color} />
-          ),
-        }}
-        listeners={{
-          tabPress: handleTabPress,
-        }}
-      />
-      <Tabs.Screen
         name="library"
         options={{
           title: "Library",
