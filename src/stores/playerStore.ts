@@ -18,11 +18,24 @@ const initialState: PlayerState = {
 export const playerStore = entity(initialState);
 
 export const usePlayerStore = () => {
-  const state = playerStore.use();
+  // Use try-catch to handle potential initialization issues
+  let state: PlayerState;
+
+  try {
+    state = playerStore.use();
+  } catch (error) {
+    console.warn('PlayerStore initialization issue, using default state:', error);
+    state = initialState;
+  }
+
+  // Ensure state is valid
+  if (!state) {
+    state = initialState;
+  }
 
   const playEpisode = (episode: Episode) => {
     playerStore.set({
-      ...state,
+      ...playerStore.get(),
       currentEpisode: episode,
       isPlaying: true,
       progress: 0,
@@ -33,78 +46,82 @@ export const usePlayerStore = () => {
   };
 
   const togglePlayPause = () => {
+    const currentState = playerStore.get();
     playerStore.set({
-      ...state,
-      isPlaying: !state.isPlaying,
+      ...currentState,
+      isPlaying: !currentState.isPlaying,
     });
   };
 
   const setProgress = (progress: number) => {
     playerStore.set({
-      ...state,
+      ...playerStore.get(),
       progress,
     });
   };
 
   const expandPlayer = () => {
     playerStore.set({
-      ...state,
+      ...playerStore.get(),
       isExpanded: true,
     });
   };
 
   const minimizePlayer = () => {
     playerStore.set({
-      ...state,
+      ...playerStore.get(),
       isExpanded: false,
     });
   };
 
   const likeEpisode = (episodeId: string) => {
-    if (state.currentEpisode?.id === episodeId) {
+    const currentState = playerStore.get();
+    if (currentState.currentEpisode?.id === episodeId) {
       playerStore.set({
-        ...state,
+        ...currentState,
         currentEpisode: {
-          ...state.currentEpisode,
-          liked: !state.currentEpisode.liked,
+          ...currentState.currentEpisode,
+          liked: !currentState.currentEpisode.liked,
         },
       });
     }
   };
 
   const seekForward = (seconds: number = 15) => {
-    const newProgress = Math.min(state.progress + seconds, state.duration);
+    const currentState = playerStore.get();
+    const newProgress = Math.min(currentState.progress + seconds, currentState.duration);
     playerStore.set({
-      ...state,
+      ...currentState,
       progress: newProgress,
     });
   };
 
   const seekBackward = (seconds: number = 15) => {
-    const newProgress = Math.max(state.progress - seconds, 0);
+    const currentState = playerStore.get();
+    const newProgress = Math.max(currentState.progress - seconds, 0);
     playerStore.set({
-      ...state,
+      ...currentState,
       progress: newProgress,
     });
   };
 
   const setPlaybackSpeed = (speed: number) => {
     playerStore.set({
-      ...state,
+      ...playerStore.get(),
       playbackSpeed: speed,
     });
   };
 
   const setVolume = (volume: number) => {
     playerStore.set({
-      ...state,
+      ...playerStore.get(),
       volume: Math.max(0, Math.min(1, volume)),
     });
   };
 
   const setLoading = (isLoading: boolean) => {
     playerStore.set({
-      ...state,
+      ...playerStore.get(),
       isLoading,
     });
   };

@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import React, { memo, useState } from "react";
 import { View, ViewStyle } from "react-native";
-import { usePlayerStore } from "../../stores/playerStore";
+import { usePlayerStore } from "../../stores";
 import { BorderRadius, designTokens } from "../../theme/designTokens";
 import { Episode, Series } from "../../types/types";
 import { getInitials, getPlaceholderStyle } from "../../utils/colorPlaceholder";
@@ -13,6 +13,7 @@ interface CardProps {
   data: Episode | Series;
   onPress?: () => void;
   showTime?: boolean;
+  time?: string;
   showBadge?: boolean;
   badgeText?: string;
   showMeta?: boolean;
@@ -27,6 +28,7 @@ export const Card: React.FC<CardProps> = memo(
     data,
     onPress,
     showTime = false,
+    time,
     showBadge = false,
     badgeText = "DN",
     showMeta = false,
@@ -126,7 +128,7 @@ export const Card: React.FC<CardProps> = memo(
                 </View>
               )}
 
-              {showTime && episode && (
+              {showTime && (episode || time) && (
                 <View
                   style={{
                     position: "absolute",
@@ -139,7 +141,7 @@ export const Card: React.FC<CardProps> = memo(
                   }}
                 >
                   <Text variant="caption1" color="brand">
-                    {formatDuration(episode.durationSec)}
+                    {time || (episode ? formatDuration(episode.durationSec) : '')}
                   </Text>
                 </View>
               )}

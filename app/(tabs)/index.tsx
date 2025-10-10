@@ -1,14 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, Text, TouchableOpacity, View, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../../src/components/molecules/Card";
 import { SearchBar } from "../../src/components/molecules/SearchBar";
 import { ActionGrid } from "../../src/components/organisms/ActionGrid";
 import { HeroCarousel } from "../../src/components/organisms/HeroCarousel";
 import { Row } from "../../src/components/organisms/Row";
-import { usePlayerStore } from "../../src/stores/playerStore";
+import { usePlayerStore } from "../../src/stores";
+import { usePopularLectures } from "../../src/hooks/usePopularLectures";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Episode, Series } from "../../src/types/types";
@@ -128,18 +129,25 @@ const mockSeries: Series[] = [
 export default function HomeScreen() {
   const { playEpisode } = usePlayerStore();
 
+  // Fetch popular lectures for the carousel
+  const { episodes: popularEpisodes, loading: popularLoading, error: popularError } = usePopularLectures(10);
+
   const handleEpisodePress = (episode: Episode) => {
     playEpisode(episode);
   };
 
-  const handleSearch = (query: string) => {
-    // In a real app, this would trigger a search
-    console.log("Search query:", query);
+  const handleSearchSubmit = (query: string) => {
+    // Navigate to search page when user submits
+    if (query.trim()) {
+      router.push(`/search?q=${encodeURIComponent(query)}`);
+    } else {
+      router.push("/search");
+    }
   };
 
   const handleMicPress = () => {
-    // In a real app, this would open voice search
-    console.log("Voice search pressed");
+    // Navigate to search page for voice search
+    router.push("/search?voice=true");
   };
 
   return (
@@ -201,9 +209,14 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Search Bar */}
+      {/* Search Bar - Real functional search */}
       <View style={tw`px-4 mb-4`}>
-        <SearchBar onSearch={handleSearch} onMicPress={handleMicPress} />
+        <SearchBar
+          placeholder="Search lectures, scholars..."
+          onSearch={handleSearchSubmit}
+          onMicPress={handleMicPress}
+          disabled={false}
+        />
       </View>
 
       <ScrollView
@@ -212,11 +225,33 @@ export default function HomeScreen() {
         contentContainerStyle={tw`pb-20`}
         accessibilityLabel="Home content"
       >
-        {/* Hero Carousel */}
-        <HeroCarousel
-          items={mockEpisodes.slice(0, 5)}
-          onItemPress={handleEpisodePress}
-        />
+        {/* Hero Carousel - Popular Lectures */}
+        {popularLoading ? (
+          <View style={tw`h-56 items-center justify-center`}>
+            <ActivityIndicator size="large" color={designTokens.colors.brand.primary} />
+            <Text style={tw`text-white mt-2`}>Loading popular lectures...</Text>
+          </View>
+        ) : popularError ? (
+          <View style={tw`h-56 items-center justify-center px-6`}>
+            <Text style={tw`text-white text-center`}>Failed to load popular lectures</Text>
+            <Text style={tw`text-gray-400 text-sm text-center mt-1`}>Using offline content</Text>
+            <HeroCarousel
+              items={mockEpisodes.slice(0, 5)}
+              onItemPress={handleEpisodePress}
+            />
+          </View>
+        ) : popularEpisodes.length > 0 ? (
+          <HeroCarousel
+            items={popularEpisodes}
+            onItemPress={handleEpisodePress}
+          />
+        ) : (
+          // Fallback to mock data if no popular lectures
+          <HeroCarousel
+            items={mockEpisodes.slice(0, 5)}
+            onItemPress={handleEpisodePress}
+          />
+        )}
 
         {/* Action Grid */}
         <ActionGrid />
