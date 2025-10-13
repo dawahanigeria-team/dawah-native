@@ -27,7 +27,13 @@ export interface Episode {
   liked: boolean;
   language: string;
   downloads: number;
-  createdAt: string; // ISO date string
+  createdAt: string;
+}
+
+export interface RecentPlay {
+  episode: Episode;
+  lastPlayedAt: string; 
+  progress?: number; 
 }
 
 export interface Category {
@@ -42,6 +48,13 @@ export interface Playlist {
   title: string;
   coverUrl: string;
   itemCount: number;
+}
+
+export interface SliderImage {
+  id: string;
+  title: string;
+  imageUrl: string;
+  link?: string;
 }
 
 export interface PlayerState {
@@ -65,6 +78,15 @@ export type RootTabParamList = {
   Profile: undefined;
 };
 
+export type SearchResult = Episode | Lecturer | Series | Category;
+
+export type SearchResultType = 'episode' | 'lecturer' | 'series' | 'category';
+
+export interface SearchResultItem {
+  type: SearchResultType;
+  data: SearchResult;
+}
+
 export type RootStackParamList = {
   Home: undefined;
   Category: { category: Category };
@@ -74,3 +96,5 @@ export type RootStackParamList = {
   PlayerFull: { episode: Episode };
   Settings: undefined;
 };
+
+export type { AudioStatus } from 'expo-audio';

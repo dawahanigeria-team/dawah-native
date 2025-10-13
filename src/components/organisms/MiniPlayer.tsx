@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { usePathname } from "expo-router";
-import React, { memo, useEffect, useState } from "react";
+import React, { memo, useState } from "react";
 import {
   Dimensions,
   Pressable,
@@ -59,7 +59,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       seekBackward,
       downloadEpisode,
       closePlayer,
-      setProgress,
+      seekTo,
     } = usePlayerStore();
 
     const [imageError, setImageError] = useState(false);
@@ -122,20 +122,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       };
     });
 
-    // Simulate audio progress (in real implementation, this would come from expo-av)
-    useEffect(() => {
-      if (!currentEpisode) return;
 
-      let interval: ReturnType<typeof setInterval>;
-      if (isPlaying && !isLoading) {
-        interval = setInterval(() => {
-          setProgress(Math.min(progress + 1, duration));
-        }, 1000);
-      }
-      return () => {
-        if (interval) clearInterval(interval);
-      };
-    }, [isPlaying, isLoading, progress, duration, setProgress, currentEpisode]);
 
     // Don't render if no episode is playing
     if (!currentEpisode) {
@@ -180,7 +167,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                   (event.nativeEvent.x / containerWidth) * duration
                 )
               );
-              setProgress(newProgress);
+              seekTo(newProgress);
             }}
           >
             <View style={styles.progressTrack}>
@@ -442,7 +429,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                         (event.nativeEvent.x / trackWidth) * duration
                       )
                     );
-                    setProgress(newProgress);
+                    seekTo(newProgress);
                   }}
                 >
                   <View style={styles.progressSliderTrack}>

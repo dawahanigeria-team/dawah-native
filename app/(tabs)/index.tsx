@@ -1,20 +1,20 @@
-import { Ionicons } from "@expo/vector-icons";
+ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../../src/components/molecules/Card";
 import { SearchBar } from "../../src/components/molecules/SearchBar";
-import { ActionGrid } from "../../src/components/organisms/ActionGrid";
+import { ActionGrid } from "../../src/components/organisms";
 import { HeroCarousel } from "../../src/components/organisms/HeroCarousel";
 import { Row } from "../../src/components/organisms/Row";
+import { getSliderImages, getRecentLectures, getFeaturedLectures, getRecentPlays, getTrendingLectures } from "../../src/services";
 import { usePlayerStore } from "../../src/stores/playerStore";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
-import { Episode, Series } from "../../src/types/types";
+import { Episode, SliderImage, RecentPlay, Series } from "../../src/types/types";
 import { getRandomScholar } from "../../src/utils/scholarNames";
 
-// Mock data - in a real app this would come from an API
 const mockEpisodes: Episode[] = [
   {
     id: "1",
@@ -88,47 +88,74 @@ const mockEpisodes: Episode[] = [
   },
 ];
 
-const mockSeries: Series[] = [
-  {
-    id: "1",
-    title: "Tafsir Al-Qur'an",
-    coverUrl:
-      "https://images.unsplash.com/photo-1542810634-71277d95dcbb?w=300&h=300&fit=crop",
-    language: "Hausa",
-    tags: ["Tafsir", "Qur'an", "Islamic Studies"],
-    lecturerId: "1",
-  },
-  {
-    id: "2",
-    title: "Akhlaq & Character Building",
-    coverUrl: "", // Empty to show placeholder
-    language: "English",
-    tags: ["Akhlaq", "Character", "Ethics"],
-    lecturerId: "2",
-  },
-  {
-    id: "3",
-    title: "Women in Islam",
-    coverUrl: "", // Empty to show placeholder
-    language: "Yoruba",
-    tags: ["Women", "Islamic Rights", "Empowerment"],
-    lecturerId: "3",
-  },
-  {
-    id: "4",
-    title: "Islamic History & Civilization",
-    coverUrl:
-      "https://images.unsplash.com/photo-1447069388813-9e89e38406f7?w=300&h=300&fit=crop",
-    language: "Hausa",
-    tags: ["History", "Civilization", "Islamic Heritage"],
-    lecturerId: "4",
-  },
-];
-
 export default function HomeScreen() {
   const { playEpisode } = usePlayerStore();
+  const [sliderImages, setSliderImages] = useState<SliderImage[]>([]);
+  const [recentLectures, setRecentLectures] = useState<Episode[]>([]);
+  const [featuredLectures, setFeaturedLectures] = useState<Series[]>([]);
+  const [trendingLectures, setTrendingLectures] = useState<Episode[]>([]);
+  const [recentPlays, setRecentPlays] = useState<RecentPlay[]>([]);
 
-  const handleEpisodePress = (episode: Episode) => {
+  useEffect(() => {
+    const fetchSliderImages = async () => {
+      try {
+        const images = await getSliderImages();
+        setSliderImages(images);
+      } catch (error) {
+        console.error('Failed to fetch slider images:', error);
+        // Keep empty array on error
+      }
+    };
+
+    const fetchRecentLectures = async () => {
+      try {
+        const lectures = await getRecentLectures(1);
+        setRecentLectures(lectures);
+      } catch (error) {
+        console.error('Failed to fetch recent lectures:', error);
+        // Keep empty array on error
+      }
+    };
+
+    const fetchFeaturedLectures = async () => {
+      try {
+        const lectures = await getFeaturedLectures(1);
+        setFeaturedLectures(lectures);
+      } catch (error) {
+        console.error('Failed to fetch featured lectures:', error);
+        // Keep empty array on error
+      }
+    };
+
+    const fetchTrendingLectures = async () => {
+      try {
+        const lectures = await getTrendingLectures(6, 1);
+        setTrendingLectures(lectures);
+      } catch (error) {
+        console.error('Failed to fetch trending lectures:', error);
+        // Keep empty array on error
+      }
+    };
+
+    const fetchRecentPlays = async () => {
+      try {
+        const plays = await getRecentPlays('1'); // Placeholder user ID
+        setRecentPlays(plays);
+      } catch (error) {
+        console.error('Failed to fetch recent plays:', error);
+        // Keep empty array on error
+      }
+    };
+
+    fetchSliderImages();
+    fetchRecentLectures();
+    fetchFeaturedLectures();
+    fetchTrendingLectures();
+    fetchRecentPlays();
+  }, []);
+
+  const handleEpisodePress = (item: Episode | SliderImage) => {
+    const episode = item as Episode;
     playEpisode(episode);
   };
 
@@ -140,6 +167,20 @@ export default function HomeScreen() {
   const handleMicPress = () => {
     // In a real app, this would open voice search
     console.log("Voice search pressed");
+  };
+
+  const handleSliderPress = (item: SliderImage | Episode) => {
+    // Handle slider item press - navigate to featured content or open link
+    if ('imageUrl' in item) {
+      const slider = item as SliderImage;
+      if (slider.link) {
+        // Open link if available
+        console.log('Open link:', slider.link);
+      } else {
+        // Navigate to featured section
+        router.push('/section/featured');
+      }
+    }
   };
 
   return (
@@ -183,7 +224,7 @@ export default function HomeScreen() {
           </Text>
 
           {/* Right side - Notifications */}
-          <View style={tw`w-8`}>
+          <View style={tw`flex-row items-center`}>
             <TouchableOpacity
               style={tw`items-center justify-center`}
               accessibilityLabel="Notifications"
@@ -212,11 +253,17 @@ export default function HomeScreen() {
         contentContainerStyle={tw`pb-20`}
         accessibilityLabel="Home content"
       >
-        {/* Hero Carousel */}
-        <HeroCarousel
-          items={mockEpisodes.slice(0, 5)}
-          onItemPress={handleEpisodePress}
-        />
+        {/* Slider Carousel */}
+        {sliderImages.length > 0 && (
+          <HeroCarousel
+            items={sliderImages}
+            type="slider"
+            height={200}
+            autoplay={true}
+            autoplayInterval={4000}
+            onItemPress={handleSliderPress}
+          />
+        )}
 
         {/* Action Grid */}
         <ActionGrid />
@@ -227,12 +274,10 @@ export default function HomeScreen() {
           subtitle="Continue where you left off"
           onSeeAll={() => router.push("/section/recently-played")}
         >
-          {mockEpisodes.slice(0, 3).map((episode, index) => (
+          {(recentPlays.length > 0 ? recentPlays.map(play => play.episode) : mockEpisodes).slice(0, 3).map((episode, index) => (
             <View
-              key={episode.id}
-              style={tw`${
-                index < mockEpisodes.slice(0, 3).length - 1 ? "mr-4" : ""
-              } w-80`}
+              key={`recent-play-${episode.id}`}
+              style={[tw`w-80`, index < 2 && tw`mr-4`]}
             >
               <Card
                 variant="landscape"
@@ -240,7 +285,7 @@ export default function HomeScreen() {
                 onPress={() => handleEpisodePress(episode)}
                 showTime={true}
                 showMeta={true}
-                metaValue={getRandomScholar(`recently-played-${episode.id}`)}
+                metaValue={getRandomScholar(`recent-play-${episode.id}`)}
               />
             </View>
           ))}
@@ -252,12 +297,10 @@ export default function HomeScreen() {
           subtitle="Latest content from our scholars"
           onSeeAll={() => router.push("/section/recently-posted")}
         >
-          {mockEpisodes.slice(0, 3).map((episode, index) => (
+          {(recentLectures.length > 0 ? recentLectures : mockEpisodes).slice(0, 3).map((episode, index) => (
             <View
               key={`recent-${episode.id}`}
-              style={tw`${
-                index < mockEpisodes.slice(0, 3).length - 1 ? "mr-4" : ""
-              } w-80`}
+              style={[tw`w-80`, index < 2 && tw`mr-4`]}
             >
               <Card
                 variant="landscape"
@@ -277,40 +320,47 @@ export default function HomeScreen() {
           subtitle="Handpicked content for you"
           onSeeAll={() => router.push("/section/featured-lectures")}
         >
-          {mockEpisodes.slice(0, 3).map((episode, index) => (
+          {(featuredLectures.length > 0 ? featuredLectures : mockEpisodes).slice(0, 3).map((item, index) => (
             <View
-              key={`featured-${episode.id}`}
-              style={tw`${
-                index < mockEpisodes.slice(0, 3).length - 1 ? "mr-4" : ""
-              } w-80`}
+              key={`featured-${item.id}`}
+              style={[tw`w-80`, index < 2 && tw`mr-4`]}
             >
               <Card
                 variant="landscape"
-                data={episode}
-                onPress={() => handleEpisodePress(episode)}
-                showTime={true}
+                data={item}
+                onPress={() => {
+                  if ("durationSec" in item) {
+                    handleEpisodePress(item);
+                  } else {
+                    // Handle series press - navigate to series page
+                    console.log("Series pressed:", item.title);
+                  }
+                }}
+                showTime={"durationSec" in item}
                 showMeta={true}
-                metaValue={getRandomScholar(`featured-${episode.id}`)}
+                metaValue={getRandomScholar(`featured-${item.id}`)}
+                showBadge={!("durationSec" in item)}
+                badgeText="DN"
               />
             </View>
           ))}
         </Row>
 
-        {/* Trending Series */}
+        {/* Trending Lectures */}
         <Row title="Trending" onSeeAll={() => router.push("/section/trending")}>
-          {mockSeries
-            .concat(mockSeries, mockSeries, mockSeries, mockSeries)
+          {(trendingLectures.length > 0 ? trendingLectures : mockEpisodes)
+            .concat(mockEpisodes, mockEpisodes, mockEpisodes, mockEpisodes)
             .slice(0, 15)
-            .map((series, index) => (
+            .map((episode, index) => (
               <View
-                key={`trending-${series.id}-${index}`}
+                key={`trending-${episode.id}-${index}`}
                 style={tw`${index < 14 ? "mr-4" : ""}`}
               >
                 <View style={{ width: 140 }}>
                   <Card
                     variant="square"
-                    data={series}
-                    onPress={() => console.log("Series pressed:", series.title)}
+                    data={episode}
+                    onPress={() => handleEpisodePress(episode)}
                     showBadge={false}
                   />
                 </View>

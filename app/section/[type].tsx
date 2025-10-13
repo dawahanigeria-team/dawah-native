@@ -1,12 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Chip, Text } from "../../src/components/atoms";
+import { Chip, Skeleton, Text } from "../../src/components/atoms";
 import { Card } from "../../src/components/molecules/Card";
 import { SearchBar } from "../../src/components/molecules/SearchBar";
-
+import { getRecentLectures, getTrendingLectures, getFeaturedLectures } from "../../src/services/media";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Episode, Series } from "../../src/types/types";
@@ -166,7 +166,7 @@ const getSectionInfo = (type: string) => {
         description:
           "Handpicked content curated by our scholars for your spiritual growth and learning",
         count: 20,
-        data: generateSectionData(type).episodes,
+        data: [], // Will be loaded dynamically
         variant: "section" as const,
       };
     case "recently-posted":
@@ -175,7 +175,7 @@ const getSectionInfo = (type: string) => {
         description:
           "Latest content from our scholars, fresh insights and teachings",
         count: 20,
-        data: generateSectionData(type).episodes,
+        data: [], // Will be loaded dynamically
         variant: "section" as const,
       };
     case "recently-played":
@@ -191,7 +191,7 @@ const getSectionInfo = (type: string) => {
         title: "Trending",
         description: "Most popular and engaging content loved by our community",
         count: 20,
-        data: generateSectionData(type).episodes,
+        data: [], // Will be loaded dynamically
         variant: "section" as const,
       };
     case "quran-recitations":
@@ -199,7 +199,7 @@ const getSectionInfo = (type: string) => {
         title: "Quran Recitations",
         description: "Beautiful recitations and tafsir of the Holy Quran",
         count: 20,
-        data: generateSectionData(type).episodes,
+        data: [], // Will be loaded dynamically
         variant: "section" as const,
       };
     default:
@@ -225,13 +225,73 @@ export default function SectionScreen() {
     useState<LanguageFilter>("all");
   const [sortBy, setSortBy] = useState<SortOption>("recent");
   const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const [dynamicData, setDynamicData] = useState<Episode[] | Series[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  // Show filters only for trending section
-  const showFilters = type === "trending";
+  // Show filters only for trending and recently-posted sections (not for featured-lectures since it's series data)
+  const showFilters = type === "trending" || type === "recently-posted";
+
+  // Load dynamic data for recently-posted, trending, featured-lectures, and quran-recitations sections
+  useEffect(() => {
+    if (type === "recently-posted") {
+      const loadRecentLectures = async () => {
+        setLoading(true);
+        try {
+          // Load multiple pages to get more content
+          const allLectures: Episode[] = [];
+          for (let page = 1; page <= 5; page++) {
+            const lectures = await getRecentLectures(page);
+            allLectures.push(...lectures);
+            if (lectures.length === 0) break; // No more data
+          }
+          setDynamicData(allLectures);
+        } catch (error) {
+          console.error('Failed to load recent lectures:', error);
+          setDynamicData([]);
+        } finally {
+          setLoading(false);
+        }
+      };
+      loadRecentLectures();
+    } else if (type === "trending") {
+      const loadTrendingLectures = async () => {
+        setLoading(true);
+        try {
+          // Load a large batch of trending lectures (100 items)
+          const lectures = await getTrendingLectures(6, 1, 100);
+          setDynamicData(lectures);
+        } catch (error) {
+          console.error('Failed to load trending lectures:', error);
+          setDynamicData([]);
+        } finally {
+          setLoading(false);
+        }
+      };
+      loadTrendingLectures();
+    } else if (type === "featured-lectures") {
+      const loadFeaturedLectures = async () => {
+        setLoading(true);
+        try {
+          // Load featured albums/series
+          const series = await getFeaturedLectures(7, 1, 20);
+          setDynamicData(series);
+        } catch (error) {
+          console.error('Failed to load featured lectures:', error);
+          setDynamicData([]);
+        } finally {
+          setLoading(false);
+        }
+      };
+      loadFeaturedLectures();
+    } else {
+      // For other sections, set loading to false immediately
+      setLoading(false);
+    }
+  }, [type]);
 
   // Filter and sort data based on search query, language, and sort option
   const filteredData = useMemo(() => {
-    let data = [...sectionInfo.data];
+    let data = (type === "recently-posted" || type === "trending" || type === "featured-lectures") ? [...dynamicData] : [...sectionInfo.data];
 
     // Apply search filter
     if (searchQuery.trim()) {
@@ -301,7 +361,7 @@ export default function SectionScreen() {
     }
 
     return data;
-  }, [sectionInfo.data, searchQuery, selectedLanguage, sortBy, showFilters]);
+  }, [sectionInfo.data, searchQuery, selectedLanguage, sortBy, showFilters, dynamicData, type]);
 
   const handleSeriesPress = (series: Series) => {
     console.log("Series pressed:", series.title);
@@ -372,7 +432,7 @@ export default function SectionScreen() {
               color="secondaryLabel"
               style={tw`font-medium`}
             >
-              {sectionInfo.count} lectures
+              {(type === "recently-posted" || type === "trending" || type === "featured-lectures") ? (loading ? "Loading..." : `${filteredData.length} ${type === "featured-lectures" ? "albums" : "lectures"}`) : `${sectionInfo.count} lectures`}
             </Text>
           </View>
         </View>
@@ -401,7 +461,7 @@ export default function SectionScreen() {
           {searchQuery.trim() && (
             <View style={tw`mt-3 flex-row items-center justify-between`}>
               <Text variant="caption1" color="secondaryLabel">
-                {filteredData.length} of {sectionInfo.count} results
+                {filteredData.length} of {(type === "recently-posted" || type === "trending" || type === "featured-lectures") ? filteredData.length : sectionInfo.count} results
               </Text>
               {searchQuery.trim() && (
                 <TouchableOpacity
@@ -548,7 +608,67 @@ export default function SectionScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {filteredData.length === 0 ? (
+        {loading ? (
+          // Show skeleton while loading
+          <View
+            style={[
+              tw`px-6`,
+              {
+                paddingTop: showFilters
+                  ? designTokens.spacing.md
+                  : designTokens.spacing.lg,
+              },
+            ]}
+          >
+            {Array.from({ length: 5 }).map((_, index) => (
+              <View key={`skeleton-${index}`} style={tw`mb-4`}>
+                <View
+                  style={[
+                    tw`p-4 rounded-xl`,
+                    {
+                      backgroundColor: designTokens.colors.system.background.secondary,
+                      shadowColor: designTokens.colors.system.label.primary,
+                      shadowOffset: { width: 0, height: 1 },
+                      shadowOpacity: 0.04,
+                      shadowRadius: 4,
+                      elevation: 1,
+                    },
+                  ]}
+                >
+                  <View style={tw`flex-row items-center`}>
+                    {/* Thumbnail skeleton */}
+                    <Skeleton
+                      width={64}
+                      height={64}
+                      borderRadius={8}
+                      style={tw`mr-4`}
+                    />
+                    {/* Content skeleton */}
+                    <View style={tw`flex-1`}>
+                      {/* Title skeleton */}
+                      <Skeleton
+                        height={16}
+                        width="80%"
+                        style={tw`mb-2`}
+                      />
+                      {/* Meta skeleton */}
+                      <Skeleton
+                        height={12}
+                        width="60%"
+                        style={tw`mb-1`}
+                      />
+                      {/* Duration skeleton */}
+                      <Skeleton
+                        height={12}
+                        width="40%"
+                      />
+                    </View>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : filteredData.length === 0 ? (
           <View style={tw`flex-1 items-center justify-center py-20`}>
             <View
               style={[
@@ -592,17 +712,10 @@ export default function SectionScreen() {
               },
             ]}
           >
-            {filteredData.map((item) => (
-              <View key={item.id}>
-                {sectionInfo.variant === "section" ? (
-                  <Card
-                    variant="section"
-                    data={item as Episode}
-                    showTime={true}
-                    showMeta={true}
-                    metaValue={getRandomScholar(item.id)}
-                  />
-                ) : (
+            {filteredData.map((item, index) => (
+              <View key={`${item.id}-${index}`}>
+                {type === "featured-lectures" ? (
+                  // For featured lectures (series), use square cards
                   <View style={tw`items-center mb-6`}>
                     <View
                       style={[
@@ -620,9 +733,9 @@ export default function SectionScreen() {
                     >
                       <Card
                         variant="square"
-                        data={item as unknown as Series}
+                        data={item as Series}
                         onPress={() =>
-                          handleSeriesPress(item as unknown as Series)
+                          handleSeriesPress(item as Series)
                         }
                         showBadge={false}
                       />
@@ -636,6 +749,15 @@ export default function SectionScreen() {
                       </Text>
                     </View>
                   </View>
+                ) : (
+                  // For other sections (episodes), use section cards
+                  <Card
+                    variant="section"
+                    data={item as Episode}
+                    showTime={true}
+                    showMeta={true}
+                    metaValue={getRandomScholar(item.id)}
+                  />
                 )}
               </View>
             ))}

@@ -1,13 +1,15 @@
-import { Ionicons } from "@expo/vector-icons";
+ import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Dropdown } from "../../src/components/atoms/Dropdown";
+import { Skeleton } from "../../src/components/atoms/Skeleton";
 import { Card } from "../../src/components/molecules/Card";
 import { FilterSection } from "../../src/components/molecules/FilterSection";
 import { SearchBar } from "../../src/components/molecules/SearchBar";
 import { Surah, surahs } from "../../src/data/surahs";
 import { usePlayerStore } from "../../src/stores/playerStore";
+import { searchLectures, searchAllContent } from "../../src/services/search";
 import tw from "../../src/theme/twrnc";
 import {
   Language,
@@ -46,7 +48,7 @@ const sortOptions = [
 interface ExtendedEpisode extends Episode {
   followers?: number;
   views?: number;
-  language?: Language;
+  language: Language;
   topic?: Topic;
   surah?: string;
 }
@@ -68,9 +70,11 @@ const mockSearchResults: (ExtendedEpisode | ExtendedSeries)[] = [
     seriesId: "1",
     plays: 1250,
     liked: true,
+    language: "English",
+    downloads: 0,
+    createdAt: "",
     followers: 15400,
     views: 45600,
-    language: "English",
     topic: "Tafsir",
   },
   {
@@ -95,9 +99,11 @@ const mockSearchResults: (ExtendedEpisode | ExtendedSeries)[] = [
     seriesId: "2",
     plays: 756,
     liked: true,
+    language: "Yoruba",
+    downloads: 0,
+    createdAt: "",
     followers: 8200,
     views: 23400,
-    language: "Yoruba",
     topic: "Faith & Creed",
   },
   {
@@ -109,9 +115,11 @@ const mockSearchResults: (ExtendedEpisode | ExtendedSeries)[] = [
     seriesId: "3",
     plays: 2100,
     liked: false,
+    language: "English",
+    downloads: 0,
+    createdAt: "",
     followers: 34500,
     views: 89000,
-    language: "English",
     topic: "Quran Recitation",
     surah: "Al-Fatiha",
   },
@@ -125,9 +133,11 @@ const mockSearchResults: (ExtendedEpisode | ExtendedSeries)[] = [
     seriesId: "4",
     plays: 1800,
     liked: true,
+    language: "English",
+    downloads: 0,
+    createdAt: "",
     followers: 12300,
     views: 34500,
-    language: "English",
     topic: "Ramadan",
   },
   {
@@ -139,9 +149,11 @@ const mockSearchResults: (ExtendedEpisode | ExtendedSeries)[] = [
     seriesId: "5",
     plays: 980,
     liked: false,
+    language: "Igbo",
+    downloads: 0,
+    createdAt: "",
     followers: 7800,
     views: 18900,
-    language: "Igbo",
     topic: "Charity",
   },
   {
@@ -153,9 +165,11 @@ const mockSearchResults: (ExtendedEpisode | ExtendedSeries)[] = [
     seriesId: "6",
     plays: 3400,
     liked: true,
+    language: "English",
+    downloads: 0,
+    createdAt: "",
     followers: 56700,
     views: 134000,
-    language: "English",
     topic: "Quran Recitation",
     surah: "Al-Baqarah",
   },
@@ -165,20 +179,58 @@ export default function SearchScreen() {
   const { playEpisode } = usePlayerStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [searchResults, setSearchResults] = useState<(ExtendedEpisode | ExtendedSeries)[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [filters, setFilters] = useState<SearchFilters>({
     language: "All",
     topic: "All",
-    surah: "All",
+    surah: "All" as Surah,
     sortBy: "followers",
-  });
+  } as SearchFilters);
 
-  const handleSearch = (query: string) => {
+  const handleSearch = async (query: string) => {
     setSearchQuery(query);
+
+    if (query.trim()) {
+      setIsSearching(true);
+      try {
+        // Use the API search functions
+        const [lecturesResults, allContentResults] = await Promise.all([
+          searchLectures(query),
+          searchAllContent(query)
+        ]);
+
+        // Combine and deduplicate results
+        const combinedResults = [...lecturesResults, ...allContentResults];
+        const uniqueResults = combinedResults.filter((item, index, self) =>
+          index === self.findIndex((t) => t.id === item.id)
+        );
+
+        // Convert to ExtendedEpisode format for display
+        const extendedResults: ExtendedEpisode[] = uniqueResults.map(episode => ({
+          ...episode,
+          language: episode.language as Language,
+          followers: Math.floor(Math.random() * 50000) + 1000, // Mock followers
+          views: episode.plays * 2, // Mock views based on plays
+          topic: "Faith & Creed" as Topic, // Default topic
+        }));
+
+        setSearchResults(extendedResults);
+      } catch (error) {
+        console.error('Search failed:', error);
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    } else {
+      setSearchResults([]);
+      setIsSearching(false);
+    }
   };
 
   const updateFilter = <K extends keyof SearchFilters>(
     key: K,
-    value: SearchFilters[K]
+    value: any
   ) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
@@ -191,15 +243,28 @@ export default function SearchScreen() {
     setFilters({
       language: "All",
       topic: "All",
-      surah: "All",
+      surah: "All" as Surah,
       sortBy: "followers",
-    });
+    } as SearchFilters);
   };
 
   const handleItemPress = (item: ExtendedEpisode | ExtendedSeries) => {
     if ("durationSec" in item) {
       // It's an episode
-      playEpisode(item as Episode);
+      const episode: Episode = {
+        id: item.id,
+        title: item.title,
+        durationSec: item.durationSec,
+        coverUrl: item.coverUrl,
+        audioUrl: item.audioUrl,
+        seriesId: item.seriesId,
+        plays: item.plays,
+        liked: item.liked,
+        language: item.language,
+        downloads: item.downloads,
+        createdAt: item.createdAt,
+      };
+      playEpisode(episode);
     } else {
       // It's a series
       console.log("Series pressed:", item.title);
@@ -207,14 +272,12 @@ export default function SearchScreen() {
   };
 
   const filteredAndSortedResults = useMemo(() => {
-    let results = [...mockSearchResults];
-
-    // Apply search query filter
-    if (searchQuery.trim()) {
-      results = results.filter((item) =>
-        item.title.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+    // Only show results when we have API results or no search query
+    if (searchQuery.trim() && searchResults.length === 0) {
+      return []; // Show loading skeleton instead
     }
+
+    let results = searchQuery.trim() ? [...searchResults] : [...mockSearchResults];
 
     // Apply language filter
     if (filters.language !== "All") {
@@ -250,7 +313,7 @@ export default function SearchScreen() {
     });
 
     return results;
-  }, [searchQuery, filters]);
+  }, [searchQuery, filters, searchResults]);
 
   const renderSearchResult = (item: ExtendedEpisode | ExtendedSeries) => {
     const metaValue =
@@ -370,7 +433,7 @@ export default function SearchScreen() {
       <View style={tw`px-5 mb-5`}>
         <View style={tw`flex-row items-center justify-between`}>
           <Text style={tw`text-white text-lg font-semibold`}>
-            {filteredAndSortedResults.length} Results
+            {isSearching ? 'Searching...' : searchQuery.trim() && searchResults.length === 0 ? 'No results found' : `${filteredAndSortedResults.length} Results`}
           </Text>
           <View style={tw`flex-row items-center`}>
             <Text style={tw`text-white text-sm font-medium mr-3`}>Sort by</Text>
@@ -433,7 +496,7 @@ export default function SearchScreen() {
                 title="Surah"
                 options={surahs}
                 selectedValue={filters.surah || "All"}
-                onSelect={(value) => updateFilter("surah", value as Surah)}
+                onSelect={(value) => updateFilter("surah", value)}
                 searchable={true}
               />
             )}
@@ -442,9 +505,25 @@ export default function SearchScreen() {
 
         {/* Results */}
         <View style={tw`px-5`}>
-          {filteredAndSortedResults.length > 0
-            ? filteredAndSortedResults.map(renderSearchResult)
-            : renderEmptyState()}
+          {isSearching ? (
+            // Show skeleton loading when searching
+            Array.from({ length: 5 }).map((_, index) => (
+              <View key={index} style={tw`mb-4`}>
+                <View style={tw`flex-row items-center mb-3`}>
+                  <Skeleton width={60} height={60} borderRadius={8} style={tw`mr-3`} />
+                  <View style={tw`flex-1`}>
+                    <Skeleton width="80%" height={18} style={tw`mb-2`} />
+                    <Skeleton width="60%" height={14} />
+                  </View>
+                </View>
+                {index < 4 && <View style={tw`h-px bg-gray-800 my-4`} />}
+              </View>
+            ))
+          ) : filteredAndSortedResults.length > 0 ? (
+            filteredAndSortedResults.map(renderSearchResult)
+          ) : (
+            renderEmptyState()
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>

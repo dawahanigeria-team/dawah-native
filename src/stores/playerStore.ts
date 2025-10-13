@@ -1,5 +1,6 @@
 import { entity } from "simpler-state";
-import { Episode, PlayerState } from "../types/types";
+import { Episode, PlayerState, AudioStatus } from "../types/types";
+import { AudioPlayerService } from "../services/audioPlayer";
 
 const initialState: PlayerState = {
   currentEpisode: null,
@@ -17,6 +18,28 @@ const initialState: PlayerState = {
 
 export const playerStore = entity(initialState);
 
+// Create audio player instance with status callback
+const audioPlayer = new AudioPlayerService((status: AudioStatus) => {
+  const currentState = playerStore.get();
+
+  playerStore.set({
+    ...currentState,
+    progress: status.currentTime,
+    duration: status.duration,
+    isPlaying: status.playing,
+    isLoading: status.isBuffering,
+  });
+
+  // Handle end of playback
+  if (status.didJustFinish) {
+    playerStore.set({
+      ...currentState,
+      isPlaying: false,
+      progress: 0,
+    });
+  }
+});
+
 export const usePlayerStore = () => {
   const state = playerStore.use();
 
@@ -28,15 +51,13 @@ export const usePlayerStore = () => {
       progress: 0,
       duration: episode.durationSec,
       isExpanded: true, // Start expanded when playing a new episode
-      isLoading: false,
+      isLoading: true,
     });
+    audioPlayer.playEpisode(episode);
   };
 
   const togglePlayPause = () => {
-    playerStore.set({
-      ...state,
-      isPlaying: !state.isPlaying,
-    });
+    audioPlayer.togglePlayPause();
   };
 
   const setProgress = (progress: number) => {
@@ -44,6 +65,10 @@ export const usePlayerStore = () => {
       ...state,
       progress,
     });
+  };
+
+  const seekTo = (position: number) => {
+    audioPlayer.seekTo(position);
   };
 
   const expandPlayer = () => {
@@ -74,18 +99,12 @@ export const usePlayerStore = () => {
 
   const seekForward = (seconds: number = 15) => {
     const newProgress = Math.min(state.progress + seconds, state.duration);
-    playerStore.set({
-      ...state,
-      progress: newProgress,
-    });
+    audioPlayer.seekTo(newProgress);
   };
 
   const seekBackward = (seconds: number = 15) => {
     const newProgress = Math.max(state.progress - seconds, 0);
-    playerStore.set({
-      ...state,
-      progress: newProgress,
-    });
+    audioPlayer.seekTo(newProgress);
   };
 
   const setPlaybackSpeed = (speed: number) => {
@@ -93,13 +112,16 @@ export const usePlayerStore = () => {
       ...state,
       playbackSpeed: speed,
     });
+    audioPlayer.setPlaybackRate(speed);
   };
 
   const setVolume = (volume: number) => {
+    const clampedVolume = Math.max(0, Math.min(1, volume));
     playerStore.set({
       ...state,
-      volume: Math.max(0, Math.min(1, volume)),
+      volume: clampedVolume,
     });
+    audioPlayer.setVolume(clampedVolume);
   };
 
   const setLoading = (isLoading: boolean) => {
@@ -143,6 +165,7 @@ export const usePlayerStore = () => {
   };
 
   const closePlayer = () => {
+    audioPlayer.cleanup();
     playerStore.set({
       ...initialState,
     });
@@ -153,6 +176,7 @@ export const usePlayerStore = () => {
     playEpisode,
     togglePlayPause,
     setProgress,
+    seekTo,
     expandPlayer,
     minimizePlayer,
     likeEpisode,

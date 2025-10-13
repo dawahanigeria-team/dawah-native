@@ -1,7 +1,10 @@
 import { designTokens } from "../theme/designTokens";
 
 // Generate consistent colors based on string hash
-export const getPlaceholderColor = (id: string): string => {
+export const getPlaceholderColor = (id: string | undefined): string => {
+  if (!id || typeof id !== 'string') {
+    id = 'default'; // Fallback ID
+  }
   const hash = id.split("").reduce((a, b) => {
     a = ((a << 5) - a + b.charCodeAt(0)) & 0xffffffff;
     return a;
@@ -25,8 +28,8 @@ export const getPlaceholderColor = (id: string): string => {
 };
 
 // Generate initials from title
-export const getInitials = (title: string): string => {
-  if (!title) return "?";
+export const getInitials = (title: string | undefined): string => {
+  if (!title || typeof title !== 'string') return "?";
 
   const words = title.trim().split(/\s+/);
   if (words.length === 1) {

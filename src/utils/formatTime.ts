@@ -10,6 +10,17 @@ export const formatTime = (seconds: number): string => {
   return `${minutes}:${secs.toString().padStart(2, '0')}`;
 };
 
+export const parseDuration = (durationStr: string): number => {
+  if (!durationStr || typeof durationStr !== 'string') return 0;
+  const parts = durationStr.split(':');
+  if (parts.length === 3) {
+    return parseInt(parts[0], 10) * 3600 + parseInt(parts[1], 10) * 60 + parseInt(parts[2], 10);
+  } else if (parts.length === 2) {
+    return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+  }
+  return 0;
+};
+
 export const formatDuration = (seconds: number): string => {
   if (seconds < 60) {
     return `${seconds}s`;

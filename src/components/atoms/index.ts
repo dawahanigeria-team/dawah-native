@@ -5,5 +5,6 @@ export { Dropdown } from "./Dropdown";
 export { ErrorBoundary } from "./ErrorBoundary";
 export { Icon } from "./Icon";
 export { Loading } from "./Loading";
+export { Skeleton } from "./Skeleton";
 export { Text } from "./Text";
 export { Touchable } from "./Touchable";

@@ -9,7 +9,7 @@ import { formatDuration } from "../../utils/formatTime";
 import { Badge, Icon, Text, Touchable } from "../atoms";
 
 interface CardProps {
-  variant: "square" | "landscape" | "list" | "section";
+  variant?: "square" | "landscape" | "list" | "section";
   data: Episode | Series;
   onPress?: () => void;
   showTime?: boolean;
@@ -34,13 +34,15 @@ export const Card: React.FC<CardProps> = memo(
     borderRadius = "xl",
     style,
   }) => {
-    const isEpisode = "durationSec" in data;
-    const episode = isEpisode ? (data as Episode) : null;
     const [imageError, setImageError] = useState(false);
     const { playEpisode } = usePlayerStore();
 
+    if (!data) return null;
+    const isEpisode = "durationSec" in data;
+    const episode = isEpisode ? (data as Episode) : null;
+
     const getAccessibilityLabel = () => {
-      let label = `${data.title}`;
+      let label = `${data.title || 'Unknown Title'}`;
       if (isEpisode && episode && showTime) {
         label += `, duration ${formatDuration(episode.durationSec)}`;
       }
@@ -157,7 +159,7 @@ export const Card: React.FC<CardProps> = memo(
                     designTokens.typography.lineHeight.normal,
                 }}
               >
-                {data.title}
+                {data.title || 'Unknown Title'}
               </Text>
               {showMeta && metaValue && (
                 <Text
@@ -270,7 +272,7 @@ export const Card: React.FC<CardProps> = memo(
                   fontSize: 17, // iOS body text size
                 }}
               >
-                {data.title}
+                {data.title || 'Unknown Title'}
               </Text>
               {showMeta && metaValue && (
                 <Text
@@ -289,41 +291,41 @@ export const Card: React.FC<CardProps> = memo(
 
             {/* Bottom Content */}
             {showTime && episode && (
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
                 <View
                   style={{
                     flexDirection: "row",
                     alignItems: "center",
+                    justifyContent: "space-between",
                   }}
                 >
                   <View
                     style={{
-                      width: 4,
-                      height: 4,
-                      borderRadius: 2,
-                      backgroundColor:
-                        designTokens.colors.system.label.tertiary,
-                      marginRight: designTokens.spacing.xs,
-                    }}
-                  />
-                  <Text
-                    variant="caption1"
-                    color="tertiaryLabel"
-                    style={{
-                      fontSize: 13, // iOS caption size
-                      fontWeight: "500",
+                      flexDirection: "row",
+                      alignItems: "center",
                     }}
                   >
-                    {formatDuration(episode.durationSec)}
-                  </Text>
+                    <View
+                      style={{
+                        width: 4,
+                        height: 4,
+                        borderRadius: 2,
+                        backgroundColor:
+                          designTokens.colors.system.label.tertiary,
+                        marginRight: designTokens.spacing.xs,
+                      }}
+                    />
+                    <Text
+                      variant="caption1"
+                      color="tertiaryLabel"
+                      style={{
+                        fontSize: 13, // iOS caption size
+                        fontWeight: "500",
+                      }}
+                    >
+                      {formatDuration(episode.durationSec)}
+                    </Text>
+                  </View>
                 </View>
-              </View>
             )}
           </View>
 
@@ -429,7 +431,7 @@ export const Card: React.FC<CardProps> = memo(
               weight="medium"
               numberOfLines={1}
             >
-              {data.title}
+              {data.title || 'Unknown Title'}
             </Text>
             {showMeta && metaValue && (
               <Text variant="subheadline" color="secondaryLabel">
