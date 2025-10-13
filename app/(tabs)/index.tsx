@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React from "react";
+import React, { useCallback } from "react";
 import { ScrollView, Text, TouchableOpacity, View, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../../src/components/molecules/Card";
@@ -10,6 +10,8 @@ import { HeroCarousel } from "../../src/components/organisms/HeroCarousel";
 import { Row } from "../../src/components/organisms/Row";
 import { usePlayerStore } from "../../src/stores";
 import { usePopularLectures } from "../../src/hooks/usePopularLectures";
+import { useLecturers } from "../../src/hooks/useLecturers";
+import { LecturerCard } from "../../src/components/molecules/LecturerCard";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Episode, Series } from "../../src/types/types";
@@ -132,8 +134,26 @@ export default function HomeScreen() {
   // Fetch popular lectures for the carousel
   const { episodes: popularEpisodes, loading: popularLoading, error: popularError } = usePopularLectures(10);
 
+  // Fetch lecturers for the slider - limit to 12 for better horizontal scrolling UX
+  const { lecturerCards, loading: lecturersLoading, error: lecturersError } = useLecturers(12);
+
+  const handleQuickActionPress = useCallback((item: { id: string; title: string }) => {
+    if (item.title === "Lecturers") {
+      router.push("/lecturers");
+      return;
+    }
+
+    console.log("Unhandled quick action press:", item);
+  }, []);
+
   const handleEpisodePress = (episode: Episode) => {
     playEpisode(episode);
+  };
+
+  const handleLecturerPress = (lecturerId: string) => {
+    console.log('Lecturer pressed with ID:', lecturerId);
+    // Navigate to lecturer detail page
+    router.push(`/lecturer/${lecturerId}`);
   };
 
   const handleSearchSubmit = (query: string) => {
@@ -254,7 +274,43 @@ export default function HomeScreen() {
         )}
 
         {/* Action Grid */}
-        <ActionGrid />
+        <ActionGrid onItemPress={handleQuickActionPress} />
+
+        {/* Lecturers/Scholars Slider */}
+        <Row
+          title="Popular Scholars"
+          subtitle="Learn from renowned Islamic scholars"
+          onSeeAll={() => router.push("/lecturers")}
+        >
+          {lecturersLoading ? (
+            <View style={tw`h-32 items-center justify-center`}>
+              <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
+              <Text style={tw`text-gray-400 text-xs mt-2`}>Loading scholars...</Text>
+            </View>
+          ) : lecturersError ? (
+            <View style={tw`h-32 items-center justify-center px-4`}>
+              <Text style={tw`text-gray-400 text-sm text-center`}>Unable to load scholars</Text>
+            </View>
+          ) : lecturerCards.length > 0 ? (
+            lecturerCards.map((lecturer, index) => (
+              <LecturerCard
+                key={lecturer.id}
+                id={lecturer.id}
+                name={lecturer.name}
+                imageUrl={lecturer.imageUrl}
+                totalLectures={lecturer.totalLectures}
+                followers={lecturer.followers}
+                language={lecturer.language}
+                verified={lecturer.verified}
+                onPress={() => handleLecturerPress(lecturer.id)}
+              />
+            ))
+          ) : (
+            <View style={tw`h-32 items-center justify-center px-4`}>
+              <Text style={tw`text-gray-400 text-sm text-center`}>No scholars available</Text>
+            </View>
+          )}
+        </Row>
 
         {/* Recently Played */}
         <Row
