@@ -32,6 +32,7 @@ const mockEpisodes: Episode[] = [
     language: "English",
     downloads: 250,
     createdAt: "2024-03-15T10:00:00Z",
+    lecturerName: "Sheikh Muhammad Ali",
   },
   {
     id: "2",
@@ -46,6 +47,7 @@ const mockEpisodes: Episode[] = [
     language: "English",
     downloads: 180,
     createdAt: "2024-03-10T14:30:00Z",
+    lecturerName: "Dr. Bilal Philips",
   },
   {
     id: "3",
@@ -60,6 +62,7 @@ const mockEpisodes: Episode[] = [
     language: "Hausa",
     downloads: 120,
     createdAt: "2024-03-05T09:15:00Z",
+    lecturerName: "Sheikh Abubakar Gumi",
   },
   {
     id: "4",
@@ -74,6 +77,7 @@ const mockEpisodes: Episode[] = [
     language: "Yoruba",
     downloads: 160,
     createdAt: "2024-02-28T16:45:00Z",
+    lecturerName: "Ustadh Abdullah Hakim",
   },
   {
     id: "5",
@@ -88,6 +92,7 @@ const mockEpisodes: Episode[] = [
     language: "English",
     downloads: 95,
     createdAt: "2024-02-20T11:20:00Z",
+    lecturerName: "Sheikh Ibrahim Zakzaky",
   },
 ];
 
@@ -129,7 +134,8 @@ const mockSeries: Series[] = [
 ];
 
 export default function HomeScreen() {
-  const { playEpisode } = usePlayerStore();
+  const playerStore = usePlayerStore();
+  const { playEpisode } = playerStore;
 
   // Fetch popular lectures for the carousel
   const { episodes: popularEpisodes, loading: popularLoading, error: popularError } = usePopularLectures(10);
@@ -146,8 +152,16 @@ export default function HomeScreen() {
     console.log("Unhandled quick action press:", item);
   }, []);
 
-  const handleEpisodePress = (episode: Episode) => {
-    playEpisode(episode);
+  const handleEpisodePress = async (episode: Episode) => {
+    console.log('🎵 Play button pressed for:', episode.title);
+    console.log('🔗 Audio URL:', episode.audioUrl);
+
+    try {
+      await playEpisode(episode);
+      console.log('✅ Episode playing successfully');
+    } catch (error) {
+      console.error('❌ Error playing episode:', error);
+    }
   };
 
   const handleLecturerPress = (lecturerId: string) => {
@@ -258,18 +272,21 @@ export default function HomeScreen() {
             <HeroCarousel
               items={mockEpisodes.slice(0, 5)}
               onItemPress={handleEpisodePress}
+              onPlayPress={handleEpisodePress}
             />
           </View>
         ) : popularEpisodes.length > 0 ? (
           <HeroCarousel
             items={popularEpisodes}
             onItemPress={handleEpisodePress}
+            onPlayPress={handleEpisodePress}
           />
         ) : (
           // Fallback to mock data if no popular lectures
           <HeroCarousel
             items={mockEpisodes.slice(0, 5)}
             onItemPress={handleEpisodePress}
+            onPlayPress={handleEpisodePress}
           />
         )}
 

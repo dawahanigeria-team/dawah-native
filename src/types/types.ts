@@ -28,6 +28,7 @@ export interface Episode {
   language: string;
   downloads: number;
   createdAt: string; // ISO date string
+  lecturerName?: string; // Optional lecturer name
 }
 
 export interface Category {

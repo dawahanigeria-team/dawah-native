@@ -1,5 +1,5 @@
-// Export the fixed player store as the default
-export { usePlayerStore, playerAPI, playerStore } from "./playerStore.fixed";
+// Export the player store with audio service integration
+export { usePlayerStore, playerStore } from "./playerStore";
 
 // Export theme store
 export { useThemeStore } from "./themeStore";

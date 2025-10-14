@@ -261,7 +261,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
               {currentEpisode.title}
             </Text>
             <Text variant="caption1" color="secondaryLabel" numberOfLines={1}>
-              Islamic Lecture • {formatDuration(currentEpisode.durationSec)}
+              {currentEpisode.lecturerName || "Islamic Lecture"} • {formatDuration(progress)}/{formatDuration(duration)}
             </Text>
           </View>
 
@@ -365,9 +365,9 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
             </View>
 
             <Touchable
-              onPress={handleClose}
+              onPress={handleMinimize}
               style={styles.minimizeButton}
-              accessibilityLabel="Close player"
+              accessibilityLabel="Minimize player"
               accessibilityRole="button"
             >
               <Ionicons
@@ -429,14 +429,14 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                 color="secondaryLabel"
                 style={{ textAlign: "center", marginBottom: 4 }}
               >
-                Sheikh Abubakar Gumi
+                {currentEpisode.lecturerName || "Sheikh Abubakar Gumi"}
               </Text>
               <Text
                 variant="caption1"
                 color="tertiaryLabel"
                 style={{ textAlign: "center" }}
               >
-                Islamic Lecture • Tafsir
+                Islamic Lecture • {currentEpisode.language || "Hausa"}
               </Text>
             </View>
 

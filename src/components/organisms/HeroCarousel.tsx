@@ -14,6 +14,7 @@ interface HeroCarouselProps {
   borderRadius?: BorderRadius;
   contentPadding?: keyof typeof designTokens.spacing;
   onItemPress?: (item: Episode) => void;
+  onPlayPress?: (item: Episode) => void;
   style?: ViewStyle;
 }
 
@@ -28,6 +29,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = memo(
     borderRadius = "2xl",
     contentPadding = "lg",
     onItemPress,
+    onPlayPress,
     style,
   }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -65,6 +67,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = memo(
     };
 
     const handleItemPress = (item: Episode) => {
+      console.log('📱 Carousel: Slide tapped (not play button)');
       onItemPress?.(item);
     };
 
@@ -109,8 +112,6 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = memo(
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  background:
-                    "linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.8) 100%)",
                   backgroundColor: "transparent",
                 }}
               >
@@ -180,21 +181,40 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = memo(
                   right: designTokens.spacing.lg,
                 }}
               >
-                <View
-                  style={{
-                    backgroundColor: "rgba(255, 255, 255, 0.1)",
-                    borderRadius: designTokens.borderRadius.full,
-                    padding: designTokens.spacing.sm,
-                    backdropFilter: "blur(10px)",
+                <Touchable
+                  onPress={() => {
+                    console.log('🎯 Play button clicked in carousel!');
+                    if (onPlayPress) {
+                      console.log('🎮 Calling onPlayPress with:', item.title);
+                      onPlayPress(item);
+                    } else {
+                      console.log('⚠️ onPlayPress not defined!');
+                    }
                   }}
+                  style={{
+                    backgroundColor: "rgba(255, 255, 255, 0.95)",
+                    borderRadius: designTokens.borderRadius.full,
+                    width: 48,
+                    height: 48,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.25,
+                    shadowRadius: 4,
+                    elevation: 5,
+                  }}
+                  accessibilityLabel="Play episode"
+                  accessibilityRole="button"
+                  accessibilityHint="Tap to play this episode immediately"
                 >
                   <Icon
                     name="play"
-                    size="lg"
-                    color="label"
-                    accessibilityLabel="Play episode"
+                    size="xl"
+                    color="primary"
+                    accessibilityLabel="Play"
                   />
-                </View>
+                </Touchable>
               </View>
             </View>
           </Touchable>
