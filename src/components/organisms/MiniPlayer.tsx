@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { usePathname } from "expo-router";
-import React, { memo, useEffect, useState } from "react";
+import React, { memo, useEffect, useMemo, useState } from "react";
 import {
   Dimensions,
   Pressable,
@@ -11,13 +11,14 @@ import {
 } from "react-native";
 import {
   GestureHandlerRootView,
+  GestureDetector,
+  Gesture,
   PanGestureHandler,
 } from "react-native-gesture-handler";
 import Animated, {
   Extrapolate,
   interpolate,
   runOnJS,
-  useAnimatedGestureHandler,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -66,6 +67,8 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
     const translateY = useSharedValue(0);
     const opacity = useSharedValue(1);
     const dragY = useSharedValue(0);
+    const gestureStartY = useSharedValue(0);
+    const isExpandedShared = useSharedValue(isExpanded ? 1 : 0);
 
     // Check if we're on a tab screen
     const isTabScreen =
@@ -81,30 +84,38 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       ? screenHeight - TAB_BAR_HEIGHT - insets.top
       : screenHeight - insets.top;
 
-    // Gesture handler for drag-to-minimize
-    const gestureHandler = useAnimatedGestureHandler({
-      onStart: (_, context) => {
-        (context as { startY: number }).startY = dragY.value;
-      },
-      onActive: (event, context) => {
-        if (isExpanded) {
-          dragY.value =
-            (context as { startY: number }).startY + event.translationY;
-        }
-      },
-      onEnd: (event) => {
-        if (isExpanded) {
-          const shouldMinimize =
-            event.translationY > 100 || event.velocityY > 500;
-          if (shouldMinimize) {
-            runOnJS(minimizePlayer)();
+    useEffect(() => {
+      isExpandedShared.value = isExpanded ? 1 : 0;
+    }, [isExpanded, isExpandedShared]);
+
+    // Gesture handler for drag-to-minimize using Reanimated 4+ Gesture API
+    const expandedPanGesture = useMemo(
+      () =>
+        Gesture.Pan()
+          .onStart(() => {
+            gestureStartY.value = dragY.value;
+          })
+          .onUpdate((event) => {
+            if (isExpandedShared.value) {
+              dragY.value = gestureStartY.value + event.translationY;
+            }
+          })
+          .onEnd((event) => {
+            const isPlayerExpanded = isExpandedShared.value === 1;
+            if (!isPlayerExpanded) {
+              dragY.value = withSpring(0);
+              return;
+            }
+
+            const shouldMinimize =
+              event.translationY > 100 || event.velocityY > 500;
+            if (shouldMinimize) {
+              runOnJS(minimizePlayer)();
+            }
             dragY.value = withSpring(0);
-          } else {
-            dragY.value = withSpring(0);
-          }
-        }
-      },
-    });
+          }),
+      [dragY, gestureStartY, isExpandedShared, minimizePlayer]
+    );
 
     // Animation styles
     const animatedStyle = useAnimatedStyle(() => {
@@ -321,7 +332,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
     );
 
     const renderExpandedPlayer = () => (
-      <PanGestureHandler onGestureEvent={gestureHandler}>
+      <GestureDetector gesture={expandedPanGesture}>
         <Animated.View style={styles.expandedPlayerContainer}>
           {/* Drag Handle */}
           <View style={styles.dragHandle}>
@@ -738,7 +749,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
             </View>
           </ScrollView>
         </Animated.View>
-      </PanGestureHandler>
+      </GestureDetector>
     );
 
     return (
