@@ -8,6 +8,7 @@ interface SearchBarProps {
   value?: string;
   onChangeText?: (text: string) => void;
   onSearch?: (query: string) => void;
+  onSubmit?: (query: string) => void;
   onMicPress?: () => void;
   onClear?: () => void;
   debounceMs?: number;
@@ -25,6 +26,7 @@ export const SearchBar: React.FC<SearchBarProps> = memo(
     value,
     onChangeText,
     onSearch,
+    onSubmit,
     onMicPress,
     onClear,
     debounceMs = 250,
@@ -40,21 +42,16 @@ export const SearchBar: React.FC<SearchBarProps> = memo(
     const isControlled = value !== undefined;
     const currentValue = isControlled ? value : internalValue;
 
-    // Debounce search input
-    const debounceSearch = useCallback(
+    // Handle text change without auto-triggering search
+    const handleTextChange = useCallback(
       (text: string) => {
         if (!isControlled) {
           setInternalValue(text);
         }
         onChangeText?.(text);
-
-        const timeoutId = setTimeout(() => {
-          onSearch?.(text);
-        }, debounceMs);
-
-        return () => clearTimeout(timeoutId);
+        // DO NOT auto-trigger onSearch here - only on Enter press
       },
-      [onSearch, onChangeText, debounceMs, isControlled]
+      [onChangeText, isControlled]
     );
 
     const handleClear = () => {
@@ -63,8 +60,8 @@ export const SearchBar: React.FC<SearchBarProps> = memo(
         setInternalValue(newValue);
       }
       onChangeText?.(newValue);
-      onSearch?.(newValue);
-      onClear?.(newValue);
+      // Don't auto-trigger search when clearing
+      onClear?.();
     };
 
     const containerStyle: ViewStyle = {
@@ -107,7 +104,12 @@ export const SearchBar: React.FC<SearchBarProps> = memo(
           placeholder={placeholder}
           placeholderTextColor={designTokens.colors.system.label.tertiary}
           value={currentValue}
-          onChangeText={debounceSearch}
+          onChangeText={handleTextChange}
+          onSubmitEditing={() => {
+            // Call both onSubmit and onSearch when Enter is pressed
+            onSubmit?.(currentValue);
+            onSearch?.(currentValue);
+          }}
           returnKeyType="search"
           autoCapitalize="none"
           autoCorrect={false}

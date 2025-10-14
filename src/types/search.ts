@@ -9,7 +9,7 @@ export type Surah = 'All' | 'Al-Fatiha' | 'Al-Baqarah' | 'Ali-Imran' | 'An-Nisa'
 export interface SearchFilters {
   language: Language;
   topic: Topic;
-  surah?: Surah;
+  surah: Surah;
   sortBy: SortOption;
 }
 
