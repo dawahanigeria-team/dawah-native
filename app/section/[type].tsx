@@ -1,11 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { ScrollView, TouchableOpacity, View } from "react-native";
+import { ScrollView, TouchableOpacity, View, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Chip, Text } from "../../src/components/atoms";
 import { Card } from "../../src/components/molecules/Card";
 import { SearchBar } from "../../src/components/molecules/SearchBar";
+import { useTrending } from "../../src/hooks/useTrending";
 
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
@@ -219,6 +220,11 @@ type LanguageFilter = "all" | "hausa" | "english" | "yoruba" | "arabic";
 export default function SectionScreen() {
   const { type } = useLocalSearchParams<{ type: string }>();
 
+  // Fetch trending data if this is the trending section
+  const { lectures: trendingLectures, loading: trendingLoading, error: trendingError } = useTrending(
+    type === "trending" ? { page: 1 } : undefined // Don't fetch if not trending
+  );
+
   const sectionInfo = getSectionInfo(type || "");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLanguage, setSelectedLanguage] =
@@ -229,9 +235,12 @@ export default function SectionScreen() {
   // Show filters only for trending section
   const showFilters = type === "trending";
 
+  // Use API data for trending, mock data for others
+  const rawData = type === "trending" ? trendingLectures : sectionInfo.data;
+
   // Filter and sort data based on search query, language, and sort option
   const filteredData = useMemo(() => {
-    let data = [...sectionInfo.data];
+    let data = [...rawData];
 
     // Apply search filter
     if (searchQuery.trim()) {
@@ -372,7 +381,7 @@ export default function SectionScreen() {
               color="secondaryLabel"
               style={tw`font-medium`}
             >
-              {sectionInfo.count} lectures
+              {type === "trending" ? (trendingLectures.length > 0 ? trendingLectures.length : sectionInfo.count) : sectionInfo.count} lectures
             </Text>
           </View>
         </View>
@@ -548,7 +557,17 @@ export default function SectionScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {filteredData.length === 0 ? (
+        {type === "trending" && trendingLoading ? (
+          <View style={tw`flex-1 items-center justify-center py-20`}>
+            <ActivityIndicator size="large" color={designTokens.colors.brand.primary} />
+            <Text style={tw`text-white mt-2`}>Loading trending lectures...</Text>
+          </View>
+        ) : type === "trending" && trendingError ? (
+          <View style={tw`flex-1 items-center justify-center py-20 px-6`}>
+            <Text style={tw`text-white text-center`}>Failed to load trending lectures</Text>
+            <Text style={tw`text-gray-400 text-sm text-center mt-1`}>Using offline content</Text>
+          </View>
+        ) : filteredData.length === 0 ? (
           <View style={tw`flex-1 items-center justify-center py-20`}>
             <View
               style={[
