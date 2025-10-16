@@ -1,6 +1,6 @@
 import { entity } from "simpler-state";
 import { Episode, PlayerState } from "../types/types";
-import { audioService, AVPlaybackStatus } from "../services/audioService";
+import type { AudioPlaybackControls } from "../hooks/useAudioPlayback";
 
 const initialState: PlayerState = {
   currentEpisode: null,
@@ -18,50 +18,20 @@ const initialState: PlayerState = {
 
 export const playerStore = entity(initialState);
 
-// Initialize audio service and set up playback status updates
-audioService.initialize().then(() => {
-  audioService.setPlaybackStatusUpdateCallback((status: AVPlaybackStatus) => {
-    if (status.isLoaded) {
-      const currentState = playerStore.get();
-      const updates: Partial<PlayerState> = {};
+// Audio controls instance - will be set by AudioProvider
+let audioControls: AudioPlaybackControls | null = null;
 
-      // Update playing state
-      if (status.isPlaying !== currentState.isPlaying) {
-        updates.isPlaying = status.isPlaying;
-      }
+/**
+ * Set audio controls instance (called from AudioProvider)
+ */
+export const setAudioControls = (controls: AudioPlaybackControls | null) => {
+  audioControls = controls;
+};
 
-      // Update progress and duration
-      if (status.positionMillis !== undefined) {
-        updates.progress = status.positionMillis / 1000; // Convert to seconds
-      }
-      if (status.durationMillis !== undefined) {
-        updates.duration = status.durationMillis / 1000; // Convert to seconds
-      }
-
-      // Update loading state
-      if (status.isBuffering !== undefined) {
-        updates.isLoading = status.isBuffering;
-      }
-
-      // Apply updates if any
-      if (Object.keys(updates).length > 0) {
-        playerStore.set({
-          ...currentState,
-          ...updates,
-        });
-      }
-
-      // Handle playback finished
-      if (status.didJustFinish && !status.isLooping) {
-        playerStore.set({
-          ...currentState,
-          isPlaying: false,
-          progress: 0,
-        });
-      }
-    }
-  });
-});
+/**
+ * Get current audio controls instance
+ */
+export const getAudioControls = () => audioControls;
 
 export const usePlayerStore = () => {
   // Use try-catch to handle potential initialization issues
@@ -82,6 +52,11 @@ export const usePlayerStore = () => {
   const playEpisode = async (episode: Episode) => {
     console.log('🎮 PlayerStore: playEpisode called with:', episode.title);
 
+    if (!audioControls) {
+      console.error('❌ PlayerStore: Audio controls not initialized');
+      return;
+    }
+
     try {
       const currentState = playerStore.get();
 
@@ -92,7 +67,7 @@ export const usePlayerStore = () => {
         // If it's paused, just resume
         if (!currentState.isPlaying) {
           console.log('▶️ PlayerStore: Resuming playback...');
-          await audioService.play();
+          audioControls.play();
           playerStore.set({
             ...currentState,
             isPlaying: true,
@@ -112,8 +87,8 @@ export const usePlayerStore = () => {
       // If playing a different episode, stop the current one first
       if (currentState.currentEpisode) {
         console.log('🛑 PlayerStore: Stopping current episode...');
-        await audioService.stop();
-        await audioService.unloadAudio();
+        audioControls.stop();
+        audioControls.unload();
       }
 
       // Set loading state
@@ -131,10 +106,10 @@ export const usePlayerStore = () => {
       // Load and play the audio
       if (episode.audioUrl) {
         console.log('🔊 PlayerStore: Loading audio URL:', episode.audioUrl);
-        await audioService.loadAudio(episode.audioUrl);
+        await audioControls.loadAudio(episode.audioUrl);
 
         console.log('▶️ PlayerStore: Starting playback...');
-        await audioService.play();
+        audioControls.play();
 
         // Update state after successful play
         console.log('✅ PlayerStore: Updating state to playing...');
@@ -156,30 +131,37 @@ export const usePlayerStore = () => {
     }
   };
 
-  const togglePlayPause = async () => {
+  const togglePlayPause = () => {
+    if (!audioControls) {
+      console.error('❌ PlayerStore: Audio controls not initialized');
+      return;
+    }
+
     try {
       const currentState = playerStore.get();
       if (!currentState.currentEpisode) return;
 
-      const isNowPlaying = await audioService.togglePlayPause();
-      playerStore.set({
-        ...currentState,
-        isPlaying: isNowPlaying,
-      });
+      audioControls.togglePlayPause();
+      // State will be updated by the status callback
     } catch (error) {
       console.error('Failed to toggle play/pause:', error);
     }
   };
 
-  const setProgress = async (progress: number) => {
+  const setProgress = (progress: number) => {
+    if (!audioControls) {
+      console.error('❌ PlayerStore: Audio controls not initialized');
+      return;
+    }
+
     try {
       // Update store immediately for UI responsiveness
       playerStore.set({
         ...playerStore.get(),
         progress,
       });
-      // Seek audio to the position
-      await audioService.seekTo(progress * 1000); // Convert to milliseconds
+      // Seek audio to the position (expo-audio uses seconds)
+      audioControls.seekTo(progress);
     } catch (error) {
       console.error('Failed to set progress:', error);
     }
@@ -212,44 +194,64 @@ export const usePlayerStore = () => {
     }
   };
 
-  const seekForward = async (seconds: number = 15) => {
+  const seekForward = (seconds: number = 15) => {
+    if (!audioControls) {
+      console.error('❌ PlayerStore: Audio controls not initialized');
+      return;
+    }
+
     try {
-      await audioService.seekForward(seconds);
+      audioControls.seekForward(seconds);
       // Progress will be updated via the playback status callback
     } catch (error) {
       console.error('Failed to seek forward:', error);
     }
   };
 
-  const seekBackward = async (seconds: number = 15) => {
+  const seekBackward = (seconds: number = 15) => {
+    if (!audioControls) {
+      console.error('❌ PlayerStore: Audio controls not initialized');
+      return;
+    }
+
     try {
-      await audioService.seekBackward(seconds);
+      audioControls.seekBackward(seconds);
       // Progress will be updated via the playback status callback
     } catch (error) {
       console.error('Failed to seek backward:', error);
     }
   };
 
-  const setPlaybackSpeed = async (speed: number) => {
+  const setPlaybackSpeed = (speed: number) => {
+    if (!audioControls) {
+      console.error('❌ PlayerStore: Audio controls not initialized');
+      return;
+    }
+
     try {
       playerStore.set({
         ...playerStore.get(),
         playbackSpeed: speed,
       });
-      await audioService.setPlaybackRate(speed);
+      audioControls.setPlaybackRate(speed);
     } catch (error) {
       console.error('Failed to set playback speed:', error);
     }
   };
 
-  const setVolume = async (volume: number) => {
+  const setVolume = (volume: number) => {
+    if (!audioControls) {
+      console.error('❌ PlayerStore: Audio controls not initialized');
+      return;
+    }
+
     try {
       const clampedVolume = Math.max(0, Math.min(1, volume));
       playerStore.set({
         ...playerStore.get(),
         volume: clampedVolume,
       });
-      await audioService.setVolume(clampedVolume);
+      audioControls.setVolume(clampedVolume);
     } catch (error) {
       console.error('Failed to set volume:', error);
     }
@@ -295,11 +297,16 @@ export const usePlayerStore = () => {
     simulateDownload();
   };
 
-  const closePlayer = async () => {
+  const closePlayer = () => {
+    if (!audioControls) {
+      console.error('❌ PlayerStore: Audio controls not initialized');
+      return;
+    }
+
     try {
       // Stop and unload audio
-      await audioService.stop();
-      await audioService.unloadAudio();
+      audioControls.stop();
+      audioControls.unload();
 
       // Reset store to initial state
       playerStore.set({

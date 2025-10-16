@@ -1,0 +1,77 @@
+/**
+ * AudioProvider Component
+ * Initializes and manages the audio playback system using expo-audio
+ * Syncs audio status with the playerStore
+ */
+
+import React, { useEffect } from 'react';
+import { useAudioPlayback } from '../../hooks/useAudioPlayback';
+import { playerStore, setAudioControls } from '../../stores/playerStore';
+
+interface AudioProviderProps {
+  children: React.ReactNode;
+}
+
+export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
+  // Initialize audio playback with status callbacks
+  const audioControls = useAudioPlayback({
+    onPlaybackStatusUpdate: (status) => {
+      const currentState = playerStore.get();
+
+      // Only update if there's an active episode
+      if (!currentState.currentEpisode) return;
+
+      const updates: Partial<typeof currentState> = {};
+
+      // Update playing state
+      if (status.isPlaying !== currentState.isPlaying) {
+        updates.isPlaying = status.isPlaying;
+      }
+
+      // Update progress and duration
+      if (status.currentTime !== currentState.progress) {
+        updates.progress = status.currentTime;
+      }
+      if (status.duration !== currentState.duration && status.duration > 0) {
+        updates.duration = status.duration;
+      }
+
+      // Update loading state
+      if (status.isBuffering !== currentState.isLoading) {
+        updates.isLoading = status.isBuffering;
+      }
+
+      // Apply updates if any
+      if (Object.keys(updates).length > 0) {
+        playerStore.set({
+          ...currentState,
+          ...updates,
+        });
+      }
+    },
+    onPlaybackFinished: () => {
+      const currentState = playerStore.get();
+      // Reset playback to the beginning when finished
+      playerStore.set({
+        ...currentState,
+        isPlaying: false,
+        progress: 0,
+      });
+      console.log('🎵 Playback finished, reset to beginning');
+    },
+  });
+
+  // Set audio controls in playerStore when component mounts
+  useEffect(() => {
+    console.log('🎵 AudioProvider: Initializing audio controls');
+    setAudioControls(audioControls);
+
+    // Cleanup on unmount
+    return () => {
+      console.log('🎵 AudioProvider: Cleaning up audio controls');
+      setAudioControls(null);
+    };
+  }, [audioControls]);
+
+  return <>{children}</>;
+};
