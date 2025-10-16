@@ -22,45 +22,45 @@ interface ActionGridProps {
 }
 
 const defaultActions: ActionItem[] = [
-  { 
-    id: '1', 
-    title: 'Chart', 
-    icon: 'trending-up', 
+  {
+    id: '1',
+    title: 'Chart',
+    icon: 'trending-up',
     color: '#7AA2FF',
     description: 'View trending content'
   },
-  { 
-    id: '2', 
-    title: 'Lecturers', 
-    icon: 'people', 
+  {
+    id: '2',
+    title: 'Lecturers',
+    icon: 'people',
     color: '#62D26F',
     description: 'Browse all lecturers'
   },
-  { 
-    id: '3', 
-    title: 'Playlist', 
-    icon: 'list', 
+  {
+    id: '3',
+    title: 'Playlist',
+    icon: 'list',
     color: '#F6C445',
     description: 'Your saved playlists'
   },
-  { 
-    id: '4', 
-    title: 'Video', 
-    icon: 'videocam', 
+  {
+    id: '4',
+    title: 'Video',
+    icon: 'videocam',
     color: '#FF6B6B',
     description: 'Watch video content'
   },
-  { 
-    id: '5', 
-    title: 'Genres', 
-    icon: 'musical-notes', 
+  {
+    id: '5',
+    title: 'Genres',
+    icon: 'musical-notes',
     color: '#C6FF00',
     description: 'Browse by category'
   },
-  { 
-    id: '6', 
-    title: 'Trending', 
-    icon: 'flame', 
+  {
+    id: '6',
+    title: 'Trending',
+    icon: 'flame',
     color: '#FF8A65',
     description: 'Most popular content'
   },

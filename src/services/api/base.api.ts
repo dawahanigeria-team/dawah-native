@@ -29,6 +29,7 @@ export interface RequestConfig extends Omit<RequestInit, 'cache'> {
   useCache?: boolean;
   cacheTTL?: number;
   params?: Record<string, any>;
+  headers?: Record<string, string>;
 }
 
 // Response wrapper interface

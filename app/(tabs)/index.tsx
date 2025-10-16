@@ -149,6 +149,11 @@ export default function HomeScreen() {
       return;
     }
 
+    if (item.title === "Trending") {
+      router.push("/section/trending");
+      return;
+    }
+
     console.log("Unhandled quick action press:", item);
   }, []);
 

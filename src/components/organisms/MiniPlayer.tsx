@@ -133,7 +133,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       };
     });
 
-    // Simulate audio progress (in real implementation, this would come from expo-av)
+    // Simulate audio progress (in real implementation, this comes from expo-audio via AudioProvider)
     useEffect(() => {
       if (!currentEpisode) return;
 
