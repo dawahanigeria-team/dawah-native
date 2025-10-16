@@ -25,54 +25,113 @@ class TrendingLecturesApiService {
   /**
    * Fetch trending lectures (popular lectures with langid=6)
    */
+  // Cache for all trending lectures (client-side pagination)
+  private allTrendingCache: SearchLecture[] | null = null;
+  private cacheTimestamp: number = 0;
+  private readonly CACHE_DURATION = 300000; // 5 minutes in milliseconds
+  private cachedLimit: number = 0; // Track the limit used for caching
+
   async getTrendingLectures(
     params: TrendingLecturesParams = {}
   ): Promise<TrendingLecturesResponse> {
     try {
-      const requestParams: Record<string, any> = {
-        page: params.page || 1,
-        langid: 6, // Trending content uses langid=6
-      };
+      const page = params.page || 1;
+      const limit = params.limit || 20;
 
-      // Add limit if provided
-      if (params.limit) {
-        requestParams.limit = params.limit;
+      // Check if we need to fetch fresh data
+      const now = Date.now();
+      const cacheExpired = now - this.cacheTimestamp > this.CACHE_DURATION;
+      const requestLimit = 1000;
+      const configChanged = this.cachedLimit !== requestLimit;
+
+      if (!this.allTrendingCache || cacheExpired || configChanged) {
+        if (configChanged) {
+          console.log('🔄 Cache invalidated due to limit change:', this.cachedLimit, '→', requestLimit);
+        }
+        // Fetch all trending lectures at once (API doesn't support pagination)
+        // Request a large limit to get all available items
+        const requestParams: Record<string, any> = {
+          langid: 6, // Trending content uses langid=6
+          lim: 1000, // Request up to 1000 items to get everything
+        };
+
+        // Log the API call
+        console.log('🔥 Trending Lectures API Call (fetching all with limit 1000):', {
+          endpoint: '/api/popular_lec_api.php',
+          params: requestParams,
+          fullUrl: `${API_CONFIG.BASE_URL}/api/popular_lec_api.php?${new URLSearchParams(requestParams).toString()}`
+        });
+
+        // Make API request with proper headers
+        const response = await apiClient.get<any>(
+          '/api/popular_lec_api.php',
+          requestParams,
+          {
+            timeout: API_CONFIG.TIMEOUTS.DEFAULT,
+            useCache: false, // Don't use HTTP cache, we'll handle caching ourselves
+            headers: {
+              'Origin': API_CONFIG.ORIGIN,
+              'Referer': API_CONFIG.REFERER,
+              'User-Agent': API_CONFIG.USER_AGENT,
+              'X-Project-Key': API_CONFIG.X_PROJECT_KEY,
+            },
+          }
+        );
+
+        // Log response summary
+        console.log('📥 Trending Lectures Response:', {
+          status: 'success',
+          dataReceived: response.data ? 'Yes' : 'No',
+          dataLength: Array.isArray(response.data) ? response.data.length :
+                     (response.data?.data ? response.data.data.length : 0),
+        });
+
+        // Extract and filter lectures
+        let lectures = [];
+        if (Array.isArray(response.data)) {
+          lectures = response.data;
+        } else if (response.data?.data) {
+          lectures = response.data.data;
+        } else if (response.data?.results) {
+          lectures = response.data.results;
+        } else if (response.data?.items) {
+          lectures = response.data.items;
+        }
+
+        // Filter out Quran recitations
+        const filteredLectures = lectures.filter((lecture: any) => {
+          return lecture.keyword !== 'dn_quran';
+        });
+
+        console.log(`📊 Cached ${filteredLectures.length} trending lectures for client-side pagination`);
+
+        // Store in cache
+        this.allTrendingCache = filteredLectures;
+        this.cacheTimestamp = now;
+        this.cachedLimit = requestLimit;
       }
 
-      // Log the API call
-      console.log('🔥 Trending Lectures API Call:', {
-        endpoint: '/api/popular_lec_api.php',
-        params: requestParams,
-        fullUrl: `${API_CONFIG.BASE_URL}/api/popular_lec_api.php?${new URLSearchParams(requestParams).toString()}`
-      });
+      // Perform client-side pagination
+      if (!this.allTrendingCache) {
+        throw new ApiError('Failed to load trending lectures from cache', 500);
+      }
 
-      // Make API request with proper headers
-      const response = await apiClient.get<any>(
-        '/api/popular_lec_api.php',
-        requestParams,
-        {
-          timeout: API_CONFIG.TIMEOUTS.DEFAULT,
-          useCache: true,
-          cacheTTL: 300, // Cache for 5 minutes
-          headers: {
-            'Origin': API_CONFIG.ORIGIN,
-            'Referer': API_CONFIG.REFERER,
-            'User-Agent': API_CONFIG.USER_AGENT,
-            'X-Project-Key': API_CONFIG.X_PROJECT_KEY,
-          },
-        }
-      );
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const paginatedData = this.allTrendingCache.slice(startIndex, endIndex);
+      const totalItems = this.allTrendingCache.length;
+      const totalPages = Math.ceil(totalItems / limit);
 
-      // Log response summary (without sensitive data)
-      console.log('📥 Trending Lectures Response:', {
-        status: 'success',
-        dataReceived: response.data ? 'Yes' : 'No',
-        dataLength: Array.isArray(response.data) ? response.data.length :
-                   (response.data?.data ? response.data.data.length : 0),
-      });
+      console.log(`📄 Client-side pagination: Page ${page}/${totalPages}, showing items ${startIndex + 1}-${Math.min(endIndex, totalItems)} of ${totalItems}, hasMore: ${page < totalPages}`);
 
-      // Normalize the response
-      return this.normalizeResponse(response.data, params);
+      return {
+        success: true,
+        data: paginatedData,
+        page: page,
+        total: totalItems,
+        total_pages: totalPages,
+        per_page: limit,
+      };
     } catch (error) {
       console.error('❌ Trending Lectures API Error:', error);
       if (error instanceof ApiError) {
@@ -80,47 +139,6 @@ class TrendingLecturesApiService {
       }
       throw new ApiError('Failed to fetch trending lectures', undefined, error);
     }
-  }
-
-  /**
-   * Normalize API response
-   */
-  private normalizeResponse(
-    data: any,
-    params: TrendingLecturesParams
-  ): TrendingLecturesResponse {
-    // Handle different API response formats
-    if (data && data.success === false) {
-      throw new ApiError(data.message || 'Failed to fetch trending lectures', data.statusCode);
-    }
-
-    // The API returns an array directly for trending lectures
-    let lectures = [];
-    if (Array.isArray(data)) {
-      lectures = data;
-    } else if (data?.data) {
-      lectures = data.data;
-    } else if (data?.results) {
-      lectures = data.results;
-    } else if (data?.items) {
-      lectures = data.items;
-    }
-
-    // Filter out Quran recitations (keyword: "dn_quran")
-    const filteredLectures = lectures.filter((lecture: any) => {
-      return lecture.keyword !== 'dn_quran';
-    });
-
-    console.log(`📊 Filtered trending lectures: ${lectures.length} total, ${filteredLectures.length} after removing Quran recitations`);
-
-    return {
-      success: true,
-      data: filteredLectures,
-      page: params.page || 1,
-      total: filteredLectures.length,
-      total_pages: 1, // Trending lectures might not have pagination
-      per_page: filteredLectures.length,
-    };
   }
 
   /**
@@ -137,6 +155,16 @@ class TrendingLecturesApiService {
       console.error('Failed to fetch trending lectures for carousel:', error);
       return [];
     }
+  }
+
+  /**
+   * Clear the trending lectures cache (useful for pull-to-refresh)
+   */
+  clearCache(): void {
+    this.allTrendingCache = null;
+    this.cacheTimestamp = 0;
+    this.cachedLimit = 0;
+    console.log('🗑️ Trending lectures cache cleared');
   }
 }
 

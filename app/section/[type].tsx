@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useMemo, useState } from "react";
-import { ScrollView, TouchableOpacity, View, ActivityIndicator } from "react-native";
+import React, { useMemo, useState, useCallback } from "react";
+import { FlatList, ScrollView, TouchableOpacity, View, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Chip, Text } from "../../src/components/atoms";
 import { Card } from "../../src/components/molecules/Card";
@@ -221,9 +221,20 @@ export default function SectionScreen() {
   const { type } = useLocalSearchParams<{ type: string }>();
 
   // Fetch trending data if this is the trending section
-  const { lectures: trendingLectures, loading: trendingLoading, error: trendingError, refetch } = useTrending(
-    type === "trending" ? { page: 1 } : undefined // Don't fetch if not trending
-  );
+  const trendingParams = type === "trending" ? { page: 1, limit: 20 } : undefined;
+  console.log(`📱 SectionScreen render - type: ${type}, trendingParams:`, trendingParams);
+
+  const {
+    lectures: trendingLectures,
+    loading: trendingLoading,
+    error: trendingError,
+    refetch,
+    loadMore,
+    hasMore,
+    isLoadingMore,
+  } = useTrending(trendingParams);
+
+  console.log(`📊 useTrending values - lectures: ${trendingLectures.length}, loading: ${trendingLoading}, hasMore: ${hasMore}, isLoadingMore: ${isLoadingMore}`);
 
   const sectionInfo = getSectionInfo(type || "");
   const [searchQuery, setSearchQuery] = useState("");
@@ -310,7 +321,7 @@ export default function SectionScreen() {
     }
 
     return data;
-  }, [sectionInfo.data, searchQuery, selectedLanguage, sortBy, showFilters]);
+  }, [rawData, searchQuery, selectedLanguage, sortBy, showFilters]);
 
   const handleSeriesPress = (series: Series) => {
     console.log("Series pressed:", series.title);
@@ -319,6 +330,161 @@ export default function SectionScreen() {
   const handleSearch = (query: string) => {
     setSearchQuery(query);
   };
+
+  // Handle infinite scroll load more
+  const handleLoadMore = useCallback(() => {
+    console.log(`🔄 onEndReached triggered - type: ${type}, hasMore: ${hasMore}, isLoadingMore: ${isLoadingMore}`);
+    if (type === "trending" && hasMore && !isLoadingMore) {
+      console.log('✅ Triggering loadMore()');
+      loadMore();
+    } else if (type === "trending") {
+      console.log(`❌ Not loading more - hasMore: ${hasMore}, isLoadingMore: ${isLoadingMore}`);
+    }
+  }, [type, hasMore, isLoadingMore, loadMore]);
+
+  // Render item for FlatList
+  const renderItem = useCallback(({ item }: { item: Episode | Series }) => {
+    if (sectionInfo.variant === "section") {
+      return (
+        <Card
+          variant="section"
+          data={item as Episode}
+          showTime={true}
+          showMeta={true}
+          metaValue={getRandomScholar(item.id)}
+        />
+      );
+    } else {
+      return (
+        <View style={tw`items-center mb-6`}>
+          <View
+            style={[
+              tw`p-4 rounded-xl`,
+              {
+                backgroundColor: designTokens.colors.system.background.secondary,
+                shadowColor: designTokens.colors.system.label.primary,
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.04,
+                shadowRadius: 4,
+                elevation: 1,
+              },
+            ]}
+          >
+            <Card
+              variant="square"
+              data={item as unknown as Series}
+              onPress={() => handleSeriesPress(item as unknown as Series)}
+              showBadge={false}
+            />
+            <Text
+              variant="caption1"
+              color="secondaryLabel"
+              style={tw`mt-2 text-center`}
+              numberOfLines={2}
+            >
+              {item.title}
+            </Text>
+          </View>
+        </View>
+      );
+    }
+  }, [sectionInfo.variant]);
+
+  // Render footer (loading indicator) for FlatList
+  const renderFooter = useCallback(() => {
+    console.log(`🦶 renderFooter - isLoadingMore: ${isLoadingMore}, type: ${type}, hasMore: ${hasMore}`);
+    if (!isLoadingMore || type !== "trending") return null;
+    return (
+      <View style={tw`py-4 items-center`}>
+        <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
+        <Text variant="caption1" color="secondaryLabel" style={tw`mt-2`}>
+          Loading more...
+        </Text>
+      </View>
+    );
+  }, [isLoadingMore, type, hasMore]);
+
+  // Empty component for FlatList
+  const renderEmpty = useCallback(() => {
+    if (type === "trending" && trendingLoading) {
+      return (
+        <View style={tw`flex-1 items-center justify-center py-20`}>
+          <ActivityIndicator size="large" color={designTokens.colors.brand.primary} />
+          <Text style={tw`text-white mt-2`}>Loading trending lectures...</Text>
+        </View>
+      );
+    }
+
+    if (type === "trending" && trendingError) {
+      return (
+        <View style={tw`flex-1 items-center justify-center py-20 px-6`}>
+          <View
+            style={[
+              tw`w-16 h-16 rounded-full items-center justify-center mb-4`,
+              { backgroundColor: designTokens.colors.system.fill.quaternary },
+            ]}
+          >
+            <Ionicons
+              name="cloud-offline-outline"
+              size={32}
+              color={designTokens.colors.system.label.tertiary}
+            />
+          </View>
+          <Text variant="title3" color="label" style={tw`font-semibold text-center mb-2`}>
+            Failed to load trending lectures
+          </Text>
+          <Text variant="subheadline" color="secondaryLabel" style={tw`text-center mb-4`}>
+            Check your connection and try again
+          </Text>
+          <TouchableOpacity
+            onPress={refetch}
+            style={[
+              tw`px-6 py-3 rounded-full`,
+              { backgroundColor: designTokens.colors.brand.primary },
+            ]}
+            accessibilityLabel="Retry loading trending lectures"
+            accessibilityRole="button"
+            activeOpacity={0.8}
+          >
+            <Text
+              variant="body"
+              style={[
+                tw`font-semibold`,
+                { color: designTokens.colors.system.background.primary },
+              ]}
+            >
+              Retry
+            </Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return (
+      <View style={tw`flex-1 items-center justify-center py-20`}>
+        <View
+          style={[
+            tw`w-16 h-16 rounded-full items-center justify-center mb-4`,
+            { backgroundColor: designTokens.colors.system.fill.quaternary },
+          ]}
+        >
+          <Ionicons
+            name={searchQuery.trim() ? "search-outline" : "library-outline"}
+            size={32}
+            color={designTokens.colors.system.label.tertiary}
+          />
+        </View>
+        <Text variant="title2" color="label" style={tw`font-semibold mb-2 text-center`}>
+          {searchQuery.trim() ? "No results found" : "No content available"}
+        </Text>
+        <Text variant="subheadline" color="secondaryLabel" style={tw`text-center px-8`}>
+          {searchQuery.trim()
+            ? "Try adjusting your search terms or browse all available content"
+            : "This section is currently empty"}
+        </Text>
+      </View>
+    );
+  }, [type, trendingLoading, trendingError, searchQuery, refetch]);
 
   return (
     <SafeAreaView
@@ -549,166 +715,25 @@ export default function SectionScreen() {
       </View>
 
       {/* Content with Dynamic Spacing */}
-      <ScrollView
-        style={tw`flex-1`}
+      <FlatList
+        data={filteredData}
+        renderItem={renderItem}
+        keyExtractor={(item, index) => `${item.id}-${index}`}
+        ListEmptyComponent={renderEmpty}
+        ListFooterComponent={renderFooter}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
         contentContainerStyle={[
-          tw`pb-8`,
-          { paddingBottom: 80 } // Add extra padding for mini player
+          tw`px-6`,
+          {
+            paddingTop: showFilters
+              ? designTokens.spacing.md
+              : designTokens.spacing.lg,
+            paddingBottom: 80, // Add extra padding for mini player
+          },
         ]}
         showsVerticalScrollIndicator={false}
-      >
-        {type === "trending" && trendingLoading ? (
-          <View style={tw`flex-1 items-center justify-center py-20`}>
-            <ActivityIndicator size="large" color={designTokens.colors.brand.primary} />
-            <Text style={tw`text-white mt-2`}>Loading trending lectures...</Text>
-          </View>
-        ) : type === "trending" && trendingError ? (
-          <View style={tw`flex-1 items-center justify-center py-20 px-6`}>
-            <View
-              style={[
-                tw`w-16 h-16 rounded-full items-center justify-center mb-4`,
-                {
-                  backgroundColor: designTokens.colors.system.fill.quaternary,
-                },
-              ]}
-            >
-              <Ionicons
-                name="cloud-offline-outline"
-                size={32}
-                color={designTokens.colors.system.label.tertiary}
-              />
-            </View>
-            <Text
-              variant="title3"
-              color="label"
-              style={tw`font-semibold text-center mb-2`}
-            >
-              Failed to load trending lectures
-            </Text>
-            <Text
-              variant="subheadline"
-              color="secondaryLabel"
-              style={tw`text-center mb-4`}
-            >
-              Check your connection and try again
-            </Text>
-            <TouchableOpacity
-              onPress={refetch}
-              style={[
-                tw`px-6 py-3 rounded-full`,
-                {
-                  backgroundColor: designTokens.colors.brand.primary,
-                },
-              ]}
-              accessibilityLabel="Retry loading trending lectures"
-              accessibilityRole="button"
-              activeOpacity={0.8}
-            >
-              <Text
-                variant="body"
-                style={[
-                  tw`font-semibold`,
-                  { color: designTokens.colors.system.background.primary },
-                ]}
-              >
-                Retry
-              </Text>
-            </TouchableOpacity>
-          </View>
-        ) : filteredData.length === 0 ? (
-          <View style={tw`flex-1 items-center justify-center py-20`}>
-            <View
-              style={[
-                tw`w-16 h-16 rounded-full items-center justify-center mb-4`,
-                {
-                  backgroundColor: designTokens.colors.system.fill.quaternary,
-                },
-              ]}
-            >
-              <Ionicons
-                name={searchQuery.trim() ? "search-outline" : "library-outline"}
-                size={32}
-                color={designTokens.colors.system.label.tertiary}
-              />
-            </View>
-            <Text
-              variant="title2"
-              color="label"
-              style={tw`font-semibold mb-2 text-center`}
-            >
-              {searchQuery.trim() ? "No results found" : "No content available"}
-            </Text>
-            <Text
-              variant="subheadline"
-              color="secondaryLabel"
-              style={tw`text-center px-8`}
-            >
-              {searchQuery.trim()
-                ? "Try adjusting your search terms or browse all available content"
-                : "This section is currently empty"}
-            </Text>
-          </View>
-        ) : (
-          <View
-            style={[
-              tw`px-6`,
-              {
-                paddingTop: showFilters
-                  ? designTokens.spacing.md
-                  : designTokens.spacing.lg,
-              },
-            ]}
-          >
-            {filteredData.map((item) => (
-              <View key={item.id}>
-                {sectionInfo.variant === "section" ? (
-                  <Card
-                    variant="section"
-                    data={item as Episode}
-                    showTime={true}
-                    showMeta={true}
-                    metaValue={getRandomScholar(item.id)}
-                  />
-                ) : (
-                  <View style={tw`items-center mb-6`}>
-                    <View
-                      style={[
-                        tw`p-4 rounded-xl`,
-                        {
-                          backgroundColor:
-                            designTokens.colors.system.background.secondary,
-                          shadowColor: designTokens.colors.system.label.primary,
-                          shadowOffset: { width: 0, height: 1 },
-                          shadowOpacity: 0.04,
-                          shadowRadius: 4,
-                          elevation: 1,
-                        },
-                      ]}
-                    >
-                      <Card
-                        variant="square"
-                        data={item as unknown as Series}
-                        onPress={() =>
-                          handleSeriesPress(item as unknown as Series)
-                        }
-                        showBadge={false}
-                      />
-                      <Text
-                        variant="caption1"
-                        color="secondaryLabel"
-                        style={tw`mt-2 text-center`}
-                        numberOfLines={2}
-                      >
-                        {item.title}
-                      </Text>
-                    </View>
-                  </View>
-                )}
-              </View>
-            ))}
-          </View>
-        )}
-      </ScrollView>
+      />
     </SafeAreaView>
   );
 }

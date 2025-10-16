@@ -4,7 +4,7 @@
  * Syncs audio status with the playerStore
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useAudioPlayback } from '../../hooks/useAudioPlayback';
 import { playerStore, setAudioControls } from '../../stores/playerStore';
 
@@ -13,6 +13,8 @@ interface AudioProviderProps {
 }
 
 export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
+  const isInitializedRef = useRef(false);
+
   // Initialize audio playback with status callbacks
   const audioControls = useAudioPlayback({
     onPlaybackStatusUpdate: (status) => {
@@ -61,17 +63,25 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     },
   });
 
-  // Set audio controls in playerStore when component mounts
+  // Update audio controls reference whenever it changes
   useEffect(() => {
-    console.log('🎵 AudioProvider: Initializing audio controls');
-    setAudioControls(audioControls);
+    if (!isInitializedRef.current) {
+      console.log('🎵 AudioProvider: Initializing audio controls');
+      isInitializedRef.current = true;
+    }
 
-    // Cleanup on unmount
+    // Always keep the latest audioControls reference in playerStore
+    setAudioControls(audioControls);
+  }, [audioControls]);
+
+  // Cleanup only on unmount
+  useEffect(() => {
     return () => {
       console.log('🎵 AudioProvider: Cleaning up audio controls');
       setAudioControls(null);
+      isInitializedRef.current = false;
     };
-  }, [audioControls]);
+  }, []);
 
   return <>{children}</>;
 };

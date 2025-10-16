@@ -48,6 +48,8 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
   const [isReady, setIsReady] = useState(false);
   const previousStatusRef = useRef<AudioPlaybackStatus | null>(null);
   const loadingUriRef = useRef<string | null>(null);
+  const loadResolveRef = useRef<(() => void) | null>(null);
+  const loadRejectRef = useRef<((error?: unknown) => void) | null>(null);
 
   // Create audio player instance with current URI
   const player = useAudioPlayer(currentUri || '');
@@ -75,6 +77,9 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
       console.log('✅ Audio loaded successfully');
       setIsReady(true);
       loadingUriRef.current = null;
+      loadResolveRef.current?.();
+      loadResolveRef.current = null;
+      loadRejectRef.current = null;
     }
   }, [playerStatus.isLoaded]);
 
@@ -109,29 +114,39 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
 
   // Load audio from URI
   const loadAudio = async (uri: string): Promise<void> => {
-    try {
-      console.log('🎵 Loading audio:', uri);
+    console.log('🎵 Loading audio:', uri);
 
-      // If same URI, just reset position
-      if (currentUri === uri && status.isLoaded) {
-        player.seekTo(0);
-        setIsReady(true);
-        return;
-      }
-
-      // Load new audio
-      setIsReady(false);
-      loadingUriRef.current = uri; // Mark as loading
-      setCurrentUri(uri);
-
-      // The useEffect watching playerStatus.isLoaded will set isReady when loaded
-      console.log('📥 Audio loading started...');
-    } catch (error) {
-      console.error('❌ Failed to load audio:', error);
-      setIsReady(false);
-      loadingUriRef.current = null;
-      throw error;
+    // If same URI already loaded, reset to beginning and resolve immediately
+    if (currentUri === uri && status.isLoaded) {
+      player.seekTo(0);
+      setIsReady(true);
+      return;
     }
+
+    // Reject any pending load promise before starting a new one
+    if (loadRejectRef.current) {
+      loadRejectRef.current(new Error('Superseded by a new load request'));
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      try {
+        loadResolveRef.current = resolve;
+        loadRejectRef.current = reject;
+        setIsReady(false);
+        loadingUriRef.current = uri; // Mark as loading
+        setCurrentUri(uri);
+
+        // The useEffect watching playerStatus.isLoaded will resolve the promise
+        console.log('📥 Audio loading started...');
+      } catch (error) {
+        console.error('❌ Failed to initiate audio load:', error);
+        setIsReady(false);
+        loadingUriRef.current = null;
+        loadResolveRef.current = null;
+        loadRejectRef.current = null;
+        reject(error);
+      }
+    });
   };
 
   // Play audio
@@ -240,6 +255,8 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
       console.log('⏹️ Stopping audio');
       player.pause();
       player.seekTo(0);
+      loadResolveRef.current = null;
+      loadRejectRef.current = null;
     } catch (error) {
       console.error('Failed to stop audio:', error);
     }
@@ -252,6 +269,9 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
       stop();
       setCurrentUri(null);
       setIsReady(false);
+      loadingUriRef.current = null;
+      loadResolveRef.current = null;
+      loadRejectRef.current = null;
     } catch (error) {
       console.error('Failed to unload audio:', error);
     }

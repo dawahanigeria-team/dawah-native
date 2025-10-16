@@ -129,7 +129,7 @@ class SearchApiService {
       }
 
       // Process and normalize the response
-      const normalizedResponse = this.normalizeSearchResponse(response.data, params);
+      const normalizedResponse = this.normalizeSearchResponse<T>(response.data, params);
 
       // Log normalized response summary
       console.log('✅ Normalized Search Response:', {
