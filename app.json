@@ -46,7 +46,15 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-audio"
+      [
+        "expo-audio",
+        {
+          "audioMode": {
+            "playsInSilentModeIOS": true,
+            "staysActiveInBackground": true
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
