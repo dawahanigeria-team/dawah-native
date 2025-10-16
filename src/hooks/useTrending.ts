@@ -33,21 +33,30 @@ export const useTrending = (params: TrendingLecturesParams = {}): UseTrendingRes
         total: response.total
       });
 
-      // Transform SearchLecture to Episode format
-      const transformedLectures: Episode[] = response.data.map((lecture: SearchLecture) => ({
-        id: lecture.nid?.toString() || lecture.id || '',
-        title: lecture.Title || lecture.mp3_title || '',
-        durationSec: parseDuration(lecture.duration || lecture.mp3_duration || '0:00:00'),
-        coverUrl: lecture.img || lecture.CoverUrl || '',
-        audioUrl: lecture.audio || lecture.mp3_url || lecture.AudioUrl || '',
-        seriesId: lecture.keyword || '',
-        plays: parseInt(lecture.favorites?.toString() || '0') || 0,
-        liked: false, // Default to false
-        language: lecture.lang || lecture.language || lecture.Language || '',
-        downloads: parseInt(lecture.share?.toString() || '0') || 0,
-        createdAt: lecture.created_at || '',
-        lecturerName: lecture.rpname || lecture.lecturer_name || lecture.ResourcePerson || '',
-      }));
+      // Transform SearchLecture to Episode format with validation
+      // Filter out invalid lectures that are missing critical fields
+      const transformedLectures: Episode[] = response.data
+        .filter(lecture => {
+          const hasRequiredFields = lecture.nid && lecture.Title && lecture.audio;
+          if (!hasRequiredFields) {
+            console.warn('⚠️ Skipping invalid lecture:', { nid: lecture.nid, title: lecture.Title, hasAudio: !!lecture.audio });
+          }
+          return hasRequiredFields;
+        })
+        .map((lecture: SearchLecture) => ({
+          id: lecture.nid.toString(),
+          title: lecture.Title,
+          durationSec: parseDuration(lecture.duration || lecture.mp3_duration || '0:00:00'),
+          coverUrl: lecture.img || lecture.CoverUrl || '',
+          audioUrl: lecture.audio || lecture.mp3_url || lecture.AudioUrl || '',
+          seriesId: lecture.keyword || '',
+          plays: parseInt(lecture.favorites?.toString() || '0') || 0,
+          liked: false,
+          language: lecture.lang || lecture.language || lecture.Language || '',
+          downloads: parseInt(lecture.share?.toString() || '0') || 0,
+          createdAt: lecture.created_at || '',
+          lecturerName: lecture.rpname || lecture.lecturer_name || lecture.ResourcePerson || '',
+        }));
 
       setLectures(transformedLectures);
     } catch (err: any) {
@@ -75,12 +84,12 @@ export const useTrending = (params: TrendingLecturesParams = {}): UseTrendingRes
   }
 
   useEffect(() => {
-    if (params && Object.keys(params).length > 0) { // Only fetch if params are provided and not empty
-      fetchTrending();
-    } else {
-      setLoading(false); // Set loading to false if not fetching
+    if (!params || Object.keys(params).length === 0) {
+      setLoading(false);
+      return;
     }
-  }, [JSON.stringify(params)]); // Re-fetch when params change
+    fetchTrending();
+  }, [params?.page, params?.limit]); // Re-fetch when page or limit changes
 
   return {
     lectures,

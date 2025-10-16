@@ -221,7 +221,7 @@ export default function SectionScreen() {
   const { type } = useLocalSearchParams<{ type: string }>();
 
   // Fetch trending data if this is the trending section
-  const { lectures: trendingLectures, loading: trendingLoading, error: trendingError } = useTrending(
+  const { lectures: trendingLectures, loading: trendingLoading, error: trendingError, refetch } = useTrending(
     type === "trending" ? { page: 1 } : undefined // Don't fetch if not trending
   );
 
@@ -564,8 +564,56 @@ export default function SectionScreen() {
           </View>
         ) : type === "trending" && trendingError ? (
           <View style={tw`flex-1 items-center justify-center py-20 px-6`}>
-            <Text style={tw`text-white text-center`}>Failed to load trending lectures</Text>
-            <Text style={tw`text-gray-400 text-sm text-center mt-1`}>Using offline content</Text>
+            <View
+              style={[
+                tw`w-16 h-16 rounded-full items-center justify-center mb-4`,
+                {
+                  backgroundColor: designTokens.colors.system.fill.quaternary,
+                },
+              ]}
+            >
+              <Ionicons
+                name="cloud-offline-outline"
+                size={32}
+                color={designTokens.colors.system.label.tertiary}
+              />
+            </View>
+            <Text
+              variant="title3"
+              color="label"
+              style={tw`font-semibold text-center mb-2`}
+            >
+              Failed to load trending lectures
+            </Text>
+            <Text
+              variant="subheadline"
+              color="secondaryLabel"
+              style={tw`text-center mb-4`}
+            >
+              Check your connection and try again
+            </Text>
+            <TouchableOpacity
+              onPress={refetch}
+              style={[
+                tw`px-6 py-3 rounded-full`,
+                {
+                  backgroundColor: designTokens.colors.brand.primary,
+                },
+              ]}
+              accessibilityLabel="Retry loading trending lectures"
+              accessibilityRole="button"
+              activeOpacity={0.8}
+            >
+              <Text
+                variant="body"
+                style={[
+                  tw`font-semibold`,
+                  { color: designTokens.colors.system.background.primary },
+                ]}
+              >
+                Retry
+              </Text>
+            </TouchableOpacity>
           </View>
         ) : filteredData.length === 0 ? (
           <View style={tw`flex-1 items-center justify-center py-20`}>
