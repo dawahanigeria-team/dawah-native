@@ -171,6 +171,80 @@ export interface LectureDetailResponse extends BaseApiResponse {
   };
 }
 
+export interface LectureDetailApiItem {
+  updated_date?: string;
+  nid?: number;
+  Title?: string;
+  audio?: string;
+  amr_url?: string;
+  img?: string;
+  duration?: string;
+  description?: string;
+  mp3_size?: string;
+  amr_size?: string;
+  cats?: string | string[];
+  cat_id?: string[];
+  album_id?: number;
+  lec_img?: string;
+  post_date?: string;
+  views?: number | string;
+  favorites?: number | string;
+  share?: number | string;
+  comment?: number | string;
+  downloads?: number | string;
+  lang?: string;
+  rpname?: string;
+  album_name?: string;
+  charts?: {
+    daily?: number;
+    weekly?: number;
+    monthly?: number;
+  };
+  reciter_id?: number;
+  reciter_name?: string;
+  reciter_image?: string;
+  is_reciter?: boolean;
+}
+
+export interface LectureDetail {
+  id: string;
+  title: string;
+  description?: string;
+  audioUrl: string;
+  amrUrl?: string;
+  coverUrl: string;
+  backdropUrl?: string;
+  durationSec: number;
+  durationLabel?: string;
+  mp3Size?: string;
+  amrSize?: string;
+  categories: string[];
+  categoryIds: string[];
+  albumId?: string;
+  albumName?: string;
+  views: number;
+  favorites: number;
+  shares: number;
+  downloads: number;
+  comments: number;
+  language?: string;
+  lecturerName?: string;
+  updatedDate?: string;
+  postedDate?: string;
+  charts?: {
+    daily?: number;
+    weekly?: number;
+    monthly?: number;
+  };
+  reciter?: {
+    id?: number;
+    name?: string;
+    image?: string;
+    isReciter?: boolean;
+  };
+  raw?: LectureDetailApiItem;
+}
+
 // Category Response
 export interface CategoryResponse extends BaseApiResponse {
   categories: {
