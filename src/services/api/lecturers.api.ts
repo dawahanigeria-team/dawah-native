@@ -110,26 +110,13 @@ class LecturersApiService {
         }
       );
 
-      // Log the raw response
+      // Log response summary (without sensitive data)
       console.log('📥 Lecturers Response:', {
         status: 'success',
         dataReceived: response.data ? 'Yes' : 'No',
-        dataType: typeof response.data,
         dataLength: Array.isArray(response.data) ? response.data.length :
                    (response.data?.data ? response.data.data.length : 0),
-        rawData: response.data
       });
-
-      // Log first item structure
-      if (response.data && (Array.isArray(response.data) || response.data.data)) {
-        const items = Array.isArray(response.data) ? response.data : response.data.data;
-        if (items && items.length > 0) {
-          console.log('📋 First Lecturer Structure:', {
-            firstItem: items[0],
-            keys: Object.keys(items[0])
-          });
-        }
-      }
 
       // Normalize the response
       return this.normalizeResponse(response.data, params);

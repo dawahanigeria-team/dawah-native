@@ -115,23 +115,13 @@ class SearchApiService {
         }
       );
 
-      // Log the raw API response
+      // Log response summary (without sensitive data)
       console.log('📥 Search API Response:', {
         status: 'success',
         dataReceived: response.data ? 'Yes' : 'No',
-        dataType: typeof response.data,
         dataLength: Array.isArray(response.data) ? response.data.length :
                    (response.data?.data ? response.data.data.length : 0),
-        rawData: response.data
       });
-
-      // Log first item if available to see structure
-      if (response.data?.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
-        console.log('📋 First Search Result Structure:', {
-          firstItem: response.data.data[0],
-          keys: Object.keys(response.data.data[0])
-        });
-      }
 
       // Track recent searches (not for quick searches)
       if (!params.quick) {
@@ -141,12 +131,11 @@ class SearchApiService {
       // Process and normalize the response
       const normalizedResponse = this.normalizeSearchResponse(response.data, params);
 
-      // Log normalized response
+      // Log normalized response summary
       console.log('✅ Normalized Search Response:', {
         success: normalizedResponse.success,
         total: normalizedResponse.total,
         dataLength: normalizedResponse.data.length,
-        firstNormalizedItem: normalizedResponse.data[0]
       });
 
       return normalizedResponse;

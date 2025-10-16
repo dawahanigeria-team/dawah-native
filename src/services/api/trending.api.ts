@@ -63,23 +63,13 @@ class TrendingLecturesApiService {
         }
       );
 
-      // Log the raw response
+      // Log response summary (without sensitive data)
       console.log('📥 Trending Lectures Response:', {
         status: 'success',
         dataReceived: response.data ? 'Yes' : 'No',
-        dataType: typeof response.data,
         dataLength: Array.isArray(response.data) ? response.data.length :
                    (response.data?.data ? response.data.data.length : 0),
-        rawData: response.data
       });
-
-      // Log first item structure
-      if (response.data?.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
-        console.log('📋 First Trending Lecture Structure:', {
-          firstItem: response.data.data[0],
-          keys: Object.keys(response.data.data[0])
-        });
-      }
 
       // Normalize the response
       return this.normalizeResponse(response.data, params);
