@@ -47,6 +47,7 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
   const [currentUri, setCurrentUri] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
   const previousStatusRef = useRef<AudioPlaybackStatus | null>(null);
+  const loadingUriRef = useRef<string | null>(null);
 
   // Create audio player instance with current URI
   const player = useAudioPlayer(currentUri || '');
@@ -67,6 +68,15 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
     playbackRate: 1, // expo-audio doesn't expose this in status
     didJustFinish: false,
   };
+
+  // Watch for when audio becomes loaded after URI change
+  useEffect(() => {
+    if (playerStatus.isLoaded && loadingUriRef.current) {
+      console.log('✅ Audio loaded successfully');
+      setIsReady(true);
+      loadingUriRef.current = null;
+    }
+  }, [playerStatus.isLoaded]);
 
   // Detect playback finished
   useEffect(() => {
@@ -103,7 +113,7 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
       console.log('🎵 Loading audio:', uri);
 
       // If same URI, just reset position
-      if (currentUri === uri && player.isLoaded) {
+      if (currentUri === uri && status.isLoaded) {
         player.seekTo(0);
         setIsReady(true);
         return;
@@ -111,40 +121,22 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
 
       // Load new audio
       setIsReady(false);
+      loadingUriRef.current = uri; // Mark as loading
       setCurrentUri(uri);
 
-      // Wait for player to be ready
-      // In expo-audio, loading happens automatically when URI changes
-      await new Promise<void>((resolve) => {
-        const checkLoaded = setInterval(() => {
-          if (player.isLoaded) {
-            clearInterval(checkLoaded);
-            setIsReady(true);
-            console.log('✅ Audio loaded successfully');
-            resolve();
-          }
-        }, 100);
-
-        // Timeout after 10 seconds
-        setTimeout(() => {
-          clearInterval(checkLoaded);
-          if (!player.isLoaded) {
-            console.error('⏱️ Audio loading timeout');
-            setIsReady(false);
-          }
-          resolve();
-        }, 10000);
-      });
+      // The useEffect watching playerStatus.isLoaded will set isReady when loaded
+      console.log('📥 Audio loading started...');
     } catch (error) {
       console.error('❌ Failed to load audio:', error);
       setIsReady(false);
+      loadingUriRef.current = null;
       throw error;
     }
   };
 
   // Play audio
   const play = () => {
-    if (!player.isLoaded) {
+    if (!status.isLoaded) {
       console.warn('Cannot play: audio not loaded');
       return;
     }
@@ -159,7 +151,7 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
 
   // Pause audio
   const pause = () => {
-    if (!player.isLoaded) {
+    if (!status.isLoaded) {
       console.warn('Cannot pause: audio not loaded');
       return;
     }
@@ -174,7 +166,7 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
 
   // Toggle play/pause
   const togglePlayPause = () => {
-    if (player.playing) {
+    if (status.isPlaying) {
       pause();
     } else {
       // If at the end, reset to beginning before playing
@@ -187,7 +179,7 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
 
   // Seek to specific position
   const seekTo = (seconds: number) => {
-    if (!player.isLoaded) {
+    if (!status.isLoaded) {
       console.warn('Cannot seek: audio not loaded');
       return;
     }
@@ -215,7 +207,7 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
 
   // Set playback rate
   const setPlaybackRate = (rate: number) => {
-    if (!player.isLoaded) {
+    if (!status.isLoaded) {
       console.warn('Cannot set playback rate: audio not loaded');
       return;
     }
@@ -240,7 +232,7 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
 
   // Stop playback and reset position
   const stop = () => {
-    if (!player.isLoaded) {
+    if (!status.isLoaded) {
       return;
     }
 
