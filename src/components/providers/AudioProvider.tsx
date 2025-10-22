@@ -5,6 +5,7 @@
  */
 
 import React, { useEffect, useRef } from 'react';
+import { setAudioModeAsync } from 'expo-audio';
 import { useAudioPlayback } from '../../hooks/useAudioPlayback';
 import { playerStore, setAudioControls } from '../../stores/playerStore';
 
@@ -14,6 +15,22 @@ interface AudioProviderProps {
 
 export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   const isInitializedRef = useRef(false);
+
+  // Configure audio mode for background playback
+  useEffect(() => {
+    const setupAudioMode = async () => {
+      try {
+        await setAudioModeAsync({
+          playsInSilentMode: true,
+        });
+        console.log('✅ Audio mode configured for background playback');
+      } catch (error) {
+        console.error('❌ Failed to configure audio mode:', error);
+      }
+    };
+
+    setupAudioMode();
+  }, []);
 
   // Initialize audio playback with status callbacks
   const audioControls = useAudioPlayback({

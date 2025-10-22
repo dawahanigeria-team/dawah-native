@@ -327,6 +327,14 @@ export default function SectionScreen() {
     console.log("Series pressed:", series.title);
   };
 
+  const handleLecturePress = useCallback(
+    (episode: Episode) => {
+      if (!episode?.id) return;
+      router.push(`/lecture/${episode.id}`);
+    },
+    [router]
+  );
+
   const handleSearch = (query: string) => {
     setSearchQuery(query);
   };
@@ -345,10 +353,18 @@ export default function SectionScreen() {
   // Render item for FlatList
   const renderItem = useCallback(({ item }: { item: Episode | Series }) => {
     if (sectionInfo.variant === "section") {
+      const isTrendingSection = type === "trending";
+
       return (
         <Card
           variant="section"
           data={item as Episode}
+          onPress={
+            isTrendingSection
+              ? () => handleLecturePress(item as Episode)
+              : undefined
+          }
+          playOnPress={!isTrendingSection}
           showTime={true}
           showMeta={true}
           metaValue={getRandomScholar(item.id)}
@@ -388,7 +404,7 @@ export default function SectionScreen() {
         </View>
       );
     }
-  }, [sectionInfo.variant]);
+  }, [handleLecturePress, sectionInfo.variant, type]);
 
   // Render footer (loading indicator) for FlatList
   const renderFooter = useCallback(() => {
@@ -489,9 +505,10 @@ export default function SectionScreen() {
   return (
     <SafeAreaView
       style={[
-        tw`flex-1`,
+        tw`flex-1 pb-4`,
         { backgroundColor: designTokens.colors.system.background.primary },
       ]}
+      edges={["top", "left", "right", "bottom"]}
     >
       {/* Header */}
       <View

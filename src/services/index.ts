@@ -11,6 +11,7 @@ export { apiClient, ApiError, type ApiResponse, type RequestConfig } from './api
 
 // Export search API service
 export { searchApi, type SearchParams } from './api/search.api';
+export { lectureDetailApi, type LectureDetailParams } from './api/lectureDetail.api';
 
 // Re-export API types
 export * from '../types/api.types';
