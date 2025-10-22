@@ -5,10 +5,22 @@
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "build:android": "expo run:android --variant release",
+    "build:android:apk": "cd android && ./gradlew assembleRelease && cd ..",
+    "build:android:aab": "cd android && ./gradlew bundleRelease && cd ..",
+    "build:android:dev": "expo run:android",
+    "prebuild:android": "expo prebuild --platform android",
+    "eas:dev:android": "eas build --profile development --platform android",
+    "eas:dev:ios": "eas build --profile development --platform ios",
+    "eas:dev:all": "eas build --profile development --platform all",
+    "eas:preview:android": "eas build --profile preview --platform android",
+    "eas:preview:ios": "eas build --profile preview --platform ios",
+    "eas:prod:android": "eas build --profile production --platform android",
+    "eas:prod:ios": "eas build --profile production --platform ios"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

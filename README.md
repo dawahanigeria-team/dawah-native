@@ -25,6 +25,58 @@ In the output, you'll find options to open the app in a
 
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
+## Native Folders (android/ios)
+
+**Important:** The `android/` and `ios/` folders are **not tracked** in git. They are auto-generated and can be regenerated anytime.
+
+### Regenerating Native Folders
+
+If you've just cloned this repository, you need to generate the native folders:
+
+```bash
+# For Android
+npm run prebuild:android
+
+# For iOS (macOS only)
+expo prebuild --platform ios
+```
+
+### Why aren't they tracked?
+
+- ✅ **Auto-Generated**: Created by `expo prebuild` - can be regenerated anytime
+- ✅ **Cleaner Git History**: Avoids huge commits with thousands of native files
+- ✅ **Fewer Merge Conflicts**: No conflicts in generated files
+- ✅ **Smaller Repository**: Saves ~50MB+ in repo size
+- ✅ **Expo Best Practice**: Recommended for CNG (Continuous Native Generation)
+
+### Building for Development
+
+```bash
+# Build and run Android development build
+npm run android
+
+# Build and run iOS development build (macOS only)
+npm run ios
+
+# Build with EAS for testing on physical devices
+npm run eas:dev:android  # Android
+npm run eas:dev:ios      # iOS
+```
+
+### Building for Production
+
+```bash
+# Build Android APK (for direct installation)
+npm run build:android:apk
+
+# Build Android AAB (for Google Play Store)
+npm run build:android:aab
+
+# Build with EAS for production
+npm run eas:prod:android  # Android AAB
+npm run eas:prod:ios      # iOS IPA
+```
+
 ## Get a fresh project
 
 When you're ready, run:
