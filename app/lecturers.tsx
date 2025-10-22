@@ -40,10 +40,14 @@ export default function LecturersScreen() {
       }
       setError(null);
 
+      console.log(`📚 Fetching lecturers - Page: ${pageNum}, Limit: ${itemsPerPage}`);
+
       const response = await lecturersApi.getAllLecturers({
         page: pageNum,
         lim: itemsPerPage,
       });
+
+      console.log(`✅ Received ${response.data.length} lecturers for page ${pageNum}`);
 
       if (isRefresh) {
         setLecturers(response.data);
@@ -53,7 +57,11 @@ export default function LecturersScreen() {
         setLecturers(response.data);
         setHasMore(response.data.length === itemsPerPage);
       } else {
-        setLecturers(prev => [...prev, ...response.data]);
+        setLecturers(prev => {
+          const newTotal = prev.length + response.data.length;
+          console.log(`📊 Total lecturers now: ${newTotal}`);
+          return [...prev, ...response.data];
+        });
         setHasMore(response.data.length === itemsPerPage);
       }
     } catch (err) {

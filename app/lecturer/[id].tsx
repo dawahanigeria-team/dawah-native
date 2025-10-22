@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { ScrollView, Text, TouchableOpacity, View, Image, ActivityIndicator, TextInput, FlatList } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, router } from "expo-router";
@@ -33,6 +33,7 @@ export default function LecturerDetailScreen() {
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMoreLectures, setHasMoreLectures] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const isLoadingRef = useRef(false);
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabType>('songs');
@@ -61,15 +62,26 @@ export default function LecturerDetailScreen() {
   };
 
   const fetchLecturerLectures = async (page = 1, appendData = false) => {
+    if (isLoadingRef.current) {
+      console.log('⏸️ Already loading, skipping request');
+      return;
+    }
+
     try {
-      if (!appendData) {
-        setLecturesLoading(true);
-      } else {
+      isLoadingRef.current = true;
+
+      if (appendData) {
         setLoadingMore(true);
+      } else {
+        setLecturesLoading(true);
       }
+
+      console.log(`📚 Fetching lectures for page ${page}`);
 
       // Fetch lectures by lecturer using the specific API endpoint
       const response = await lecturersApi.getLecturesByLecturer(lecturerId, page);
+
+      console.log(`✅ Received ${response.data.length} lectures for page ${page}`);
 
       // Add unique ID to each lecture to prevent key collisions
       const lecturesWithUniqueIds = response.data.map((lecture, idx) => ({
@@ -82,6 +94,8 @@ export default function LecturerDetailScreen() {
         setLectures(prev => {
           const existingIds = new Set(prev.map(l => l.nid));
           const newLectures = lecturesWithUniqueIds.filter(l => !existingIds.has(l.nid));
+          console.log(`➕ Adding ${newLectures.length} new lectures (${lecturesWithUniqueIds.length - newLectures.length} duplicates removed)`);
+          console.log(`📊 Total lectures now: ${prev.length + newLectures.length}`);
           return [...prev, ...newLectures];
         });
         if (searchQuery.trim() === "") {
@@ -98,21 +112,28 @@ export default function LecturerDetailScreen() {
       }
 
       // Check if there are more lectures to load
-      // If we got less data than expected or empty array, no more data
-      setHasMoreLectures(response.data.length > 0);
+      // API returns 30 by default, if we get less than 10, probably no more
+      const hasMore = response.data.length >= 10;
+      console.log(`📊 Pagination status: Page ${page}, Has more: ${hasMore} (received ${response.data.length} lectures)`);
+      setHasMoreLectures(hasMore);
       setCurrentPage(page);
     } catch (err) {
       console.error('Failed to fetch lecturer lectures:', err);
+      setHasMoreLectures(false); // Stop trying to load more on error
     } finally {
       setLecturesLoading(false);
       setLoadingMore(false);
+      isLoadingRef.current = false;
     }
   };
 
   const loadMoreLectures = () => {
-    if (!loadingMore && hasMoreLectures && !searchQuery) {
-      fetchLecturerLectures(currentPage + 1, true);
+    if (!hasMoreLectures || loadingMore || lecturesLoading || searchQuery || isLoadingRef.current) {
+      console.log(`❌ Cannot load more - hasMore: ${hasMoreLectures}, loadingMore: ${loadingMore}, loading: ${lecturesLoading}, hasSearch: ${!!searchQuery}`);
+      return;
     }
+    console.log(`🔄 Loading more lectures - Current page: ${currentPage}, Next: ${currentPage + 1}`);
+    fetchLecturerLectures(currentPage + 1, true);
   };
 
   const fetchAlbums = async () => {
@@ -385,6 +406,8 @@ export default function LecturerDetailScreen() {
             ListFooterComponent={renderLectureFooter}
             scrollEnabled={false}
             removeClippedSubviews={true}
+            maxToRenderPerBatch={20}
+            windowSize={10}
           />
         );
 
