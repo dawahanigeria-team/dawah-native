@@ -206,6 +206,75 @@ class LecturersApiService {
       return null;
     }
   }
+
+  /**
+   * Get lectures by lecturer
+   */
+  async getLecturesByLecturer(
+    lecturerId: string | number,
+    page = 1
+  ): Promise<{
+    data: LecturerLecture[];
+    total: number;
+    page: number;
+    total_pages: number;
+  }> {
+    try {
+      console.log('📚 Fetching lectures for lecturer:', lecturerId);
+
+      const response = await apiClient.get<any>(
+        '/api/leclisting_rp.php',
+        {
+          page,
+          rpid: lecturerId,
+        },
+        {
+          timeout: API_CONFIG.TIMEOUTS.DEFAULT,
+          useCache: true,
+          cacheTTL: API_CONFIG.CACHE.LECTURES_TTL,
+        }
+      );
+
+      // Response is an array of lectures
+      const lectures = Array.isArray(response.data) ? response.data : [];
+
+      console.log('✅ Lectures fetched:', lectures.length);
+
+      return {
+        data: lectures,
+        total: lectures.length,
+        page,
+        total_pages: 1, // API doesn't provide pagination info
+      };
+    } catch (error) {
+      console.error('❌ Failed to fetch lectures by lecturer:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError('Failed to fetch lectures', undefined, error);
+    }
+  }
+}
+
+// Lecture by lecturer interface
+export interface LecturerLecture {
+  title: string;
+  audio: string;
+  img: string;
+  nid: number;
+  duration: string;
+  description?: string;
+  lang: string;
+  cats: string;
+  downloads: number;
+  views: number;
+  favorites: number;
+  share: number;
+  comment: number;
+  rp_id: number;
+  rpname: string;
+  rp_image: string;
+  is_reciter: boolean;
 }
 
 // Export singleton instance

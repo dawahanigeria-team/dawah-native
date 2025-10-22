@@ -261,7 +261,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
               {currentEpisode.title}
             </Text>
             <Text variant="caption1" color="secondaryLabel" numberOfLines={1}>
-              {currentEpisode.lecturerName || "Islamic Lecture"} • {formatDuration(progress)}/{formatDuration(duration)}
+              {currentEpisode.lecturerName || "Dawah Nigeria"} • {formatDuration(progress)}/{formatDuration(duration)}
             </Text>
           </View>
 
@@ -397,12 +397,12 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                 <View
                   style={[
                     styles.expandedAlbumImage,
-                    getPlaceholderStyle(currentEpisode.id, 280),
+                    getPlaceholderStyle(currentEpisode.id, 200),
                   ]}
                 >
                   <Text
                     style={{
-                      fontSize: designTokens.typography.fontSize.largeTitle,
+                      fontSize: designTokens.typography.fontSize.title1,
                       fontWeight: designTokens.typography.fontWeight.bold,
                       color: designTokens.colors.system.label.primary,
                     }}
@@ -429,7 +429,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                 color="secondaryLabel"
                 style={{ textAlign: "center", marginBottom: 4 }}
               >
-                {currentEpisode.lecturerName || "Sheikh Abubakar Gumi"}
+                {currentEpisode.lecturerName || "Dawah Nigeria"}
               </Text>
               <Text
                 variant="caption1"
@@ -883,21 +883,21 @@ const styles = StyleSheet.create({
   },
   expandedAlbumArt: {
     alignItems: "center",
-    marginBottom: designTokens.spacing.xl,
+    marginBottom: designTokens.spacing.lg,
   },
   expandedAlbumImage: {
-    width: 280,
-    height: 280,
+    width: 200,
+    height: 200,
     borderRadius: designTokens.borderRadius.xl,
     justifyContent: "center",
     alignItems: "center",
   },
   expandedTrackInfo: {
     alignItems: "center",
-    marginBottom: designTokens.spacing.xl,
+    marginBottom: designTokens.spacing.lg,
   },
   progressSliderContainer: {
-    marginBottom: designTokens.spacing.xl,
+    marginBottom: designTokens.spacing.lg,
   },
   progressSlider: {
     marginBottom: designTokens.spacing.sm,
@@ -928,7 +928,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: designTokens.spacing.xl,
+    marginBottom: designTokens.spacing.lg,
   },
   seekButton: {
     width: 64,
