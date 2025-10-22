@@ -29,7 +29,7 @@ export default function LecturersScreen() {
     router.push(`/lecturer/${id}`);
   }, []);
 
-  const fetchLecturers = async (pageNum: number, isRefresh = false) => {
+  const fetchLecturers = useCallback(async (pageNum: number, isRefresh = false) => {
     try {
       if (isRefresh) {
         setRefreshing(true);
@@ -64,11 +64,11 @@ export default function LecturersScreen() {
       setLoadingMore(false);
       setRefreshing(false);
     }
-  };
+  }, [itemsPerPage]);
 
   useEffect(() => {
     fetchLecturers(1);
-  }, []);
+  }, [fetchLecturers]);
 
   const handleLoadMore = () => {
     if (!loadingMore && hasMore) {
@@ -78,9 +78,9 @@ export default function LecturersScreen() {
     }
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(() => {
     fetchLecturers(1, true);
-  };
+  }, [fetchLecturers]);
 
   const renderLecturer = useCallback(
     ({ item }: { item: Lecturer }) => (
@@ -92,7 +92,7 @@ export default function LecturersScreen() {
           totalLectures={item.total_lectures}
           followers={item.followers || item.views}
           language={item.language}
-          verified={item.verified || (item.views && item.views > 1000)}
+          verified={Boolean(item.verified) || (!!item.views && item.views > 1000)}
           onPress={() => handleLecturerPress(String(item.id))}
           style={tw`mr-0 w-full`}
         />
