@@ -312,20 +312,6 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                 color={designTokens.colors.system.label.secondary}
               />
             </Touchable>
-
-            {/* Stop Button */}
-            <Touchable
-              onPress={handleClose}
-              style={styles.miniControlButton}
-              accessibilityLabel="Stop playback"
-              accessibilityRole="button"
-            >
-              <Ionicons
-                name="stop"
-                size={20}
-                color={designTokens.colors.system.label.secondary}
-              />
-            </Touchable>
           </View>
         </Pressable>
       </View>
@@ -841,7 +827,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    minWidth: 200,
+    minWidth: 150,
   },
   miniControlButton: {
     width: 36,
