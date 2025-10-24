@@ -18,6 +18,20 @@ export default function RootLayout() {
         <View style={{ flex: 1 }}>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" />
+            <Stack.Screen
+              name="sign-in"
+              options={{
+                presentation: "modal",
+                animation: "slide_from_bottom",
+              }}
+            />
+            <Stack.Screen
+              name="sign-up"
+              options={{
+                presentation: "modal",
+                animation: "slide_from_bottom",
+              }}
+            />
           </Stack>
           {/* Mini Player - hidden on lecture detail page */}
           {shouldShowMiniPlayer && <MiniPlayer />}

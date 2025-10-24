@@ -3,3 +3,6 @@ export { usePlayerStore, playerStore } from "./playerStore";
 
 // Export theme store
 export { useThemeStore } from "./themeStore";
+
+// Export auth store
+export { useAuthStore, authStore } from "./authStore";

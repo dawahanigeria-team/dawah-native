@@ -740,6 +740,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
 
     return (
       <GestureHandlerRootView
+        pointerEvents="box-none"
         style={[
           styles.container,
           {
@@ -748,7 +749,10 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
           },
         ]}
       >
-        <Animated.View style={[styles.player, animatedStyle]}>
+        <Animated.View
+          pointerEvents="auto"
+          style={[styles.player, animatedStyle]}
+        >
           {isExpanded ? renderExpandedPlayer() : renderMiniPlayer()}
         </Animated.View>
       </GestureHandlerRootView>

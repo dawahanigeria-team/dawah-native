@@ -1,7 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import React from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuthStore } from "../../src/stores";
 import { useThemeStore } from "../../src/stores/themeStore";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
@@ -14,14 +16,41 @@ interface SettingItem {
   onPress: () => void;
 }
 
-const settingsItems: SettingItem[] = [
-  {
-    id: "1",
-    title: "Appearance",
-    icon: "color-palette-outline",
-    subtitle: "Dark mode, theme settings",
-    onPress: () => console.log("Appearance pressed"),
-  },
+const ProfileScreen = () => {
+  const router = useRouter();
+  const { isDark, toggleTheme, setTheme } = useThemeStore();
+  const { user, isAuthenticated, logout } = useAuthStore();
+
+  const handleAppearancePress = () => {
+    Alert.alert(
+      "Appearance",
+      "Choose your preferred theme",
+      [
+        {
+          text: "Light",
+          onPress: () => setTheme(false),
+        },
+        {
+          text: "Dark",
+          onPress: () => setTheme(true),
+        },
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const settingsItems: SettingItem[] = [
+    {
+      id: "1",
+      title: "Appearance",
+      icon: "color-palette-outline",
+      subtitle: `${isDark ? "Dark" : "Light"} mode`,
+      onPress: handleAppearancePress,
+    },
   {
     id: "2",
     title: "Notifications",
@@ -45,11 +74,33 @@ const settingsItems: SettingItem[] = [
   },
 ];
 
-export default function ProfileScreen() {
-  const { isDark, toggleTheme } = useThemeStore();
-
   const handleSignIn = () => {
-    console.log("Sign in pressed");
+    router.push("/sign-in");
+  };
+
+  const handleSignOut = () => {
+    Alert.alert(
+      "Sign Out",
+      "Are you sure you want to sign out?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Sign Out",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await logout();
+            } catch (err) {
+              console.error("Sign out error:", err);
+              Alert.alert("Error", "Failed to sign out. Please try again.");
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleThemeToggle = () => {
@@ -114,36 +165,55 @@ export default function ProfileScreen() {
               ]}
               accessibilityRole="header"
             >
-              Guest User
+              {isAuthenticated && user ? user.username : "Guest User"}
             </Text>
 
-            <Text
-              style={[
-                tw`text-center mb-4`,
-                { color: designTokens.colors.system.label.secondary },
-              ]}
-            >
-              Sign in to sync your library and preferences across devices
-            </Text>
+            {isAuthenticated && user?.email && (
+              <Text
+                style={[
+                  tw`text-center mb-4`,
+                  { color: designTokens.colors.system.label.secondary },
+                ]}
+              >
+                {user.email}
+              </Text>
+            )}
+
+            {!isAuthenticated && (
+              <Text
+                style={[
+                  tw`text-center mb-4`,
+                  { color: designTokens.colors.system.label.secondary },
+                ]}
+              >
+                Sign in to sync your library and preferences across devices
+              </Text>
+            )}
 
             <TouchableOpacity
               style={[
                 tw`px-6 py-3 rounded-full`,
-                { backgroundColor: designTokens.colors.brand.primary },
+                { backgroundColor: isAuthenticated
+                  ? designTokens.colors.system.fill.secondary
+                  : designTokens.colors.brand.primary
+                },
               ]}
-              onPress={handleSignIn}
+              onPress={isAuthenticated ? handleSignOut : handleSignIn}
               activeOpacity={0.8}
-              accessibilityLabel="Sign in button"
-              accessibilityHint="Tap to sign in to your account"
+              accessibilityLabel={isAuthenticated ? "Sign out button" : "Sign in button"}
+              accessibilityHint={isAuthenticated ? "Tap to sign out of your account" : "Tap to sign in to your account"}
               accessibilityRole="button"
             >
               <Text
                 style={[
                   tw`font-semibold text-base`,
-                  { color: designTokens.colors.system.background.primary },
+                  { color: isAuthenticated
+                    ? designTokens.colors.semantic.red
+                    : designTokens.colors.system.background.primary
+                  },
                 ]}
               >
-                Sign In
+                {isAuthenticated ? "Sign Out" : "Sign In"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -376,4 +446,6 @@ export default function ProfileScreen() {
       </ScrollView>
     </SafeAreaView>
   );
-}
+};
+
+export default ProfileScreen;
