@@ -30,22 +30,28 @@ export interface DownloadProgress {
 }
 
 class DownloadsService {
-  private downloadsDirectory: Directory;
+  private downloadsDirectory!: Directory;
   private metadataCache: Map<string, DownloadMetadata> = new Map();
   private isInitialized = false;
   private initPromise: Promise<void> | null = null;
 
   constructor() {
-    // Create downloads directory in app's document storage
-    this.downloadsDirectory = new Directory(Paths.document, 'downloads');
+    // Only initialize in React Native environment (not during bundling)
+    if (typeof window !== 'undefined') {
+      // Create downloads directory in app's document storage
+      this.downloadsDirectory = new Directory(Paths.document, 'downloads');
 
-    // Ensure downloads directory exists
-    if (!this.downloadsDirectory.exists) {
-      this.downloadsDirectory.create();
+      // Ensure downloads directory exists
+      if (!this.downloadsDirectory.exists) {
+        this.downloadsDirectory.create();
+      }
+
+      // Start loading metadata cache
+      this.initPromise = this.loadMetadataCache();
+    } else {
+      // During bundling/export, mark as initialized to avoid errors
+      this.isInitialized = true;
     }
-
-    // Start loading metadata cache
-    this.initPromise = this.loadMetadataCache();
   }
 
   /**
@@ -102,14 +108,16 @@ class DownloadsService {
   /**
    * Get the file path for a downloaded lecture
    */
-  private getDownloadFile(lectureId: string): File {
+  private getDownloadFile(lectureId: string): File | null {
+    if (!this.downloadsDirectory) return null;
     return new File(this.downloadsDirectory, `${lectureId}.mp3`);
   }
 
   /**
    * Get the metadata file for a lecture
    */
-  private getMetadataFile(lectureId: string): File {
+  private getMetadataFile(lectureId: string): File | null {
+    if (!this.downloadsDirectory) return null;
     return new File(this.downloadsDirectory, `${lectureId}.json`);
   }
 
@@ -118,7 +126,7 @@ class DownloadsService {
    */
   isDownloaded(lectureId: string): boolean {
     const file = this.getDownloadFile(lectureId);
-    return file.exists;
+    return file ? file.exists : false;
   }
 
   /**
@@ -136,6 +144,10 @@ class DownloadsService {
   ): Promise<void> {
     const { id: lectureId, audioUrl, title, lecturerName, coverUrl, durationSec } = episode;
 
+    if (!this.downloadsDirectory) {
+      throw new Error('Downloads directory not initialized');
+    }
+
     if (!audioUrl) {
       throw new Error('No audio URL provided');
     }
@@ -146,6 +158,9 @@ class DownloadsService {
     }
 
     const file = this.getDownloadFile(lectureId);
+    if (!file) {
+      throw new Error('Could not create download file');
+    }
 
     try {
       console.log(`📥 Starting download for: ${title}`);
@@ -226,7 +241,7 @@ class DownloadsService {
   getPlaybackUri(lectureId: string, remoteUrl?: string): string {
     const file = this.getDownloadFile(lectureId);
 
-    if (file.exists) {
+    if (file && file.exists) {
       // Return the local file URI for offline playback
       return file.uri;
     }
@@ -242,11 +257,11 @@ class DownloadsService {
     const file = this.getDownloadFile(lectureId);
     const metadataFile = this.getMetadataFile(lectureId);
 
-    if (file.exists) {
+    if (file && file.exists) {
       file.delete();
     }
 
-    if (metadataFile.exists) {
+    if (metadataFile && metadataFile.exists) {
       metadataFile.delete();
     }
 
@@ -266,7 +281,7 @@ class DownloadsService {
     // Filter to only include lectures with existing files
     const validDownloads = allMetadata.filter(metadata => {
       const file = this.getDownloadFile(metadata.lectureId);
-      return file.exists;
+      return file && file.exists;
     });
 
     // Sort by download date (newest first)
@@ -308,6 +323,11 @@ class DownloadsService {
    * Clear all downloads
    */
   async clearAllDownloads(): Promise<void> {
+    if (!this.downloadsDirectory) {
+      console.warn('Cannot clear downloads: directory not initialized');
+      return;
+    }
+
     const items = this.downloadsDirectory.list();
 
     for (const item of items) {
