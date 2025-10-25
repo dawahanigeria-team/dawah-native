@@ -58,7 +58,7 @@ export const useDownloadsStore = () => {
     }
 
     // Clear any previous errors
-    const newErrors = new Map(state.activeDownloads);
+    const newErrors = new Map(state.downloadErrors);
     newErrors.delete(lectureId);
     downloadsStore.set(prev => ({ ...prev, downloadErrors: newErrors }));
 

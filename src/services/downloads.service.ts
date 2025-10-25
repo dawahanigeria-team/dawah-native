@@ -209,7 +209,7 @@ class DownloadsService {
         title,
         lecturerName,
         coverUrl,
-        audioUrl: downloadUrl, // Store original URL as fallback
+        audioUrl: downloadUrl || '', // Store original URL as fallback, default to empty string
         duration: durationSec,
         downloadedAt: new Date().toISOString(),
         fileSize: bytes.length,
@@ -220,7 +220,9 @@ class DownloadsService {
 
       // Also save metadata as JSON file for reference
       const metadataFile = this.getMetadataFile(lectureId);
-      await metadataFile.write(JSON.stringify(metadata, null, 2));
+      if (metadataFile) {
+        await metadataFile.write(JSON.stringify(metadata, null, 2));
+      }
 
     } catch (error) {
       console.error(`Failed to download lecture ${lectureId}:`, error);

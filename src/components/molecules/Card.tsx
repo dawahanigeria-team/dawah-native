@@ -12,6 +12,7 @@ interface CardProps {
   variant: "square" | "landscape" | "list" | "section";
   data: Episode | Series;
   onPress?: () => void;
+  onLongPress?: () => void;
   onPlayPress?: (episode: Episode) => void;
   showTime?: boolean;
   time?: string;
@@ -29,6 +30,7 @@ export const Card: React.FC<CardProps> = memo(
     variant,
     data,
     onPress,
+    onLongPress,
     onPlayPress,
     showTime = false,
     time,
@@ -212,6 +214,7 @@ export const Card: React.FC<CardProps> = memo(
         <Touchable
           style={containerStyle}
           onPress={handlePress}
+          onLongPress={onLongPress}
           accessibilityLabel={getAccessibilityLabel()}
           accessibilityHint="Tap to view details"
           accessibilityRole="button"
