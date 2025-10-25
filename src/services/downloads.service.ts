@@ -207,7 +207,7 @@ class DownloadsService {
       const metadata: DownloadMetadata = {
         lectureId,
         title,
-        lecturerName,
+        lecturerName: lecturerName || 'Unknown',
         coverUrl,
         audioUrl: downloadUrl || '', // Store original URL as fallback, default to empty string
         duration: durationSec,
