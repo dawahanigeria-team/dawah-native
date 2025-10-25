@@ -55,7 +55,10 @@ class ApiClient {
   private authToken: string | null = null;
 
   private constructor() {
-    this.loadAuthToken();
+    // Only load auth token in React Native environment
+    if (typeof window !== 'undefined') {
+      this.loadAuthToken();
+    }
   }
 
   public static getInstance(): ApiClient {
@@ -69,6 +72,7 @@ class ApiClient {
    * Load auth token from storage
    */
   private async loadAuthToken(): Promise<void> {
+    if (typeof window === 'undefined') return;
     try {
       this.authToken = await AsyncStorage.getItem('auth_token');
     } catch (error) {
@@ -81,10 +85,15 @@ class ApiClient {
    */
   public async setAuthToken(token: string | null): Promise<void> {
     this.authToken = token;
-    if (token) {
-      await AsyncStorage.setItem('auth_token', token);
-    } else {
-      await AsyncStorage.removeItem('auth_token');
+    if (typeof window === 'undefined') return;
+    try {
+      if (token) {
+        await AsyncStorage.setItem('auth_token', token);
+      } else {
+        await AsyncStorage.removeItem('auth_token');
+      }
+    } catch (error) {
+      console.error('Failed to set/remove auth token:', error);
     }
   }
 

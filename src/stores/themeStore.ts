@@ -13,14 +13,16 @@ const initialState: ThemeState = {
 
 export const themeStore = entity(initialState);
 
-// Load saved theme preference
-AsyncStorage.getItem(THEME_KEY).then((theme) => {
-  if (theme !== null) {
-    themeStore.set({ isDark: theme === 'dark' });
-  }
-}).catch((error) => {
-  console.error('Failed to load theme preference:', error);
-});
+// Load saved theme preference - only in React Native environment
+if (typeof window !== 'undefined') {
+  AsyncStorage.getItem(THEME_KEY).then((theme) => {
+    if (theme !== null) {
+      themeStore.set({ isDark: theme === 'dark' });
+    }
+  }).catch((error) => {
+    console.error('Failed to load theme preference:', error);
+  });
+}
 
 export const useThemeStore = () => {
   const state = themeStore.use();
@@ -31,6 +33,7 @@ export const useThemeStore = () => {
       ...state,
       isDark: newIsDark,
     });
+    if (typeof window === 'undefined') return;
     try {
       await AsyncStorage.setItem(THEME_KEY, newIsDark ? 'dark' : 'light');
     } catch (error) {
@@ -43,6 +46,7 @@ export const useThemeStore = () => {
       ...state,
       isDark,
     });
+    if (typeof window === 'undefined') return;
     try {
       await AsyncStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
     } catch (error) {
