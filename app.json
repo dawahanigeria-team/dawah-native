@@ -56,6 +56,14 @@
             "staysActiveInBackground": true
           }
         }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "dawah-nigeria",
+          "organization": "o4508901298929664"
+        }
       ]
     ],
     "experiments": {

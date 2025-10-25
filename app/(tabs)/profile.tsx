@@ -7,6 +7,7 @@ import { useAuthStore } from "../../src/stores";
 import { useThemeStore } from "../../src/stores/themeStore";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
+import { captureSentryException, addSentryBreadcrumb } from "../../src/services/config/sentry.config";
 
 interface SettingItem {
   id: string;
@@ -92,9 +93,18 @@ const ProfileScreen = () => {
           style: "destructive",
           onPress: async () => {
             try {
+              addSentryBreadcrumb('User signing out', 'user', {
+                userId: user?.id,
+              });
               await logout();
-            } catch (err) {
+            } catch (err: any) {
               console.error("Sign out error:", err);
+              captureSentryException(err, {
+                component: 'ProfileScreen',
+                action: 'handleSignOut',
+                userId: user?.id,
+                level: 'error',
+              });
               Alert.alert("Error", "Failed to sign out. Please try again.");
             }
           },

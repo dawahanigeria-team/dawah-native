@@ -11,7 +11,6 @@ import { useTrending } from "../../src/hooks/useTrending";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Episode, Series } from "../../src/types/types";
-import { getRandomScholar } from "../../src/utils/scholarNames";
 
 // Mock data - in a real app this would come from an API
 const mockEpisodes: Episode[] = [
@@ -259,7 +258,7 @@ export default function SectionScreen() {
       data = data.filter((item) => {
         const title = item.title.toLowerCase();
         const metaValue =
-          "durationSec" in item ? getRandomScholar(item.id) : "";
+          "durationSec" in item ? ((item as Episode).lecturerName || "Unknown") : "";
 
         // Search in title, author, and tags if available
         const titleMatch = title.includes(query);
@@ -367,7 +366,7 @@ export default function SectionScreen() {
           playOnPress={!isTrendingSection}
           showTime={true}
           showMeta={true}
-          metaValue={getRandomScholar(item.id)}
+          metaValue={(item as Episode).lecturerName || "Unknown"}
         />
       );
     } else {

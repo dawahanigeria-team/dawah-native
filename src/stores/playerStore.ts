@@ -1,6 +1,8 @@
 import { entity } from "simpler-state";
 import { Episode, PlayerState } from "../types/types";
 import type { AudioPlaybackControls } from "../hooks/useAudioPlayback";
+import { downloadsService } from "../services/downloads.service";
+import { captureSentryException, addSentryBreadcrumb } from "../services/config/sentry.config";
 
 const initialState: PlayerState = {
   currentEpisode: null,
@@ -52,8 +54,19 @@ export const usePlayerStore = () => {
   const playEpisode = async (episode: Episode) => {
     console.log('🎮 PlayerStore: playEpisode called with:', episode.title);
 
+    // Add breadcrumb for playback tracking
+    addSentryBreadcrumb(
+      `Playing episode: ${episode.title}`,
+      'playback',
+      { episodeId: episode.id, title: episode.title }
+    );
+
     if (!audioControls) {
       console.error('❌ PlayerStore: Audio controls not initialized');
+      captureSentryException(
+        new Error('Audio controls not initialized'),
+        { episodeId: episode.id, title: episode.title }
+      );
       return;
     }
 
@@ -103,10 +116,19 @@ export const usePlayerStore = () => {
         isLoading: true,
       });
 
-      // Load and play the audio
+      // Load and play the audio (use downloaded file if available)
       if (episode.audioUrl) {
-        console.log('🔊 PlayerStore: Loading audio URL:', episode.audioUrl);
-        await audioControls.loadAudio(episode.audioUrl);
+        // Check if lecture is downloaded, use local file if available
+        const playbackUri = downloadsService.getPlaybackUri(episode.id, episode.audioUrl);
+        const isOffline = downloadsService.isDownloaded(episode.id);
+
+        if (isOffline) {
+          console.log('🔊 PlayerStore: Loading from DOWNLOADED file:', playbackUri);
+        } else {
+          console.log('🔊 PlayerStore: Loading from REMOTE URL:', playbackUri);
+        }
+
+        await audioControls.loadAudio(playbackUri);
 
         console.log('▶️ PlayerStore: Starting playback...');
         audioControls.play();
@@ -117,12 +139,26 @@ export const usePlayerStore = () => {
           ...playerStore.get(),
           isPlaying: true,
           isLoading: false,
+          isDownloaded: isOffline,
         });
       } else {
         console.error('❌ PlayerStore: No audio URL provided!');
+        captureSentryException(
+          new Error('No audio URL provided for episode'),
+          { episodeId: episode.id, title: episode.title }
+        );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ PlayerStore: Failed to play episode:', error);
+
+      // Report playback errors to Sentry
+      captureSentryException(error, {
+        episodeId: episode.id,
+        title: episode.title,
+        audioUrl: episode.audioUrl,
+        errorType: 'playback_failed',
+      });
+
       playerStore.set({
         ...playerStore.get(),
         isPlaying: false,

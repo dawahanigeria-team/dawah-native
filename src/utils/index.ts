@@ -1,1 +1,3 @@
-export { formatTime, formatDuration } from './formatTime';
+export * from './authHelper';
+export { formatDuration, formatTime } from './formatTime';
+
