@@ -3,6 +3,7 @@
  * Manages download state and operations
  */
 
+import { useCallback } from 'react';
 import { entity } from 'simpler-state';
 import { downloadsService, DownloadMetadata, DownloadProgress } from '../services/downloads.service';
 import type { Episode } from '../types/types';
@@ -42,7 +43,7 @@ if (typeof window !== 'undefined') {
 export const useDownloadsStore = () => {
   const state = downloadsStore.use();
 
-  const downloadLecture = async (episode: Episode) => {
+  const downloadLecture = useCallback(async (episode: Episode) => {
     const { id: lectureId } = episode;
 
     // Check if already downloaded
@@ -105,9 +106,9 @@ export const useDownloadsStore = () => {
         downloadErrors: newErrors,
       }));
     }
-  };
+  }, [state.activeDownloads, state.downloadErrors]);
 
-  const deleteLecture = async (lectureId: string) => {
+  const deleteLecture = useCallback(async (lectureId: string) => {
     try {
       await downloadsService.deleteLecture(lectureId);
 
@@ -123,37 +124,37 @@ export const useDownloadsStore = () => {
     } catch (error) {
       console.error(`Failed to delete lecture ${lectureId}:`, error);
     }
-  };
+  }, []);
 
-  const isDownloaded = (lectureId: string): boolean => {
+  const isDownloaded = useCallback((lectureId: string): boolean => {
     return downloadsService.isDownloaded(lectureId);
-  };
+  }, []);
 
-  const isDownloading = (lectureId: string): boolean => {
+  const isDownloading = useCallback((lectureId: string): boolean => {
     return state.activeDownloads.has(lectureId);
-  };
+  }, [state.activeDownloads]);
 
-  const getDownloadProgress = (lectureId: string): number => {
+  const getDownloadProgress = useCallback((lectureId: string): number => {
     return state.activeDownloads.get(lectureId)?.progress || 0;
-  };
+  }, [state.activeDownloads]);
 
-  const getDownloadError = (lectureId: string): string | null => {
+  const getDownloadError = useCallback((lectureId: string): string | null => {
     return state.downloadErrors.get(lectureId) || null;
-  };
+  }, [state.downloadErrors]);
 
-  const refreshDownloads = async () => {
+  const refreshDownloads = useCallback(async () => {
     await downloadsService.ensureInitialized();
     const downloads = downloadsService.getDownloadedLectures();
     console.log('🔄 Refresh: Found', downloads.length, 'downloads');
     downloadsStore.set(prev => ({ ...prev, downloads }));
-  };
+  }, []);
 
-  const getTotalStorageUsed = (): string => {
+  const getTotalStorageUsed = useCallback((): string => {
     const bytes = downloadsService.getTotalStorageUsed();
     return downloadsService.formatBytes(bytes);
-  };
+  }, []);
 
-  const clearAllDownloads = async () => {
+  const clearAllDownloads = useCallback(async () => {
     try {
       await downloadsService.clearAllDownloads();
       downloadsStore.set(prev => ({
@@ -165,7 +166,7 @@ export const useDownloadsStore = () => {
     } catch (error) {
       console.error('Failed to clear all downloads:', error);
     }
-  };
+  }, []);
 
   return {
     downloads: state.downloads,

@@ -12,106 +12,6 @@ import { captureSentryException, addSentryBreadcrumb } from "../../src/services/
 
 type LibraryTab = "Downloads" | "History" | "Liked" | "Playlists";
 
-const mockDownloads: Episode[] = [
-  {
-    id: "1",
-    title: "Introduction to Tafsir Methodology",
-    durationSec: 3600,
-    coverUrl:
-      "https://images.unsplash.com/photo-1542810634-71277d95dcbb?w=300&h=300&fit=crop",
-    audioUrl: "https://example.com/audio1.mp3",
-    seriesId: "1",
-    plays: 1250,
-    liked: true,
-    language: "English",
-    downloads: 250,
-    createdAt: "2024-03-15T10:00:00Z",
-  },
-  {
-    id: "2",
-    title: "Understanding Surah Al-Fatiha",
-    durationSec: 2700,
-    coverUrl:
-      "https://images.unsplash.com/photo-1542810634-71277d95dcbb?w=300&h=300&fit=crop",
-    audioUrl: "https://example.com/audio2.mp3",
-    seriesId: "1",
-    plays: 980,
-    liked: false,
-    language: "English",
-    downloads: 180,
-    createdAt: "2024-03-10T14:30:00Z",
-  },
-];
-
-const mockHistory: Episode[] = [
-  {
-    id: "3",
-    title: "Building Good Character in Daily Life",
-    durationSec: 3300,
-    coverUrl:
-      "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=300&h=300&fit=crop",
-    audioUrl: "https://example.com/audio3.mp3",
-    seriesId: "2",
-    plays: 756,
-    liked: true,
-    language: "Hausa",
-    downloads: 120,
-    createdAt: "2024-03-05T09:15:00Z",
-  },
-  {
-    id: "4",
-    title: "The Rights of Women in Islamic Law",
-    durationSec: 4200,
-    coverUrl:
-      "https://images.unsplash.com/photo-1487412720507-e7abf03fe3bf?w=300&h=300&fit=crop",
-    audioUrl: "https://example.com/audio4.mp3",
-    seriesId: "3",
-    plays: 892,
-    liked: false,
-    language: "Yoruba",
-    downloads: 160,
-    createdAt: "2024-02-28T16:45:00Z",
-  },
-];
-
-const mockLiked: Episode[] = [
-  {
-    id: "5",
-    title: "The Golden Age of Islamic Civilization",
-    durationSec: 4800,
-    coverUrl:
-      "https://images.unsplash.com/photo-1447069388813-9e89e38406f7?w=300&h=300&fit=crop",
-    audioUrl: "https://example.com/audio5.mp3",
-    seriesId: "4",
-    plays: 654,
-    liked: true,
-    language: "English",
-    downloads: 95,
-    createdAt: "2024-02-20T11:20:00Z",
-  },
-];
-
-const mockPlaylists: Series[] = [
-  {
-    id: "1",
-    title: "Tafsir Al-Qur'an",
-    coverUrl:
-      "https://images.unsplash.com/photo-1542810634-71277d95dcbb?w=300&h=300&fit=crop",
-    language: "Hausa",
-    tags: ["Tafsir", "Qur'an", "Islamic Studies"],
-    lecturerId: "1",
-  },
-  {
-    id: "2",
-    title: "Akhlaq & Character Building",
-    coverUrl:
-      "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=300&h=300&fit=crop",
-    language: "English",
-    tags: ["Akhlaq", "Character", "Ethics"],
-    lecturerId: "2",
-  },
-];
-
 // Helper to convert DownloadMetadata to Episode
 const downloadToEpisode = (download: DownloadMetadata): Episode => ({
   id: download.lectureId,
@@ -147,8 +47,7 @@ export default function LibraryScreen() {
         level: 'warning',
       });
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty array - only run once on mount
+  }, [refreshDownloads]); // Now safe to include - refreshDownloads is memoized with useCallback
 
   // Convert downloads to Episodes
   const downloadedEpisodes = useMemo(() => {
@@ -164,11 +63,14 @@ export default function LibraryScreen() {
       case "Downloads":
         return downloadedEpisodes;
       case "History":
-        return mockHistory;
+        // TODO: Implement history API integration
+        return [];
       case "Liked":
-        return mockLiked;
+        // TODO: Implement liked lectures API integration
+        return [];
       case "Playlists":
-        return mockPlaylists;
+        // TODO: Implement playlists API integration
+        return [];
       default:
         return [];
     }
@@ -291,7 +193,7 @@ export default function LibraryScreen() {
 
     return (
       <View style={tw`px-4`}>
-        {data.map((item) => (
+        {data.map((item: Episode | Series) => (
           <View key={item.id} style={tw`mb-3`}>
             <Card
               variant="landscape"
