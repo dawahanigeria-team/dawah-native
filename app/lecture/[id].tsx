@@ -8,6 +8,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   ScrollView,
   Share,
   View,
@@ -29,7 +30,7 @@ import Animated, {
 
 import { Button, Chip, Text, Touchable } from "../../src/components/atoms";
 import { useLectureDetail } from "../../src/hooks/useLectureDetail";
-import { usePlayerStore } from "../../src/stores";
+import { usePlayerStore, useDownloadsStore } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import type { Episode } from "../../src/types/types";
@@ -74,14 +75,18 @@ const LectureDetailScreen: React.FC = () => {
   const {
     playEpisode,
     togglePlayPause,
-    downloadEpisode,
     currentEpisode,
     isPlaying,
-    isDownloading,
-    downloadProgress,
     progress: currentProgress,
     duration: currentDuration,
   } = usePlayerStore();
+
+  const {
+    downloadLecture,
+    isDownloaded: checkIsDownloaded,
+    isDownloading: checkIsDownloading,
+    getDownloadProgress,
+  } = useDownloadsStore();
 
   // State management
   const [liked, setLiked] = useState(false);
@@ -98,6 +103,11 @@ const LectureDetailScreen: React.FC = () => {
   );
   const canPlay = Boolean(episode?.audioUrl);
   const isCurrentlyPlaying = isCurrentLecture && isPlaying;
+
+  // Download state
+  const isDownloaded = episode ? checkIsDownloaded(episode.id) : false;
+  const isDownloading = episode ? checkIsDownloading(episode.id) : false;
+  const downloadProgress = episode ? getDownloadProgress(episode.id) : 0;
 
   // Animated styles
   const headerAnimatedStyle = useAnimatedStyle(() => {
@@ -150,11 +160,41 @@ const LectureDetailScreen: React.FC = () => {
     }
   }, [episode, canPlay, isCurrentLecture, togglePlayPause, playEpisode]);
 
-  const handleDownload = useCallback(() => {
+  const handleDownload = useCallback(async () => {
     if (!episode) return;
+
+    // If already downloaded, show alert
+    if (isDownloaded) {
+      Alert.alert(
+        "Already Downloaded",
+        "This lecture is already available offline.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    // If currently downloading, ignore
+    if (isDownloading) {
+      return;
+    }
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    downloadEpisode(episode);
-  }, [episode, downloadEpisode]);
+
+    try {
+      await downloadLecture(episode);
+      Alert.alert(
+        "Download Complete",
+        `${episode.title} is now available offline!`,
+        [{ text: "OK" }]
+      );
+    } catch (error: any) {
+      Alert.alert(
+        "Download Failed",
+        error.message || "Failed to download lecture. Please try again.",
+        [{ text: "OK" }]
+      );
+    }
+  }, [episode, isDownloaded, isDownloading, downloadLecture]);
 
   const handleLike = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -677,12 +717,30 @@ const LectureDetailScreen: React.FC = () => {
             style={tw`flex-row items-center`}
           >
             <Ionicons
-              name={isDownloading ? "cloud-download" : "arrow-down-circle-outline"}
+              name={
+                isDownloaded
+                  ? "checkmark-circle"
+                  : isDownloading
+                  ? "cloud-download"
+                  : "arrow-down-circle-outline"
+              }
               size={24}
-              color={designTokens.colors.system.label.secondary}
+              color={
+                isDownloaded
+                  ? designTokens.colors.brand.primary
+                  : designTokens.colors.system.label.secondary
+              }
             />
-            <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
-              {isDownloading ? `${Math.round(downloadProgress * 100)}%` : "Download"}
+            <Text
+              variant="caption1"
+              color={isDownloaded ? "brand" : "secondaryLabel"}
+              style={tw`ml-2`}
+            >
+              {isDownloaded
+                ? "Downloaded"
+                : isDownloading
+                ? `${Math.round(downloadProgress * 100)}%`
+                : "Download"}
             </Text>
           </TouchableOpacity>
 

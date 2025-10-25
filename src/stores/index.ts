@@ -6,3 +6,6 @@ export { useThemeStore } from "./themeStore";
 
 // Export auth store
 export { useAuthStore, authStore } from "./authStore";
+
+// Export downloads store
+export { useDownloadsStore, downloadsStore } from "./downloadsStore";

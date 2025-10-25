@@ -337,6 +337,7 @@ class ApiClient {
         url,
         headers: requestConfig.headers,
         hasBody: !!requestConfig.body,
+        body: requestConfig.body ? (typeof requestConfig.body === 'string' ? requestConfig.body : JSON.stringify(requestConfig.body)) : null,
       });
 
       // Execute request with retry logic

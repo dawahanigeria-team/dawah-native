@@ -1,12 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import React, { useState, useMemo } from "react";
+import { ScrollView, Text, TouchableOpacity, View, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../../src/components/molecules/Card";
-import { usePlayerStore } from "../../src/stores/playerStore";
+import { usePlayerStore, useDownloadsStore } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Episode, Series } from "../../src/types/types";
+import type { DownloadMetadata } from "../../src/services/downloads.service";
 
 type LibraryTab = "Downloads" | "History" | "Liked" | "Playlists";
 
@@ -110,16 +111,52 @@ const mockPlaylists: Series[] = [
   },
 ];
 
+// Helper to convert DownloadMetadata to Episode
+const downloadToEpisode = (download: DownloadMetadata): Episode => ({
+  id: download.lectureId,
+  title: download.title,
+  lecturerName: download.lecturerName,
+  durationSec: download.duration,
+  coverUrl: download.coverUrl || "",
+  // Use stored audioUrl (player will load from local file via downloadsService)
+  audioUrl: download.audioUrl || "offline",
+  seriesId: "",
+  plays: 0,
+  liked: false,
+  language: "",
+  downloads: 0,
+  createdAt: download.downloadedAt,
+});
+
 export default function LibraryScreen() {
   const { playEpisode } = usePlayerStore();
+  const { downloads, deleteLecture, getTotalStorageUsed, refreshDownloads } = useDownloadsStore();
   const [activeTab, setActiveTab] = useState<LibraryTab>("Downloads");
 
   const tabs: LibraryTab[] = ["Downloads", "History", "Liked", "Playlists"];
 
+  // Refresh downloads when screen loads
+  React.useEffect(() => {
+    console.log('📚 Library: Refreshing downloads...');
+    refreshDownloads().catch(err => {
+      console.error('📚 Library: Failed to refresh downloads:', err);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty array - only run once on mount
+
+  // Convert downloads to Episodes
+  const downloadedEpisodes = useMemo(() => {
+    console.log('📚 Library: Total downloads:', downloads.length);
+    downloads.forEach((d, i) => {
+      console.log(`  ${i + 1}. ${d.title} (${d.lectureId})`);
+    });
+    return downloads.map(downloadToEpisode);
+  }, [downloads]);
+
   const getTabData = () => {
     switch (activeTab) {
       case "Downloads":
-        return mockDownloads;
+        return downloadedEpisodes;
       case "History":
         return mockHistory;
       case "Liked":
@@ -158,6 +195,26 @@ export default function LibraryScreen() {
       // It's a series/playlist
       console.log("Series/Playlist pressed:", item.title);
     }
+  };
+
+  const handleDeleteDownload = (lectureId: string, title: string) => {
+    Alert.alert(
+      "Delete Download",
+      `Remove "${title}" from downloads?`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            await deleteLecture(lectureId);
+          },
+        },
+      ]
+    );
   };
 
   const renderEmptyState = (tab: LibraryTab) => (
@@ -214,9 +271,18 @@ export default function LibraryScreen() {
               variant="landscape"
               data={item}
               onPress={() => handleItemPress(item)}
+              onLongPress={
+                activeTab === "Downloads" && "durationSec" in item
+                  ? () => handleDeleteDownload(item.id, item.title)
+                  : undefined
+              }
               showTime={"durationSec" in item}
               showMeta={true}
-              metaValue="Sheikh Nasir Kabara"
+              metaValue={
+                "lecturerName" in item
+                  ? item.lecturerName || "Unknown"
+                  : "Sheikh Nasir Kabara"
+              }
             />
           </View>
         ))}
@@ -233,15 +299,34 @@ export default function LibraryScreen() {
     >
       {/* Header */}
       <View style={tw`px-4 py-3`}>
-        <Text
-          style={[
-            tw`text-2xl font-bold`,
-            { color: designTokens.colors.system.label.primary },
-          ]}
-          accessibilityRole="header"
-        >
-          Library
-        </Text>
+        <View style={tw`flex-row items-center justify-between`}>
+          <Text
+            style={[
+              tw`text-2xl font-bold`,
+              { color: designTokens.colors.system.label.primary },
+            ]}
+            accessibilityRole="header"
+          >
+            Library
+          </Text>
+          {activeTab === "Downloads" && downloadedEpisodes.length > 0 && (
+            <View style={tw`flex-row items-center`}>
+              <Ionicons
+                name="cloud-outline"
+                size={16}
+                color={designTokens.colors.system.label.secondary}
+              />
+              <Text
+                style={[
+                  tw`text-sm ml-1`,
+                  { color: designTokens.colors.system.label.secondary },
+                ]}
+              >
+                {getTotalStorageUsed()}
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
 
       {/* Segmented Control */}
