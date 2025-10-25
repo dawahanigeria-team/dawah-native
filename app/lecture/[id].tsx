@@ -141,9 +141,14 @@ const LectureDetailScreen: React.FC = () => {
     if (!episode || !canPlay) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
-    // Always call playEpisode - it will handle resume if already loaded
-    playEpisode(episode);
-  }, [episode, canPlay, playEpisode]);
+    // If this lecture is currently playing, toggle play/pause
+    // Otherwise, start playing this episode
+    if (isCurrentLecture) {
+      togglePlayPause();
+    } else {
+      playEpisode(episode);
+    }
+  }, [episode, canPlay, isCurrentLecture, togglePlayPause, playEpisode]);
 
   const handleDownload = useCallback(() => {
     if (!episode) return;
