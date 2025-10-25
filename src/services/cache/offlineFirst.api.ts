@@ -1,0 +1,246 @@
+/**
+ * Offline-First API Wrapper
+ * Automatically caches API responses and serves from cache when offline
+ *
+ * Strategy:
+ * 1. Check cache first (memory → storage)
+ * 2. If cache hit and valid → return cached data
+ * 3. If online → fetch from API and update cache
+ * 4. If offline and no cache → return error
+ */
+
+import { apiClient } from '../api/base.api';
+import { cacheService, CACHE_CONFIG } from './cache.service';
+import { addSentryBreadcrumb, captureSentryException } from '../config/sentry.config';
+
+export interface OfflineApiOptions {
+  /**
+   * Cache key for this request
+   */
+  cacheKey?: string;
+
+  /**
+   * TTL in seconds
+   */
+  ttl?: number;
+
+  /**
+   * Force fresh fetch (bypass cache)
+   */
+  forceFresh?: boolean;
+
+  /**
+   * Allow stale data if offline
+   */
+  allowStale?: boolean;
+}
+
+class OfflineFirstApi {
+  private static instance: OfflineFirstApi;
+
+  private constructor() {}
+
+  public static getInstance(): OfflineFirstApi {
+    if (!OfflineFirstApi.instance) {
+      OfflineFirstApi.instance = new OfflineFirstApi();
+    }
+    return OfflineFirstApi.instance;
+  }
+
+  /**
+   * Check if device is online
+   */
+  private async isOnline(): Promise<boolean> {
+    try {
+      // Try a simple HEAD request to check connectivity
+      const response = await fetch('https://backend.dawahbox.com/health', {
+        method: 'HEAD',
+        timeout: 3000,
+      } as any);
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * GET request with offline-first strategy
+   */
+  public async get<T = any>(
+    endpoint: string,
+    params?: Record<string, any>,
+    options: OfflineApiOptions = {}
+  ): Promise<T> {
+    const {
+      cacheKey = this.buildCacheKey('GET', endpoint, params),
+      ttl = CACHE_CONFIG.TTL.LECTURES,
+      forceFresh = false,
+      allowStale = true,
+    } = options;
+
+    try {
+      // Step 1: Try cache first (unless forceFresh)
+      if (!forceFresh) {
+        const cachedData = await cacheService.get<T>(cacheKey);
+        if (cachedData) {
+          console.log(`📦 Offline-First: Serving from cache: ${endpoint}`);
+          addSentryBreadcrumb(`Cache served: ${endpoint}`, 'api', { cacheKey });
+
+          // Return cached data and fetch fresh in background
+          this.refreshInBackground(endpoint, params, cacheKey, ttl);
+
+          return cachedData;
+        }
+      }
+
+      // Step 2: Check if online
+      const online = await this.isOnline();
+
+      if (!online) {
+        // Offline - try stale cache
+        if (allowStale) {
+          const staleData = await cacheService.get<T>(cacheKey);
+          if (staleData) {
+            console.log(`🔄 Offline-First: Serving stale cache: ${endpoint}`);
+            addSentryBreadcrumb(`Stale cache served (offline): ${endpoint}`, 'api', { cacheKey });
+            return staleData;
+          }
+        }
+
+        throw new Error('No internet connection and no cached data available');
+      }
+
+      // Step 3: Fetch from API
+      console.log(`🌐 Offline-First: Fetching from API: ${endpoint}`);
+      const response = await apiClient.get<T>(endpoint, params);
+
+      // Step 4: Cache the response
+      await cacheService.set(cacheKey, response.data, ttl);
+
+      return response.data;
+    } catch (error: any) {
+      console.error(`Offline-First GET error for ${endpoint}:`, error);
+
+      // If error and allowStale, try to return stale data
+      if (allowStale) {
+        const staleData = await cacheService.get<T>(cacheKey);
+        if (staleData) {
+          console.log(`🔄 Offline-First: Returning stale cache after error: ${endpoint}`);
+          addSentryBreadcrumb(`Stale cache served (error): ${endpoint}`, 'api', {
+            cacheKey,
+            error: error.message,
+          });
+          return staleData;
+        }
+      }
+
+      captureSentryException(error, {
+        operation: 'offline_first_get',
+        endpoint,
+        cacheKey,
+        online: await this.isOnline(),
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * Refresh cache in background (don't wait for response)
+   */
+  private async refreshInBackground(
+    endpoint: string,
+    params: Record<string, any> | undefined,
+    cacheKey: string,
+    ttl: number
+  ): Promise<void> {
+    try {
+      // Don't await - run in background
+      apiClient.get(endpoint, params).then(async (response) => {
+        await cacheService.set(cacheKey, response.data, ttl);
+        console.log(`🔄 Background refresh complete: ${endpoint}`);
+      }).catch((err) => {
+        // Silently fail background refresh
+        console.log(`⚠️ Background refresh failed: ${endpoint}`, err.message);
+      });
+    } catch {
+      // Ignore background refresh errors
+    }
+  }
+
+  /**
+   * Build cache key from request parameters
+   */
+  private buildCacheKey(method: string, endpoint: string, params?: Record<string, any>): string {
+    const paramString = params ? JSON.stringify(params) : '';
+    const hash = this.simpleHash(endpoint + paramString);
+    return `cache_api_${method}_${hash}`;
+  }
+
+  /**
+   * Simple string hash function
+   */
+  private simpleHash(str: string): string {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash).toString(36);
+  }
+
+  /**
+   * Warm up cache with essential data
+   */
+  public async warmupEssentialData(): Promise<void> {
+    try {
+      console.log('🔥 Warming up essential data...');
+
+      // Fetch and cache popular lectures
+      void await this.get(
+        '/api/search.php',
+        { sort: 'popular', limit: CACHE_CONFIG.LIMITS.POPULAR_LECTURES },
+        {
+          cacheKey: CACHE_CONFIG.KEYS.POPULAR_LECTURES,
+          ttl: CACHE_CONFIG.TTL.LECTURES,
+        }
+      );
+
+      // Fetch and cache lecturers
+      void await this.get(
+        '/api/lecturers.php',
+        {},
+        {
+          cacheKey: CACHE_CONFIG.KEYS.LECTURERS_LIST,
+          ttl: CACHE_CONFIG.TTL.LECTURERS,
+        }
+      );
+
+      console.log('✅ Essential data warmed up');
+      addSentryBreadcrumb('Essential data warmup complete', 'cache');
+    } catch (error: any) {
+      console.error('Warmup error:', error);
+      captureSentryException(error, { operation: 'warmup_essential_data' });
+    }
+  }
+
+  /**
+   * Invalidate cache for specific endpoint
+   */
+  public async invalidateCache(endpoint: string, params?: Record<string, any>): Promise<void> {
+    const cacheKey = this.buildCacheKey('GET', endpoint, params);
+    await cacheService.remove(cacheKey);
+    console.log(`🗑️ Invalidated cache: ${endpoint}`);
+  }
+
+  /**
+   * Clear all API cache
+   */
+  public async clearAllCache(): Promise<void> {
+    await cacheService.clearAll();
+    console.log('🧹 Cleared all API cache');
+  }
+}
+
+export const offlineFirstApi = OfflineFirstApi.getInstance();

@@ -2,17 +2,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Loading, Text, Touchable } from "../src/components/atoms";
+import { Loading, Text } from "../src/components/atoms";
 import { useAuthStore } from "../src/stores";
 import { designTokens } from "../src/theme/designTokens";
 import tw from "../src/theme/twrnc";
@@ -67,7 +67,13 @@ export default function SignInScreen() {
     }
 
     try {
-      await login({ email, password });
+      // Use the login credentials provided
+      const credentials = {
+        email: email, // This will be the {{loginIdentifier}} value
+        password: password
+      };
+      
+      await login(credentials);
       // Navigation will be handled by auth state change
       router.back();
     } catch (err: any) {
