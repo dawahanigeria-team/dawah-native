@@ -47,6 +47,9 @@ export const initSentry = () => {
     replaysOnErrorSampleRate: 1.0, // 100% of errors
     replaysSessionSampleRate: isDevelopment ? 1.0 : 0.1, // 100% in dev, 10% in production
 
+    // User Interaction Tracing (button taps, scrolls, etc.)
+    enableUserInteractionTracing: true,
+
     // Integrations
     integrations: [
       // Mobile Session Replay
@@ -56,14 +59,11 @@ export const initSentry = () => {
       }),
 
       // React Native tracing integration for performance monitoring
-      Sentry.reactNativeTracingIntegration({
-        // Enable user interaction tracing (button taps, scrolls, etc.)
-        enableUserInteractionTracing: true,
-      }),
+      Sentry.reactNativeTracingIntegration(),
     ],
 
     // Before sending events
-    beforeSend(event, hint) {
+    beforeSend(event) {
       // Filter out errors in development if needed
       if (isDevelopment) {
         console.log('🔍 Sentry Event:', event);
