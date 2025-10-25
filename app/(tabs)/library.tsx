@@ -8,6 +8,7 @@ import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Episode, Series } from "../../src/types/types";
 import type { DownloadMetadata } from "../../src/services/downloads.service";
+import { captureSentryException, addSentryBreadcrumb } from "../../src/services/config/sentry.config";
 
 type LibraryTab = "Downloads" | "History" | "Liked" | "Playlists";
 
@@ -140,6 +141,11 @@ export default function LibraryScreen() {
     console.log('📚 Library: Refreshing downloads...');
     refreshDownloads().catch(err => {
       console.error('📚 Library: Failed to refresh downloads:', err);
+      captureSentryException(err, {
+        component: 'LibraryScreen',
+        action: 'refreshDownloads',
+        level: 'warning',
+      });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty array - only run once on mount
@@ -210,7 +216,27 @@ export default function LibraryScreen() {
           text: "Delete",
           style: "destructive",
           onPress: async () => {
-            await deleteLecture(lectureId);
+            try {
+              addSentryBreadcrumb('Deleting download', 'user', {
+                lectureId,
+                title,
+              });
+              await deleteLecture(lectureId);
+            } catch (err: any) {
+              console.error('Failed to delete download:', err);
+              captureSentryException(err, {
+                component: 'LibraryScreen',
+                action: 'handleDeleteDownload',
+                lectureId,
+                title,
+                level: 'error',
+              });
+              Alert.alert(
+                'Delete Failed',
+                'Unable to delete download. Please try again.',
+                [{ text: 'OK' }]
+              );
+            }
           },
         },
       ]

@@ -38,6 +38,9 @@ export interface OfflineApiOptions {
 class OfflineFirstApi {
   private static instance: OfflineFirstApi;
 
+  // Track active background refresh requests to prevent duplicates
+  private activeRefreshes: Set<string> = new Set();
+
   private constructor() {}
 
   public static getInstance(): OfflineFirstApi {
@@ -147,6 +150,7 @@ class OfflineFirstApi {
 
   /**
    * Refresh cache in background (don't wait for response)
+   * Implements request deduplication to prevent multiple simultaneous refreshes
    */
   private async refreshInBackground(
     endpoint: string,
@@ -154,17 +158,29 @@ class OfflineFirstApi {
     cacheKey: string,
     ttl: number
   ): Promise<void> {
+    // Check if already refreshing this cache key
+    if (this.activeRefreshes.has(cacheKey)) {
+      console.log(`⏭️ Skipping background refresh (already in progress): ${endpoint}`);
+      return;
+    }
+
     try {
+      // Mark as active
+      this.activeRefreshes.add(cacheKey);
+
       // Don't await - run in background
       apiClient.get(endpoint, params).then(async (response) => {
         await cacheService.set(cacheKey, response.data, ttl);
         console.log(`🔄 Background refresh complete: ${endpoint}`);
+        this.activeRefreshes.delete(cacheKey);
       }).catch((err) => {
         // Silently fail background refresh
         console.log(`⚠️ Background refresh failed: ${endpoint}`, err.message);
+        this.activeRefreshes.delete(cacheKey);
       });
     } catch {
       // Ignore background refresh errors
+      this.activeRefreshes.delete(cacheKey);
     }
   }
 

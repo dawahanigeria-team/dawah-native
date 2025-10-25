@@ -15,7 +15,6 @@ import { LecturerCard } from "../../src/components/molecules/LecturerCard";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Episode, Series } from "../../src/types/types";
-import { getRandomScholar } from "../../src/utils/scholarNames";
 
 // Mock data - in a real app this would come from an API
 const mockEpisodes: Episode[] = [
@@ -353,7 +352,7 @@ export default function HomeScreen() {
                 onPress={() => handleEpisodePress(episode)}
                 showTime={true}
                 showMeta={true}
-                metaValue={getRandomScholar(`recently-played-${episode.id}`)}
+                metaValue={episode.lecturerName || "Unknown"}
               />
             </View>
           ))}
@@ -378,7 +377,7 @@ export default function HomeScreen() {
                 onPress={() => handleEpisodePress(episode)}
                 showTime={true}
                 showMeta={true}
-                metaValue={getRandomScholar(`recently-posted-${episode.id}`)}
+                metaValue={episode.lecturerName || "Unknown"}
               />
             </View>
           ))}
@@ -403,7 +402,7 @@ export default function HomeScreen() {
                 onPress={() => handleEpisodePress(episode)}
                 showTime={true}
                 showMeta={true}
-                metaValue={getRandomScholar(`featured-${episode.id}`)}
+                metaValue={episode.lecturerName || "Unknown"}
               />
             </View>
           ))}

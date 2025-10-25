@@ -33,6 +33,7 @@ import { useLectureDetail } from "../../src/hooks/useLectureDetail";
 import { usePlayerStore, useDownloadsStore } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
+import { captureSentryException, addSentryBreadcrumb } from "../../src/services/config/sentry.config";
 import type { Episode } from "../../src/types/types";
 import type { LectureDetail } from "../../src/types/api.types";
 
@@ -181,6 +182,10 @@ const LectureDetailScreen: React.FC = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
+      addSentryBreadcrumb('Starting lecture download', 'user', {
+        lectureId: episode.id,
+        title: episode.title,
+      });
       await downloadLecture(episode);
       Alert.alert(
         "Download Complete",
@@ -188,6 +193,13 @@ const LectureDetailScreen: React.FC = () => {
         [{ text: "OK" }]
       );
     } catch (error: any) {
+      captureSentryException(error, {
+        component: 'LectureDetailScreen',
+        action: 'handleDownload',
+        lectureId: episode.id,
+        title: episode.title,
+        level: 'error',
+      });
       Alert.alert(
         "Download Failed",
         error.message || "Failed to download lecture. Please try again.",
@@ -217,6 +229,13 @@ const LectureDetailScreen: React.FC = () => {
       message,
     }).catch((shareError) => {
       console.warn("Failed to share lecture", shareError);
+      captureSentryException(shareError, {
+        component: 'LectureDetailScreen',
+        action: 'handleShare',
+        lectureId: id,
+        title: lecture.title,
+        level: 'warning',
+      });
     });
   }, [lecture]);
 

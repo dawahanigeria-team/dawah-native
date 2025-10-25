@@ -28,7 +28,8 @@ export const CACHE_CONFIG = {
   LIMITS: {
     POPULAR_LECTURES: 20,
     RECENT_SEARCHES: 10,
-    MEMORY_ENTRIES: 50,    // Max entries in memory cache
+    MEMORY_ENTRIES: 50,          // Max entries in memory cache
+    MAX_MEMORY_SIZE: 10 * 1024 * 1024, // 10MB max memory cache size
   },
 
   // Cache keys
@@ -62,6 +63,9 @@ class CacheService {
 
   // Memory cache (fastest)
   private memoryCache: Map<string, CacheEntry> = new Map();
+
+  // Memory cache size tracking (in bytes)
+  private memoryCacheSize = 0;
 
   // Cache statistics
   private stats: CacheStats = {
@@ -142,7 +146,9 @@ class CacheService {
           console.log(`🎯 Memory cache HIT: ${key}`);
           return memoryEntry.data as T;
         } else {
-          // Expired - remove from memory
+          // Expired - remove from memory and update size tracking
+          const entrySize = JSON.stringify(memoryEntry.data).length;
+          this.memoryCacheSize -= entrySize;
           this.memoryCache.delete(key);
         }
       }
@@ -217,18 +223,48 @@ class CacheService {
   }
 
   /**
-   * Set memory cache with LRU eviction
+   * Set memory cache with LRU eviction (by size and count)
    */
   private setMemoryCache(key: string, entry: CacheEntry): void {
-    // Implement simple LRU: if cache is full, remove oldest entry
-    if (this.memoryCache.size >= CACHE_CONFIG.LIMITS.MEMORY_ENTRIES) {
+    // Calculate entry size in bytes
+    const entrySize = JSON.stringify(entry.data).length;
+
+    // Size-based eviction: Remove oldest entries until there's space
+    while (
+      this.memoryCache.size > 0 &&
+      this.memoryCacheSize + entrySize > CACHE_CONFIG.LIMITS.MAX_MEMORY_SIZE
+    ) {
       const oldestKey = this.memoryCache.keys().next().value as string | undefined;
       if (oldestKey) {
+        const oldEntry = this.memoryCache.get(oldestKey);
+        if (oldEntry) {
+          const oldSize = JSON.stringify(oldEntry.data).length;
+          this.memoryCacheSize -= oldSize;
+        }
         this.memoryCache.delete(oldestKey);
+        console.log(`🧹 Memory cache: Evicted ${oldestKey} (size limit)`);
+      } else {
+        break;
       }
     }
 
+    // Count-based eviction: If still over entry limit, remove oldest
+    if (this.memoryCache.size >= CACHE_CONFIG.LIMITS.MEMORY_ENTRIES) {
+      const oldestKey = this.memoryCache.keys().next().value as string | undefined;
+      if (oldestKey) {
+        const oldEntry = this.memoryCache.get(oldestKey);
+        if (oldEntry) {
+          const oldSize = JSON.stringify(oldEntry.data).length;
+          this.memoryCacheSize -= oldSize;
+        }
+        this.memoryCache.delete(oldestKey);
+        console.log(`🧹 Memory cache: Evicted ${oldestKey} (count limit)`);
+      }
+    }
+
+    // Add new entry and update size tracking
     this.memoryCache.set(key, entry);
+    this.memoryCacheSize += entrySize;
   }
 
   /**
@@ -245,6 +281,13 @@ class CacheService {
    */
   public async remove(key: string): Promise<void> {
     try {
+      // Update memory size tracking before deleting
+      const entry = this.memoryCache.get(key);
+      if (entry) {
+        const entrySize = JSON.stringify(entry.data).length;
+        this.memoryCacheSize -= entrySize;
+      }
+
       this.memoryCache.delete(key);
       await AsyncStorage.removeItem(key);
       console.log(`🗑️ Removed cache: ${key}`);
@@ -260,6 +303,7 @@ class CacheService {
     try {
       // Clear memory cache
       this.memoryCache.clear();
+      this.memoryCacheSize = 0; // Reset memory size tracking
 
       // Get all cache keys from AsyncStorage
       const keys = await AsyncStorage.getAllKeys();
@@ -297,6 +341,10 @@ class CacheService {
       // Clear from memory
       for (const [key, entry] of this.memoryCache.entries()) {
         if (!this.isEntryValid(entry)) {
+          // Update memory size tracking before deleting
+          const entrySize = JSON.stringify(entry.data).length;
+          this.memoryCacheSize -= entrySize;
+
           this.memoryCache.delete(key);
           clearedCount++;
         }
@@ -330,6 +378,8 @@ class CacheService {
     return {
       ...this.stats,
       hitRate: this.calculateHitRate(),
+      memoryCacheSize: this.memoryCacheSize,
+      memoryCacheEntries: this.memoryCache.size,
     } as any;
   }
 

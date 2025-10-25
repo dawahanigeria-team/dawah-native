@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import React, { Component, ErrorInfo, ReactNode } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { designTokens } from "../../theme/designTokens";
+import { captureSentryException, addSentryBreadcrumb } from "../../services/config/sentry.config";
 
 interface Props {
   children: ReactNode;
@@ -26,10 +27,26 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("ErrorBoundary caught an error:", error, errorInfo);
+
+    // Report to Sentry
+    captureSentryException(error, {
+      component: 'ErrorBoundary',
+      errorInfo: errorInfo.componentStack,
+      level: 'error',
+    });
+
+    addSentryBreadcrumb('UI Error Boundary triggered', 'error', {
+      error: error.message,
+      componentStack: errorInfo.componentStack?.substring(0, 200), // Limit size
+    });
+
     this.props.onError?.(error, errorInfo);
   }
 
   handleRetry = () => {
+    addSentryBreadcrumb('User retried after error', 'user', {
+      previousError: this.state.error?.message,
+    });
     this.setState({ hasError: false, error: undefined });
   };
 

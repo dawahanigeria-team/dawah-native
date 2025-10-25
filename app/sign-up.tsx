@@ -16,6 +16,7 @@ import { Loading, Text } from "../src/components/atoms";
 import { useAuthStore } from "../src/stores";
 import { designTokens } from "../src/theme/designTokens";
 import tw from "../src/theme/twrnc";
+import { captureSentryException, addSentryBreadcrumb } from "../src/services/config/sentry.config";
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -106,6 +107,21 @@ export default function SignUpScreen() {
       });
       router.back();
     } catch (err: any) {
+      // Log to Sentry
+      captureSentryException(err, {
+        component: 'SignUpScreen',
+        action: 'handleSignUp',
+        email: email,
+        username: username,
+        level: 'warning',
+      });
+
+      addSentryBreadcrumb('Sign up failed', 'error', {
+        error: err.message,
+        email: email,
+        username: username,
+      });
+
       Alert.alert(
         "Sign Up Failed",
         err.message || "Unable to create account. Please try again.",
