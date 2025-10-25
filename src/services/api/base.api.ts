@@ -5,6 +5,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG } from '../config/api.config';
+import { captureSentryException, addSentryBreadcrumb } from '../config/sentry.config';
 
 // Custom error class for API errors
 export class ApiError extends Error {
@@ -340,6 +341,17 @@ class ApiClient {
         body: requestConfig.body ? (typeof requestConfig.body === 'string' ? requestConfig.body : JSON.stringify(requestConfig.body)) : null,
       });
 
+      // Add breadcrumb for Sentry tracking
+      addSentryBreadcrumb(
+        `API ${method} ${endpoint}`,
+        'http',
+        {
+          method,
+          url,
+          hasBody: !!requestConfig.body,
+        }
+      );
+
       // Execute request with retry logic
       const response = await this.retryRequest(url, requestConfig);
 
@@ -359,11 +371,23 @@ class ApiClient {
           statusText: response.statusText,
           errorData,
         });
-        throw new ApiError(
+
+        const apiError = new ApiError(
           errorData.message || `HTTP ${response.status}: ${response.statusText}`,
           response.status,
           errorData,
         );
+
+        // Report API errors to Sentry
+        captureSentryException(apiError, {
+          endpoint,
+          method,
+          url,
+          statusCode: response.status,
+          errorData,
+        });
+
+        throw apiError;
       }
 
       // Parse response
@@ -395,25 +419,45 @@ class ApiClient {
     } catch (error: any) {
       // Handle network errors
       if (error.message === 'Network request failed' || !navigator.onLine) {
-        throw new ApiError(
+        const networkError = new ApiError(
           'No internet connection',
           undefined,
           undefined,
           true,
         );
+
+        // Report network errors to Sentry
+        captureSentryException(networkError, {
+          endpoint,
+          method,
+          url,
+          errorType: 'network',
+        });
+
+        throw networkError;
       }
 
-      // Re-throw ApiError instances
+      // Re-throw ApiError instances (already reported)
       if (error instanceof ApiError) {
         throw error;
       }
 
-      // Wrap unknown errors
-      throw new ApiError(
+      // Wrap unknown errors and report to Sentry
+      const unknownError = new ApiError(
         error.message || 'An unexpected error occurred',
         undefined,
         error,
       );
+
+      captureSentryException(unknownError, {
+        endpoint,
+        method,
+        url,
+        errorType: 'unknown',
+        originalError: error,
+      });
+
+      throw unknownError;
     }
   }
 

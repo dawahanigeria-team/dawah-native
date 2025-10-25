@@ -4,8 +4,12 @@ import { View } from "react-native";
 import { ErrorBoundary } from "../src/components/atoms/ErrorBoundary";
 import { MiniPlayer } from "../src/components/organisms";
 import { AudioProvider } from "../src/components/providers/AudioProvider";
+import { initSentry, Sentry } from "../src/services/config/sentry.config";
 
-export default function RootLayout() {
+// Initialize Sentry as early as possible
+initSentry();
+
+function RootLayout() {
   const pathname = usePathname();
 
   // Hide mini player on lecture detail page since it has full playback controls
@@ -40,3 +44,6 @@ export default function RootLayout() {
     </ErrorBoundary>
   );
 }
+
+// Wrap with Sentry for error tracking
+export default Sentry.wrap(RootLayout);

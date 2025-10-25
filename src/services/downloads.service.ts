@@ -8,6 +8,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Episode } from '../types/types';
 import { downloadsApi } from './api/downloads.api';
+import { captureSentryException, addSentryBreadcrumb } from './config/sentry.config';
 
 const DOWNLOADS_METADATA_KEY = 'downloads_metadata';
 
@@ -162,23 +163,51 @@ class DownloadsService {
       throw new Error('Could not create download file');
     }
 
+    // Declare variables at function scope for error handling
+    let apiResponse: any = null;
+    let downloadUrl: string = audioUrl;
+
     try {
       console.log(`📥 Starting download for: ${title}`);
+
+      // Add breadcrumb for download tracking
+      addSentryBreadcrumb(
+        `Starting download: ${title}`,
+        'download',
+        { lectureId, title }
+      );
 
       // STEP 1: Call backend API to increment download counter
       // This ensures download analytics are tracked on the server
       console.log(`📊 Incrementing download counter for lecture: ${lectureId}`);
-      const apiResponse = await downloadsApi.incrementDownloadCounter(lectureId);
+      apiResponse = await downloadsApi.incrementDownloadCounter(lectureId);
 
       // Use the URL from API response (may have updated metadata)
-      const downloadUrl = apiResponse.url || audioUrl;
+      downloadUrl = apiResponse.url || audioUrl;
       console.log(`🔗 Download URL: ${downloadUrl}`);
 
       // STEP 2: Download the MP3 file to local storage using expo/fetch
+      console.log(`📡 Fetching MP3 from: ${downloadUrl}`);
       const response = await fetch(downloadUrl);
 
+      console.log(`📊 Download response:`, {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        url: response.url,
+        headers: {
+          contentType: response.headers.get('content-type'),
+          contentLength: response.headers.get('content-length'),
+        }
+      });
+
       if (!response.ok) {
-        throw new Error(`Download failed: ${response.statusText}`);
+        const errorMessage = `Download failed (${response.status}): ${response.statusText}`;
+        console.error(`❌ ${errorMessage}`);
+        console.error(`   URL attempted: ${downloadUrl}`);
+        console.error(`   Lecture ID: ${lectureId}`);
+
+        throw new Error(errorMessage);
       }
 
       // Get total size for progress tracking
@@ -224,8 +253,21 @@ class DownloadsService {
         await metadataFile.write(JSON.stringify(metadata, null, 2));
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Failed to download lecture ${lectureId}:`, error);
+
+      // Report download errors to Sentry with full context
+      captureSentryException(error, {
+        lectureId,
+        title,
+        lecturerName,
+        originalAudioUrl: audioUrl,
+        apiResponseUrl: apiResponse?.url,
+        attemptedDownloadUrl: downloadUrl,
+        apiResponse: apiResponse ? JSON.stringify(apiResponse) : 'null',
+        errorType: 'download_failed',
+        errorMessage: error.message,
+      });
 
       // Clean up partial download
       if (file.exists) {
