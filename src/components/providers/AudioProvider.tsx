@@ -8,6 +8,7 @@ import React, { useEffect, useRef } from 'react';
 import { setAudioModeAsync } from 'expo-audio';
 import { useAudioPlayback } from '../../hooks/useAudioPlayback';
 import { playerStore, setAudioControls } from '../../stores/playerStore';
+import { captureSentryException, addSentryBreadcrumb } from '../../services/config/sentry.config';
 
 interface AudioProviderProps {
   children: React.ReactNode;
@@ -21,11 +22,33 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     const setupAudioMode = async () => {
       try {
         await setAudioModeAsync({
+          // Enable playback in silent mode (iOS)
           playsInSilentMode: true,
+
+          // CRITICAL: Enable background audio playback
+          shouldPlayInBackground: true,
+
+          // Handle audio interruptions gracefully
+          interruptionMode: 'mixWithOthers', // iOS: mix with other audio
+          interruptionModeAndroid: 'duckOthers', // Android: duck other audio
+
+          // Don't route through earpiece (Android)
+          shouldRouteThroughEarpiece: false,
         });
         console.log('✅ Audio mode configured for background playback');
-      } catch (error) {
+        console.log('🎵 Background audio: ENABLED');
+
+        addSentryBreadcrumb('Background audio configured', 'info', {
+          playsInSilentMode: true,
+          shouldPlayInBackground: true,
+        });
+      } catch (error: any) {
         console.error('❌ Failed to configure audio mode:', error);
+        captureSentryException(error, {
+          component: 'AudioProvider',
+          action: 'setupAudioMode',
+          level: 'error',
+        });
       }
     };
 
