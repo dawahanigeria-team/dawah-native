@@ -62,7 +62,10 @@
         {
           "url": "https://sentry.io/",
           "project": "dawah-nigeria",
-          "organization": "o4508901298929664"
+          "organization": "o4508901298929664",
+          "autoUpload": {
+            "enabled": false
+          }
         }
       ]
     ],
