@@ -36,7 +36,7 @@ export interface LecturersParams {
   page?: number;
   offset?: number;
   lim?: number;
-  language?: string;
+  language?: string | number; // Can be language ID (number) or name (string)
 }
 
 export interface LecturersResponse {
@@ -89,9 +89,9 @@ class LecturersApiService {
         offset,
       };
 
-      // Add language filter if provided
+      // Add language filter if provided (API expects 'langid' parameter)
       if (params.language) {
-        requestParams.language = params.language;
+        requestParams.langid = params.language;
       }
 
       // Log the API call

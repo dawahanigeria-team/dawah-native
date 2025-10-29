@@ -57,7 +57,7 @@ export default function LecturersScreen() {
     router.push(`/lecturer/${id}`);
   }, []);
 
-  const fetchLecturers = useCallback(async (pageNum: number, isRefresh = false, filters?: { language?: string; search?: string }) => {
+  const fetchLecturers = useCallback(async (pageNum: number, isRefresh = false, filters?: { language?: string }) => {
     try {
       if (isRefresh) {
         setRefreshing(true);
@@ -69,17 +69,16 @@ export default function LecturersScreen() {
       setError(null);
 
       const activeLanguage = filters?.language || selectedLanguage;
-      const activeSearch = filters?.search || searchQuery;
       const languageId = getLanguageId(activeLanguage);
 
-      console.log(`📚 Fetching lecturers - Page: ${pageNum}, Limit: ${itemsPerPage}, Language: ${activeLanguage || 'All'} (ID: ${languageId}), Search: ${activeSearch || 'None'}`);
+      console.log(`📚 Fetching lecturers - Page: ${pageNum}, Limit: ${itemsPerPage}, Language: ${activeLanguage || 'All'} (ID: ${languageId})`);
 
       const requestParams: any = {
         page: pageNum,
         lim: itemsPerPage,
       };
 
-      // Add language filter if selected (API expects language ID as 'language' param)
+      // Add language filter if selected (API service will convert to 'langid')
       if (languageId) {
         requestParams.language = languageId;
       }
@@ -88,34 +87,23 @@ export default function LecturersScreen() {
 
       console.log(`✅ Received ${response.data.length} lecturers for page ${pageNum}`);
 
-      // Apply client-side search filtering if search query exists (API doesn't support search)
-      let filteredData = response.data;
-      if (activeSearch && activeSearch.trim()) {
-        filteredData = response.data.filter((lecturer: any) =>
-          lecturer.name.toLowerCase().includes(activeSearch.toLowerCase())
-        );
-        console.log(`🔍 Search filtered: ${response.data.length} -> ${filteredData.length} scholars`);
-      }
-
-      // Determine if there are more pages:
-      // - If we got 0 results, no more pages
-      // - Otherwise, assume there might be more (we'll keep trying until we get 0)
-      const hasMorePages = filteredData.length > 0;
+      // Determine if there are more pages based on data received
+      const hasMorePages = response.data.length > 0;
 
       if (isRefresh) {
-        setLecturers(filteredData);
+        setLecturers(response.data);
         setPage(1);
         setHasMore(hasMorePages);
-        setTotalScholars(response.total || filteredData.length);
+        setTotalScholars(response.total || response.data.length);
       } else if (pageNum === 1) {
-        setLecturers(filteredData);
+        setLecturers(response.data);
         // Always try to load page 2, even if page 1 returned less than requested
         setHasMore(true);
-        setTotalScholars(response.total || filteredData.length);
+        setTotalScholars(response.total || response.data.length);
       } else {
         // Filter out duplicates before adding
         const existingIds = new Set(lecturers.map(l => String(l.id)));
-        const newItems = filteredData.filter((item: Lecturer) => !existingIds.has(String(item.id)));
+        const newItems = response.data.filter((item: Lecturer) => !existingIds.has(String(item.id)));
 
         if (newItems.length === 0) {
           // All items were duplicates, we've reached the end
@@ -131,7 +119,7 @@ export default function LecturersScreen() {
         }
       }
 
-      console.log(`📊 Page ${pageNum}: Got ${filteredData.length} scholars, hasMore: ${hasMorePages}`);
+      console.log(`📊 Page ${pageNum}: Got ${response.data.length} scholars, hasMore: ${hasMorePages}`);
     } catch (err) {
       console.error('Failed to fetch lecturers:', err);
       setError('Failed to load scholars');
@@ -147,17 +135,24 @@ export default function LecturersScreen() {
     fetchLecturers(1);
   }, []);
 
-  // Refetch when filters change (language or search)
+  // Refetch when LANGUAGE filter changes (server-side filter)
   useEffect(() => {
-    // Reset and refetch with new filters
+    // Reset and refetch with new language filter
     setPage(1);
     setLecturers([]);
-    fetchLecturers(1, false, { language: selectedLanguage || undefined, search: searchQuery });
-  }, [selectedLanguage, searchQuery]);
+    fetchLecturers(1, false, { language: selectedLanguage || undefined });
+  }, [selectedLanguage]);
 
-  // Apply sorting only (search and language filter are now server-side)
+  // Apply search and sorting (client-side only)
   useEffect(() => {
     let result = [...lecturers];
+
+    // Apply search filter (client-side)
+    if (searchQuery.trim()) {
+      result = result.filter(lecturer =>
+        lecturer.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
 
     // Apply sorting
     result.sort((a, b) => {
@@ -174,7 +169,7 @@ export default function LecturersScreen() {
     });
 
     setFilteredLecturers(result);
-  }, [lecturers, sortBy]);
+  }, [lecturers, searchQuery, sortBy]);
 
   const handleLoadMore = () => {
     if (!loadingMore && hasMore) {
