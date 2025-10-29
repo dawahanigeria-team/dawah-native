@@ -57,6 +57,11 @@ export interface PlayerState {
   isDownloaded: boolean;
   isDownloading: boolean;
   downloadProgress: number;
+  // Queue management
+  queue: Episode[];
+  currentQueueIndex: number;
+  isShuffled: boolean;
+  repeatMode: 'off' | 'all' | 'one';
 }
 
 export type RootTabParamList = {

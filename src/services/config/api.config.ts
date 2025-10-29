@@ -50,6 +50,7 @@ export const API_CONFIG = {
 
     // Albums
     ALBUMS: '/api/albumlisting.php',
+    ALBUMS_BY_LECTURER: '/api/albumlisting_rp.php',
     ALBUM_TRACKS: '/api/albumtrackssapi.php',
 
     // Lecturers

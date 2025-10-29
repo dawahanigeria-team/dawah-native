@@ -7,7 +7,7 @@
 import React, { useEffect, useRef } from 'react';
 import { setAudioModeAsync } from 'expo-audio';
 import { useAudioPlayback } from '../../hooks/useAudioPlayback';
-import { playerStore, setAudioControls } from '../../stores/playerStore';
+import { playerStore, setAudioControls, getPlayNextRef } from '../../stores/playerStore';
 import { captureSentryException, addSentryBreadcrumb } from '../../services/config/sentry.config';
 
 interface AudioProviderProps {
@@ -91,15 +91,40 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         });
       }
     },
-    onPlaybackFinished: () => {
+    onPlaybackFinished: async () => {
+      console.log('🎵 Playback finished');
+
       const currentState = playerStore.get();
-      // Reset playback to the beginning when finished
-      playerStore.set({
-        ...currentState,
-        isPlaying: false,
-        progress: 0,
-      });
-      console.log('🎵 Playback finished, reset to beginning');
+      const playNext = getPlayNextRef();
+
+      // If there's a queue and playNext is available, play next track
+      if (playNext && currentState.queue.length > 0) {
+        try {
+          console.log('▶️ Auto-playing next track in queue...');
+          await playNext();
+        } catch (error) {
+          console.error('Failed to auto-play next track:', error);
+          captureSentryException(error, {
+            component: 'AudioProvider',
+            action: 'onPlaybackFinished',
+            level: 'error',
+          });
+          // Reset playback state on error
+          playerStore.set({
+            ...currentState,
+            isPlaying: false,
+            progress: 0,
+          });
+        }
+      } else {
+        // No queue, just reset playback
+        playerStore.set({
+          ...currentState,
+          isPlaying: false,
+          progress: 0,
+        });
+        console.log('⏹️ No queue, playback stopped');
+      }
     },
   });
 

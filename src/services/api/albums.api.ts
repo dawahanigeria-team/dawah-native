@@ -6,6 +6,7 @@
 import { API_CONFIG } from '../config/api.config';
 import { apiClient, ApiError } from './base.api';
 import { SearchAlbum } from '../../types/api.types';
+import { addSentryBreadcrumb, captureSentryException } from '../config/sentry.config';
 
 export interface Album {
   id: string | number;
@@ -53,22 +54,35 @@ export interface AlbumsParams {
 class AlbumsApiService {
   /**
    * Get albums by lecturer
+   * Uses: https://backend.dawahbox.com/api/albumlisting_rp.php?offset=30&lim=10&page=1&rpid=10
    */
   async getAlbumsByLecturer(
     lecturerId: string,
     page = 1,
-    limit = 20
+    limit = 10
   ): Promise<{ data: Album[]; total: number; total_pages: number }> {
     try {
-      console.log('📀 Fetching albums for lecturer:', lecturerId);
+      console.log('📀 Fetching albums for lecturer:', lecturerId, 'Page:', page);
 
-      // The API endpoint might need to be adjusted based on actual backend
+      // Calculate offset for pagination
+      const offset = (page - 1) * limit;
+
+      addSentryBreadcrumb('Fetching albums by lecturer', 'http', {
+        lecturerId,
+        page,
+        limit,
+        offset,
+        endpoint: API_CONFIG.ENDPOINTS.ALBUMS_BY_LECTURER,
+      });
+
+      // Use the correct endpoint for albums by lecturer
       const response = await apiClient.get<any>(
-        API_CONFIG.ENDPOINTS.ALBUMS,
+        API_CONFIG.ENDPOINTS.ALBUMS_BY_LECTURER,
         {
-          rp_id: lecturerId,
+          rpid: lecturerId,
+          offset,
+          lim: limit,
           page,
-          limit,
         },
         {
           timeout: API_CONFIG.TIMEOUTS.DEFAULT,
@@ -82,6 +96,13 @@ class AlbumsApiService {
 
       console.log('✅ Albums fetched:', albums.length);
 
+      addSentryBreadcrumb('Albums by lecturer loaded successfully', 'info', {
+        lecturerId,
+        albumCount: albums.length,
+        page,
+        total: response.total || albums.length,
+      });
+
       return {
         data: albums,
         total: response.total || albums.length,
@@ -89,6 +110,16 @@ class AlbumsApiService {
       };
     } catch (error) {
       console.error('Failed to fetch albums by lecturer:', error);
+
+      captureSentryException(error, {
+        service: 'AlbumsApiService',
+        action: 'getAlbumsByLecturer',
+        lecturerId,
+        page,
+        limit,
+        level: 'error',
+      });
+
       if (error instanceof ApiError) {
         throw error;
       }
@@ -106,10 +137,16 @@ class AlbumsApiService {
     try {
       console.log('📀 Fetching album details:', albumId);
 
+      addSentryBreadcrumb('Fetching album details', 'http', {
+        albumId,
+        endpoint: '/api/albumapi3.php',
+      });
+
       const response = await apiClient.get<any>(
         '/api/albumapi3.php',
         {
           aid: albumId,
+          page: 1,
         },
         {
           timeout: API_CONFIG.TIMEOUTS.DEFAULT,
@@ -118,18 +155,51 @@ class AlbumsApiService {
         }
       );
 
-      // Extract album info and tracks
-      const album = this.normalizeAlbum(response.album || response.data);
-      const tracks = this.normalizeAlbumTracks(response.tracks || response.data?.tracks || []);
+      // API returns array of lectures directly
+      const lecturesArray = Array.isArray(response) ? response : (Array.isArray(response.data) ? response.data : []);
+
+      if (lecturesArray.length === 0) {
+        throw new ApiError('No tracks found in album', 404);
+      }
+
+      // Extract album info from first lecture (all have same album info)
+      const firstLecture = lecturesArray[0];
+      const album: Album = {
+        id: albumId,
+        title: firstLecture.album_name || 'Untitled Album',
+        coverUrl: firstLecture.lec_img || firstLecture.mp3_thumbnail,
+        lecturerId: String(firstLecture.rp_id || ''),
+        lecturerName: firstLecture.rp || firstLecture.rp_name,
+        trackCount: lecturesArray.length,
+        plays: 0, // Not provided in response
+        language: undefined, // Not provided in response
+      };
+
+      // Normalize lectures as tracks
+      const tracks = this.normalizeAlbumTracks(lecturesArray);
 
       console.log('✅ Album details fetched:', {
         album: album.title,
         tracks: tracks.length,
       });
 
+      addSentryBreadcrumb('Album details loaded successfully', 'info', {
+        albumId,
+        albumTitle: album.title,
+        trackCount: tracks.length,
+      });
+
       return { album, tracks };
     } catch (error) {
       console.error('Failed to fetch album details:', error);
+
+      captureSentryException(error, {
+        service: 'AlbumsApiService',
+        action: 'getAlbumDetails',
+        albumId,
+        level: 'error',
+      });
+
       if (error instanceof ApiError) {
         throw error;
       }
@@ -146,6 +216,12 @@ class AlbumsApiService {
   ): Promise<{ data: AlbumTrack[]; total: number }> {
     try {
       console.log('📀 Fetching album tracks:', albumId);
+
+      addSentryBreadcrumb('Fetching album tracks', 'http', {
+        albumId,
+        page,
+        endpoint: API_CONFIG.ENDPOINTS.ALBUM_TRACKS,
+      });
 
       const response = await apiClient.get<any>(
         API_CONFIG.ENDPOINTS.ALBUM_TRACKS,
@@ -164,12 +240,27 @@ class AlbumsApiService {
 
       console.log('✅ Album tracks fetched:', tracks.length);
 
+      addSentryBreadcrumb('Album tracks loaded successfully', 'info', {
+        albumId,
+        trackCount: tracks.length,
+        page,
+      });
+
       return {
         data: tracks,
         total: response.total || tracks.length,
       };
     } catch (error) {
       console.error('Failed to fetch album tracks:', error);
+
+      captureSentryException(error, {
+        service: 'AlbumsApiService',
+        action: 'getAlbumTracks',
+        albumId,
+        page,
+        level: 'error',
+      });
+
       if (error instanceof ApiError) {
         throw error;
       }
@@ -206,18 +297,18 @@ class AlbumsApiService {
    */
   private normalizeAlbum(album: any): Album {
     return {
-      id: String(album.aid || album.id || album.album_id),
-      title: album.album_name || album.title || 'Untitled Album',
-      coverUrl: album.album_cover || album.coverUrl || album.img,
+      id: String(album.aid || album.id || album.album_id || album.nid),
+      title: album.album_name || album.title || album.name || 'Untitled Album',
+      coverUrl: album.album_cover || album.coverUrl || album.alb_thumbnail || album.img,
       lecturerId: String(album.rp_id || album.lecturerId || ''),
       lecturerName: album.rp_name || album.lecturerName || album.lecturer,
       language: album.lang || album.language,
-      trackCount: parseInt(String(album.total_tracks || album.trackCount || '0')),
+      trackCount: parseInt(String(album.total_tracks || album.trackCount || album.lec_no || '0')),
       totalDuration: album.total_duration || album.totalDuration,
       plays: parseInt(String(album.views || album.plays || '0')),
       tags: album.tags || [],
       description: album.description || album.desc,
-      createdAt: album.created_at || album.createdAt,
+      createdAt: album.created_at || album.createdAt || album.post_date,
     };
   }
 
@@ -229,11 +320,11 @@ class AlbumsApiService {
 
     return tracks.map((track, index) => ({
       id: String(track.id || track.nid || track.track_id || `track-${index}`),
-      title: track.title || track.mp3_title || track.Title || 'Untitled Track',
+      title: track.title || track.lectitle || track.mp3_title || track.Title || 'Untitled Track',
       duration: track.duration || track.mp3_duration || track.Duration || '00:00',
       audioUrl: track.audio || track.mp3_url || track.audioUrl || '',
       trackNumber: track.track_number || track.trackNumber || index + 1,
-      plays: parseInt(String(track.views || track.plays || track.Plays || '0')),
+      plays: parseInt(String(track.views || track.plays || track.favorites || track.Plays || '0')),
       albumId: String(track.album_id || track.albumId || ''),
     }));
   }

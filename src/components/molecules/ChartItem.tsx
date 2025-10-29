@@ -1,7 +1,8 @@
 import React, { memo } from 'react';
-import { View, ViewStyle, ImageStyle } from 'react-native';
+import { View, ViewStyle, ImageStyle, TouchableOpacity } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Text } from '../atoms/Text';
-import { Icon } from '../atoms/Icon'; 
+import { Icon } from '../atoms/Icon';
 import { designTokens } from '../../theme/designTokens';
 import { ChartItem as ChartItemType, ChartPeriod } from '../../services/api/charts.api';
 import { Image } from 'expo-image';
@@ -11,9 +12,16 @@ interface ChartItemProps {
   index: number;
   selectedPeriod: ChartPeriod;
   selectedChartType: 'album' | 'lecturer' | 'playlist' | 'lecture';
+  onPress?: () => void;
 }
 
-export const ChartItem: React.FC<ChartItemProps> = memo(({ item, index, selectedPeriod, selectedChartType }) => {
+export const ChartItem: React.FC<ChartItemProps> = memo(({ item, index, selectedPeriod, selectedChartType, onPress }) => {
+  const handlePress = () => {
+    // Provide haptic feedback on tap
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPress?.();
+  };
+
   const containerStyle: ViewStyle = {
     flexDirection: 'row',
     alignItems: 'center',
@@ -78,10 +86,11 @@ export const ChartItem: React.FC<ChartItemProps> = memo(({ item, index, selected
   const imageSource = getImageSource();
 
   return (
-    <View style={containerStyle}>
-      <Text variant="headline" weight="bold" style={{ marginRight: designTokens.spacing.md }}>
-        {index + 1}.
-      </Text>
+    <TouchableOpacity onPress={handlePress} activeOpacity={0.7} disabled={!onPress}>
+      <View style={containerStyle}>
+        <Text variant="headline" weight="bold" style={{ marginRight: designTokens.spacing.md }}>
+          {index + 1}.
+        </Text>
       {imageSource && <Image source={{ uri: imageSource }} style={imageStyle} contentFit="cover" />}
       <View style={{ flex: 1, marginLeft: designTokens.spacing.md }}>
         <Text variant="body" weight="medium" numberOfLines={2}>
@@ -147,7 +156,13 @@ export const ChartItem: React.FC<ChartItemProps> = memo(({ item, index, selected
           {getPeriodLabel()}
         </Text>
       </View>
+      {onPress && (
+        <View style={{ marginLeft: designTokens.spacing.sm }}>
+          <Icon name="chevron-forward" size="sm" color="tertiaryLabel" />
+        </View>
+      )}
     </View>
+    </TouchableOpacity>
   );
 });
 

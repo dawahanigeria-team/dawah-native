@@ -11,6 +11,7 @@ import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Episode } from "../../src/types/types";
 import { getInitials, getPlaceholderColor } from "../../src/utils/colorPlaceholder";
+import { captureSentryException, addSentryBreadcrumb } from "../../src/services/config/sentry.config";
 
 // Tab types
 type TabType = 'songs' | 'albums' | 'playlists';
@@ -46,6 +47,7 @@ export default function LecturerDetailScreen() {
   useEffect(() => {
     fetchLecturerDetails();
     fetchLecturerLectures();
+    fetchAlbums(); // Fetch albums on initial load to show correct count
   }, [lecturerId]);
 
   const fetchLecturerDetails = async () => {
@@ -139,21 +141,34 @@ export default function LecturerDetailScreen() {
   const fetchAlbums = async () => {
     try {
       setAlbumsLoading(true);
+
+      addSentryBreadcrumb('Fetching albums for lecturer', 'http', {
+        lecturerId,
+        lecturerName: lecturer?.rpname || lecturer?.name,
+      });
+
       const response = await albumsApi.getAlbumsByLecturer(lecturerId);
       setAlbums(response.data);
-    } catch (err) {
+
+      console.log('✅ Loaded albums:', response.data.length);
+      addSentryBreadcrumb('Albums loaded successfully', 'info', {
+        lecturerId,
+        albumCount: response.data.length,
+      });
+    } catch (err: any) {
       console.error('Failed to fetch albums:', err);
+      captureSentryException(err, {
+        component: 'LecturerDetailScreen',
+        action: 'fetchAlbums',
+        lecturerId,
+        level: 'error',
+      });
     } finally {
       setAlbumsLoading(false);
     }
   };
 
-  // Fetch data based on active tab
-  useEffect(() => {
-    if (lecturer && activeTab === 'albums' && albums.length === 0) {
-      fetchAlbums();
-    }
-  }, [activeTab, lecturer]);
+  // No need to fetch albums on tab change - already loaded on mount
 
   // Handle search
   useEffect(() => {
@@ -264,16 +279,36 @@ export default function LecturerDetailScreen() {
     { key: 'playlists' as TabType, title: 'Playlists', count: 0 },
   ];
 
-  const renderAlbumItem = (album: Album) => (
-    <TouchableOpacity
-      key={album.id}
-      style={tw`flex-row items-center p-4 bg-[#1A1A1F] rounded-lg mb-3`}
-      onPress={() => {
-        // TODO: Navigate to album detail when route is created
-        // router.push(`/album/${album.id}`);
-        console.log('Album pressed:', album.id);
-      }}
-    >
+  const renderAlbumItem = (album: Album) => {
+    const handleAlbumPress = () => {
+      try {
+        addSentryBreadcrumb('Album pressed', 'user', {
+          albumId: album.id,
+          albumTitle: album.title,
+          lecturerId,
+          lecturerName: lecturer?.rpname || lecturer?.name,
+        });
+
+        console.log('📀 Navigating to album:', album.id, album.title);
+
+        // Navigate to album detail page
+        router.push(`/album/${album.id}`);
+      } catch (err: any) {
+        console.error('Album press error:', err);
+        captureSentryException(err, {
+          component: 'LecturerDetailScreen',
+          action: 'handleAlbumPress',
+          albumId: album.id,
+        });
+      }
+    };
+
+    return (
+      <TouchableOpacity
+        key={album.id}
+        style={tw`flex-row items-start p-4 bg-[#1A1A1F] rounded-lg mb-3`}
+        onPress={handleAlbumPress}
+      >
       {album.coverUrl ? (
         <Image
           source={{ uri: album.coverUrl }}
@@ -285,16 +320,19 @@ export default function LecturerDetailScreen() {
         </View>
       )}
       <View style={tw`flex-1 ml-4`}>
-        <Text style={tw`text-white font-semibold mb-1`} numberOfLines={1}>
+        <Text style={tw`text-white font-semibold mb-1`} numberOfLines={2}>
           {album.title}
         </Text>
         <Text style={tw`text-gray-400 text-sm`}>
-          {album.trackCount || 0} tracks
+          {album.trackCount || 0} lectures{album.language ? ` • ${album.language}` : ''}
         </Text>
       </View>
-      <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+      <View style={tw`justify-center ml-2`}>
+        <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+      </View>
     </TouchableOpacity>
   );
+  };
 
   const renderLectureItem = (lecture: LecturerLecture, index: number) => (
     <TouchableOpacity
@@ -536,7 +574,7 @@ export default function LecturerDetailScreen() {
               <Ionicons name="search" size={20} color="#9CA3AF" />
               <TextInput
                 style={tw`flex-1 ml-3 text-white`}
-                placeholder="Search within tracks"
+                placeholder="Search lectures"
                 placeholderTextColor="#6B7280"
                 value={searchQuery}
                 onChangeText={setSearchQuery}

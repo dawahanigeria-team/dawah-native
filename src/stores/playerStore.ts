@@ -1,3 +1,4 @@
+import React from "react";
 import { entity } from "simpler-state";
 import { Episode, PlayerState } from "../types/types";
 import type { AudioPlaybackControls } from "../hooks/useAudioPlayback";
@@ -16,12 +17,19 @@ const initialState: PlayerState = {
   isDownloaded: false,
   isDownloading: false,
   downloadProgress: 0,
+  queue: [],
+  currentQueueIndex: -1,
+  isShuffled: false,
+  repeatMode: 'off',
 };
 
 export const playerStore = entity(initialState);
 
 // Audio controls instance - will be set by AudioProvider
 let audioControls: AudioPlaybackControls | null = null;
+
+// Store playNext reference for use in AudioProvider
+let playNextRef: (() => Promise<void>) | null = null;
 
 /**
  * Set audio controls instance (called from AudioProvider)
@@ -34,6 +42,18 @@ export const setAudioControls = (controls: AudioPlaybackControls | null) => {
  * Get current audio controls instance
  */
 export const getAudioControls = () => audioControls;
+
+/**
+ * Set playNext reference (called from usePlayerStore)
+ */
+export const setPlayNextRef = (fn: (() => Promise<void>) | null) => {
+  playNextRef = fn;
+};
+
+/**
+ * Get playNext reference
+ */
+export const getPlayNextRef = () => playNextRef;
 
 export const usePlayerStore = () => {
   // Use try-catch to handle potential initialization issues
@@ -357,6 +377,262 @@ export const usePlayerStore = () => {
     }
   };
 
+  // Queue Management Functions
+
+  /**
+   * Play a queue of episodes starting from a specific index
+   */
+  const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: boolean = false) => {
+    console.log('🎵 PlayerStore: playQueue called with', episodes.length, 'episodes, startIndex:', startIndex);
+
+    addSentryBreadcrumb(
+      'Playing queue',
+      'playback',
+      { episodeCount: episodes.length, startIndex, shuffle }
+    );
+
+    if (episodes.length === 0) {
+      console.warn('⚠️ PlayerStore: Cannot play empty queue');
+      return;
+    }
+
+    try {
+      let queue = [...episodes];
+
+      // Shuffle if requested (but keep start episode at index 0)
+      if (shuffle) {
+        const startEpisode = queue[startIndex];
+        const remaining = queue.filter((_, i) => i !== startIndex);
+        // Fisher-Yates shuffle
+        for (let i = remaining.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
+        }
+        queue = [startEpisode, ...remaining];
+        startIndex = 0;
+      }
+
+      // Update store with queue
+      playerStore.set({
+        ...playerStore.get(),
+        queue,
+        currentQueueIndex: startIndex,
+        isShuffled: shuffle,
+      });
+
+      // Play the first episode
+      await playEpisode(queue[startIndex]);
+    } catch (error) {
+      console.error('Failed to play queue:', error);
+      captureSentryException(error, { action: 'playQueue', episodeCount: episodes.length });
+    }
+  };
+
+  /**
+   * Play next episode in queue
+   */
+  const playNext = async () => {
+    const currentState = playerStore.get();
+    const { queue, currentQueueIndex, repeatMode } = currentState;
+
+    console.log('⏭️ PlayerStore: playNext called, currentIndex:', currentQueueIndex, 'queueLength:', queue.length);
+
+    if (queue.length === 0) {
+      console.warn('⚠️ PlayerStore: No queue to play next');
+      return;
+    }
+
+    // Handle repeat one
+    if (repeatMode === 'one' && currentState.currentEpisode) {
+      console.log('🔂 PlayerStore: Repeat one, replaying current episode');
+      await playEpisode(currentState.currentEpisode);
+      return;
+    }
+
+    let nextIndex = currentQueueIndex + 1;
+
+    // Handle end of queue
+    if (nextIndex >= queue.length) {
+      if (repeatMode === 'all') {
+        console.log('🔁 PlayerStore: Repeat all, going back to start');
+        nextIndex = 0;
+      } else {
+        console.log('⏹️ PlayerStore: End of queue reached');
+        // Stop playback
+        if (audioControls) {
+          audioControls.stop();
+        }
+        playerStore.set({
+          ...currentState,
+          isPlaying: false,
+        });
+        return;
+      }
+    }
+
+    // Update index and play
+    playerStore.set({
+      ...currentState,
+      currentQueueIndex: nextIndex,
+    });
+
+    await playEpisode(queue[nextIndex]);
+  };
+
+  /**
+   * Play previous episode in queue
+   */
+  const playPrevious = async () => {
+    const currentState = playerStore.get();
+    const { queue, currentQueueIndex } = currentState;
+
+    console.log('⏮️ PlayerStore: playPrevious called, currentIndex:', currentQueueIndex);
+
+    if (queue.length === 0) {
+      console.warn('⚠️ PlayerStore: No queue to play previous');
+      return;
+    }
+
+    // If we're more than 3 seconds into the track, restart it
+    if (currentState.progress > 3 && currentState.currentEpisode) {
+      console.log('🔄 PlayerStore: Restarting current episode');
+      if (audioControls) {
+        audioControls.seekTo(0);
+      }
+      return;
+    }
+
+    let prevIndex = currentQueueIndex - 1;
+
+    // Handle start of queue
+    if (prevIndex < 0) {
+      prevIndex = queue.length - 1; // Go to last episode
+    }
+
+    // Update index and play
+    playerStore.set({
+      ...currentState,
+      currentQueueIndex: prevIndex,
+    });
+
+    await playEpisode(queue[prevIndex]);
+  };
+
+  /**
+   * Add episodes to end of queue
+   */
+  const addToQueue = (episodes: Episode | Episode[]) => {
+    const episodeArray = Array.isArray(episodes) ? episodes : [episodes];
+    const currentState = playerStore.get();
+
+    console.log('➕ PlayerStore: Adding', episodeArray.length, 'episodes to queue');
+
+    addSentryBreadcrumb(
+      'Adding to queue',
+      'playback',
+      { episodeCount: episodeArray.length }
+    );
+
+    playerStore.set({
+      ...currentState,
+      queue: [...currentState.queue, ...episodeArray],
+    });
+  };
+
+  /**
+   * Remove episode from queue by index
+   */
+  const removeFromQueue = (index: number) => {
+    const currentState = playerStore.get();
+    const newQueue = currentState.queue.filter((_, i) => i !== index);
+
+    console.log('➖ PlayerStore: Removing episode at index', index);
+
+    // Adjust current index if necessary
+    let newIndex = currentState.currentQueueIndex;
+    if (index < currentState.currentQueueIndex) {
+      newIndex--;
+    } else if (index === currentState.currentQueueIndex) {
+      // If we removed the current episode, don't change index
+      // (next episode will now be at same index)
+    }
+
+    playerStore.set({
+      ...currentState,
+      queue: newQueue,
+      currentQueueIndex: newIndex,
+    });
+  };
+
+  /**
+   * Toggle shuffle mode
+   */
+  const toggleShuffle = () => {
+    const currentState = playerStore.get();
+    const newShuffleState = !currentState.isShuffled;
+
+    console.log('🔀 PlayerStore: Toggle shuffle:', newShuffleState);
+
+    if (newShuffleState && currentState.queue.length > 0) {
+      // Shuffle queue, keeping current episode at current position
+      const currentEpisode = currentState.queue[currentState.currentQueueIndex];
+      const remaining = currentState.queue.filter((_, i) => i !== currentState.currentQueueIndex);
+
+      // Fisher-Yates shuffle
+      for (let i = remaining.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
+      }
+
+      const newQueue = [currentEpisode, ...remaining];
+
+      playerStore.set({
+        ...currentState,
+        queue: newQueue,
+        currentQueueIndex: 0,
+        isShuffled: true,
+      });
+    } else {
+      // Un-shuffle: restore original order (not implemented yet, just toggle flag)
+      playerStore.set({
+        ...currentState,
+        isShuffled: false,
+      });
+    }
+  };
+
+  /**
+   * Set repeat mode (off, all, one)
+   */
+  const setRepeatMode = (mode: 'off' | 'all' | 'one') => {
+    console.log('🔁 PlayerStore: Set repeat mode:', mode);
+
+    playerStore.set({
+      ...playerStore.get(),
+      repeatMode: mode,
+    });
+  };
+
+  /**
+   * Clear queue
+   */
+  const clearQueue = () => {
+    console.log('🗑️ PlayerStore: Clearing queue');
+
+    playerStore.set({
+      ...playerStore.get(),
+      queue: [],
+      currentQueueIndex: -1,
+      isShuffled: false,
+    });
+  };
+
+  // Set playNext reference for use in AudioProvider
+  React.useEffect(() => {
+    setPlayNextRef(playNext);
+    return () => setPlayNextRef(null);
+  }, [playNext]);
+
   return {
     ...state,
     playEpisode,
@@ -372,5 +648,14 @@ export const usePlayerStore = () => {
     setLoading,
     downloadEpisode,
     closePlayer,
+    // Queue management
+    playQueue,
+    playNext,
+    playPrevious,
+    addToQueue,
+    removeFromQueue,
+    toggleShuffle,
+    setRepeatMode,
+    clearQueue,
   };
 };

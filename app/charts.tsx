@@ -1,5 +1,5 @@
 import React, { memo, useEffect, useState, useCallback } from 'react';
-import { View, FlatList, ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, FlatList, ActivityIndicator, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { Text } from '../src/components/atoms/Text';
 import { Icon } from '../src/components/atoms';
@@ -13,6 +13,7 @@ import {
   ChartPeriod,
 } from '../src/services/api/charts.api';
 import { designTokens } from '../src/theme/designTokens';
+import { captureSentryException, addSentryBreadcrumb } from '../src/services/config/sentry.config';
 
 type ChartType = 'album' | 'lecturer' | 'playlist' | 'lecture';
 
@@ -64,6 +65,58 @@ const ChartsScreen: React.FC = memo(() => {
   useEffect(() => {
     getChartData(selectedChartType, selectedPeriod);
   }, [selectedChartType, selectedPeriod, getChartData]);
+
+  const handleChartItemPress = useCallback((item: ChartItemType) => {
+    try {
+      // Track chart item navigation in Sentry
+      addSentryBreadcrumb('Chart item pressed', 'user', {
+        chartType: selectedChartType,
+        itemId: item.id,
+        itemName: item.mp3_title || item.name,
+        period: selectedPeriod,
+      });
+
+      // Navigate based on chart type
+      switch (selectedChartType) {
+        case 'lecture':
+          console.log('📊 Navigating to lecture:', item.id);
+          router.push(`/lecture/${item.id}`);
+          break;
+
+        case 'lecturer':
+          console.log('📊 Navigating to lecturer:', item.rp_id || item.id);
+          router.push(`/lecturer/${item.rp_id || item.id}`);
+          break;
+
+        case 'album':
+          console.log('📊 Navigating to album:', item.id);
+          router.push(`/album/${item.id}`);
+          break;
+
+        case 'playlist':
+          // TODO: Implement playlist detail page navigation
+          console.log('📊 Playlist pressed:', item.id);
+          Alert.alert(
+            'Coming Soon',
+            'Playlist detail page is coming soon!',
+            [{ text: 'OK' }]
+          );
+          break;
+
+        default:
+          console.warn('Unknown chart type:', selectedChartType);
+      }
+    } catch (error: any) {
+      console.error('Chart navigation error:', error);
+      captureSentryException(error, {
+        component: 'ChartsScreen',
+        action: 'handleChartItemPress',
+        chartType: selectedChartType,
+        itemId: item.id,
+      });
+      Alert.alert('Error', 'Unable to navigate. Please try again.');
+    }
+  }, [selectedChartType, selectedPeriod, router]);
 
   const getTitle = () => {
     const chartTypeTitle = selectedChartType.charAt(0).toUpperCase() + selectedChartType.slice(1);
@@ -136,7 +189,15 @@ const ChartsScreen: React.FC = memo(() => {
       <FlatList
         data={chartData}
         keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item, index }) => <ChartItem item={item} index={index} selectedPeriod={selectedPeriod} selectedChartType={selectedChartType} />}
+        renderItem={({ item, index }) => (
+          <ChartItem
+            item={item}
+            index={index}
+            selectedPeriod={selectedPeriod}
+            selectedChartType={selectedChartType}
+            onPress={() => handleChartItemPress(item)}
+          />
+        )}
         contentContainerStyle={styles.listContent}
       />
     </View>
