@@ -7,6 +7,8 @@ import { Chip, Text } from "../../src/components/atoms";
 import { Card } from "../../src/components/molecules/Card";
 import { SearchBar } from "../../src/components/molecules/SearchBar";
 import { useTrending } from "../../src/hooks/useTrending";
+import { useQuranAlbums } from "../../src/hooks/useQuranAlbums";
+import { QuranAlbum } from "../../src/services/api/quran.api";
 
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
@@ -196,11 +198,11 @@ const getSectionInfo = (type: string) => {
       };
     case "quran-recitations":
       return {
-        title: "Quran Recitations",
-        description: "Beautiful recitations and tafsir of the Holy Quran",
+        title: "Quran Reciters",
+        description: "Discover renowned Quran reciters and their beautiful recitations",
         count: 20,
-        data: generateSectionData(type).episodes,
-        variant: "section" as const,
+        data: [], // Will be populated from API
+        variant: "quran" as const,
       };
     default:
       return {
@@ -227,13 +229,28 @@ export default function SectionScreen() {
     lectures: trendingLectures,
     loading: trendingLoading,
     error: trendingError,
-    refetch,
-    loadMore,
-    hasMore,
-    isLoadingMore,
+    refetch: refetchTrending,
+    loadMore: loadMoreTrending,
+    hasMore: hasMoreTrending,
+    isLoadingMore: isLoadingMoreTrending,
   } = useTrending(trendingParams);
 
-  console.log(`📊 useTrending values - lectures: ${trendingLectures.length}, loading: ${trendingLoading}, hasMore: ${hasMore}, isLoadingMore: ${isLoadingMore}`);
+  console.log(`📊 useTrending values - lectures: ${trendingLectures.length}, loading: ${trendingLoading}, hasMore: ${hasMoreTrending}, isLoadingMore: ${isLoadingMoreTrending}`);
+
+  // Fetch Quran albums if this is the quran-recitations section
+  const quranParams = type === "quran-recitations" ? { page: 1, limit: 20 } : undefined;
+
+  const {
+    albums: quranAlbums,
+    loading: quranLoading,
+    error: quranError,
+    refetch: refetchQuran,
+    loadMore: loadMoreQuran,
+    hasMore: hasMoreQuran,
+    isLoadingMore: isLoadingMoreQuran,
+  } = useQuranAlbums(quranParams);
+
+  console.log(`📖 useQuranAlbums values - albums: ${quranAlbums.length}, loading: ${quranLoading}, hasMore: ${hasMoreQuran}, isLoadingMore: ${isLoadingMoreQuran}`);
 
   const sectionInfo = getSectionInfo(type || "");
   const [searchQuery, setSearchQuery] = useState("");
@@ -245,8 +262,19 @@ export default function SectionScreen() {
   // Show filters only for trending section
   const showFilters = type === "trending";
 
-  // Use API data for trending, mock data for others
-  const rawData = type === "trending" ? trendingLectures : sectionInfo.data;
+  // Use appropriate data source based on section type
+  const rawData =
+    type === "trending" ? trendingLectures :
+    type === "quran-recitations" ? quranAlbums :
+    sectionInfo.data;
+
+  // Use appropriate loading/error/refetch states
+  const isLoading = type === "trending" ? trendingLoading : type === "quran-recitations" ? quranLoading : false;
+  const hasError = type === "trending" ? trendingError : type === "quran-recitations" ? quranError : null;
+  const refetch = type === "trending" ? refetchTrending : type === "quran-recitations" ? refetchQuran : () => Promise.resolve();
+  const loadMore = type === "trending" ? loadMoreTrending : type === "quran-recitations" ? loadMoreQuran : () => Promise.resolve();
+  const hasMore = type === "trending" ? hasMoreTrending : type === "quran-recitations" ? hasMoreQuran : false;
+  const isLoadingMore = type === "trending" ? isLoadingMoreTrending : type === "quran-recitations" ? isLoadingMoreQuran : false;
 
   // Filter and sort data based on search query, language, and sort option
   const filteredData = useMemo(() => {
@@ -256,13 +284,20 @@ export default function SectionScreen() {
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       data = data.filter((item) => {
-        const title = item.title.toLowerCase();
-        const metaValue =
-          "durationSec" in item ? ((item as Episode).lecturerName || "Unknown") : "";
+        // Handle QuranAlbum type
+        if ('name' in item && 'lec_no' in item) {
+          const album = item as QuranAlbum;
+          return album.name.toLowerCase().includes(query) ||
+                 album.language.toLowerCase().includes(query);
+        }
+
+        // Handle Episode type
+        const title = (item as Episode).title?.toLowerCase() || '';
+        const metaValue = (item as Episode).lecturerName?.toLowerCase() || '';
 
         // Search in title, author, and tags if available
         const titleMatch = title.includes(query);
-        const authorMatch = metaValue.toLowerCase().includes(query);
+        const authorMatch = metaValue.includes(query);
 
         // For episodes, also search in duration (e.g., "1 hour", "30 min")
         let durationMatch = false;
@@ -334,6 +369,15 @@ export default function SectionScreen() {
     [router]
   );
 
+  const handleQuranAlbumPress = useCallback(
+    (album: QuranAlbum) => {
+      if (!album?.id) return;
+      // Navigate to reciter detail page
+      router.push(`/quran-reciter/${album.id}`);
+    },
+    [router]
+  );
+
   const handleSearch = (query: string) => {
     setSearchQuery(query);
   };
@@ -341,16 +385,38 @@ export default function SectionScreen() {
   // Handle infinite scroll load more
   const handleLoadMore = useCallback(() => {
     console.log(`🔄 onEndReached triggered - type: ${type}, hasMore: ${hasMore}, isLoadingMore: ${isLoadingMore}`);
-    if (type === "trending" && hasMore && !isLoadingMore) {
+    if ((type === "trending" || type === "quran-recitations") && hasMore && !isLoadingMore) {
       console.log('✅ Triggering loadMore()');
       loadMore();
-    } else if (type === "trending") {
-      console.log(`❌ Not loading more - hasMore: ${hasMore}, isLoadingMore: ${isLoadingMore}`);
     }
   }, [type, hasMore, isLoadingMore, loadMore]);
 
   // Render item for FlatList
-  const renderItem = useCallback(({ item }: { item: Episode | Series }) => {
+  const renderItem = useCallback(({ item }: { item: Episode | Series | QuranAlbum }) => {
+    // Handle Quran albums
+    if (sectionInfo.variant === "quran" && 'name' in item && 'lec_no' in item) {
+      const album = item as QuranAlbum;
+      return (
+        <Card
+          variant="section"
+          data={{
+            id: album.id,
+            title: album.name,
+            coverUrl: album.alb_thumbnail || album.img,
+            lecturerName: `${album.lec_no} Recitations`,
+            plays: album.views,
+            downloads: album.downloads,
+            language: album.language,
+          } as Episode}
+          onPress={() => handleQuranAlbumPress(album)}
+          showTime={false}
+          showMeta={true}
+          metaValue={`${album.lec_no} Recitations • ${album.language}`}
+        />
+      );
+    }
+
+    // Handle Episodes
     if (sectionInfo.variant === "section") {
       const isTrendingSection = type === "trending";
 
@@ -403,12 +469,12 @@ export default function SectionScreen() {
         </View>
       );
     }
-  }, [handleLecturePress, sectionInfo.variant, type]);
+  }, [handleLecturePress, handleQuranAlbumPress, sectionInfo.variant, type]);
 
   // Render footer (loading indicator) for FlatList
   const renderFooter = useCallback(() => {
     console.log(`🦶 renderFooter - isLoadingMore: ${isLoadingMore}, type: ${type}, hasMore: ${hasMore}`);
-    if (!isLoadingMore || type !== "trending") return null;
+    if (!isLoadingMore) return null;
     return (
       <View style={tw`py-4 items-center`}>
         <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
@@ -421,16 +487,16 @@ export default function SectionScreen() {
 
   // Empty component for FlatList
   const renderEmpty = useCallback(() => {
-    if (type === "trending" && trendingLoading) {
+    if (isLoading) {
       return (
         <View style={tw`flex-1 items-center justify-center py-20`}>
           <ActivityIndicator size="large" color={designTokens.colors.brand.primary} />
-          <Text style={tw`text-white mt-2`}>Loading trending lectures...</Text>
+          <Text style={tw`text-white mt-2`}>Loading {sectionInfo.title.toLowerCase()}...</Text>
         </View>
       );
     }
 
-    if (type === "trending" && trendingError) {
+    if (hasError) {
       return (
         <View style={tw`flex-1 items-center justify-center py-20 px-6`}>
           <View
@@ -446,7 +512,7 @@ export default function SectionScreen() {
             />
           </View>
           <Text variant="title3" color="label" style={tw`font-semibold text-center mb-2`}>
-            Failed to load trending lectures
+            Failed to load {sectionInfo.title.toLowerCase()}
           </Text>
           <Text variant="subheadline" color="secondaryLabel" style={tw`text-center mb-4`}>
             Check your connection and try again
@@ -457,7 +523,7 @@ export default function SectionScreen() {
               tw`px-6 py-3 rounded-full`,
               { backgroundColor: designTokens.colors.brand.primary },
             ]}
-            accessibilityLabel="Retry loading trending lectures"
+            accessibilityLabel={`Retry loading ${sectionInfo.title.toLowerCase()}`}
             accessibilityRole="button"
             activeOpacity={0.8}
           >
@@ -499,7 +565,7 @@ export default function SectionScreen() {
         </Text>
       </View>
     );
-  }, [type, trendingLoading, trendingError, searchQuery, refetch]);
+  }, [isLoading, hasError, searchQuery, refetch, sectionInfo.title]);
 
   return (
     <SafeAreaView
@@ -563,7 +629,12 @@ export default function SectionScreen() {
               color="secondaryLabel"
               style={tw`font-medium`}
             >
-              {type === "trending" ? (trendingLectures.length > 0 ? trendingLectures.length : sectionInfo.count) : sectionInfo.count} lectures
+              {type === "trending"
+                ? `${trendingLectures.length > 0 ? trendingLectures.length : sectionInfo.count} lectures`
+                : type === "quran-recitations"
+                ? `${quranAlbums.length > 0 ? quranAlbums.length : sectionInfo.count} reciters`
+                : `${sectionInfo.count} lectures`
+              }
             </Text>
           </View>
         </View>

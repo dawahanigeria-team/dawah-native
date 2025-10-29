@@ -53,10 +53,10 @@ const defaultActions: ActionItem[] = [
   },
   {
     id: '5',
-    title: 'Genres',
-    icon: 'musical-notes',
-    color: '#C6FF00',
-    description: 'Browse by category'
+    title: 'Quran',
+    icon: 'book',
+    color: '#4CAF50',
+    description: 'Quran recitations'
   },
   {
     id: '6',
