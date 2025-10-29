@@ -51,17 +51,19 @@ export interface LecturersResponse {
 class LecturersApiService {
   /**
    * Helper to get language name from lang_id
+   * Language IDs from /all_lang_api.php
    */
   private getLanguageFromId(langId?: number): string {
     const languageMap: Record<number, string> = {
-      1: 'English',
-      2: 'Arabic',
-      3: 'French',
-      4: 'Swahili',
-      5: 'Igbo',
-      6: 'Fulani',
-      7: 'Yoruba',
+      157: 'Arabic',
+      877: 'Ebira',
+      6: 'English',
       8: 'Hausa',
+      50041: 'Igala',
+      9: 'Igbo',
+      53181: 'Nupe',
+      46504: 'Pidgin English',
+      7: 'Yoruba',
     };
     return langId ? languageMap[langId] || 'Unknown' : 'Unknown';
   }

@@ -26,20 +26,38 @@ export default function LecturersScreen() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const itemsPerPage = 20;
+  const [totalScholars, setTotalScholars] = useState<number>(0);
+  const itemsPerPage = 20; // Optimized for Nigerian internet speeds
 
   // Filter & Search states
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'name' | 'popular' | 'lectures'>('popular');
 
-  const languages = ['All', 'English', 'Arabic', 'Hausa', 'Yoruba', 'Igbo', 'Fulani', 'French', 'Swahili'];
+  const languages = ['All', 'English', 'Arabic', 'Hausa', 'Yoruba', 'Igbo', 'Pidgin English', 'Nupe', 'Igala', 'Ebira'];
+
+  // Map language names to IDs for API (from /all_lang_api.php)
+  const getLanguageId = (languageName: string | null): number | undefined => {
+    if (!languageName || languageName === 'All') return undefined;
+    const languageMap: Record<string, number> = {
+      'Arabic': 157,
+      'Ebira': 877,
+      'English': 6,
+      'Hausa': 8,
+      'Igala': 50041,
+      'Igbo': 9,
+      'Nupe': 53181,
+      'Pidgin English': 46504,
+      'Yoruba': 7,
+    };
+    return languageMap[languageName];
+  };
 
   const handleLecturerPress = useCallback((id: string) => {
     router.push(`/lecturer/${id}`);
   }, []);
 
-  const fetchLecturers = useCallback(async (pageNum: number, isRefresh = false) => {
+  const fetchLecturers = useCallback(async (pageNum: number, isRefresh = false, filters?: { language?: string; search?: string }) => {
     try {
       if (isRefresh) {
         setRefreshing(true);
@@ -50,30 +68,70 @@ export default function LecturersScreen() {
       }
       setError(null);
 
-      console.log(`📚 Fetching lecturers - Page: ${pageNum}, Limit: ${itemsPerPage}`);
+      const activeLanguage = filters?.language || selectedLanguage;
+      const activeSearch = filters?.search || searchQuery;
+      const languageId = getLanguageId(activeLanguage);
 
-      const response = await lecturersApi.getAllLecturers({
+      console.log(`📚 Fetching lecturers - Page: ${pageNum}, Limit: ${itemsPerPage}, Language: ${activeLanguage || 'All'} (ID: ${languageId}), Search: ${activeSearch || 'None'}`);
+
+      const requestParams: any = {
         page: pageNum,
         lim: itemsPerPage,
-      });
+      };
+
+      // Add language filter if selected (API expects language ID as 'language' param)
+      if (languageId) {
+        requestParams.language = languageId;
+      }
+
+      const response = await lecturersApi.getAllLecturers(requestParams);
 
       console.log(`✅ Received ${response.data.length} lecturers for page ${pageNum}`);
 
-      if (isRefresh) {
-        setLecturers(response.data);
-        setPage(1);
-        setHasMore(response.data.length === itemsPerPage);
-      } else if (pageNum === 1) {
-        setLecturers(response.data);
-        setHasMore(response.data.length === itemsPerPage);
-      } else {
-        setLecturers(prev => {
-          const newTotal = prev.length + response.data.length;
-          console.log(`📊 Total lecturers now: ${newTotal}`);
-          return [...prev, ...response.data];
-        });
-        setHasMore(response.data.length === itemsPerPage);
+      // Apply client-side search filtering if search query exists (API doesn't support search)
+      let filteredData = response.data;
+      if (activeSearch && activeSearch.trim()) {
+        filteredData = response.data.filter((lecturer: any) =>
+          lecturer.name.toLowerCase().includes(activeSearch.toLowerCase())
+        );
+        console.log(`🔍 Search filtered: ${response.data.length} -> ${filteredData.length} scholars`);
       }
+
+      // Determine if there are more pages:
+      // - If we got 0 results, no more pages
+      // - Otherwise, assume there might be more (we'll keep trying until we get 0)
+      const hasMorePages = filteredData.length > 0;
+
+      if (isRefresh) {
+        setLecturers(filteredData);
+        setPage(1);
+        setHasMore(hasMorePages);
+        setTotalScholars(response.total || filteredData.length);
+      } else if (pageNum === 1) {
+        setLecturers(filteredData);
+        // Always try to load page 2, even if page 1 returned less than requested
+        setHasMore(true);
+        setTotalScholars(response.total || filteredData.length);
+      } else {
+        // Filter out duplicates before adding
+        const existingIds = new Set(lecturers.map(l => String(l.id)));
+        const newItems = filteredData.filter((item: Lecturer) => !existingIds.has(String(item.id)));
+
+        if (newItems.length === 0) {
+          // All items were duplicates, we've reached the end
+          console.log(`📊 No new scholars found on page ${pageNum}, reached the end`);
+          setHasMore(false);
+        } else {
+          const newLecturers = [...lecturers, ...newItems];
+          console.log(`📊 Total lecturers loaded: ${newLecturers.length} (${newItems.length} new on this page)`);
+          setLecturers(newLecturers);
+          // Keep trying to load more as long as we got some data
+          setHasMore(hasMorePages);
+          setTotalScholars(response.total || newLecturers.length);
+        }
+      }
+
+      console.log(`📊 Page ${pageNum}: Got ${filteredData.length} scholars, hasMore: ${hasMorePages}`);
     } catch (err) {
       console.error('Failed to fetch lecturers:', err);
       setError('Failed to load scholars');
@@ -84,27 +142,22 @@ export default function LecturersScreen() {
     }
   }, [itemsPerPage]);
 
+  // Initial load
   useEffect(() => {
     fetchLecturers(1);
-  }, [fetchLecturers]);
+  }, []);
 
-  // Apply search, filter, and sort
+  // Refetch when filters change (language or search)
+  useEffect(() => {
+    // Reset and refetch with new filters
+    setPage(1);
+    setLecturers([]);
+    fetchLecturers(1, false, { language: selectedLanguage || undefined, search: searchQuery });
+  }, [selectedLanguage, searchQuery]);
+
+  // Apply sorting only (search and language filter are now server-side)
   useEffect(() => {
     let result = [...lecturers];
-
-    // Apply search
-    if (searchQuery.trim()) {
-      result = result.filter(lecturer =>
-        lecturer.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    // Apply language filter
-    if (selectedLanguage && selectedLanguage !== 'All') {
-      result = result.filter(lecturer =>
-        lecturer.language === selectedLanguage
-      );
-    }
 
     // Apply sorting
     result.sort((a, b) => {
@@ -121,7 +174,7 @@ export default function LecturersScreen() {
     });
 
     setFilteredLecturers(result);
-  }, [lecturers, searchQuery, selectedLanguage, sortBy]);
+  }, [lecturers, sortBy]);
 
   const handleLoadMore = () => {
     if (!loadingMore && hasMore) {
@@ -217,10 +270,35 @@ export default function LecturersScreen() {
   }, [error, handleRefresh, searchQuery, selectedLanguage]);
 
   const renderFooter = () => {
-    if (!loadingMore) return null;
+    if (!loadingMore) {
+      // Show "Load More" hint if there are more scholars
+      if (hasMore && lecturers.length > 0 && lecturers.length < totalScholars) {
+        return (
+          <View style={tw`py-6 items-center`}>
+            <Text
+              style={[
+                tw`text-xs`,
+                { color: designTokens.colors.system.label.tertiary },
+              ]}
+            >
+              Scroll to load more scholars
+            </Text>
+          </View>
+        );
+      }
+      return null;
+    }
     return (
-      <View style={tw`py-4`}>
+      <View style={tw`py-4 items-center`}>
         <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
+        <Text
+          style={[
+            tw`mt-2 text-xs`,
+            { color: designTokens.colors.system.label.secondary },
+          ]}
+        >
+          Loading more scholars...
+        </Text>
       </View>
     );
   };
@@ -343,43 +421,69 @@ export default function LecturersScreen() {
       </View>
 
       {/* Sort and Filter Controls */}
-      <View style={tw`flex-row items-center justify-between px-5 pb-3`}>
-        <Text
-          style={[
-            tw`text-sm`,
-            { color: designTokens.colors.system.label.secondary },
-          ]}
-        >
-          {filteredLecturers.length} scholar{filteredLecturers.length !== 1 ? 's' : ''}
-        </Text>
+      <View style={tw`px-5 pb-3`}>
+        <View style={tw`flex-row items-center justify-between mb-1`}>
+          <View>
+            <Text
+              style={[
+                tw`text-sm font-medium`,
+                { color: designTokens.colors.system.label.primary },
+              ]}
+            >
+              {searchQuery || selectedLanguage
+                ? `${filteredLecturers.length} found`
+                : `${lecturers.length} scholars`}
+            </Text>
+            {!searchQuery && !selectedLanguage && totalScholars > lecturers.length && (
+              <Text
+                style={[
+                  tw`text-xs mt-0.5`,
+                  { color: designTokens.colors.system.label.tertiary },
+                ]}
+              >
+                Scroll for more
+              </Text>
+            )}
+            {(searchQuery || selectedLanguage) && hasMore && (
+              <Text
+                style={[
+                  tw`text-xs mt-0.5`,
+                  { color: designTokens.colors.system.label.tertiary },
+                ]}
+              >
+                Scroll to see more results
+              </Text>
+            )}
+          </View>
 
-        <TouchableOpacity
-          onPress={() => {
-            // Cycle through sort options
-            const sortOptions: ('popular' | 'name' | 'lectures')[] = ['popular', 'name', 'lectures'];
-            const currentIndex = sortOptions.indexOf(sortBy);
-            const nextIndex = (currentIndex + 1) % sortOptions.length;
-            setSortBy(sortOptions[nextIndex]);
-          }}
-          style={[
-            tw`flex-row items-center px-3 py-2 rounded-lg`,
-            { backgroundColor: designTokens.colors.system.background.secondary },
-          ]}
-        >
-          <Ionicons
-            name="swap-vertical"
-            size={16}
-            color={designTokens.colors.system.label.primary}
-          />
-          <Text
+          <TouchableOpacity
+            onPress={() => {
+              // Cycle through sort options
+              const sortOptions: ('popular' | 'name' | 'lectures')[] = ['popular', 'name', 'lectures'];
+              const currentIndex = sortOptions.indexOf(sortBy);
+              const nextIndex = (currentIndex + 1) % sortOptions.length;
+              setSortBy(sortOptions[nextIndex]);
+            }}
             style={[
-              tw`ml-2 text-sm font-medium`,
-              { color: designTokens.colors.system.label.primary },
+              tw`flex-row items-center px-3 py-2 rounded-lg`,
+              { backgroundColor: designTokens.colors.system.background.secondary },
             ]}
           >
-            {sortBy === 'popular' ? 'Most Popular' : sortBy === 'name' ? 'A-Z' : 'Most Lectures'}
-          </Text>
-        </TouchableOpacity>
+            <Ionicons
+              name="swap-vertical"
+              size={16}
+              color={designTokens.colors.system.label.primary}
+            />
+            <Text
+              style={[
+                tw`ml-2 text-sm font-medium`,
+                { color: designTokens.colors.system.label.primary },
+              ]}
+            >
+              {sortBy === 'popular' ? 'Most Popular' : sortBy === 'name' ? 'A-Z' : 'Most Lectures'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {loading && lecturers.length === 0 ? (
