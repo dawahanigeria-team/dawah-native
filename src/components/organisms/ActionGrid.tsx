@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
 import { View, ViewStyle, FlatList } from 'react-native';
+import { useRouter } from 'expo-router';
 import { designTokens, BorderRadius } from '../../theme/designTokens';
 import { Touchable, Text, Icon } from '../atoms';
 
@@ -75,6 +76,16 @@ export const ActionGrid: React.FC<ActionGridProps> = memo(({
   onItemPress,
   style,
 }) => {
+  const router = useRouter();
+
+  const handleItemPress = (item: ActionItem) => {
+    if (item.id === '1' && item.title === 'Chart') {
+      router.push('/charts');
+    } else {
+      onItemPress?.(item);
+    }
+  };
+
   const renderItem = ({ item, index }: { item: ActionItem; index: number }) => {
     const itemWidth = (
       100 - (columns - 1) * 2
@@ -108,7 +119,7 @@ export const ActionGrid: React.FC<ActionGridProps> = memo(({
       <View style={itemStyle}>
         <Touchable
           style={cardStyle}
-          onPress={() => onItemPress?.(item)}
+          onPress={() => handleItemPress(item)}
           accessibilityLabel={item.title}
           accessibilityHint={item.description || `Tap to open ${item.title.toLowerCase()}`}
           accessibilityRole="button"
