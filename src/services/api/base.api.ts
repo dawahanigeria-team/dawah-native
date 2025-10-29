@@ -291,12 +291,16 @@ class ApiClient {
     endpoint: string,
     config: RequestConfig = {},
   ): Promise<ApiResponse<T>> {
+    // Define these outside try block so they're available in catch
+    let url = '';
+    let method = '';
+
     try {
       // Enforce rate limiting
       await this.enforceRateLimit();
 
-      const url = this.buildUrl(endpoint, config.params);
-      const method = config.method || 'GET';
+      url = this.buildUrl(endpoint, config.params);
+      method = config.method || 'GET';
 
       // Check cache for GET requests
       if (method === 'GET' && config.useCache !== false) {
@@ -429,8 +433,8 @@ class ApiClient {
         // Report network errors to Sentry
         captureSentryException(networkError, {
           endpoint,
-          method,
-          url,
+          method: method || 'unknown',
+          url: url || endpoint,
           errorType: 'network',
         });
 
@@ -451,8 +455,8 @@ class ApiClient {
 
       captureSentryException(unknownError, {
         endpoint,
-        method,
-        url,
+        method: method || 'unknown',
+        url: url || endpoint,
         errorType: 'unknown',
         originalError: error,
       });

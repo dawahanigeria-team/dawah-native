@@ -1,14 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState, useMemo } from "react";
-import { ScrollView, Text, TouchableOpacity, View, Alert } from "react-native";
+import React, { useState, useMemo, useEffect } from "react";
+import { ScrollView, Text, TouchableOpacity, View, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../../src/components/molecules/Card";
-import { usePlayerStore, useDownloadsStore } from "../../src/stores";
+import { usePlayerStore, useDownloadsStore, useFavoritesStore } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Episode, Series } from "../../src/types/types";
 import type { DownloadMetadata } from "../../src/services/downloads.service";
 import { captureSentryException, addSentryBreadcrumb } from "../../src/services/config/sentry.config";
+import { historyService } from "../../src/services/history.service";
+import { lectureDetailApi } from "../../src/services/api/lectureDetail.api";
 
 type LibraryTab = "Downloads" | "History" | "Liked" | "Playlists";
 
@@ -32,12 +34,17 @@ const downloadToEpisode = (download: DownloadMetadata): Episode => ({
 export default function LibraryScreen() {
   const { playEpisode } = usePlayerStore();
   const { downloads, deleteLecture, getTotalStorageUsed, refreshDownloads } = useDownloadsStore();
+  const { favoriteIds, fetchFavorites, loading: favoritesLoading } = useFavoritesStore();
   const [activeTab, setActiveTab] = useState<LibraryTab>("Downloads");
+  const [historyEpisodes, setHistoryEpisodes] = useState<Episode[]>([]);
+  const [likedEpisodes, setLikedEpisodes] = useState<Episode[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [loadingLiked, setLoadingLiked] = useState(false);
 
   const tabs: LibraryTab[] = ["Downloads", "History", "Liked", "Playlists"];
 
   // Refresh downloads when screen loads
-  React.useEffect(() => {
+  useEffect(() => {
     console.log('📚 Library: Refreshing downloads...');
     refreshDownloads().catch(err => {
       console.error('📚 Library: Failed to refresh downloads:', err);
@@ -47,7 +54,88 @@ export default function LibraryScreen() {
         level: 'warning',
       });
     });
-  }, [refreshDownloads]); // Now safe to include - refreshDownloads is memoized with useCallback
+  }, [refreshDownloads]);
+
+  // Load history when History tab is active
+  useEffect(() => {
+    if (activeTab === 'History') {
+      loadHistory();
+    }
+  }, [activeTab]);
+
+  // Load favorites when Liked tab is active
+  useEffect(() => {
+    if (activeTab === 'Liked') {
+      loadFavorites();
+    }
+  }, [activeTab, favoriteIds]);
+
+  const loadHistory = async () => {
+    try {
+      setLoadingHistory(true);
+      console.log('📚 Loading history...');
+      const episodes = await historyService.getHistoryAsEpisodes();
+      setHistoryEpisodes(episodes);
+      console.log(`✅ Loaded ${episodes.length} history items`);
+    } catch (err) {
+      console.error('Failed to load history:', err);
+      captureSentryException(err as Error, {
+        component: 'LibraryScreen',
+        action: 'loadHistory',
+      });
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const loadFavorites = async () => {
+    try {
+      setLoadingLiked(true);
+      console.log('📚 Loading favorites...');
+
+      // Fetch favorite IDs if not loaded
+      if (favoriteIds.length === 0) {
+        await fetchFavorites();
+      }
+
+      // Fetch lecture details for each favorite ID
+      const episodes: Episode[] = [];
+      for (const lectureId of favoriteIds) {
+        try {
+          const lecture = await lectureDetailApi.getLectureDetail({ lectureId });
+          if (lecture) {
+            episodes.push({
+              id: lecture.id,
+              title: lecture.title,
+              lecturerName: lecture.lecturerName || 'Unknown',
+              durationSec: lecture.durationSec || 0,
+              coverUrl: lecture.coverUrl || '',
+              audioUrl: lecture.audioUrl || '',
+              seriesId: lecture.albumId || '',
+              plays: lecture.views || 0,
+              liked: true,
+              language: lecture.language || '',
+              downloads: lecture.downloads || 0,
+              createdAt: lecture.postedDate || new Date().toISOString(),
+            });
+          }
+        } catch (err) {
+          console.warn(`Failed to load lecture ${lectureId}:`, err);
+        }
+      }
+
+      setLikedEpisodes(episodes);
+      console.log(`✅ Loaded ${episodes.length} liked lectures`);
+    } catch (err) {
+      console.error('Failed to load favorites:', err);
+      captureSentryException(err as Error, {
+        component: 'LibraryScreen',
+        action: 'loadFavorites',
+      });
+    } finally {
+      setLoadingLiked(false);
+    }
+  };
 
   // Convert downloads to Episodes
   const downloadedEpisodes = useMemo(() => {
@@ -63,16 +151,25 @@ export default function LibraryScreen() {
       case "Downloads":
         return downloadedEpisodes;
       case "History":
-        // TODO: Implement history API integration
-        return [];
+        return historyEpisodes;
       case "Liked":
-        // TODO: Implement liked lectures API integration
-        return [];
+        return likedEpisodes;
       case "Playlists":
-        // TODO: Implement playlists API integration
+        // TODO: Implement playlists
         return [];
       default:
         return [];
+    }
+  };
+
+  const isTabLoading = () => {
+    switch (activeTab) {
+      case "History":
+        return loadingHistory;
+      case "Liked":
+        return loadingLiked || favoritesLoading;
+      default:
+        return false;
     }
   };
 
@@ -186,6 +283,26 @@ export default function LibraryScreen() {
 
   const renderContent = () => {
     const data = getTabData();
+    const loading = isTabLoading();
+
+    if (loading) {
+      return (
+        <View style={tw`flex-1 items-center justify-center py-20`}>
+          <ActivityIndicator
+            size="large"
+            color={designTokens.colors.brand.primary}
+          />
+          <Text
+            style={[
+              tw`mt-4`,
+              { color: designTokens.colors.system.label.secondary },
+            ]}
+          >
+            Loading {activeTab.toLowerCase()}...
+          </Text>
+        </View>
+      );
+    }
 
     if (data.length === 0) {
       return renderEmptyState(activeTab);

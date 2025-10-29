@@ -30,7 +30,7 @@ import Animated, {
 
 import { Button, Chip, Text, Touchable } from "../../src/components/atoms";
 import { useLectureDetail } from "../../src/hooks/useLectureDetail";
-import { usePlayerStore, useDownloadsStore } from "../../src/stores";
+import { usePlayerStore, useDownloadsStore, useFavoritesStore } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { captureSentryException, addSentryBreadcrumb } from "../../src/services/config/sentry.config";
@@ -89,10 +89,14 @@ const LectureDetailScreen: React.FC = () => {
     getDownloadProgress,
   } = useDownloadsStore();
 
+  const { isFavorited, toggleFavorite } = useFavoritesStore();
+
   // State management
-  const [liked, setLiked] = useState(false);
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
+
+  // Check if lecture is liked
+  const liked = isFavorited(lectureId);
 
   // Animation values
   const scrollY = useSharedValue(0);
@@ -208,13 +212,48 @@ const LectureDetailScreen: React.FC = () => {
     }
   }, [episode, isDownloaded, isDownloading, downloadLecture]);
 
-  const handleLike = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setLiked(!liked);
-    likeScale.value = withSpring(1.3, {}, () => {
-      likeScale.value = withSpring(1);
-    });
-  }, [liked]);
+  const handleLike = useCallback(async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      // Animate the heart
+      likeScale.value = withSpring(1.3, {}, () => {
+        likeScale.value = withSpring(1);
+      });
+
+      // Toggle favorite (works offline!)
+      await toggleFavorite(lectureId);
+
+      addSentryBreadcrumb('Toggled favorite', 'user', {
+        lectureId,
+        liked: !liked,
+      });
+    } catch (error: any) {
+      console.error('Failed to toggle favorite:', error);
+
+      // Only show error alert for non-network errors
+      if (error.statusCode === 401) {
+        Alert.alert(
+          'Sign In Required',
+          'Please sign in to like lectures.',
+          [{ text: 'OK' }]
+        );
+      } else if (!error.isNetworkError) {
+        // Don't show alert for network errors - favorites work offline
+        Alert.alert(
+          'Error',
+          'Failed to update favorite. Please try again.',
+          [{ text: 'OK' }]
+        );
+      }
+
+      captureSentryException(error, {
+        component: 'LectureDetailScreen',
+        action: 'handleLike',
+        lectureId,
+      });
+    }
+  }, [lectureId, toggleFavorite, liked]);
 
   const handleShare = useCallback(() => {
     if (!lecture) return;

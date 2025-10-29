@@ -9,3 +9,6 @@ export { useAuthStore, authStore } from "./authStore";
 
 // Export downloads store
 export { useDownloadsStore, downloadsStore } from "./downloadsStore";
+
+// Export favorites store
+export { useFavoritesStore } from "./favoritesStore";

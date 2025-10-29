@@ -3,6 +3,7 @@ import { entity } from "simpler-state";
 import { Episode, PlayerState } from "../types/types";
 import type { AudioPlaybackControls } from "../hooks/useAudioPlayback";
 import { downloadsService } from "../services/downloads.service";
+import { historyService } from "../services/history.service";
 import { captureSentryException, addSentryBreadcrumb } from "../services/config/sentry.config";
 
 const initialState: PlayerState = {
@@ -152,6 +153,15 @@ export const usePlayerStore = () => {
 
         console.log('▶️ PlayerStore: Starting playback...');
         audioControls.play();
+
+        // Add to history
+        try {
+          await historyService.addToHistory(episode, 0);
+          console.log('📚 Added lecture to history');
+        } catch (error) {
+          console.error('Failed to add to history:', error);
+          // Don't block playback if history fails
+        }
 
         // Update state after successful play
         console.log('✅ PlayerStore: Updating state to playing...');
