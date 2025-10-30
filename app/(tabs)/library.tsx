@@ -68,7 +68,7 @@ export default function LibraryScreen() {
     if (activeTab === 'Liked') {
       loadFavorites();
     }
-  }, [activeTab, favoriteIds]);
+  }, [activeTab]);
 
   const loadHistory = async () => {
     try {

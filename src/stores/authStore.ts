@@ -5,6 +5,7 @@ import {
   type LoginCredentials,
   type RegisterCredentials,
 } from '../services/api/auth.api';
+import { userService } from '../services/user.service';
 
 export interface AuthState {
   user: User | null;
@@ -44,6 +45,9 @@ export const useAuthStore = () => {
       authStore.set((prev) => ({ ...prev, isLoading: true, error: null }));
 
       const user = await authApi.login(credentials);
+
+      // Update user service with the authenticated user ID
+      await userService.setUserId(user.id);
 
       authStore.set({
         user,

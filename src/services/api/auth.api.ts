@@ -5,6 +5,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from './base.api';
+import { API_CONFIG } from '../config/api.config';
 
 export interface User {
   id: string;
@@ -21,6 +22,7 @@ export interface RegisterCredentials {
   username: string;
   email: string;
   password: string;
+  languageId?: number; // Added languageId
 }
 
 export interface AuthResponse {
@@ -74,12 +76,14 @@ class AuthApiService {
    */
   async register(credentials: RegisterCredentials): Promise<User> {
     try {
-      const response = await apiClient.post<AuthResponse>('/api/user_auth.php', {
-        action: 'register',
+      const payload = {
+        action: 'register_user',
         username: credentials.username,
         email: credentials.email,
         password: credentials.password,
-      });
+        languageId: credentials.languageId || API_CONFIG.DEFAULT_LANGUAGE_ID,
+      };
+      const response = await apiClient.post<AuthResponse>('/api/v2/auth/register.php', payload);
 
       // Convert response to User format and store
       const user: User = {
