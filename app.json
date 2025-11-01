@@ -10,11 +10,15 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.dawahnigeria.app",
       "infoPlist": {
         "UIBackgroundModes": [
           "audio"
         ]
-      }
+      },
+      "associatedDomains": [
+        "applinks:dawahnigeria.com"
+      ]
     },
     "android": {
       "package": "com.dawahnigeria.app",
@@ -30,6 +34,35 @@
         "FOREGROUND_SERVICE",
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "dawahnigeria.com",
+              "pathPrefix": "/dawahcast/l"
+            },
+            {
+              "scheme": "https",
+              "host": "dawahnigeria.com",
+              "pathPrefix": "/dawahcast/a"
+            },
+            {
+              "scheme": "https",
+              "host": "dawahnigeria.com",
+              "pathPrefix": "/dawahcast/p"
+            },
+            {
+              "scheme": "https",
+              "host": "dawahnigeria.com",
+              "pathPrefix": "/dawahcast/rp"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
       ]
     },
     "web": {

@@ -1,19 +1,22 @@
-import { Stack, usePathname } from "expo-router";
+import { Stack, usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { View } from "react-native";
 import { useEffect } from "react";
+import * as Linking from "expo-linking";
 import { ErrorBoundary } from "../src/components/atoms/ErrorBoundary";
 import { MiniPlayer } from "../src/components/organisms";
 import { AudioProvider } from "../src/components/providers/AudioProvider";
 import { initSentry, Sentry } from "../src/services/config/sentry.config";
 import { fetchFavorites } from "../src/stores/favoritesStore";
 import { userService } from "../src/services/user.service";
+import { linkingService } from "../src/services/linking.service";
 
 // Initialize Sentry as early as possible
 initSentry();
 
 function RootLayout() {
   const pathname = usePathname();
+  const router = useRouter();
 
   // Initialize user and favorites on app start
   useEffect(() => {
@@ -33,6 +36,38 @@ function RootLayout() {
 
     initialize();
   }, []);
+
+  // Handle deep links when app opens
+  useEffect(() => {
+    const handleDeepLink = async () => {
+      // Check if app was opened with a URL
+      const initialUrl = await linkingService.getInitialURL();
+      if (initialUrl) {
+        console.log('🔗 App opened with URL:', initialUrl);
+        const parsed = linkingService.parseURL(initialUrl);
+        if (parsed && parsed.path) {
+          console.log('🔗 Navigating to:', parsed.path);
+          router.push(`/${parsed.path}` as any);
+        }
+      }
+    };
+
+    handleDeepLink();
+
+    // Listen for deep links while app is running
+    const subscription = Linking.addEventListener('url', (event) => {
+      console.log('🔗 Deep link received:', event.url);
+      const parsed = linkingService.parseURL(event.url);
+      if (parsed && parsed.path) {
+        console.log('🔗 Navigating to:', parsed.path);
+        router.push(`/${parsed.path}` as any);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [router]);
 
   // Hide mini player on lecture detail page since it has full playback controls
   const shouldShowMiniPlayer = !pathname.startsWith('/lecture/');

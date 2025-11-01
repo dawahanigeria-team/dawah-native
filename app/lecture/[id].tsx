@@ -32,6 +32,7 @@ import { Button, Chip, Text, Touchable } from "../../src/components/atoms";
 import AddToPlaylistModal from "../../src/components/organisms/AddToPlaylistModal";
 import { useLectureDetail } from "../../src/hooks/useLectureDetail";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
+import { linkingService } from "../../src/services/linking.service";
 import { useDownloadsStore, useFavoritesStore, usePlayerStore } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
@@ -261,13 +262,14 @@ const LectureDetailScreen: React.FC = () => {
     if (!lecture) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    const message = lecture.audioUrl
-      ? `Check out: ${lecture.title} by ${lecture.lecturerName || 'Unknown'}\n\nListen: ${lecture.audioUrl}`
-      : `Check out: ${lecture.title}${lecture.lecturerName ? ` by ${lecture.lecturerName}` : ''}`;
+    const webLink = linkingService.createLectureLink(lecture.id);
+
+    const message = `🎧 ${lecture.title}\n👤 ${lecture.lecturerName || 'Dawah Nigeria'}\n\n${webLink}`;
 
     Share.share({
       title: lecture.title,
       message,
+      url: webLink, // iOS will use this for sharing
     }).catch((shareError) => {
       console.warn("Failed to share lecture", shareError);
       captureSentryException(shareError, {
