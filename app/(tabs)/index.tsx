@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React from "react";
+import React, { useCallback } from "react";
 import { ScrollView, Text, TouchableOpacity, View, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../../src/components/molecules/Card";
@@ -13,7 +13,6 @@ import { usePopularLectures } from "../../src/hooks/usePopularLectures";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Episode, Series } from "../../src/types/types";
-import { getRandomScholar } from "../../src/utils/scholarNames";
 
 // Mock data - in a real app this would come from an API
 const mockEpisodes: Episode[] = [
@@ -30,6 +29,7 @@ const mockEpisodes: Episode[] = [
     language: "English",
     downloads: 250,
     createdAt: "2024-03-15T10:00:00Z",
+    lecturerName: "Sheikh Muhammad Ali",
   },
   {
     id: "2",
@@ -44,6 +44,7 @@ const mockEpisodes: Episode[] = [
     language: "English",
     downloads: 180,
     createdAt: "2024-03-10T14:30:00Z",
+    lecturerName: "Dr. Bilal Philips",
   },
   {
     id: "3",
@@ -58,6 +59,7 @@ const mockEpisodes: Episode[] = [
     language: "Hausa",
     downloads: 120,
     createdAt: "2024-03-05T09:15:00Z",
+    lecturerName: "Sheikh Abubakar Gumi",
   },
   {
     id: "4",
@@ -72,6 +74,7 @@ const mockEpisodes: Episode[] = [
     language: "Yoruba",
     downloads: 160,
     createdAt: "2024-02-28T16:45:00Z",
+    lecturerName: "Ustadh Abdullah Hakim",
   },
   {
     id: "5",
@@ -86,6 +89,7 @@ const mockEpisodes: Episode[] = [
     language: "English",
     downloads: 95,
     createdAt: "2024-02-20T11:20:00Z",
+    lecturerName: "Sheikh Ibrahim Zakzaky",
   },
 ];
 
@@ -127,13 +131,41 @@ const mockSeries: Series[] = [
 ];
 
 export default function HomeScreen() {
-  const { playEpisode } = usePlayerStore();
+  const playerStore = usePlayerStore();
+  const { playEpisode } = playerStore;
 
   // Fetch popular lectures for the carousel
   const { episodes: popularEpisodes, loading: popularLoading, error: popularError } = usePopularLectures(10);
 
-  const handleEpisodePress = (episode: Episode) => {
-    playEpisode(episode);
+  const handleQuickActionPress = useCallback((item: { id: string; title: string }) => {
+    if (item.title === "Lecturers") {
+      router.push("/lecturers");
+      return;
+    }
+
+    if (item.title === "Trending") {
+      router.push("/section/trending");
+      return;
+    }
+
+    if (item.title === "Quran") {
+      router.push("/section/quran-recitations");
+      return;
+    }
+
+    console.log("Unhandled quick action press:", item);
+  }, []);
+
+  const handleEpisodePress = async (episode: Episode) => {
+    console.log('🎵 Play button pressed for:', episode.title);
+    console.log('🔗 Audio URL:', episode.audioUrl);
+
+    try {
+      await playEpisode(episode);
+      console.log('✅ Episode playing successfully');
+    } catch (error) {
+      console.error('❌ Error playing episode:', error);
+    }
   };
 
   const handleSearchSubmit = (query: string) => {
@@ -238,23 +270,26 @@ export default function HomeScreen() {
             <HeroCarousel
               items={mockEpisodes.slice(0, 5)}
               onItemPress={handleEpisodePress}
+              onPlayPress={handleEpisodePress}
             />
           </View>
         ) : popularEpisodes.length > 0 ? (
           <HeroCarousel
             items={popularEpisodes}
             onItemPress={handleEpisodePress}
+            onPlayPress={handleEpisodePress}
           />
         ) : (
           // Fallback to mock data if no popular lectures
           <HeroCarousel
             items={mockEpisodes.slice(0, 5)}
             onItemPress={handleEpisodePress}
+            onPlayPress={handleEpisodePress}
           />
         )}
 
         {/* Action Grid */}
-        <ActionGrid />
+        <ActionGrid onItemPress={handleQuickActionPress} />
 
         {/* Recently Played */}
         <Row
@@ -275,7 +310,7 @@ export default function HomeScreen() {
                 onPress={() => handleEpisodePress(episode)}
                 showTime={true}
                 showMeta={true}
-                metaValue={getRandomScholar(`recently-played-${episode.id}`)}
+                metaValue={episode.lecturerName || "Unknown"}
               />
             </View>
           ))}
@@ -300,57 +335,10 @@ export default function HomeScreen() {
                 onPress={() => handleEpisodePress(episode)}
                 showTime={true}
                 showMeta={true}
-                metaValue={getRandomScholar(`recently-posted-${episode.id}`)}
+                metaValue={episode.lecturerName || "Unknown"}
               />
             </View>
           ))}
-        </Row>
-
-        {/* Featured Lectures */}
-        <Row
-          title="Featured Lectures"
-          subtitle="Handpicked content for you"
-          onSeeAll={() => router.push("/section/featured-lectures")}
-        >
-          {mockEpisodes.slice(0, 3).map((episode, index) => (
-            <View
-              key={`featured-${episode.id}`}
-              style={tw`${
-                index < mockEpisodes.slice(0, 3).length - 1 ? "mr-4" : ""
-              } w-80`}
-            >
-              <Card
-                variant="landscape"
-                data={episode}
-                onPress={() => handleEpisodePress(episode)}
-                showTime={true}
-                showMeta={true}
-                metaValue={getRandomScholar(`featured-${episode.id}`)}
-              />
-            </View>
-          ))}
-        </Row>
-
-        {/* Trending Series */}
-        <Row title="Trending" onSeeAll={() => router.push("/section/trending")}>
-          {mockSeries
-            .concat(mockSeries, mockSeries, mockSeries, mockSeries)
-            .slice(0, 15)
-            .map((series, index) => (
-              <View
-                key={`trending-${series.id}-${index}`}
-                style={tw`${index < 14 ? "mr-4" : ""}`}
-              >
-                <View style={{ width: 140 }}>
-                  <Card
-                    variant="square"
-                    data={series}
-                    onPress={() => console.log("Series pressed:", series.title)}
-                    showBadge={false}
-                  />
-                </View>
-              </View>
-            ))}
         </Row>
 
         {/* Quran Recitations */}

@@ -9,14 +9,28 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "audio"
+        ]
+      }
     },
     "android": {
+      "package": "com.dawahnigeria.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "INTERNET",
+        "WAKE_LOCK",
+        "FOREGROUND_SERVICE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -33,10 +47,39 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "audioMode": {
+            "playsInSilentModeIOS": true,
+            "staysActiveInBackground": true
+          }
+        }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "dawah-nigeria",
+          "organization": "yusuf-adeyemo"
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "updates": {
+      "url": "https://u.expo.dev/f7c0926f-13d1-4a2f-bfb1-3f9c04f2577b"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "f7c0926f-13d1-4a2f-bfb1-3f9c04f2577b"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     }
   }
 }

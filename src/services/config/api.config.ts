@@ -3,9 +3,11 @@
  * Central configuration for all API-related settings
  */
 
+import { ENV } from '@/config/env';
+
 export const API_CONFIG = {
-  BASE_URL: 'https://backend.dawahbox.com',
-  X_PROJECT_KEY: '206cf92c-8a46-45ef-bf3f-a6ef92fc6f25',
+  BASE_URL: ENV.API_BASE_URL,
+  X_PROJECT_KEY: ENV.API_PROJECT_KEY,
   ORIGIN: 'https://dawahnigeria.com',
   REFERER: 'https://dawahnigeria.com/',
   USER_AGENT: 'DawahNigeria/1.0.0 (Mobile App)',
@@ -48,6 +50,7 @@ export const API_CONFIG = {
 
     // Albums
     ALBUMS: '/api/albumlisting.php',
+    ALBUMS_BY_LECTURER: '/api/albumlisting_rp.php',
     ALBUM_TRACKS: '/api/albumtrackssapi.php',
 
     // Lecturers
@@ -83,7 +86,7 @@ export const API_CONFIG = {
 
     // Media
     DOWNLOAD_LINK: '/api/downloadlink.php',
-    MEDIA_BASE: 'https://media.dawahnigeria.com',
+    MEDIA_BASE: ENV.MEDIA_BASE_URL,
   },
 
   // Rate limiting

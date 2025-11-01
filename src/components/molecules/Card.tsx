@@ -12,6 +12,8 @@ interface CardProps {
   variant: "square" | "landscape" | "list" | "section";
   data: Episode | Series;
   onPress?: () => void;
+  onLongPress?: () => void;
+  onPlayPress?: (episode: Episode) => void;
   showTime?: boolean;
   time?: string;
   showBadge?: boolean;
@@ -20,6 +22,7 @@ interface CardProps {
   metaValue?: string;
   borderRadius?: BorderRadius;
   style?: ViewStyle;
+  playOnPress?: boolean;
 }
 
 export const Card: React.FC<CardProps> = memo(
@@ -27,6 +30,8 @@ export const Card: React.FC<CardProps> = memo(
     variant,
     data,
     onPress,
+    onLongPress,
+    onPlayPress,
     showTime = false,
     time,
     showBadge = false,
@@ -35,6 +40,7 @@ export const Card: React.FC<CardProps> = memo(
     metaValue,
     borderRadius = "xl",
     style,
+    playOnPress = true,
   }) => {
     const isEpisode = "durationSec" in data;
     const episode = isEpisode ? (data as Episode) : null;
@@ -53,13 +59,23 @@ export const Card: React.FC<CardProps> = memo(
     };
 
     const handlePress = () => {
-      // Always play the episode if it's an episode
-      if (isEpisode && episode) {
+      if (isEpisode && episode && playOnPress) {
         playEpisode(episode);
       }
 
-      // Call the custom onPress handler if provided
       onPress?.();
+    };
+
+    const handlePlayButtonPress = (event: any) => {
+      event?.stopPropagation?.();
+
+      if (!isEpisode || !episode) return;
+
+      if (onPlayPress) {
+        onPlayPress(episode);
+      } else {
+        playEpisode(episode);
+      }
     };
 
     const renderSquareVariant = () => {
@@ -198,6 +214,7 @@ export const Card: React.FC<CardProps> = memo(
         <Touchable
           style={containerStyle}
           onPress={handlePress}
+          onLongPress={onLongPress}
           accessibilityLabel={getAccessibilityLabel()}
           accessibilityHint="Tap to view details"
           accessibilityRole="button"
@@ -330,11 +347,16 @@ export const Card: React.FC<CardProps> = memo(
           </View>
 
           {/* Play Button */}
-          <View
+          <Touchable
             style={{
               justifyContent: "center",
               alignItems: "center",
             }}
+            onPress={handlePlayButtonPress}
+            accessibilityLabel="Play lecture"
+            accessibilityRole="button"
+            hapticFeedback
+            minHitTarget
           >
             <View
               style={{
@@ -359,13 +381,12 @@ export const Card: React.FC<CardProps> = memo(
                 name="play"
                 size="lg"
                 color="#000000"
-                accessibilityLabel="Play button"
                 style={{
                   marginLeft: 2, // Optical alignment for play icon
                 }}
               />
             </View>
-          </View>
+          </Touchable>
         </Touchable>
       );
     };
@@ -475,7 +496,7 @@ export const Card: React.FC<CardProps> = memo(
         <Touchable
           onPress={handlePress}
           accessibilityLabel={getAccessibilityLabel()}
-          accessibilityHint="Tap to play"
+          accessibilityHint={playOnPress ? "Tap to play" : "Tap to view details"}
           accessibilityRole="button"
           style={containerStyle}
         >

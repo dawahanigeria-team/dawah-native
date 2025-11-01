@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { usePathname } from "expo-router";
-import React, { memo, useEffect, useState } from "react";
+import React, { memo, useEffect, useMemo, useState } from "react";
 import {
   Dimensions,
   Pressable,
@@ -11,13 +11,14 @@ import {
 } from "react-native";
 import {
   GestureHandlerRootView,
+  GestureDetector,
+  Gesture,
   PanGestureHandler,
 } from "react-native-gesture-handler";
 import Animated, {
   Extrapolate,
   interpolate,
   runOnJS,
-  useAnimatedGestureHandler,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -66,6 +67,8 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
     const translateY = useSharedValue(0);
     const opacity = useSharedValue(1);
     const dragY = useSharedValue(0);
+    const gestureStartY = useSharedValue(0);
+    const isExpandedShared = useSharedValue(isExpanded ? 1 : 0);
 
     // Check if we're on a tab screen
     const isTabScreen =
@@ -81,30 +84,38 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       ? screenHeight - TAB_BAR_HEIGHT - insets.top
       : screenHeight - insets.top;
 
-    // Gesture handler for drag-to-minimize
-    const gestureHandler = useAnimatedGestureHandler({
-      onStart: (_, context) => {
-        (context as { startY: number }).startY = dragY.value;
-      },
-      onActive: (event, context) => {
-        if (isExpanded) {
-          dragY.value =
-            (context as { startY: number }).startY + event.translationY;
-        }
-      },
-      onEnd: (event) => {
-        if (isExpanded) {
-          const shouldMinimize =
-            event.translationY > 100 || event.velocityY > 500;
-          if (shouldMinimize) {
-            runOnJS(minimizePlayer)();
+    useEffect(() => {
+      isExpandedShared.value = isExpanded ? 1 : 0;
+    }, [isExpanded, isExpandedShared]);
+
+    // Gesture handler for drag-to-minimize using Reanimated 4+ Gesture API
+    const expandedPanGesture = useMemo(
+      () =>
+        Gesture.Pan()
+          .onStart(() => {
+            gestureStartY.value = dragY.value;
+          })
+          .onUpdate((event) => {
+            if (isExpandedShared.value) {
+              dragY.value = gestureStartY.value + event.translationY;
+            }
+          })
+          .onEnd((event) => {
+            const isPlayerExpanded = isExpandedShared.value === 1;
+            if (!isPlayerExpanded) {
+              dragY.value = withSpring(0);
+              return;
+            }
+
+            const shouldMinimize =
+              event.translationY > 100 || event.velocityY > 500;
+            if (shouldMinimize) {
+              runOnJS(minimizePlayer)();
+            }
             dragY.value = withSpring(0);
-          } else {
-            dragY.value = withSpring(0);
-          }
-        }
-      },
-    });
+          }),
+      [dragY, gestureStartY, isExpandedShared, minimizePlayer]
+    );
 
     // Animation styles
     const animatedStyle = useAnimatedStyle(() => {
@@ -122,7 +133,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       };
     });
 
-    // Simulate audio progress (in real implementation, this would come from expo-av)
+    // Simulate audio progress (in real implementation, this comes from expo-audio via AudioProvider)
     useEffect(() => {
       if (!currentEpisode) return;
 
@@ -250,7 +261,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
               {currentEpisode.title}
             </Text>
             <Text variant="caption1" color="secondaryLabel" numberOfLines={1}>
-              Islamic Lecture • {formatDuration(currentEpisode.durationSec)}
+              {currentEpisode.lecturerName || "Dawah Nigeria"} • {formatDuration(progress)}/{formatDuration(duration)}
             </Text>
           </View>
 
@@ -301,27 +312,13 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                 color={designTokens.colors.system.label.secondary}
               />
             </Touchable>
-
-            {/* Stop Button */}
-            <Touchable
-              onPress={handleClose}
-              style={styles.miniControlButton}
-              accessibilityLabel="Stop playback"
-              accessibilityRole="button"
-            >
-              <Ionicons
-                name="stop"
-                size={20}
-                color={designTokens.colors.system.label.secondary}
-              />
-            </Touchable>
           </View>
         </Pressable>
       </View>
     );
 
     const renderExpandedPlayer = () => (
-      <PanGestureHandler onGestureEvent={gestureHandler}>
+      <GestureDetector gesture={expandedPanGesture}>
         <Animated.View style={styles.expandedPlayerContainer}>
           {/* Drag Handle */}
           <View style={styles.dragHandle}>
@@ -354,9 +351,9 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
             </View>
 
             <Touchable
-              onPress={handleClose}
+              onPress={handleMinimize}
               style={styles.minimizeButton}
-              accessibilityLabel="Close player"
+              accessibilityLabel="Minimize player"
               accessibilityRole="button"
             >
               <Ionicons
@@ -386,12 +383,12 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                 <View
                   style={[
                     styles.expandedAlbumImage,
-                    getPlaceholderStyle(currentEpisode.id, 280),
+                    getPlaceholderStyle(currentEpisode.id, 200),
                   ]}
                 >
                   <Text
                     style={{
-                      fontSize: designTokens.typography.fontSize.largeTitle,
+                      fontSize: designTokens.typography.fontSize.title1,
                       fontWeight: designTokens.typography.fontWeight.bold,
                       color: designTokens.colors.system.label.primary,
                     }}
@@ -418,14 +415,14 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                 color="secondaryLabel"
                 style={{ textAlign: "center", marginBottom: 4 }}
               >
-                Sheikh Abubakar Gumi
+                {currentEpisode.lecturerName || "Dawah Nigeria"}
               </Text>
               <Text
                 variant="caption1"
                 color="tertiaryLabel"
                 style={{ textAlign: "center" }}
               >
-                Islamic Lecture • Tafsir
+                Islamic Lecture • {currentEpisode.language || "Hausa"}
               </Text>
             </View>
 
@@ -738,11 +735,12 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
             </View>
           </ScrollView>
         </Animated.View>
-      </PanGestureHandler>
+      </GestureDetector>
     );
 
     return (
       <GestureHandlerRootView
+        pointerEvents="box-none"
         style={[
           styles.container,
           {
@@ -751,7 +749,10 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
           },
         ]}
       >
-        <Animated.View style={[styles.player, animatedStyle]}>
+        <Animated.View
+          pointerEvents="auto"
+          style={[styles.player, animatedStyle]}
+        >
           {isExpanded ? renderExpandedPlayer() : renderMiniPlayer()}
         </Animated.View>
       </GestureHandlerRootView>
@@ -830,7 +831,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    minWidth: 200,
+    minWidth: 150,
   },
   miniControlButton: {
     width: 36,
@@ -872,21 +873,21 @@ const styles = StyleSheet.create({
   },
   expandedAlbumArt: {
     alignItems: "center",
-    marginBottom: designTokens.spacing.xl,
+    marginBottom: designTokens.spacing.lg,
   },
   expandedAlbumImage: {
-    width: 280,
-    height: 280,
+    width: 200,
+    height: 200,
     borderRadius: designTokens.borderRadius.xl,
     justifyContent: "center",
     alignItems: "center",
   },
   expandedTrackInfo: {
     alignItems: "center",
-    marginBottom: designTokens.spacing.xl,
+    marginBottom: designTokens.spacing.lg,
   },
   progressSliderContainer: {
-    marginBottom: designTokens.spacing.xl,
+    marginBottom: designTokens.spacing.lg,
   },
   progressSlider: {
     marginBottom: designTokens.spacing.sm,
@@ -917,7 +918,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: designTokens.spacing.xl,
+    marginBottom: designTokens.spacing.lg,
   },
   seekButton: {
     width: 64,

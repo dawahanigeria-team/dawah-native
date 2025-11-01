@@ -5,6 +5,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG } from '../config/api.config';
+import { captureSentryException, addSentryBreadcrumb } from '../config/sentry.config';
 
 // Custom error class for API errors
 export class ApiError extends Error {
@@ -29,6 +30,7 @@ export interface RequestConfig extends Omit<RequestInit, 'cache'> {
   useCache?: boolean;
   cacheTTL?: number;
   params?: Record<string, any>;
+  headers?: Record<string, string>;
 }
 
 // Response wrapper interface
@@ -54,7 +56,10 @@ class ApiClient {
   private authToken: string | null = null;
 
   private constructor() {
-    this.loadAuthToken();
+    // Only load auth token in React Native environment
+    if (typeof window !== 'undefined') {
+      this.loadAuthToken();
+    }
   }
 
   public static getInstance(): ApiClient {
@@ -68,6 +73,7 @@ class ApiClient {
    * Load auth token from storage
    */
   private async loadAuthToken(): Promise<void> {
+    if (typeof window === 'undefined') return;
     try {
       this.authToken = await AsyncStorage.getItem('auth_token');
     } catch (error) {
@@ -80,10 +86,15 @@ class ApiClient {
    */
   public async setAuthToken(token: string | null): Promise<void> {
     this.authToken = token;
-    if (token) {
-      await AsyncStorage.setItem('auth_token', token);
-    } else {
-      await AsyncStorage.removeItem('auth_token');
+    if (typeof window === 'undefined') return;
+    try {
+      if (token) {
+        await AsyncStorage.setItem('auth_token', token);
+      } else {
+        await AsyncStorage.removeItem('auth_token');
+      }
+    } catch (error) {
+      console.error('Failed to set/remove auth token:', error);
     }
   }
 
@@ -280,12 +291,16 @@ class ApiClient {
     endpoint: string,
     config: RequestConfig = {},
   ): Promise<ApiResponse<T>> {
+    // Define these outside try block so they're available in catch
+    let url = '';
+    let method = '';
+
     try {
       // Enforce rate limiting
       await this.enforceRateLimit();
 
-      const url = this.buildUrl(endpoint, config.params);
-      const method = config.method || 'GET';
+      url = this.buildUrl(endpoint, config.params);
+      method = config.method || 'GET';
 
       // Check cache for GET requests
       if (method === 'GET' && config.useCache !== false) {
@@ -327,7 +342,19 @@ class ApiClient {
         url,
         headers: requestConfig.headers,
         hasBody: !!requestConfig.body,
+        body: requestConfig.body ? (typeof requestConfig.body === 'string' ? requestConfig.body : JSON.stringify(requestConfig.body)) : null,
       });
+
+      // Add breadcrumb for Sentry tracking
+      addSentryBreadcrumb(
+        `API ${method} ${endpoint}`,
+        'http',
+        {
+          method,
+          url,
+          hasBody: !!requestConfig.body,
+        }
+      );
 
       // Execute request with retry logic
       const response = await this.retryRequest(url, requestConfig);
@@ -348,11 +375,23 @@ class ApiClient {
           statusText: response.statusText,
           errorData,
         });
-        throw new ApiError(
+
+        const apiError = new ApiError(
           errorData.message || `HTTP ${response.status}: ${response.statusText}`,
           response.status,
           errorData,
         );
+
+        // Report API errors to Sentry
+        captureSentryException(apiError, {
+          endpoint,
+          method,
+          url,
+          statusCode: response.status,
+          errorData,
+        });
+
+        throw apiError;
       }
 
       // Parse response
@@ -384,25 +423,45 @@ class ApiClient {
     } catch (error: any) {
       // Handle network errors
       if (error.message === 'Network request failed' || !navigator.onLine) {
-        throw new ApiError(
+        const networkError = new ApiError(
           'No internet connection',
           undefined,
           undefined,
           true,
         );
+
+        // Report network errors to Sentry
+        captureSentryException(networkError, {
+          endpoint,
+          method: method || 'unknown',
+          url: url || endpoint,
+          errorType: 'network',
+        });
+
+        throw networkError;
       }
 
-      // Re-throw ApiError instances
+      // Re-throw ApiError instances (already reported)
       if (error instanceof ApiError) {
         throw error;
       }
 
-      // Wrap unknown errors
-      throw new ApiError(
+      // Wrap unknown errors and report to Sentry
+      const unknownError = new ApiError(
         error.message || 'An unexpected error occurred',
         undefined,
         error,
       );
+
+      captureSentryException(unknownError, {
+        endpoint,
+        method: method || 'unknown',
+        url: url || endpoint,
+        errorType: 'unknown',
+        originalError: error,
+      });
+
+      throw unknownError;
     }
   }
 

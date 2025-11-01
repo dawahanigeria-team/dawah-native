@@ -293,19 +293,21 @@ export default function SearchScreen() {
   };
 
   const handleItemPress = (item: ExtendedEpisode | ExtendedSeries | SearchLecture) => {
-    // Check if it's an API lecture (has mp3_title or nid)
-    if ('mp3_title' in item || 'nid' in item) {
-      // API lecture
+    if ("mp3_title" in item || "nid" in item) {
       const apiItem = item as SearchLecture;
-      const episode = convertToEpisode(apiItem);
-      playEpisode(episode);
-    } else if ("durationSec" in item) {
-      // Mock episode
-      playEpisode(item as Episode);
-    } else {
-      // Series
-      console.log("Series pressed:", item.title);
+      const lectureId = apiItem.nid || apiItem.id;
+      if (lectureId) {
+        router.push(`/lecture/${lectureId}`);
+      }
+      return;
     }
+
+    if ("durationSec" in item) {
+      playEpisode(item as Episode);
+      return;
+    }
+
+    console.log("Series pressed:", item.title);
   };
 
   // Combine API results with mock data when no query
@@ -397,6 +399,7 @@ export default function SearchScreen() {
           variant="landscape"
           data={data}
           onPress={() => handleItemPress(item)}
+          playOnPress={!isApiLecture}
           showTime={"durationSec" in item || isApiLecture}
           showMeta={true}
           metaValue={metaValue}
