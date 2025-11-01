@@ -8,7 +8,7 @@ import { Card } from "../src/components/molecules/Card";
 import { FilterSection } from "../src/components/molecules/FilterSection";
 import { SearchBar } from "../src/components/molecules/SearchBar";
 import { surahs } from "../src/data/surahs";
-import { useRecentSearches, useSearchLectures } from "../src/hooks/useSearch";
+import { useSearchLectures } from "../src/hooks/useSearch";
 import { usePlayerStore } from "../src/stores";
 import { designTokens } from "../src/theme/designTokens";
 import tw from "../src/theme/twrnc";
@@ -200,7 +200,6 @@ export default function SearchScreen() {
     data: apiResults,
     loading,
     error,
-    query,
     setQuery,
     loadMore,
     hasMore,
@@ -213,15 +212,12 @@ export default function SearchScreen() {
     enableQuickSearch: false, // Disable quick search to get more results
   });
 
-  // Use recent searches hook
-  const { recentSearches, clearRecent } = useRecentSearches();
-
   // Only trigger search when actualSearchQuery changes (Enter pressed)
   useEffect(() => {
     if (actualSearchQuery) {
       setQuery(actualSearchQuery);
     }
-  }, [actualSearchQuery]);
+  }, [actualSearchQuery, setQuery]);
 
   // Handle search submission (Enter key or search button)
   const handleSearch = (searchText: string) => {
@@ -309,8 +305,6 @@ export default function SearchScreen() {
       playEpisode(item as Episode);
       return;
     }
-
-    console.log("Series pressed:", item.title);
   };
 
   // Combine API results with mock data when no query
