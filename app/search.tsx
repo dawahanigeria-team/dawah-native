@@ -1,18 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useMemo, useState, useEffect } from "react";
-import { ScrollView, Text, TouchableOpacity, View, ActivityIndicator, FlatList } from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams, router } from "expo-router";
 import { Dropdown } from "../src/components/atoms/Dropdown";
 import { Card } from "../src/components/molecules/Card";
 import { FilterSection } from "../src/components/molecules/FilterSection";
 import { SearchBar } from "../src/components/molecules/SearchBar";
-import { Surah, surahs } from "../src/data/surahs";
+import { surahs } from "../src/data/surahs";
+import { useSearchLectures } from "../src/hooks/useSearch";
 import { usePlayerStore } from "../src/stores";
-import { useSearchLectures, useRecentSearches } from "../src/hooks/useSearch";
-import { SearchLecture } from "../src/types/api.types";
 import { designTokens } from "../src/theme/designTokens";
 import tw from "../src/theme/twrnc";
+import { SearchLecture } from "../src/types/api.types";
 import {
   Language,
   SearchFilters,
@@ -200,7 +200,6 @@ export default function SearchScreen() {
     data: apiResults,
     loading,
     error,
-    query,
     setQuery,
     loadMore,
     hasMore,
@@ -213,15 +212,12 @@ export default function SearchScreen() {
     enableQuickSearch: false, // Disable quick search to get more results
   });
 
-  // Use recent searches hook
-  const { recentSearches, clearRecent } = useRecentSearches();
-
   // Only trigger search when actualSearchQuery changes (Enter pressed)
   useEffect(() => {
     if (actualSearchQuery) {
       setQuery(actualSearchQuery);
     }
-  }, [actualSearchQuery]);
+  }, [actualSearchQuery, setQuery]);
 
   // Handle search submission (Enter key or search button)
   const handleSearch = (searchText: string) => {
@@ -267,7 +263,7 @@ export default function SearchScreen() {
     };
 
     // Support both new API fields and legacy fields
-    const id = lecture.id || lecture.nid || `lecture-${Date.now()}`;
+    const id = String(lecture.id || lecture.nid || `lecture-${Date.now()}`);
     const title = lecture.mp3_title || lecture.Title || "Untitled Lecture";
     const duration = lecture.mp3_duration || lecture.Duration;
     const audioUrl = lecture.mp3_url || lecture.AudioUrl || '';
@@ -276,6 +272,8 @@ export default function SearchScreen() {
     const language = lecture.language || lecture.Language || "Unknown";
     const downloads = parseInt(lecture.downloads || lecture.Downloads || "0") || 0;
     const createdAt = lecture.created_at || lecture.CreatedAt || new Date().toISOString();
+    // Map lecturer name from various possible fields
+    const lecturerName = lecture.lecturer_name || lecture.rpname || lecture.ResourcePerson || undefined;
 
     return {
       id,
@@ -289,6 +287,7 @@ export default function SearchScreen() {
       language,
       downloads,
       createdAt,
+      lecturerName,
     };
   };
 
@@ -306,8 +305,6 @@ export default function SearchScreen() {
       playEpisode(item as Episode);
       return;
     }
-
-    console.log("Series pressed:", item.title);
   };
 
   // Combine API results with mock data when no query

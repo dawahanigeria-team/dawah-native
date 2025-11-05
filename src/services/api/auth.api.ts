@@ -5,6 +5,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from './base.api';
+import { API_CONFIG } from '../config/api.config';
 
 export interface User {
   id: string;
@@ -21,12 +22,55 @@ export interface RegisterCredentials {
   username: string;
   email: string;
   password: string;
+  languageId?: number; // Added languageId
 }
 
 export interface AuthResponse {
   id: string;
   username: string;
   email: string;
+}
+
+export interface LoginResponse {
+  success: boolean;
+  message: string;
+  timestamp: number;
+  data: {
+    user: {
+      id: number;
+      username: string;
+      email: string;
+      languageId: string;
+      user_type: string;
+      is_social: boolean;
+    };
+    tokens: {
+      access_token: string;
+      refresh_token: string;
+      token_type: string;
+      expires_in: number;
+    };
+  };
+}
+
+export interface RegisterResponse {
+  success: boolean;
+  message: string;
+  timestamp: number;
+  data: {
+    user: {
+      id: number;
+      username: string;
+      email: string;
+      languageId: string;
+    };
+    tokens: {
+      access_token: string;
+      refresh_token: string;
+      token_type: string;
+      expires_in: number;
+    };
+  };
 }
 
 export interface PasswordResetRequest {
@@ -41,26 +85,31 @@ export interface PasswordResetConfirm {
 
 class AuthApiService {
   private readonly USER_KEY = 'user_data';
+  private readonly ACCESS_TOKEN_KEY = 'access_token';
+  private readonly REFRESH_TOKEN_KEY = 'refresh_token';
 
   /**
    * Sign in with email and password
    */
   async login(credentials: LoginCredentials): Promise<User> {
     try {
-      const response = await apiClient.post<AuthResponse>('/api/user_auth.php', {
+      const response = await apiClient.post<LoginResponse>('/api/user_auth.php', {
         action: 'login_user',
         email_or_username: credentials.email,
         password: credentials.password,
       });
 
-      // Convert response to User format and store
+      // Extract user data from response
       const user: User = {
-        id: response.data.id,
-        username: response.data.username,
-        email: response.data.email,
+        id: response.data.data.user.id.toString(),
+        username: response.data.data.user.username,
+        email: response.data.data.user.email,
       };
 
+      // Store user data and tokens
       await AsyncStorage.setItem(this.USER_KEY, JSON.stringify(user));
+      await AsyncStorage.setItem(this.ACCESS_TOKEN_KEY, response.data.data.tokens.access_token);
+      await AsyncStorage.setItem(this.REFRESH_TOKEN_KEY, response.data.data.tokens.refresh_token);
 
       return user;
     } catch (error) {
@@ -74,21 +123,26 @@ class AuthApiService {
    */
   async register(credentials: RegisterCredentials): Promise<User> {
     try {
-      const response = await apiClient.post<AuthResponse>('/api/user_auth.php', {
-        action: 'register',
+      const payload = {
+        action: 'register_user',
         username: credentials.username,
         email: credentials.email,
         password: credentials.password,
-      });
+        languageId: credentials.languageId || API_CONFIG.DEFAULT_LANGUAGE_ID,
+      };
+      const response = await apiClient.post<RegisterResponse>('/api/user_auth.php', payload);
 
-      // Convert response to User format and store
+      // Extract user data from response
       const user: User = {
-        id: response.data.id,
-        username: response.data.username,
-        email: response.data.email,
+        id: response.data.data.user.id.toString(),
+        username: response.data.data.user.username,
+        email: response.data.data.user.email,
       };
 
+      // Store user data and tokens
       await AsyncStorage.setItem(this.USER_KEY, JSON.stringify(user));
+      await AsyncStorage.setItem(this.ACCESS_TOKEN_KEY, response.data.data.tokens.access_token);
+      await AsyncStorage.setItem(this.REFRESH_TOKEN_KEY, response.data.data.tokens.refresh_token);
 
       return user;
     } catch (error) {
@@ -102,7 +156,11 @@ class AuthApiService {
    */
   async logout(): Promise<void> {
     try {
-      await AsyncStorage.removeItem(this.USER_KEY);
+      await AsyncStorage.multiRemove([
+        this.USER_KEY,
+        this.ACCESS_TOKEN_KEY,
+        this.REFRESH_TOKEN_KEY,
+      ]);
     } catch (error) {
       console.error('Failed to clear user data:', error);
     }
@@ -127,6 +185,41 @@ class AuthApiService {
   async isAuthenticated(): Promise<boolean> {
     const user = await this.getStoredUser();
     return !!user;
+  }
+
+  /**
+   * Get stored access token
+   */
+  async getAccessToken(): Promise<string | null> {
+    try {
+      return await AsyncStorage.getItem(this.ACCESS_TOKEN_KEY);
+    } catch (error) {
+      console.error('Failed to get access token:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get stored refresh token
+   */
+  async getRefreshToken(): Promise<string | null> {
+    try {
+      return await AsyncStorage.getItem(this.REFRESH_TOKEN_KEY);
+    } catch (error) {
+      console.error('Failed to get refresh token:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Update stored access token
+   */
+  async setAccessToken(token: string): Promise<void> {
+    try {
+      await AsyncStorage.setItem(this.ACCESS_TOKEN_KEY, token);
+    } catch (error) {
+      console.error('Failed to set access token:', error);
+    }
   }
 }
 

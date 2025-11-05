@@ -7,7 +7,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const USER_ID_KEY = 'user_id';
-const GUEST_USER_PREFIX = 'guest_';
 
 /**
  * Generate a simple unique ID
@@ -15,7 +14,7 @@ const GUEST_USER_PREFIX = 'guest_';
 const generateUniqueId = (): string => {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 15);
-  return `${timestamp}-${random}`;
+  return `guest_${timestamp}-${random}`;
 };
 
 class UserService {
@@ -32,9 +31,7 @@ class UserService {
         return userId;
       }
 
-      // Create a new guest user ID
-      const deviceId = generateUniqueId();
-      userId = `${GUEST_USER_PREFIX}${deviceId}`;
+      userId = generateUniqueId();
 
       // Store it
       await AsyncStorage.setItem(USER_ID_KEY, userId);
@@ -45,7 +42,7 @@ class UserService {
     } catch (error) {
       console.error('Failed to get/create user ID:', error);
       // Fallback to a temporary ID
-      return `${GUEST_USER_PREFIX}${Date.now()}`;
+      return generateUniqueId();
     }
   }
 
@@ -70,18 +67,6 @@ class UserService {
       console.log('✅ Cleared user ID');
     } catch (error) {
       console.error('Failed to clear user ID:', error);
-    }
-  }
-
-  /**
-   * Check if user is a guest
-   */
-  async isGuest(): Promise<boolean> {
-    try {
-      const userId = await AsyncStorage.getItem(USER_ID_KEY);
-      return userId ? userId.startsWith(GUEST_USER_PREFIX) : true;
-    } catch (error) {
-      return true;
     }
   }
 }

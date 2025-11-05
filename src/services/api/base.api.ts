@@ -421,6 +421,14 @@ class ApiClient {
         timestamp: Date.now(),
       };
     } catch (error: any) {
+      console.log('Error caught in base.api.ts request method:', error);
+
+      // If the error is already an ApiError with a status code, re-throw it directly.
+      // This prevents HTTP errors from being re-classified as network errors.
+      if (error instanceof ApiError && error.statusCode) {
+        throw error;
+      }
+
       // Handle network errors
       if (error.message === 'Network request failed' || !navigator.onLine) {
         const networkError = new ApiError(

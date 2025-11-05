@@ -1,18 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useCallback } from "react";
-import { ScrollView, Text, TouchableOpacity, View, ActivityIndicator } from "react-native";
+import React from "react";
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../../src/components/molecules/Card";
 import { SearchBar } from "../../src/components/molecules/SearchBar";
 import { ActionGrid } from "../../src/components/organisms/ActionGrid";
 import { HeroCarousel } from "../../src/components/organisms/HeroCarousel";
 import { Row } from "../../src/components/organisms/Row";
-import { usePlayerStore } from "../../src/stores";
 import { usePopularLectures } from "../../src/hooks/usePopularLectures";
+import { usePlayerStore } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
-import { Episode, Series } from "../../src/types/types";
+import { Episode } from "../../src/types/types";
 
 // Mock data - in a real app this would come from an API
 const mockEpisodes: Episode[] = [
@@ -93,68 +93,19 @@ const mockEpisodes: Episode[] = [
   },
 ];
 
-const mockSeries: Series[] = [
-  {
-    id: "1",
-    title: "Tafsir Al-Qur'an",
-    coverUrl:
-      "https://images.unsplash.com/photo-1542810634-71277d95dcbb?w=300&h=300&fit=crop",
-    language: "Hausa",
-    tags: ["Tafsir", "Qur'an", "Islamic Studies"],
-    lecturerId: "1",
-  },
-  {
-    id: "2",
-    title: "Akhlaq & Character Building",
-    coverUrl: "", // Empty to show placeholder
-    language: "English",
-    tags: ["Akhlaq", "Character", "Ethics"],
-    lecturerId: "2",
-  },
-  {
-    id: "3",
-    title: "Women in Islam",
-    coverUrl: "", // Empty to show placeholder
-    language: "Yoruba",
-    tags: ["Women", "Islamic Rights", "Empowerment"],
-    lecturerId: "3",
-  },
-  {
-    id: "4",
-    title: "Islamic History & Civilization",
-    coverUrl:
-      "https://images.unsplash.com/photo-1447069388813-9e89e38406f7?w=300&h=300&fit=crop",
-    language: "Hausa",
-    tags: ["History", "Civilization", "Islamic Heritage"],
-    lecturerId: "4",
-  },
-];
+
 
 export default function HomeScreen() {
   const playerStore = usePlayerStore();
   const { playEpisode } = playerStore;
 
+
   // Fetch popular lectures for the carousel
   const { episodes: popularEpisodes, loading: popularLoading, error: popularError } = usePopularLectures(10);
 
-  const handleQuickActionPress = useCallback((item: { id: string; title: string }) => {
-    if (item.title === "Lecturers") {
-      router.push("/lecturers");
-      return;
-    }
 
-    if (item.title === "Trending") {
-      router.push("/section/trending");
-      return;
-    }
 
-    if (item.title === "Quran") {
-      router.push("/section/quran-recitations");
-      return;
-    }
 
-    console.log("Unhandled quick action press:", item);
-  }, []);
 
   const handleEpisodePress = async (episode: Episode) => {
     console.log('🎵 Play button pressed for:', episode.title);
@@ -289,7 +240,7 @@ export default function HomeScreen() {
         )}
 
         {/* Action Grid */}
-        <ActionGrid onItemPress={handleQuickActionPress} />
+        <ActionGrid />
 
         {/* Recently Played */}
         <Row
@@ -299,10 +250,9 @@ export default function HomeScreen() {
         >
           {mockEpisodes.slice(0, 3).map((episode, index) => (
             <View
-              key={episode.id}
-              style={tw`${
-                index < mockEpisodes.slice(0, 3).length - 1 ? "mr-4" : ""
-              } w-80`}
+              key={`recently-played-${episode.id}`}
+              style={tw`${index < mockEpisodes.slice(0, 3).length - 1 ? "mr-4" : ""
+                } w-80`}
             >
               <Card
                 variant="landscape"
@@ -311,6 +261,7 @@ export default function HomeScreen() {
                 showTime={true}
                 showMeta={true}
                 metaValue={episode.lecturerName || "Unknown"}
+                onMorePress={() => console.log('More options pressed for episode:', episode.id)}
               />
             </View>
           ))}
@@ -325,9 +276,8 @@ export default function HomeScreen() {
           {mockEpisodes.slice(0, 3).map((episode, index) => (
             <View
               key={`recent-${episode.id}`}
-              style={tw`${
-                index < mockEpisodes.slice(0, 3).length - 1 ? "mr-4" : ""
-              } w-80`}
+              style={tw`${index < mockEpisodes.slice(0, 3).length - 1 ? "mr-4" : ""
+                } w-80`}
             >
               <Card
                 variant="landscape"
@@ -336,6 +286,7 @@ export default function HomeScreen() {
                 showTime={true}
                 showMeta={true}
                 metaValue={episode.lecturerName || "Unknown"}
+                onMorePress={() => console.log('More options pressed for episode:', episode.id)}
               />
             </View>
           ))}
