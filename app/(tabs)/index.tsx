@@ -9,6 +9,10 @@ import { ActionGrid } from "../../src/components/organisms/ActionGrid";
 import { HeroCarousel } from "../../src/components/organisms/HeroCarousel";
 import { Row } from "../../src/components/organisms/Row";
 import { usePopularLectures } from "../../src/hooks/usePopularLectures";
+import { useQuranAlbums } from "../../src/hooks/useQuranAlbums";
+import { useRecentlyPlayedLectures } from "../../src/hooks/useRecentlyPlayedLectures";
+import { useTrending } from "../../src/hooks/useTrending";
+import { QuranAlbum } from "../../src/services/api/quran.api";
 import { usePlayerStore } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
@@ -103,6 +107,15 @@ export default function HomeScreen() {
   // Fetch popular lectures for the carousel
   const { episodes: popularEpisodes, loading: popularLoading, error: popularError } = usePopularLectures(10);
 
+  // Fetch trending lectures for the 'Recently Posted' section
+  const { lectures: trendingLectures, loading: trendingLoading, error: trendingError } = useTrending({ limit: 10 });
+
+  // Fetch Quran albums for the 'Quran Recitations' section
+  const { albums: quranAlbums, loading: quranLoading, error: quranError } = useQuranAlbums({ limit: 10 });
+
+  // Fetch recently played lectures using the custom hook
+  const { lectures: recentlyPlayed, loading: recentlyPlayedLoading, error: recentlyPlayedError } = useRecentlyPlayedLectures(10);
+
 
 
 
@@ -117,6 +130,14 @@ export default function HomeScreen() {
     } catch (error) {
       console.error('❌ Error playing episode:', error);
     }
+  };
+
+  const handleCarouselItemPress = (episode: Episode) => {
+    router.push(`/lecture/${episode.id}`);
+  };
+
+  const handleAlbumPress = (album: QuranAlbum) => {
+    router.push(`/quran-reciter/${album.id}`);
   };
 
   const handleSearchSubmit = (query: string) => {
@@ -220,21 +241,21 @@ export default function HomeScreen() {
             <Text style={tw`text-gray-400 text-sm text-center mt-1`}>Using offline content</Text>
             <HeroCarousel
               items={mockEpisodes.slice(0, 5)}
-              onItemPress={handleEpisodePress}
+              onItemPress={handleCarouselItemPress}
               onPlayPress={handleEpisodePress}
             />
           </View>
         ) : popularEpisodes.length > 0 ? (
           <HeroCarousel
             items={popularEpisodes}
-            onItemPress={handleEpisodePress}
+            onItemPress={handleCarouselItemPress}
             onPlayPress={handleEpisodePress}
           />
         ) : (
           // Fallback to mock data if no popular lectures
           <HeroCarousel
             items={mockEpisodes.slice(0, 5)}
-            onItemPress={handleEpisodePress}
+            onItemPress={handleCarouselItemPress}
             onPlayPress={handleEpisodePress}
           />
         )}
@@ -243,80 +264,118 @@ export default function HomeScreen() {
         <ActionGrid />
 
         {/* Recently Played */}
-        <Row
-          title="Recently Played"
-          subtitle="Continue where you left off"
-          onSeeAll={() => router.push("/section/recently-played")}
-        >
-          {mockEpisodes.slice(0, 3).map((episode, index) => (
-            <View
-              key={`recently-played-${episode.id}`}
-              style={tw`${index < mockEpisodes.slice(0, 3).length - 1 ? "mr-4" : ""
-                } w-80`}
-            >
-              <Card
-                variant="landscape"
-                data={episode}
-                onPress={() => handleEpisodePress(episode)}
-                showTime={true}
-                showMeta={true}
-                metaValue={episode.lecturerName || "Unknown"}
-                onMorePress={() => console.log('More options pressed for episode:', episode.id)}
-              />
-            </View>
-          ))}
-        </Row>
+        {recentlyPlayedLoading ? (
+          <View style={tw`h-40 items-center justify-center`}>
+            <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
+          </View>
+        ) : recentlyPlayedError ? (
+          <View style={tw`h-40 items-center justify-center px-6`}>
+            <Text style={tw`text-white text-center`}>Failed to load recently played</Text>
+          </View>
+        ) : recentlyPlayed.length > 0 ? (
+          <Row
+            title="Recently Played"
+            subtitle="Continue where you left off"
+            onSeeAll={() => router.push("/section/recently-played")}
+          >
+            {recentlyPlayed.map((episode, index) => (
+              <View
+                key={`recently-played-${episode.id}`}
+                style={tw`${index < recentlyPlayed.length - 1 ? "mr-4" : ""} w-80`}>
+                <Card
+                  variant="landscape"
+                  data={episode}
+                  onPress={() => handleCarouselItemPress(episode)}
+                  playOnPress={false}
+                  showTime={true}
+                  showMeta={true}
+                  metaValue={episode.lecturerName || "Unknown"}
+                  onMorePress={() => console.log('More options pressed for episode:', episode.id)}
+                />
+              </View>
+            ))}
+          </Row>
+        ) : null}
 
         {/* Recently Posted */}
-        <Row
-          title="Recently Posted"
-          subtitle="Latest content from our scholars"
-          onSeeAll={() => router.push("/section/recently-posted")}
-        >
-          {mockEpisodes.slice(0, 3).map((episode, index) => (
-            <View
-              key={`recent-${episode.id}`}
-              style={tw`${index < mockEpisodes.slice(0, 3).length - 1 ? "mr-4" : ""
-                } w-80`}
-            >
-              <Card
-                variant="landscape"
-                data={episode}
-                onPress={() => handleEpisodePress(episode)}
-                showTime={true}
-                showMeta={true}
-                metaValue={episode.lecturerName || "Unknown"}
-                onMorePress={() => console.log('More options pressed for episode:', episode.id)}
-              />
-            </View>
-          ))}
-        </Row>
+        {trendingLoading ? (
+          <View style={tw`h-40 items-center justify-center`}>
+            <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
+          </View>
+        ) : trendingError ? (
+          <View style={tw`h-40 items-center justify-center px-6`}>
+            <Text style={tw`text-white text-center`}>Failed to load recently posted</Text>
+          </View>
+        ) : trendingLectures.length > 0 ? (
+          <Row
+            title="Recently Posted"
+            subtitle="Latest content from our scholars"
+            onSeeAll={() => router.push("/section/recently-posted")}
+          >
+            {trendingLectures.map((episode, index) => (
+              <View
+                key={`recent-${episode.id}`}
+                style={tw`${index < trendingLectures.length - 1 ? "mr-4" : ""} w-80`}>
+                <Card
+                  variant="landscape"
+                  data={episode}
+                  onPress={() => handleCarouselItemPress(episode)}
+                  playOnPress={false}
+                  showTime={true}
+                  showMeta={true}
+                  metaValue={episode.lecturerName || "Unknown"}
+                  onMorePress={() => console.log('More options pressed for episode:', episode.id)}
+                />
+              </View>
+            ))}
+          </Row>
+        ) : null}
 
         {/* Quran Recitations */}
-        <Row
-          title="Quran Recitations"
-          onSeeAll={() => router.push("/section/quran-recitations")}
-        >
-          {mockEpisodes
-            .concat(mockEpisodes, mockEpisodes, mockEpisodes, mockEpisodes)
-            .slice(0, 15)
-            .map((episode, index) => (
+        {quranLoading ? (
+          <View style={tw`h-40 items-center justify-center`}>
+            <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
+          </View>
+        ) : quranError ? (
+          <View style={tw`h-40 items-center justify-center px-6`}>
+            <Text style={tw`text-white text-center`}>Failed to load Quran recitations</Text>
+          </View>
+        ) : quranAlbums.length > 0 ? (
+          <Row
+            title="Quran Recitations"
+            onSeeAll={() => router.push("/section/quran-recitations")}
+          >
+            {quranAlbums.map((album, index) => (
               <View
-                key={`quran-${episode.id}-${index}`}
-                style={tw`${index < 14 ? "mr-4" : ""}`}
-              >
+                key={`quran-${album.id}-${index}`}
+                style={tw`${index < quranAlbums.length - 1 ? "mr-4" : ""}`}>
                 <View style={{ width: 140 }}>
                   <Card
                     variant="square"
-                    data={episode}
-                    onPress={() => handleEpisodePress(episode)}
+                    data={{
+                      id: album.id,
+                      title: album.name,
+                      durationSec: 0,
+                      coverUrl: album.img || album.alb_thumbnail,
+                      audioUrl: '',
+                      seriesId: '',
+                      plays: album.views || 0,
+                      liked: false,
+                      language: album.language || '',
+                      downloads: album.downloads || 0,
+                      createdAt: album.post_date || '',
+                      lecturerName: album.name,
+                    }}
+                    onPress={() => handleAlbumPress(album)}
+                    playOnPress={false}
                     showMeta={true}
-                    metaValue="Sheikh Usman Dan Fodio"
+                    metaValue={album.name}
                   />
                 </View>
               </View>
             ))}
-        </Row>
+          </Row>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
