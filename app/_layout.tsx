@@ -8,17 +8,23 @@ import { AudioProvider } from "../src/components/providers/AudioProvider";
 import { initSentry, Sentry } from "../src/services/config/sentry.config";
 import { fetchFavorites } from "../src/stores/favoritesStore";
 import { userService } from "../src/services/user.service";
+import { useAuthStore } from "../src/stores/authStore"; 
 
 // Initialize Sentry as early as possible
 initSentry();
 
 function RootLayout() {
   const pathname = usePathname();
+  const { initializeAuth } = useAuthStore(); 
 
-  // Initialize user and favorites on app start
+  // Initialize user, auth, and favorites on app start
   useEffect(() => {
     const initialize = async () => {
       try {
+        // Initialize authentication state
+        await initializeAuth();
+        console.log('✅ Auth initialized');
+
         // Ensure user ID exists (creates guest ID if needed)
         await userService.getUserId();
         console.log('✅ User initialized');
