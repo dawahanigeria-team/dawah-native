@@ -396,7 +396,7 @@ export default function SearchScreen() {
           variant="landscape"
           data={data}
           onPress={() => handleItemPress(item)}
-          playOnPress={!isApiLecture}
+          playOnPress={false}
           showTime={"durationSec" in item || isApiLecture}
           showMeta={true}
           metaValue={metaValue}

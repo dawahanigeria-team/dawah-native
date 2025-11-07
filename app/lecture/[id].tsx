@@ -32,7 +32,7 @@ import { Button, Chip, Text, Touchable } from "../../src/components/atoms";
 import AddToPlaylistModal from "../../src/components/organisms/AddToPlaylistModal";
 import { useLectureDetail } from "../../src/hooks/useLectureDetail";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
-import { useDownloadsStore, useFavoritesStore, usePlayerStore } from "../../src/stores";
+import { useDownloadsStore, useFavoritesStore, usePlayerStore, useAuthStore } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import type { LectureDetail } from "../../src/types/api.types";
@@ -233,13 +233,9 @@ const LectureDetailScreen: React.FC = () => {
     } catch (error: any) {
       console.error('Failed to toggle favorite:', error);
 
-      // Only show error alert for non-network errors
       if (error.statusCode === 401) {
-        Alert.alert(
-          'Sign In Required',
-          'Please sign in to like lectures.',
-          [{ text: 'OK' }]
-        );
+        // Redirect to sign-in page if not authenticated
+        router.push("/sign-in");
       } else if (!error.isNetworkError) {
         // Don't show alert for network errors - favorites work offline
         Alert.alert(
@@ -255,7 +251,7 @@ const LectureDetailScreen: React.FC = () => {
         lectureId,
       });
     }
-  }, [lectureId, toggleFavorite, liked]);
+  }, [lectureId, toggleFavorite, liked, router]);
 
   const handleShare = useCallback(() => {
     if (!lecture) return;
@@ -814,7 +810,13 @@ const LectureDetailScreen: React.FC = () => {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => setShowAddToPlaylistModal(true)} style={tw`flex-row items-center`}>
+          <TouchableOpacity onPress={() => {
+            if (!isAuthenticated) {
+              router.push("/sign-in");
+            } else {
+              setShowAddToPlaylistModal(true);
+            }
+          }} style={tw`flex-row items-center`}>
             <Ionicons name="add-circle-outline" size={24} color={designTokens.colors.system.label.secondary} />
             <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
               Add to Playlist
