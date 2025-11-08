@@ -351,7 +351,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
             </View>
 
             <Touchable
-              onPress={handleMinimize}
+              onPress={handleClose}
               style={styles.minimizeButton}
               accessibilityLabel="Minimize player"
               accessibilityRole="button"
@@ -745,7 +745,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
           styles.container,
           {
             // Dynamically position based on whether we're on a tab screen
-            bottom: isTabScreen ? TAB_BAR_HEIGHT : 0,
+            bottom: isTabScreen ? TAB_BAR_HEIGHT + insets.bottom : insets.bottom,
           },
         ]}
       >

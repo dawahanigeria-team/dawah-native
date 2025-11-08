@@ -54,6 +54,7 @@ class ApiClient {
   private abortControllers: Map<string, AbortController> = new Map();
   private activeRequests = 0;
   private authToken: string | null = null;
+  private _authTokenChangeListener: ((token: string | null) => void) | null = null;
 
   private constructor() {
     // Only load auth token in React Native environment
@@ -70,12 +71,22 @@ class ApiClient {
   }
 
   /**
+   * Register a listener for auth token changes.
+   * This is primarily used by the authStore to keep its state in sync.
+   */
+  public setAuthTokenChangeListener(listener: (token: string | null) => void): void {
+    this._authTokenChangeListener = listener;
+  }
+
+  /**
    * Load auth token from storage
    */
   private async loadAuthToken(): Promise<void> {
     if (typeof window === 'undefined') return;
     try {
-      this.authToken = await AsyncStorage.getItem('auth_token');
+      const token = await AsyncStorage.getItem('auth_token');
+      this.authToken = token;
+      this._authTokenChangeListener?.(token); // Notify listener on load
     } catch (error) {
       console.error('Failed to load auth token:', error);
     }
@@ -86,6 +97,7 @@ class ApiClient {
    */
   public async setAuthToken(token: string | null): Promise<void> {
     this.authToken = token;
+    this._authTokenChangeListener?.(token); // Notify listener on change
     if (typeof window === 'undefined') return;
     try {
       if (token) {
