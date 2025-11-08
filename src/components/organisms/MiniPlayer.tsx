@@ -351,7 +351,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
             </View>
 
             <Touchable
-              onPress={handleMinimize}
+              onPress={handleClose}
               style={styles.minimizeButton}
               accessibilityLabel="Minimize player"
               accessibilityRole="button"
