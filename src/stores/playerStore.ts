@@ -207,6 +207,12 @@ export const usePlayerStore = () => {
       const currentState = playerStore.get();
       if (!currentState.currentEpisode) return;
 
+      // Set loading state immediately for better UX
+      playerStore.set({
+        ...currentState,
+        isLoading: true,
+      });
+
       audioControls.togglePlayPause();
       // State will be updated by the status callback
     } catch (error) {
