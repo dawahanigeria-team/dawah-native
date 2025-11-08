@@ -745,7 +745,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
           styles.container,
           {
             // Dynamically position based on whether we're on a tab screen
-            bottom: isTabScreen ? TAB_BAR_HEIGHT : 0,
+            bottom: isTabScreen ? TAB_BAR_HEIGHT + insets.bottom : insets.bottom,
           },
         ]}
       >
