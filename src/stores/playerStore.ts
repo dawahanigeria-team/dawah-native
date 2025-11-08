@@ -181,20 +181,32 @@ export const usePlayerStore = () => {
       }
     } catch (error: any) {
       console.error('❌ PlayerStore: Failed to play episode:', error);
+      console.error('Episode details:', { id: episode.id, title: episode.title, audioUrl: episode.audioUrl });
+
+      // Show user-friendly error message
+      const errorMessage = error.message?.includes('timeout')
+        ? 'Audio loading timed out. Please check your internet connection and try again.'
+        : 'Failed to play audio. Please try again.';
 
       // Report playback errors to Sentry
       captureSentryException(error, {
         episodeId: episode.id,
         title: episode.title,
         audioUrl: episode.audioUrl,
-        errorType: 'playback_failed',
+        errorType: error.message?.includes('timeout') ? 'loading_timeout' : 'playback_failed',
+        errorMessage: error.message,
       });
 
+      // Update state to show error
       playerStore.set({
         ...playerStore.get(),
         isPlaying: false,
         isLoading: false,
+        currentEpisode: episode, // Keep episode info to allow retry
       });
+
+      // Could show alert to user here if needed
+      console.warn('⚠️ User message:', errorMessage);
     }
   }, []); // Empty deps - function only uses module-level audioControls and stable playerStore.get()
 

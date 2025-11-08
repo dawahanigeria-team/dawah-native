@@ -6,6 +6,26 @@
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useEffect, useRef, useState } from 'react';
 
+const HTTP_URL_REGEX = /^https?:\/\//i;
+
+/**
+ * Native players reject certain reserved characters (e.g. [] or '),
+ * so ensure remote URLs are percent-encoded before loading.
+ */
+const sanitizeAudioUri = (uri: string): string => {
+  if (!uri || !HTTP_URL_REGEX.test(uri)) {
+    return uri;
+  }
+
+  const encode = (value: string) => encodeURI(value).replace(/'/g, '%27');
+
+  try {
+    return encode(decodeURI(uri));
+  } catch {
+    return encode(uri);
+  }
+};
+
 export interface AudioPlaybackConfig {
   onPlaybackStatusUpdate?: (status: AudioPlaybackStatus) => void;
   onPlaybackFinished?: () => void;
@@ -45,13 +65,15 @@ export interface AudioPlaybackControls {
  */
 export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackControls {
   const [isReady, setIsReady] = useState(false);
+  const [currentUri, setCurrentUri] = useState<string | null>(null);
   const previousStatusRef = useRef<AudioPlaybackStatus | null>(null);
   const loadResolveRef = useRef<(() => void) | null>(null);
   const loadRejectRef = useRef<((error?: unknown) => void) | null>(null);
-  const currentUriRef = useRef<string | null>(null);
+  const isFirstLoad = useRef(true);
 
-  // Create audio player instance (starts with no audio)
-  const player = useAudioPlayer('');
+  // Create audio player instance with current URI (recreates when URI changes)
+  // Pass empty string initially, will be updated via state
+  const player = useAudioPlayer(currentUri || '');
 
   // Get real-time playback status
   const playerStatus = useAudioPlayerStatus(player);
@@ -72,14 +94,21 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
 
   // Watch for when audio becomes loaded
   useEffect(() => {
-    if (playerStatus.isLoaded && loadResolveRef.current) {
-      console.log('✅ Audio loaded successfully');
+    console.log('📊 Audio status update - isLoaded:', playerStatus.isLoaded, 'duration:', playerStatus.duration, 'isBuffering:', playerStatus.isBuffering);
+
+    // Consider audio loaded if either:
+    // 1. isLoaded is true, OR
+    // 2. duration > 0 (some implementations use duration as loaded indicator)
+    const isActuallyLoaded = playerStatus.isLoaded || (playerStatus.duration > 0);
+
+    if (isActuallyLoaded && loadResolveRef.current) {
+      console.log('✅ Audio loaded successfully (isLoaded:', playerStatus.isLoaded, 'duration:', playerStatus.duration, ')');
       setIsReady(true);
       loadResolveRef.current();
       loadResolveRef.current = null;
       loadRejectRef.current = null;
     }
-  }, [playerStatus.isLoaded]);
+  }, [playerStatus.isLoaded, playerStatus.duration, playerStatus.isBuffering]);
 
   // Detect playback finished
   useEffect(() => {
@@ -112,10 +141,15 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
 
   // Load audio from URI
   const loadAudio = async (uri: string): Promise<void> => {
+    const normalizedUri = sanitizeAudioUri(uri);
+
     console.log('🎵 Loading audio:', uri);
+    if (normalizedUri !== uri) {
+      console.log('🔧 Normalized audio URL for playback:', normalizedUri);
+    }
 
     // If same URI already loaded, reset to beginning and resolve immediately
-    if (currentUriRef.current === uri && status.isLoaded) {
+    if (currentUri === normalizedUri && status.isLoaded) {
       console.log('🔄 Same URI already loaded, seeking to start');
       player.seekTo(0);
       setIsReady(true);
@@ -124,6 +158,7 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
 
     // Reject any pending load promise before starting a new one
     if (loadRejectRef.current) {
+      console.log('⚠️ Cancelling previous load request');
       loadRejectRef.current(new Error('Superseded by a new load request'));
       loadRejectRef.current = null;
       loadResolveRef.current = null;
@@ -134,24 +169,26 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
         loadResolveRef.current = resolve;
         loadRejectRef.current = reject;
         setIsReady(false);
-        currentUriRef.current = uri;
 
-        // Use player.replace() instead of changing state (best practice)
-        console.log('📥 Replacing audio source...');
-        player.replace({ uri });
+        // Update URI state - this will cause React to recreate the player
+        console.log('📥 Setting new audio source:', normalizedUri.substring(0, 80) + '...');
+        setCurrentUri(normalizedUri);
 
         // The useEffect watching playerStatus.isLoaded will resolve the promise
-        console.log('⏳ Waiting for audio to load...');
+        console.log('⏳ Waiting for audio to load (timeout: 30s)...');
 
         // Set a timeout to reject if loading takes too long
         const timeout = setTimeout(() => {
           if (loadRejectRef.current) {
-            loadRejectRef.current(new Error('Audio loading timeout'));
+            console.error('❌ Audio loading timeout after 30 seconds');
+            console.error('Final status - isLoaded:', playerStatus.isLoaded, 'isBuffering:', playerStatus.isBuffering);
+            console.error('Audio URL:', normalizedUri);
+            loadRejectRef.current(new Error('Audio loading timeout - check network connection and audio URL'));
             loadRejectRef.current = null;
             loadResolveRef.current = null;
             setIsReady(false);
           }
-        }, 10000); // 10 second timeout
+        }, 30000); // 30 second timeout
 
         // Clear timeout when resolved
         const originalResolve = loadResolveRef.current;
@@ -162,7 +199,7 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
       } catch (error) {
         console.error('❌ Failed to initiate audio load:', error);
         setIsReady(false);
-        currentUriRef.current = null;
+        setCurrentUri(null);
         loadResolveRef.current = null;
         loadRejectRef.current = null;
         reject(error);
@@ -294,8 +331,7 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
     try {
       console.log('🗑️ Unloading audio');
       stop();
-      player.replace(''); // Clear the audio source
-      currentUriRef.current = null;
+      setCurrentUri(null); // Clear the audio source
       setIsReady(false);
       loadResolveRef.current = null;
       loadRejectRef.current = null;
