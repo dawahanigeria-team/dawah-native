@@ -44,12 +44,12 @@ const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
         }
       };
       fetchPlaylists();
-    } else if (!isAuthenticated) {
+    } else if (isVisible && !isAuthenticated) {
       setLoading(false);
       Alert.alert('Authentication Required', 'Please log in to add audio to playlists.');
       onClose();
     }
-  }, [isVisible, isAuthenticated, onClose]);
+  }, [isVisible, isAuthenticated]);
 
   const handleAddAudio = async (playlistId: string) => {
     setAddingAudio(true);

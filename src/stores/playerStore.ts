@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback } from "react";
 import { entity } from "simpler-state";
 import { Episode, PlayerState } from "../types/types";
 import type { AudioPlaybackControls } from "../hooks/useAudioPlayback";
@@ -72,7 +72,7 @@ export const usePlayerStore = () => {
     state = initialState;
   }
 
-  const playEpisode = async (episode: Episode) => {
+  const playEpisode = useCallback(async (episode: Episode) => {
     console.log('🎮 PlayerStore: playEpisode called with:', episode.title);
 
     // Add breadcrumb for playback tracking
@@ -149,6 +149,7 @@ export const usePlayerStore = () => {
           console.log('🔊 PlayerStore: Loading from REMOTE URL:', playbackUri);
         }
 
+        // loadAudio now properly waits for the audio to be ready
         await audioControls.loadAudio(playbackUri);
 
         console.log('▶️ PlayerStore: Starting playback...');
@@ -195,7 +196,7 @@ export const usePlayerStore = () => {
         isLoading: false,
       });
     }
-  };
+  }, []); // Empty deps - function only uses module-level audioControls and stable playerStore.get()
 
   const togglePlayPause = () => {
     if (!audioControls) {
@@ -440,14 +441,14 @@ export const usePlayerStore = () => {
       await playEpisode(queue[startIndex]);
     } catch (error) {
       console.error('Failed to play queue:', error);
-      captureSentryException(error, { action: 'playQueue', episodeCount: episodes.length });
+      captureSentryException(error as Error, { action: 'playQueue', episodeCount: episodes.length });
     }
   };
 
   /**
    * Play next episode in queue
    */
-  const playNext = async () => {
+  const playNext = useCallback(async () => {
     const currentState = playerStore.get();
     const { queue, currentQueueIndex, repeatMode } = currentState;
 
@@ -493,7 +494,7 @@ export const usePlayerStore = () => {
     });
 
     await playEpisode(queue[nextIndex]);
-  };
+  }, [playEpisode]);
 
   /**
    * Play previous episode in queue

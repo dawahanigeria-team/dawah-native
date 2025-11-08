@@ -44,15 +44,14 @@ export interface AudioPlaybackControls {
  * Custom hook for audio playback using expo-audio
  */
 export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackControls {
-  const [currentUri, setCurrentUri] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
   const previousStatusRef = useRef<AudioPlaybackStatus | null>(null);
-  const loadingUriRef = useRef<string | null>(null);
   const loadResolveRef = useRef<(() => void) | null>(null);
   const loadRejectRef = useRef<((error?: unknown) => void) | null>(null);
+  const currentUriRef = useRef<string | null>(null);
 
-  // Create audio player instance with current URI
-  const player = useAudioPlayer(currentUri || '');
+  // Create audio player instance (starts with no audio)
+  const player = useAudioPlayer('');
 
   // Get real-time playback status
   const playerStatus = useAudioPlayerStatus(player);
@@ -71,13 +70,12 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
     didJustFinish: false,
   };
 
-  // Watch for when audio becomes loaded after URI change
+  // Watch for when audio becomes loaded
   useEffect(() => {
-    if (playerStatus.isLoaded && loadingUriRef.current) {
+    if (playerStatus.isLoaded && loadResolveRef.current) {
       console.log('✅ Audio loaded successfully');
       setIsReady(true);
-      loadingUriRef.current = null;
-      loadResolveRef.current?.();
+      loadResolveRef.current();
       loadResolveRef.current = null;
       loadRejectRef.current = null;
     }
@@ -117,15 +115,18 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
     console.log('🎵 Loading audio:', uri);
 
     // If same URI already loaded, reset to beginning and resolve immediately
-    if (currentUri === uri && status.isLoaded) {
+    if (currentUriRef.current === uri && status.isLoaded) {
+      console.log('🔄 Same URI already loaded, seeking to start');
       player.seekTo(0);
       setIsReady(true);
-      return;
+      return Promise.resolve();
     }
 
     // Reject any pending load promise before starting a new one
     if (loadRejectRef.current) {
       loadRejectRef.current(new Error('Superseded by a new load request'));
+      loadRejectRef.current = null;
+      loadResolveRef.current = null;
     }
 
     return new Promise<void>((resolve, reject) => {
@@ -133,15 +134,35 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
         loadResolveRef.current = resolve;
         loadRejectRef.current = reject;
         setIsReady(false);
-        loadingUriRef.current = uri; // Mark as loading
-        setCurrentUri(uri);
+        currentUriRef.current = uri;
+
+        // Use player.replace() instead of changing state (best practice)
+        console.log('📥 Replacing audio source...');
+        player.replace({ uri });
 
         // The useEffect watching playerStatus.isLoaded will resolve the promise
-        console.log('📥 Audio loading started...');
+        console.log('⏳ Waiting for audio to load...');
+
+        // Set a timeout to reject if loading takes too long
+        const timeout = setTimeout(() => {
+          if (loadRejectRef.current) {
+            loadRejectRef.current(new Error('Audio loading timeout'));
+            loadRejectRef.current = null;
+            loadResolveRef.current = null;
+            setIsReady(false);
+          }
+        }, 10000); // 10 second timeout
+
+        // Clear timeout when resolved
+        const originalResolve = loadResolveRef.current;
+        loadResolveRef.current = () => {
+          clearTimeout(timeout);
+          originalResolve?.();
+        };
       } catch (error) {
         console.error('❌ Failed to initiate audio load:', error);
         setIsReady(false);
-        loadingUriRef.current = null;
+        currentUriRef.current = null;
         loadResolveRef.current = null;
         loadRejectRef.current = null;
         reject(error);
@@ -157,6 +178,12 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
     }
 
     try {
+      // If at the end of audio, reset to beginning (expo-audio best practice)
+      if (status.currentTime >= status.duration && status.duration > 0) {
+        console.log('🔄 Audio finished, seeking to start');
+        player.seekTo(0);
+      }
+
       console.log('▶️ Playing audio');
       player.play();
     } catch (error) {
@@ -267,9 +294,9 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
     try {
       console.log('🗑️ Unloading audio');
       stop();
-      setCurrentUri(null);
+      player.replace(''); // Clear the audio source
+      currentUriRef.current = null;
       setIsReady(false);
-      loadingUriRef.current = null;
       loadResolveRef.current = null;
       loadRejectRef.current = null;
     } catch (error) {

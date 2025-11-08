@@ -92,6 +92,8 @@ const LectureDetailScreen: React.FC = () => {
 
   const { isFavorited, toggleFavorite } = useFavoritesStore();
 
+  const { isAuthenticated } = useAuthStore();
+
   // State management
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
