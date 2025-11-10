@@ -1,13 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useMemo, useState, useCallback } from "react";
-import { FlatList, ScrollView, TouchableOpacity, View, ActivityIndicator } from "react-native";
+import React, { useCallback, useMemo, useState } from "react";
+import { ActivityIndicator, FlatList, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Chip, Text } from "../../src/components/atoms";
 import { Card } from "../../src/components/molecules/Card";
 import { SearchBar } from "../../src/components/molecules/SearchBar";
-import { useTrending } from "../../src/hooks/useTrending";
 import { useQuranAlbums } from "../../src/hooks/useQuranAlbums";
+import { useTrending } from "../../src/hooks/useTrending";
 import { QuranAlbum } from "../../src/services/api/quran.api";
 
 import { designTokens } from "../../src/theme/designTokens";
@@ -201,7 +201,7 @@ const getSectionInfo = (type: string) => {
         title: "Quran Reciters",
         description: "Discover renowned Quran reciters and their beautiful recitations",
         count: 20,
-        data: [], // Will be populated from API
+        data: [], 
         variant: "quran" as const,
       };
     default:
@@ -259,20 +259,21 @@ export default function SectionScreen() {
   const [sortBy, setSortBy] = useState<SortOption>("recent");
   const [filtersExpanded, setFiltersExpanded] = useState(false);
 
-  // Show filters only for trending section
   const showFilters = type === "trending";
 
-  // Use appropriate data source based on section type
   const rawData =
     type === "trending" ? trendingLectures :
-    type === "quran-recitations" ? quranAlbums :
-    sectionInfo.data;
+      type === "quran-recitations" ? quranAlbums :
+        sectionInfo.data;
 
-  // Use appropriate loading/error/refetch states
   const isLoading = type === "trending" ? trendingLoading : type === "quran-recitations" ? quranLoading : false;
   const hasError = type === "trending" ? trendingError : type === "quran-recitations" ? quranError : null;
-  const refetch = type === "trending" ? refetchTrending : type === "quran-recitations" ? refetchQuran : () => Promise.resolve();
-  const loadMore = type === "trending" ? loadMoreTrending : type === "quran-recitations" ? loadMoreQuran : () => Promise.resolve();
+  const refetch = useMemo(() => {
+    return type === "trending" ? refetchTrending : type === "quran-recitations" ? refetchQuran : () => Promise.resolve();
+  }, [type, refetchTrending, refetchQuran]);
+  const loadMore = useMemo(() => {
+    return type === "trending" ? loadMoreTrending : type === "quran-recitations" ? loadMoreQuran : () => Promise.resolve();
+  }, [type, loadMoreTrending, loadMoreQuran]);
   const hasMore = type === "trending" ? hasMoreTrending : type === "quran-recitations" ? hasMoreQuran : false;
   const isLoadingMore = type === "trending" ? isLoadingMoreTrending : type === "quran-recitations" ? isLoadingMoreQuran : false;
 
@@ -288,7 +289,7 @@ export default function SectionScreen() {
         if ('name' in item && 'lec_no' in item) {
           const album = item as QuranAlbum;
           return album.name.toLowerCase().includes(query) ||
-                 album.language.toLowerCase().includes(query);
+            album.language.toLowerCase().includes(query);
         }
 
         // Handle Episode type
@@ -366,7 +367,7 @@ export default function SectionScreen() {
       if (!episode?.id) return;
       router.push(`/lecture/${episode.id}`);
     },
-    [router]
+    []
   );
 
   const handleQuranAlbumPress = useCallback(
@@ -375,7 +376,7 @@ export default function SectionScreen() {
       // Navigate to reciter detail page
       router.push(`/quran-reciter/${album.id}`);
     },
-    [router]
+    []
   );
 
   const handleSearch = (query: string) => {
@@ -429,7 +430,7 @@ export default function SectionScreen() {
               ? () => handleLecturePress(item as Episode)
               : undefined
           }
-          playOnPress={!isTrendingSection}
+          playOnPress={false}
           showTime={true}
           showMeta={true}
           metaValue={(item as Episode).lecturerName || "Unknown"}
@@ -463,7 +464,7 @@ export default function SectionScreen() {
               style={tw`mt-2 text-center`}
               numberOfLines={2}
             >
-              {item.title}
+              {(item as Series).title}
             </Text>
           </View>
         </View>
@@ -518,7 +519,7 @@ export default function SectionScreen() {
             Check your connection and try again
           </Text>
           <TouchableOpacity
-            onPress={refetch}
+            onPress={() => refetch()}
             style={[
               tw`px-6 py-3 rounded-full`,
               { backgroundColor: designTokens.colors.brand.primary },
@@ -632,8 +633,8 @@ export default function SectionScreen() {
               {type === "trending"
                 ? `${trendingLectures.length > 0 ? trendingLectures.length : sectionInfo.count} lectures`
                 : type === "quran-recitations"
-                ? `${quranAlbums.length > 0 ? quranAlbums.length : sectionInfo.count} reciters`
-                : `${sectionInfo.count} lectures`
+                  ? `${quranAlbums.length > 0 ? quranAlbums.length : sectionInfo.count} reciters`
+                  : `${sectionInfo.count} lectures`
               }
             </Text>
           </View>

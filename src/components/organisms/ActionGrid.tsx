@@ -27,42 +27,42 @@ const defaultActions: ActionItem[] = [
     id: '1',
     title: 'Chart',
     icon: 'trending-up',
-    color: '#7AA2FF',
+    color: '#3B82F6', // blue-500
     description: 'View trending content'
   },
   {
     id: '2',
     title: 'Lecturers',
     icon: 'people',
-    color: '#62D26F',
+    color: '#22C55E', // green-500
     description: 'Browse all lecturers'
   },
   {
     id: '3',
     title: 'Playlist',
     icon: 'list',
-    color: '#F6C445',
+    color: '#F59E0B', // amber-500
     description: 'Your saved playlists'
   },
   {
     id: '4',
     title: 'Video',
     icon: 'videocam',
-    color: '#FF6B6B',
+    color: '#EF4444', // red-500
     description: 'Watch video content'
   },
   {
     id: '5',
     title: 'Quran',
     icon: 'book',
-    color: '#4CAF50',
+    color: '#10B981', // emerald-500
     description: 'Quran recitations'
   },
   {
     id: '6',
     title: 'Trending',
     icon: 'flame',
-    color: '#FF8A65',
+    color: '#F97316', // orange-500
     description: 'Most popular content'
   },
 ];
@@ -81,6 +81,14 @@ export const ActionGrid: React.FC<ActionGridProps> = memo(({
   const handleItemPress = (item: ActionItem) => {
     if (item.id === '1' && item.title === 'Chart') {
       router.push('/charts');
+    } else if (item.id === '2' && item.title === 'Lecturers') {
+      router.push('/lecturers');
+    } else if (item.id === '3' && item.title === 'Playlist') {
+      router.push('/playlists');
+    } else if (item.id === '5' && item.title === 'Quran') {
+      router.push('/section/quran-recitations');
+    } else if (item.id === '6' && item.title === 'Trending') {
+      router.push('/section/trending');
     } else {
       onItemPress?.(item);
     }

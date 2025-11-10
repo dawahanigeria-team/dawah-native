@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback } from "react";
 import { entity } from "simpler-state";
 import { Episode, PlayerState } from "../types/types";
 import type { AudioPlaybackControls } from "../hooks/useAudioPlayback";
@@ -72,7 +72,7 @@ export const usePlayerStore = () => {
     state = initialState;
   }
 
-  const playEpisode = async (episode: Episode) => {
+  const playEpisode = useCallback(async (episode: Episode) => {
     console.log('🎮 PlayerStore: playEpisode called with:', episode.title);
 
     // Add breadcrumb for playback tracking
@@ -149,6 +149,7 @@ export const usePlayerStore = () => {
           console.log('🔊 PlayerStore: Loading from REMOTE URL:', playbackUri);
         }
 
+        // loadAudio now properly waits for the audio to be ready
         await audioControls.loadAudio(playbackUri);
 
         console.log('▶️ PlayerStore: Starting playback...');
@@ -180,22 +181,34 @@ export const usePlayerStore = () => {
       }
     } catch (error: any) {
       console.error('❌ PlayerStore: Failed to play episode:', error);
+      console.error('Episode details:', { id: episode.id, title: episode.title, audioUrl: episode.audioUrl });
+
+      // Show user-friendly error message
+      const errorMessage = error.message?.includes('timeout')
+        ? 'Audio loading timed out. Please check your internet connection and try again.'
+        : 'Failed to play audio. Please try again.';
 
       // Report playback errors to Sentry
       captureSentryException(error, {
         episodeId: episode.id,
         title: episode.title,
         audioUrl: episode.audioUrl,
-        errorType: 'playback_failed',
+        errorType: error.message?.includes('timeout') ? 'loading_timeout' : 'playback_failed',
+        errorMessage: error.message,
       });
 
+      // Update state to show error
       playerStore.set({
         ...playerStore.get(),
         isPlaying: false,
         isLoading: false,
+        currentEpisode: episode, // Keep episode info to allow retry
       });
+
+      // Could show alert to user here if needed
+      console.warn('⚠️ User message:', errorMessage);
     }
-  };
+  }, []); // Empty deps - function only uses module-level audioControls and stable playerStore.get()
 
   const togglePlayPause = () => {
     if (!audioControls) {
@@ -206,6 +219,12 @@ export const usePlayerStore = () => {
     try {
       const currentState = playerStore.get();
       if (!currentState.currentEpisode) return;
+
+      // Set loading state immediately for better UX
+      playerStore.set({
+        ...currentState,
+        isLoading: true,
+      });
 
       audioControls.togglePlayPause();
       // State will be updated by the status callback
@@ -434,14 +453,14 @@ export const usePlayerStore = () => {
       await playEpisode(queue[startIndex]);
     } catch (error) {
       console.error('Failed to play queue:', error);
-      captureSentryException(error, { action: 'playQueue', episodeCount: episodes.length });
+      captureSentryException(error as Error, { action: 'playQueue', episodeCount: episodes.length });
     }
   };
 
   /**
    * Play next episode in queue
    */
-  const playNext = async () => {
+  const playNext = useCallback(async () => {
     const currentState = playerStore.get();
     const { queue, currentQueueIndex, repeatMode } = currentState;
 
@@ -487,7 +506,7 @@ export const usePlayerStore = () => {
     });
 
     await playEpisode(queue[nextIndex]);
-  };
+  }, [playEpisode]);
 
   /**
    * Play previous episode in queue

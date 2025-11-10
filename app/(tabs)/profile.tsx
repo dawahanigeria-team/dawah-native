@@ -8,6 +8,7 @@ import { useThemeStore } from "../../src/stores/themeStore";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { captureSentryException, addSentryBreadcrumb } from "../../src/services/config/sentry.config";
+import { userService } from "../../src/services/user.service";
 
 interface SettingItem {
   id: string;
@@ -74,6 +75,37 @@ const ProfileScreen = () => {
     onPress: () => console.log("About pressed"),
   },
 ];
+
+  const handleResetUserId = () => {
+    Alert.alert(
+      "Reset User ID",
+      "Are you sure you want to reset your user ID? This will clear your local history and favorites.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Reset",
+          style: "destructive",
+          onPress: async () => {
+            await userService.clearUserId();
+            Alert.alert("User ID Reset", "Your user ID has been reset. Please restart the app.");
+          },
+        },
+      ]
+    );
+  };
+
+  const debugItems: SettingItem[] = [
+    {
+      id: "1",
+      title: "Reset User ID",
+      icon: "refresh-outline",
+      subtitle: "Clear local user data",
+      onPress: handleResetUserId,
+    },
+  ];
 
   const handleSignIn = () => {
     router.push("/sign-in");
@@ -451,6 +483,91 @@ const ProfileScreen = () => {
             >
               Islamic content platform for Nigeria
             </Text>
+          </View>
+        </View>
+
+        {/* Debug Settings List */}
+        <View style={tw`px-4 mt-6`}>
+          <Text
+            style={[
+              tw`text-white text-lg font-semibold mb-4`,
+              { color: designTokens.colors.system.label.primary },
+            ]}
+            accessibilityRole="header"
+          >
+            Debug
+          </Text>
+
+          <View
+            style={[
+              tw`rounded-2xl overflow-hidden`,
+              {
+                backgroundColor:
+                  designTokens.colors.system.background.secondary,
+              },
+            ]}
+          >
+            {debugItems.map((item, index) => (
+              <TouchableOpacity
+                key={item.id}
+                style={[
+                  tw`flex-row items-center p-4`,
+                  index < debugItems.length - 1 && {
+                    borderBottomWidth: 1,
+                    borderBottomColor:
+                      designTokens.colors.system.separator.primary,
+                  },
+                ]}
+                onPress={item.onPress}
+                activeOpacity={0.7}
+                accessibilityLabel={item.title}
+                accessibilityHint={item.subtitle}
+                accessibilityRole="button"
+              >
+                <View
+                  style={[
+                    tw`w-10 h-10 rounded-full items-center justify-center mr-4`,
+                    {
+                      backgroundColor:
+                        designTokens.colors.system.background.tertiary,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={item.icon as any}
+                    size={20}
+                    color={designTokens.colors.system.label.secondary}
+                  />
+                </View>
+
+                <View style={tw`flex-1`}>
+                  <Text
+                    style={[
+                      tw`text-base font-medium`,
+                      { color: designTokens.colors.system.label.primary },
+                    ]}
+                  >
+                    {item.title}
+                  </Text>
+                  {item.subtitle && (
+                    <Text
+                      style={[
+                        tw`text-sm mt-1`,
+                        { color: designTokens.colors.system.label.secondary },
+                      ]}
+                    >
+                      {item.subtitle}
+                    </Text>
+                  )}
+                </View>
+
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={designTokens.colors.system.label.secondary}
+                />
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
       </ScrollView>

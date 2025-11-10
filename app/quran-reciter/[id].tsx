@@ -1,22 +1,21 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import * as Haptics from 'expo-haptics';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  View,
-  ScrollView,
   ActivityIndicator,
+  FlatList,
+  Image,
+  Share,
   StyleSheet,
   TouchableOpacity,
-  Image,
-  FlatList,
-  Share,
+  View
 } from 'react-native';
-import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
-import { Text } from '../../src/components/atoms/Text';
 import { Icon } from '../../src/components/atoms';
-import { quranApi, QuranAlbum, QuranRecitation } from '../../src/services/api/quran.api';
-import { designTokens } from '../../src/theme/designTokens';
+import { Text } from '../../src/components/atoms/Text';
+import { QuranAlbum, quranApi, QuranRecitation } from '../../src/services/api/quran.api';
 import { addSentryBreadcrumb, captureSentryException } from '../../src/services/config/sentry.config';
-import * as Haptics from 'expo-haptics';
 import { usePlayerStore } from '../../src/stores';
+import { designTokens } from '../../src/theme/designTokens';
 import { Episode } from '../../src/types/types';
 
 const QuranReciterScreen: React.FC = () => {
@@ -30,26 +29,7 @@ const QuranReciterScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchReciterData();
-  }, [albumId]);
-
-  // Convert QuranRecitation to Episode for player
-  const recitationToEpisode = useCallback((recitation: QuranRecitation, album: QuranAlbum): Episode => {
-    return {
-      id: String(recitation.id),
-      title: recitation.title,
-      audioUrl: recitation.audioUrl,
-      duration: recitation.duration,
-      coverUrl: album.alb_thumbnail || album.img,
-      lecturerName: album.name,
-      plays: recitation.plays || 0,
-      liked: false,
-      language: album.language,
-    };
-  }, []);
-
-  const fetchReciterData = async () => {
+  const fetchReciterData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -80,7 +60,29 @@ const QuranReciterScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [albumId]);
+
+  useEffect(() => {
+    fetchReciterData();
+  }, [fetchReciterData]);
+
+  // Convert QuranRecitation to Episode for player
+  const recitationToEpisode = useCallback((recitation: QuranRecitation, album: QuranAlbum): Episode => {
+    return {
+      id: String(recitation.id),
+      title: recitation.title,
+      durationSec: Number(recitation.duration) || 0,
+      audioUrl: recitation.audioUrl,
+      coverUrl: album.alb_thumbnail || album.img,
+      seriesId: album.id,
+      plays: recitation.plays || 0,
+      liked: false,
+      language: album.language || 'Arabic',
+      downloads: 0,
+      createdAt: album.post_date,
+      lecturerName: album.name,
+    };
+  }, []);
 
   const handlePlayAll = useCallback(async () => {
     if (!album || recitations.length === 0) return;
@@ -152,11 +154,8 @@ const QuranReciterScreen: React.FC = () => {
           trackIndex: index,
         });
 
-        // Convert all recitations to episodes
-        const episodes = recitations.map((r) => recitationToEpisode(r, album));
-
-        // Play queue starting from this recitation
-        playQueue(episodes, index, false);
+        // Navigate to recitation detail page instead of auto-playing
+        router.push(`/lecture/${recitation.id}`);
       } catch (err: any) {
         console.error('Recitation press error:', err);
         captureSentryException(err, {
@@ -168,7 +167,7 @@ const QuranReciterScreen: React.FC = () => {
         });
       }
     },
-    [albumId, album, recitations, playQueue, recitationToEpisode]
+    [albumId, album, router]
   );
 
   const handleShare = useCallback(async () => {
@@ -224,7 +223,7 @@ const QuranReciterScreen: React.FC = () => {
       >
         <View style={styles.trackNumber}>
           {isPlaying ? (
-            <Icon name="musical-notes" size="sm" color="tintColor" />
+            <Icon name="musical-notes" size="sm" color="brand" />
           ) : (
             <Text variant="subheadline" color="secondaryLabel" weight="medium">
               {item.trackNumber || index + 1}
@@ -237,7 +236,7 @@ const QuranReciterScreen: React.FC = () => {
             variant="body"
             weight="semibold"
             numberOfLines={2}
-            color={isPlaying ? 'tintColor' : 'label'}
+            color={isPlaying ? 'brand' : 'label'}
           >
             {item.title}
           </Text>
@@ -254,7 +253,7 @@ const QuranReciterScreen: React.FC = () => {
         </View>
 
         <View style={{ paddingTop: designTokens.spacing.xs }}>
-          <Icon name="play-circle" size="sm" color={isPlaying ? 'tintColor' : 'tertiaryLabel'} />
+          <Icon name="play-circle" size="sm" color={isPlaying ? 'brand' : 'tertiaryLabel'} />
         </View>
       </TouchableOpacity>
     );
@@ -281,7 +280,7 @@ const QuranReciterScreen: React.FC = () => {
           {error || 'Reciter not found'}
         </Text>
         <TouchableOpacity onPress={fetchReciterData} style={styles.retryButton}>
-          <Text variant="body" color="tintColor" weight="semibold">
+          <Text variant="body" color="brand" weight="semibold">
             Try Again
           </Text>
         </TouchableOpacity>
@@ -295,7 +294,7 @@ const QuranReciterScreen: React.FC = () => {
 
       <FlatList
         data={recitations}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item, index) => `${item.id}-${index}`}
         renderItem={renderRecitationItem}
         ListHeaderComponent={
           <View>
@@ -343,8 +342,8 @@ const QuranReciterScreen: React.FC = () => {
               </View>
 
               <View style={styles.languageTag}>
-                <Icon name="book" size="sm" color="tintColor" />
-                <Text variant="footnote" color="tintColor" weight="medium">
+                <Icon name="book" size="sm" color="brand" />
+                <Text variant="footnote" color="brand" weight="medium">
                   Holy Quran
                 </Text>
               </View>
@@ -357,8 +356,8 @@ const QuranReciterScreen: React.FC = () => {
                 onPress={handlePlayAll}
                 activeOpacity={0.7}
               >
-                <Icon name="play-circle" size="md" color="systemBackground" />
-                <Text variant="body" weight="semibold" color="systemBackground">
+                <Icon name="play-circle" size="md" color="label" />
+                <Text variant="body" weight="semibold" color="label">
                   Play All
                 </Text>
               </TouchableOpacity>
@@ -368,8 +367,8 @@ const QuranReciterScreen: React.FC = () => {
                 onPress={handleShuffle}
                 activeOpacity={0.7}
               >
-                <Icon name="shuffle" size="sm" color="tintColor" />
-                <Text variant="body" weight="semibold" color="tintColor">
+                <Icon name="shuffle" size="sm" color="brand" />
+                <Text variant="body" weight="semibold" color="brand">
                   Shuffle
                 </Text>
               </TouchableOpacity>
@@ -396,7 +395,7 @@ const QuranReciterScreen: React.FC = () => {
         style={styles.backButton}
         activeOpacity={0.7}
       >
-        <Icon name="arrow-back" size="lg" color="label" />
+        <Icon name="chevron-back" size="lg" color="label" />
       </TouchableOpacity>
 
       {/* Share Button */}
@@ -525,7 +524,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: designTokens.spacing.lg,
     backgroundColor: designTokens.colors.system.background.primary,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: designTokens.colors.system.separator,
+    borderBottomColor: designTokens.colors.system.separator.primary,
     minHeight: 64,
   },
   trackItemPlaying: {
@@ -550,7 +549,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    top: designTokens.spacing.lg,
+    top: designTokens.spacing['4xl'],
     left: designTokens.spacing.lg,
     width: 44,
     height: 44,
@@ -566,7 +565,7 @@ const styles = StyleSheet.create({
   },
   shareButton: {
     position: 'absolute',
-    top: designTokens.spacing.lg,
+    top: designTokens.spacing['4xl'],
     right: designTokens.spacing.lg,
     width: 44,
     height: 44,
