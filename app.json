@@ -64,7 +64,8 @@
           "project": "dawah-nigeria",
           "organization": "yusuf-adeyemo"
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true

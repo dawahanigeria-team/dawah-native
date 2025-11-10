@@ -38,6 +38,9 @@ export const API_CONFIG = {
     STATIC_TTL: 86400,     // 24 hours for static content
   },
 
+  // Default values
+  DEFAULT_LANGUAGE_ID: 8,
+
   // API Endpoints
   ENDPOINTS: {
     // Search

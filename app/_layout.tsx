@@ -13,6 +13,7 @@ import { AudioProvider } from "../src/components/providers/AudioProvider";
 import { initSentry, Sentry } from "../src/services/config/sentry.config";
 import { fetchFavorites } from "../src/stores/favoritesStore";
 import { userService } from "../src/services/user.service";
+import { useAuthStore } from "../src/stores/authStore"; 
 
 // Initialize Sentry as early as possible
 initSentry();
@@ -22,42 +23,16 @@ const PLAYER_STATE_KEY = "PLAYER_STATE";
 
 function RootLayout() {
   const pathname = usePathname();
-  const router = useRouter();
+  const { initializeAuth } = useAuthStore(); 
 
-  const [isNavigationLoading, navigationState, setNavigationState] =
-    useStorageState(NAVIGATION_PERSISTENCE_KEY);
-  const [isPlayerStateLoading, playerState] = useStorageState(PLAYER_STATE_KEY);
-
-  useEffect(() => {
-    if (isNavigationLoading || isPlayerStateLoading) {
-      return;
-    }
-    if (navigationState) {
-      router.replace(navigationState);
-    }
-    if (playerState) {
-      const parsedState = JSON.parse(playerState);
-      // Don't resume playback automatically, just load the state
-      playerStore.set({ ...parsedState, isPlaying: false });
-    }
-  }, [
-    isNavigationLoading,
-    navigationState,
-    isPlayerStateLoading,
-    playerState,
-    router,
-  ]);
-
-  useEffect(() => {
-    if (!isNavigationLoading) {
-      setNavigationState(pathname);
-    }
-  }, [pathname, setNavigationState, isNavigationLoading]);
-
-  // Initialize user and favorites on app start
+  // Initialize user, auth, and favorites on app start
   useEffect(() => {
     const initialize = async () => {
       try {
+        // Initialize authentication state
+        await initializeAuth();
+        console.log('✅ Auth initialized');
+
         // Ensure user ID exists (creates guest ID if needed)
         await userService.getUserId();
         console.log("✅ User initialized");

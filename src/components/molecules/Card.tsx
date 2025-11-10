@@ -14,6 +14,7 @@ interface CardProps {
   onPress?: () => void;
   onLongPress?: () => void;
   onPlayPress?: (episode: Episode) => void;
+  onMorePress?: () => void;
   showTime?: boolean;
   time?: string;
   showBadge?: boolean;
@@ -41,6 +42,7 @@ export const Card: React.FC<CardProps> = memo(
     borderRadius = "xl",
     style,
     playOnPress = true,
+    onMorePress,
   }) => {
     const isEpisode = "durationSec" in data;
     const episode = isEpisode ? (data as Episode) : null;
@@ -346,47 +348,65 @@ export const Card: React.FC<CardProps> = memo(
             )}
           </View>
 
-          {/* Play Button */}
-          <Touchable
-            style={{
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-            onPress={handlePlayButtonPress}
-            accessibilityLabel="Play lecture"
-            accessibilityRole="button"
-            hapticFeedback
-            minHitTarget
-          >
-            <View
-              style={{
-                width: 52, // Larger for better touch target
-                height: 52,
-                borderRadius: 26,
-                backgroundColor: designTokens.colors.brand.primary,
-                alignItems: "center",
-                justifyContent: "center",
-                // Apple-style play button shadow
-                shadowColor: designTokens.colors.brand.primary,
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 8,
-                elevation: 6,
-                // Subtle inner shadow effect
-                borderWidth: 1,
-                borderColor: "rgba(255,255,255,0.1)",
-              }}
+          {/* Action Buttons */}
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {/* More Options Button */}
+            <Touchable
+              style={{ padding: designTokens.spacing.sm, marginRight: designTokens.spacing.sm }}
+              onPress={onMorePress}
+              accessibilityLabel="More options"
+              accessibilityRole="button"
+              hapticFeedback
             >
               <Icon
-                name="play"
+                name="ellipsis-horizontal"
                 size="lg"
-                color="#000000"
-                style={{
-                  marginLeft: 2, // Optical alignment for play icon
-                }}
+                color={designTokens.colors.system.label.secondary}
               />
-            </View>
-          </Touchable>
+            </Touchable>
+
+            {/* Play Button */}
+            <Touchable
+              style={{
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+              onPress={handlePlayButtonPress}
+              accessibilityLabel="Play lecture"
+              accessibilityRole="button"
+              hapticFeedback
+              minHitTarget
+            >
+              <View
+                style={{
+                  width: 52, // Larger for better touch target
+                  height: 52,
+                  borderRadius: 26,
+                  backgroundColor: designTokens.colors.brand.primary,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  // Apple-style play button shadow
+                  shadowColor: designTokens.colors.brand.primary,
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 6,
+                  // Subtle inner shadow effect
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.1)",
+                }}
+              >
+                <Icon
+                  name="play"
+                  size="lg"
+                  color="#000000"
+                  style={{
+                    marginLeft: 2, // Optical alignment for play icon
+                  }}
+                />
+              </View>
+            </Touchable>
+          </View>
         </Touchable>
       );
     };

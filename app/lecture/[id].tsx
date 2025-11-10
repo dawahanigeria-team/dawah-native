@@ -4,40 +4,41 @@
  */
 
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
+import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   ScrollView,
   Share,
-  View,
   TouchableOpacity,
-  Dimensions,
+  View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
-import * as Haptics from "expo-haptics";
 import Animated, {
+  Extrapolate,
+  interpolate,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  interpolate,
-  Extrapolate,
 } from "react-native-reanimated";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button, Chip, Text, Touchable } from "../../src/components/atoms";
+import AddToPlaylistModal from "../../src/components/organisms/AddToPlaylistModal";
 import { useLectureDetail } from "../../src/hooks/useLectureDetail";
-import { usePlayerStore, useDownloadsStore, useFavoritesStore } from "../../src/stores";
+import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
+import { useDownloadsStore, useFavoritesStore, usePlayerStore, useAuthStore } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
-import { captureSentryException, addSentryBreadcrumb } from "../../src/services/config/sentry.config";
-import type { Episode } from "../../src/types/types";
 import type { LectureDetail } from "../../src/types/api.types";
+import type { Episode } from "../../src/types/types";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HEADER_HEIGHT = 420;
 
 const createEpisodeFromDetail = (detail: LectureDetail | null): Episode | null => {
@@ -91,9 +92,12 @@ const LectureDetailScreen: React.FC = () => {
 
   const { isFavorited, toggleFavorite } = useFavoritesStore();
 
+  const { isAuthenticated } = useAuthStore();
+
   // State management
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
+  const [showAddToPlaylistModal, setShowAddToPlaylistModal] = useState(false);
 
   // Check if lecture is liked
   const liked = isFavorited(lectureId);
@@ -150,7 +154,7 @@ const LectureDetailScreen: React.FC = () => {
   // Event handlers
   const handleScroll = useCallback((event: any) => {
     scrollY.value = event.nativeEvent.contentOffset.y;
-  }, []);
+  }, [scrollY]);
 
   const handlePlayPress = useCallback(() => {
     if (!episode || !canPlay) return;
@@ -231,13 +235,9 @@ const LectureDetailScreen: React.FC = () => {
     } catch (error: any) {
       console.error('Failed to toggle favorite:', error);
 
-      // Only show error alert for non-network errors
       if (error.statusCode === 401) {
-        Alert.alert(
-          'Sign In Required',
-          'Please sign in to like lectures.',
-          [{ text: 'OK' }]
-        );
+        // Redirect to sign-in page if not authenticated
+        router.push("/sign-in");
       } else if (!error.isNetworkError) {
         // Don't show alert for network errors - favorites work offline
         Alert.alert(
@@ -253,7 +253,7 @@ const LectureDetailScreen: React.FC = () => {
         lectureId,
       });
     }
-  }, [lectureId, toggleFavorite, liked]);
+  }, [lectureId, toggleFavorite, liked, router]);
 
   const handleShare = useCallback(() => {
     if (!lecture) return;
@@ -370,6 +370,9 @@ const LectureDetailScreen: React.FC = () => {
       <View style={tw`flex-row items-center justify-between`}>
         <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.back(); }} style={tw`w-10 h-10 items-center justify-center`}>
           <Ionicons name="chevron-back" size={28} color={designTokens.colors.system.label.primary} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/playlists'); }} style={tw`w-10 h-10 items-center justify-center ml-2`}>
+          <Ionicons name="list" size={24} color={designTokens.colors.system.label.primary} />
         </TouchableOpacity>
         <View style={tw`flex-1 mx-3`}>
           <Text variant="body" color="label" weight="semibold" numberOfLines={1} style={tw`text-center`}>
@@ -779,8 +782,8 @@ const LectureDetailScreen: React.FC = () => {
                 isDownloaded
                   ? "checkmark-circle"
                   : isDownloading
-                  ? "cloud-download"
-                  : "arrow-down-circle-outline"
+                    ? "cloud-download"
+                    : "arrow-down-circle-outline"
               }
               size={24}
               color={
@@ -797,8 +800,8 @@ const LectureDetailScreen: React.FC = () => {
               {isDownloaded
                 ? "Downloaded"
                 : isDownloading
-                ? `${Math.round(downloadProgress * 100)}%`
-                : "Download"}
+                  ? `${Math.round(downloadProgress * 100)}%`
+                  : "Download"}
             </Text>
           </TouchableOpacity>
 
@@ -806,6 +809,19 @@ const LectureDetailScreen: React.FC = () => {
             <Ionicons name="share-outline" size={24} color={designTokens.colors.system.label.secondary} />
             <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
               Share
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => {
+            if (!isAuthenticated) {
+              router.push("/sign-in");
+            } else {
+              setShowAddToPlaylistModal(true);
+            }
+          }} style={tw`flex-row items-center`}>
+            <Ionicons name="add-circle-outline" size={24} color={designTokens.colors.system.label.secondary} />
+            <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
+              Add to Playlist
             </Text>
           </TouchableOpacity>
 
@@ -831,6 +847,15 @@ const LectureDetailScreen: React.FC = () => {
       {renderHeader()}
       <View style={tw`flex-1`}>{renderContent()}</View>
       {lecture && renderPlaybackControls()}
+
+      {lecture && (
+        <AddToPlaylistModal
+          isVisible={showAddToPlaylistModal}
+          onClose={() => setShowAddToPlaylistModal(false)}
+          audioId={lecture.id}
+          onAudioAdded={() => Alert.alert('Success', 'Audio added to playlist!')}
+        />
+      )}
     </SafeAreaView>
   );
 };

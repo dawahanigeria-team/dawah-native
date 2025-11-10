@@ -22,7 +22,12 @@ export interface PaginatedResponse<T = any> extends BaseApiResponse<T[]> {
 }
 
 // Search Types
-export type SearchType = 'lectures' | 'lecturers' | 'albums' | 'playlists' | 'all';
+export type SearchType =
+  | "lectures"
+  | "lecturers"
+  | "albums"
+  | "playlists"
+  | "all";
 
 // Search Result Types
 export interface SearchLecture {
@@ -348,11 +353,11 @@ export interface DownloadLinkResponse extends BaseApiResponse {
 
 // Chart Response
 export interface ChartResponse<T = any> extends BaseApiResponse {
-  period: 'daily' | 'weekly' | 'monthly' | 'all-time';
+  period: "daily" | "weekly" | "monthly" | "all-time";
   items: (T & {
     rank: number;
     previousRank?: number;
-    trend: 'up' | 'down' | 'stable' | 'new';
+    trend: "up" | "down" | "stable" | "new";
   })[];
   updatedAt: string;
 }
@@ -378,3 +383,57 @@ export interface ApiErrorResponse {
   statusCode?: number;
   timestamp: string;
 }
+
+// Playlist API Types
+export interface CreatePlaylistRequest {
+  action: "create_playlist";
+  name: string;
+  is_private: 0 | 1;
+  user_id: string;
+}
+
+export interface CreatePlaylistResponse extends BaseApiResponse {
+  success: boolean;
+  message: string;
+  playlist_id?: number;
+  data?: {
+    id?: number;
+    nid?: number;
+  };
+}
+
+export interface AddToPlaylistRequest {
+  action: "add_playlist_audio" | "remove_playlist_audio";
+  user_id: string;
+  audio_id: string;
+  playlist_id: string;
+}
+
+export interface AddToPlaylistResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface UserPlaylist {
+  id: string;
+  name: string;
+  count: number;
+  is_private: "0" | "1";
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserPlaylistsResponse extends BaseApiResponse {
+  playlists: UserPlaylist[];
+}
+
+export interface PlaylistData {
+  audio_id: string;
+}
+
+export interface PlaylistDataResponse extends BaseApiResponse {
+  playlist_data: PlaylistData[];
+}
+
+
