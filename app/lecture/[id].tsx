@@ -11,20 +11,21 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  ScrollView,
-  Share,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    Linking,
+    ScrollView,
+    Share,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import Animated, {
-  Extrapolate,
-  interpolate,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
+    Extrapolate,
+    interpolate,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -32,7 +33,7 @@ import { Button, Chip, Text, Touchable } from "../../src/components/atoms";
 import AddToPlaylistModal from "../../src/components/organisms/AddToPlaylistModal";
 import { useLectureDetail } from "../../src/hooks/useLectureDetail";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
-import { useDownloadsStore, useFavoritesStore, usePlayerStore, useAuthStore } from "../../src/stores";
+import { useAuthStore, useDownloadsStore, useFavoritesStore, usePlayerStore } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import type { LectureDetail } from "../../src/types/api.types";
@@ -208,11 +209,40 @@ const LectureDetailScreen: React.FC = () => {
         title: episode.title,
         level: 'error',
       });
-      Alert.alert(
-        "Download Failed",
-        error.message || "Failed to download lecture. Please try again.",
-        [{ text: "OK" }]
-      );
+      
+      // Check if this is a permission error
+      const isPermissionError = 
+        error?.isPermissionError ||
+        error?.message?.toLowerCase().includes("permission") ||
+        error?.message?.toLowerCase().includes("storage permission");
+      
+      if (isPermissionError) {
+        Alert.alert(
+          "Storage Permission Required",
+          error.message || "Storage permission is required to download lectures. Please enable it in your device settings.",
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Open Settings",
+              onPress: () => {
+                Linking.openSettings().catch(() => {
+                  Alert.alert(
+                    "Unable to Open Settings",
+                    "Please manually enable storage permission in your device settings.",
+                    [{ text: "OK" }]
+                  );
+                });
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          "Download Failed",
+          error.message || "Failed to download lecture. Please try again.",
+          [{ text: "OK" }]
+        );
+      }
     }
   }, [episode, isDownloaded, isDownloading, downloadLecture]);
 
