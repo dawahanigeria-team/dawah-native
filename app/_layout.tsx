@@ -8,7 +8,8 @@ import { AudioProvider } from "../src/components/providers/AudioProvider";
 import { initSentry, Sentry } from "../src/services/config/sentry.config";
 import { fetchFavorites } from "../src/stores/favoritesStore";
 import { userService } from "../src/services/user.service";
-import { useAuthStore } from "../src/stores/authStore"; 
+import { useAuthStore } from "../src/stores/authStore";
+import { downloadsService } from "../src/services/downloads.service"; 
 
 // Initialize Sentry as early as possible
 initSentry();
@@ -32,6 +33,10 @@ function RootLayout() {
         // Load favorites from API
         await fetchFavorites();
         console.log('✅ Favorites loaded');
+
+        // Ensure downloads service is initialized
+        await downloadsService.ensureInitialized();
+        console.log('✅ Downloads service initialized');
       } catch (error) {
         console.error('Failed to initialize app:', error);
       }

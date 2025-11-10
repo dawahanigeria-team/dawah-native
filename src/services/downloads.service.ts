@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Episode } from '../types/types';
 import { downloadsApi } from './api/downloads.api';
 import { captureSentryException, addSentryBreadcrumb } from './config/sentry.config';
+import { requestStoragePermission } from '../utils/permissions';
 
 const DOWNLOADS_METADATA_KEY = 'downloads_metadata';
 
@@ -168,6 +169,12 @@ class DownloadsService {
     let downloadUrl: string = audioUrl;
 
     try {
+      // Request storage permission before starting the download
+      const hasPermission = await requestStoragePermission();
+      if (!hasPermission) {
+        throw new Error('Storage permission not granted. Cannot download lecture.');
+      }
+
       console.log(`📥 Starting download for: ${title}`);
 
       // Add breadcrumb for download tracking
