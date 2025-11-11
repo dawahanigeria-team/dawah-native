@@ -1,8 +1,13 @@
-import { Stack, usePathname } from "expo-router";
+import { Stack, usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { View } from "react-native";
 import { useEffect } from "react";
-import { ErrorBoundary } from "../src/components/atoms/ErrorBoundary";
+import { View } from "react-native";
+
+import { useStorageState } from "../src/hooks/useStorageState";
+import { playerStore } from "../src/stores/playerStore";
+
+import { ErrorBoundary } from "../src/components/atoms";
+import { Loading } from "../src/components/atoms/Loading";
 import { MiniPlayer } from "../src/components/organisms";
 import { AudioProvider } from "../src/components/providers/AudioProvider";
 import { initSentry, Sentry } from "../src/services/config/sentry.config";
@@ -12,6 +17,9 @@ import { useAuthStore } from "../src/stores/authStore";
 
 // Initialize Sentry as early as possible
 initSentry();
+
+const NAVIGATION_PERSISTENCE_KEY = "NAVIGATION_STATE";
+const PLAYER_STATE_KEY = "PLAYER_STATE";
 
 function RootLayout() {
   const pathname = usePathname();
@@ -27,13 +35,13 @@ function RootLayout() {
 
         // Ensure user ID exists (creates guest ID if needed)
         await userService.getUserId();
-        console.log('✅ User initialized');
+        console.log("✅ User initialized");
 
         // Load favorites from API
         await fetchFavorites();
-        console.log('✅ Favorites loaded');
+        console.log("✅ Favorites loaded");
       } catch (error) {
-        console.error('Failed to initialize app:', error);
+        console.error("Failed to initialize app:", error);
       }
     };
 
@@ -41,7 +49,11 @@ function RootLayout() {
   }, []);
 
   // Hide mini player on lecture detail page since it has full playback controls
-  const shouldShowMiniPlayer = !pathname.startsWith('/lecture/');
+  const shouldShowMiniPlayer = !pathname.startsWith("/lecture/");
+
+  if (isNavigationLoading || isPlayerStateLoading) {
+    return <Loading fullScreen />;
+  }
 
   return (
     <ErrorBoundary>
