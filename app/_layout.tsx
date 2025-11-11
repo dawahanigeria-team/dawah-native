@@ -1,7 +1,7 @@
-import { Stack, usePathname } from "expo-router";
+import { Stack, usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
-import { View } from "react-native";
+import { Linking, View } from "react-native";
 
 import { useStorageState } from "../src/hooks/useStorageState";
 
@@ -10,6 +10,7 @@ import { Loading } from "../src/components/atoms/Loading";
 import { MiniPlayer } from "../src/components/organisms";
 import { AudioProvider } from "../src/components/providers/AudioProvider";
 import { initSentry, Sentry } from "../src/services/config/sentry.config";
+import { linkingService } from "../src/services/linking.service";
 import { downloadsService } from "../src/services/downloads.service";
 import { userService } from "../src/services/user.service";
 import { useAuthStore } from "../src/stores/authStore";
@@ -24,6 +25,7 @@ const PLAYER_STATE_KEY = "PLAYER_STATE";
 
 function RootLayout() {
   const pathname = usePathname();
+  const router = useRouter();
   const { initializeAuth } = useAuthStore(); 
   const [isNavigationLoading] = useStorageState(NAVIGATION_PERSISTENCE_KEY);
   const [isPlayerStateLoading] = useStorageState(PLAYER_STATE_KEY);
