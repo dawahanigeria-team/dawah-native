@@ -1,6 +1,6 @@
 import { Stack, usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Linking, View } from "react-native";
 
 import { useStorageState } from "../src/hooks/useStorageState";
@@ -13,7 +13,7 @@ import { initSentry, Sentry } from "../src/services/config/sentry.config";
 import { downloadsService } from "../src/services/downloads.service";
 import { linkingService } from "../src/services/linking.service";
 import { userService } from "../src/services/user.service";
-import { useAuthStore } from "../src/stores/authStore";
+import { initializeAuth } from "../src/stores/authStore";
 import { fetchFavorites } from "../src/stores/favoritesStore";
  
 
@@ -26,12 +26,17 @@ const PLAYER_STATE_KEY = "PLAYER_STATE";
 function RootLayout() {
   const pathname = usePathname();
   const router = useRouter();
-  const { initializeAuth } = useAuthStore(); 
   const [isNavigationLoading] = useStorageState(NAVIGATION_PERSISTENCE_KEY);
   const [isPlayerStateLoading] = useStorageState(PLAYER_STATE_KEY);
+  const hasInitializedApp = useRef(false);
 
   // Initialize user, auth, and favorites on app start
   useEffect(() => {
+    if (hasInitializedApp.current) {
+      return;
+    }
+    hasInitializedApp.current = true;
+
     const initialize = async () => {
       try {
         // Initialize authentication state
