@@ -102,7 +102,7 @@ export const usePlayerStore = () => {
         if (!currentState.isPlaying) {
           console.log('▶️ PlayerStore: Resuming playback...');
           audioControls.play();
-          playerStore.set({
+          setAndPersistPlayerState({
             ...currentState,
             isPlaying: true,
             isExpanded: false,  // Show mini player
@@ -110,7 +110,7 @@ export const usePlayerStore = () => {
         } else {
           console.log('⏸️ PlayerStore: Already playing this episode');
           // Just show the mini player if it's hidden
-          playerStore.set({
+          setAndPersistPlayerState({
             ...currentState,
             isExpanded: false,
           });
@@ -127,7 +127,7 @@ export const usePlayerStore = () => {
 
       // Set loading state
       console.log('📊 PlayerStore: Setting initial state...');
-      playerStore.set({
+      setAndPersistPlayerState({
         ...playerStore.get(),
         currentEpisode: episode,
         isPlaying: false,
@@ -166,7 +166,7 @@ export const usePlayerStore = () => {
 
         // Update state after successful play
         console.log('✅ PlayerStore: Updating state to playing...');
-        playerStore.set({
+        setAndPersistPlayerState({
           ...playerStore.get(),
           isPlaying: true,
           isLoading: false,
@@ -241,7 +241,7 @@ export const usePlayerStore = () => {
 
     try {
       // Update store immediately for UI responsiveness
-      playerStore.set({
+      setAndPersistPlayerState({
         ...playerStore.get(),
         progress,
       });
@@ -253,14 +253,14 @@ export const usePlayerStore = () => {
   };
 
   const expandPlayer = () => {
-    playerStore.set({
+    setAndPersistPlayerState({
       ...playerStore.get(),
       isExpanded: true,
     });
   };
 
   const minimizePlayer = () => {
-    playerStore.set({
+    setAndPersistPlayerState({
       ...playerStore.get(),
       isExpanded: false,
     });
@@ -269,7 +269,7 @@ export const usePlayerStore = () => {
   const likeEpisode = (episodeId: string) => {
     const currentState = playerStore.get();
     if (currentState.currentEpisode?.id === episodeId) {
-      playerStore.set({
+      setAndPersistPlayerState({
         ...currentState,
         currentEpisode: {
           ...currentState.currentEpisode,
@@ -314,7 +314,7 @@ export const usePlayerStore = () => {
     }
 
     try {
-      playerStore.set({
+      setAndPersistPlayerState({
         ...playerStore.get(),
         playbackSpeed: speed,
       });
@@ -332,7 +332,7 @@ export const usePlayerStore = () => {
 
     try {
       const clampedVolume = Math.max(0, Math.min(1, volume));
-      playerStore.set({
+      setAndPersistPlayerState({
         ...playerStore.get(),
         volume: clampedVolume,
       });
@@ -343,14 +343,14 @@ export const usePlayerStore = () => {
   };
 
   const setLoading = (isLoading: boolean) => {
-    playerStore.set({
+    setAndPersistPlayerState({
       ...playerStore.get(),
       isLoading,
     });
   };
 
   const downloadEpisode = (_episode: Episode) => {
-    playerStore.set({
+    setAndPersistPlayerState({
       ...state,
       isDownloading: true,
       downloadProgress: 0,
@@ -364,14 +364,14 @@ export const usePlayerStore = () => {
         if (progress >= 1) {
           progress = 1;
           clearInterval(interval);
-          playerStore.set({
+          setAndPersistPlayerState({
             ...playerStore.get(),
             isDownloading: false,
             isDownloaded: true,
             downloadProgress: 1,
           });
         } else {
-          playerStore.set({
+          setAndPersistPlayerState({
             ...playerStore.get(),
             downloadProgress: progress,
           });
@@ -394,13 +394,13 @@ export const usePlayerStore = () => {
       audioControls.unload();
 
       // Reset store to initial state
-      playerStore.set({
+      setAndPersistPlayerState({
         ...initialState,
       });
     } catch (error) {
       console.error('Failed to close player:', error);
       // Reset store even if audio cleanup fails
-      playerStore.set({
+      setAndPersistPlayerState({
         ...initialState,
       });
     }
@@ -442,7 +442,7 @@ export const usePlayerStore = () => {
       }
 
       // Update store with queue
-      playerStore.set({
+      setAndPersistPlayerState({
         ...playerStore.get(),
         queue,
         currentQueueIndex: startIndex,
@@ -491,7 +491,7 @@ export const usePlayerStore = () => {
         if (audioControls) {
           audioControls.stop();
         }
-        playerStore.set({
+        setAndPersistPlayerState({
           ...currentState,
           isPlaying: false,
         });
@@ -500,7 +500,7 @@ export const usePlayerStore = () => {
     }
 
     // Update index and play
-    playerStore.set({
+    setAndPersistPlayerState({
       ...currentState,
       currentQueueIndex: nextIndex,
     });
@@ -539,7 +539,7 @@ export const usePlayerStore = () => {
     }
 
     // Update index and play
-    playerStore.set({
+    setAndPersistPlayerState({
       ...currentState,
       currentQueueIndex: prevIndex,
     });
@@ -562,7 +562,7 @@ export const usePlayerStore = () => {
       { episodeCount: episodeArray.length }
     );
 
-    playerStore.set({
+    setAndPersistPlayerState({
       ...currentState,
       queue: [...currentState.queue, ...episodeArray],
     });
@@ -586,7 +586,7 @@ export const usePlayerStore = () => {
       // (next episode will now be at same index)
     }
 
-    playerStore.set({
+    setAndPersistPlayerState({
       ...currentState,
       queue: newQueue,
       currentQueueIndex: newIndex,
@@ -615,7 +615,7 @@ export const usePlayerStore = () => {
 
       const newQueue = [currentEpisode, ...remaining];
 
-      playerStore.set({
+      setAndPersistPlayerState({
         ...currentState,
         queue: newQueue,
         currentQueueIndex: 0,
@@ -623,7 +623,7 @@ export const usePlayerStore = () => {
       });
     } else {
       // Un-shuffle: restore original order (not implemented yet, just toggle flag)
-      playerStore.set({
+      setAndPersistPlayerState({
         ...currentState,
         isShuffled: false,
       });
@@ -636,7 +636,7 @@ export const usePlayerStore = () => {
   const setRepeatMode = (mode: 'off' | 'all' | 'one') => {
     console.log('🔁 PlayerStore: Set repeat mode:', mode);
 
-    playerStore.set({
+    setAndPersistPlayerState({
       ...playerStore.get(),
       repeatMode: mode,
     });
@@ -648,7 +648,7 @@ export const usePlayerStore = () => {
   const clearQueue = () => {
     console.log('🗑️ PlayerStore: Clearing queue');
 
-    playerStore.set({
+    setAndPersistPlayerState({
       ...playerStore.get(),
       queue: [],
       currentQueueIndex: -1,
