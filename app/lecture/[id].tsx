@@ -39,6 +39,7 @@ import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import type { LectureDetail } from "../../src/types/api.types";
 import type { Episode } from "../../src/types/types";
+import { appendShareSignature } from "../../src/utils/shareMessage";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HEADER_HEIGHT = 420;
@@ -292,7 +293,8 @@ const LectureDetailScreen: React.FC = () => {
 
     const webLink = linkingService.createLectureLink(lecture.id);
 
-    const message = `🎧 ${lecture.title}\n👤 ${lecture.lecturerName || 'Dawah Nigeria'}\n\n${webLink}`;
+    const baseMessage = `🎧 ${lecture.title}\n👤 ${lecture.lecturerName || 'Dawah Nigeria'}\n\n${webLink}`;
+    const message = appendShareSignature(baseMessage);
 
     Share.share({
       title: lecture.title,

@@ -15,9 +15,11 @@ import { Icon } from '../../src/components/atoms';
 import { albumsApi, Album, AlbumTrack } from '../../src/services/api/albums.api';
 import { designTokens } from '../../src/theme/designTokens';
 import { addSentryBreadcrumb, captureSentryException } from '../../src/services/config/sentry.config';
+import { linkingService } from '../../src/services/linking.service';
 import * as Haptics from 'expo-haptics';
 import { usePlayerStore } from '../../src/stores';
 import { Episode } from '../../src/types/types';
+import { appendShareSignature } from '../../src/utils/shareMessage';
 
 const AlbumDetailScreen: React.FC = () => {
   const router = useRouter();
@@ -212,14 +214,18 @@ const AlbumDetailScreen: React.FC = () => {
       const lecturerInfo = album.lecturerName ? ` by ${album.lecturerName}` : '';
       const languageInfo = album.language ? ` (${album.language})` : '';
 
-      const message = `🎧 Islamic Lectures Album${languageInfo}\n\n` +
+      const webLink = linkingService.createAlbumLink(String(album.id));
+      const baseMessage = `🎧 Islamic Lectures Album${languageInfo}\n\n` +
         `📖 ${album.title}${lecturerInfo}\n\n` +
         `🎤 ${lectureCount} ${lectureCount === 1 ? 'lecture' : 'lectures'}\n\n` +
-        `Listen on Dawah Nigeria app`;
+        `Listen on Dawah Nigeria app\n\n` +
+        `${webLink}`;
+      const message = appendShareSignature(baseMessage);
 
       await Share.share({
         title: album.title,
         message,
+        url: webLink,
       });
 
       addSentryBreadcrumb('Album shared successfully', 'user', {
