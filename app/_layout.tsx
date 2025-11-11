@@ -10,8 +10,8 @@ import { Loading } from "../src/components/atoms/Loading";
 import { MiniPlayer } from "../src/components/organisms";
 import { AudioProvider } from "../src/components/providers/AudioProvider";
 import { initSentry, Sentry } from "../src/services/config/sentry.config";
-import { linkingService } from "../src/services/linking.service";
 import { downloadsService } from "../src/services/downloads.service";
+import { linkingService } from "../src/services/linking.service";
 import { userService } from "../src/services/user.service";
 import { useAuthStore } from "../src/stores/authStore";
 import { fetchFavorites } from "../src/stores/favoritesStore";
@@ -54,7 +54,7 @@ function RootLayout() {
     };
 
     initialize();
-  }, []);
+  }, [initializeAuth]);
 
   // Handle deep links when app opens
   useEffect(() => {

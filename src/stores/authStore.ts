@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { entity } from 'simpler-state';
 import {
   authApi,
@@ -44,7 +45,7 @@ export const useAuthStore = () => {
    * Initialize authentication state from storage
    * This should be called once when the app starts.
    */
-  const initializeAuth = async () => {
+  const initializeAuth = useCallback(async () => {
     authStore.set((prev) => ({ ...prev, isLoading: true }));
     // ApiClient's loadAuthToken will call the registered listener
     // We don't need to explicitly call it here, as it's called in ApiClient constructor
@@ -60,7 +61,7 @@ export const useAuthStore = () => {
     // Trigger a re-load of the token in case the listener was set up after the initial load
     // This ensures the authStore is always in sync.
     await apiClient.loadAuthToken();
-  };
+  }, []);
 
   /**
    * Sign in with email and password
