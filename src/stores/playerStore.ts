@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useCallback } from "react";
 import { entity } from "simpler-state";
 import type { AudioPlaybackControls } from "../hooks/useAudioPlayback";
@@ -5,7 +6,6 @@ import { addSentryBreadcrumb, captureSentryException } from "../services/config/
 import { downloadsService } from "../services/downloads.service";
 import { historyService } from "../services/history.service";
 import { Episode, PlayerState } from "../types/types";
-import { setAndPersistPlayerState } from "./persistentPlayerStore";
 
 const initialState: PlayerState = {
   currentEpisode: null,
@@ -26,6 +26,20 @@ const initialState: PlayerState = {
 };
 
 export const playerStore = entity(initialState);
+
+const PLAYER_STATE_KEY = "PLAYER_STATE";
+
+/**
+ * Set player state and persist it to AsyncStorage
+ */
+const setAndPersistPlayerState = (newState: Partial<PlayerState>) => {
+  const currentState = playerStore.get();
+  const updatedState = { ...currentState, ...newState };
+  playerStore.set(updatedState);
+  // Avoid storing the entire queue, as it can be large
+  const persistableState = { ...updatedState, queue: [] };
+  AsyncStorage.setItem(PLAYER_STATE_KEY, JSON.stringify(persistableState));
+};
 
 // Audio controls instance - will be set by AudioProvider
 let audioControls: AudioPlaybackControls | null = null;

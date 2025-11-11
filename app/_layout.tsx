@@ -25,6 +25,8 @@ const PLAYER_STATE_KEY = "PLAYER_STATE";
 function RootLayout() {
   const pathname = usePathname();
   const { initializeAuth } = useAuthStore(); 
+  const [isNavigationLoading] = useStorageState(NAVIGATION_PERSISTENCE_KEY);
+  const [isPlayerStateLoading] = useStorageState(PLAYER_STATE_KEY);
 
   // Initialize user, auth, and favorites on app start
   useEffect(() => {
