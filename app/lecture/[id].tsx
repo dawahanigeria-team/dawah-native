@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  Linking,
   ScrollView,
   Share,
   TouchableOpacity,
@@ -32,8 +33,7 @@ import { Button, Chip, Text, Touchable } from "../../src/components/atoms";
 import AddToPlaylistModal from "../../src/components/organisms/AddToPlaylistModal";
 import { useLectureDetail } from "../../src/hooks/useLectureDetail";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
-import { linkingService } from "../../src/services/linking.service";
-import { useDownloadsStore, useFavoritesStore, usePlayerStore } from "../../src/stores";
+import { useAuthStore, useDownloadsStore, useFavoritesStore, usePlayerStore } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import type { LectureDetail } from "../../src/types/api.types";
@@ -92,6 +92,8 @@ const LectureDetailScreen: React.FC = () => {
   } = useDownloadsStore();
 
   const { isFavorited, toggleFavorite } = useFavoritesStore();
+
+  const { isAuthenticated } = useAuthStore();
 
   // State management
   const [showFullDescription, setShowFullDescription] = useState(false);
@@ -207,11 +209,40 @@ const LectureDetailScreen: React.FC = () => {
         title: episode.title,
         level: 'error',
       });
-      Alert.alert(
-        "Download Failed",
-        error.message || "Failed to download lecture. Please try again.",
-        [{ text: "OK" }]
-      );
+      
+      // Check if this is a permission error
+      const isPermissionError = 
+        error?.isPermissionError ||
+        error?.message?.toLowerCase().includes("permission") ||
+        error?.message?.toLowerCase().includes("storage permission");
+      
+      if (isPermissionError) {
+        Alert.alert(
+          "Storage Permission Required",
+          error.message || "Storage permission is required to download lectures. Please enable it in your device settings.",
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Open Settings",
+              onPress: () => {
+                Linking.openSettings().catch(() => {
+                  Alert.alert(
+                    "Unable to Open Settings",
+                    "Please manually enable storage permission in your device settings.",
+                    [{ text: "OK" }]
+                  );
+                });
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          "Download Failed",
+          error.message || "Failed to download lecture. Please try again.",
+          [{ text: "OK" }]
+        );
+      }
     }
   }, [episode, isDownloaded, isDownloading, downloadLecture]);
 
@@ -234,13 +265,9 @@ const LectureDetailScreen: React.FC = () => {
     } catch (error: any) {
       console.error('Failed to toggle favorite:', error);
 
-      // Only show error alert for non-network errors
       if (error.statusCode === 401) {
-        Alert.alert(
-          'Sign In Required',
-          'Please sign in to like lectures.',
-          [{ text: 'OK' }]
-        );
+        // Redirect to sign-in page if not authenticated
+        router.push("/sign-in");
       } else if (!error.isNetworkError) {
         // Don't show alert for network errors - favorites work offline
         Alert.alert(
@@ -256,7 +283,7 @@ const LectureDetailScreen: React.FC = () => {
         lectureId,
       });
     }
-  }, [lectureId, toggleFavorite, liked]);
+  }, [lectureId, toggleFavorite, liked, router]);
 
   const handleShare = useCallback(() => {
     if (!lecture) return;
@@ -816,7 +843,13 @@ const LectureDetailScreen: React.FC = () => {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => setShowAddToPlaylistModal(true)} style={tw`flex-row items-center`}>
+          <TouchableOpacity onPress={() => {
+            if (!isAuthenticated) {
+              router.push("/sign-in");
+            } else {
+              setShowAddToPlaylistModal(true);
+            }
+          }} style={tw`flex-row items-center`}>
             <Ionicons name="add-circle-outline" size={24} color={designTokens.colors.system.label.secondary} />
             <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
               Add to Playlist

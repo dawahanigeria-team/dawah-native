@@ -1,36 +1,53 @@
-import { Stack, usePathname, useRouter } from "expo-router";
+import { Stack, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { View } from "react-native";
 import { useEffect } from "react";
-import * as Linking from "expo-linking";
-import { ErrorBoundary } from "../src/components/atoms/ErrorBoundary";
+import { View } from "react-native";
+
+import { useStorageState } from "../src/hooks/useStorageState";
+
+import { ErrorBoundary } from "../src/components/atoms";
+import { Loading } from "../src/components/atoms/Loading";
 import { MiniPlayer } from "../src/components/organisms";
 import { AudioProvider } from "../src/components/providers/AudioProvider";
 import { initSentry, Sentry } from "../src/services/config/sentry.config";
-import { fetchFavorites } from "../src/stores/favoritesStore";
+import { downloadsService } from "../src/services/downloads.service";
 import { userService } from "../src/services/user.service";
-import { linkingService } from "../src/services/linking.service";
+import { useAuthStore } from "../src/stores/authStore";
+import { fetchFavorites } from "../src/stores/favoritesStore";
+ 
 
 // Initialize Sentry as early as possible
 initSentry();
 
+const NAVIGATION_PERSISTENCE_KEY = "NAVIGATION_STATE";
+const PLAYER_STATE_KEY = "PLAYER_STATE";
+
 function RootLayout() {
   const pathname = usePathname();
-  const router = useRouter();
+  const { initializeAuth } = useAuthStore(); 
+  const [isNavigationLoading] = useStorageState(NAVIGATION_PERSISTENCE_KEY);
+  const [isPlayerStateLoading] = useStorageState(PLAYER_STATE_KEY);
 
-  // Initialize user and favorites on app start
+  // Initialize user, auth, and favorites on app start
   useEffect(() => {
     const initialize = async () => {
       try {
+        // Initialize authentication state
+        await initializeAuth();
+        console.log('✅ Auth initialized');
+
         // Ensure user ID exists (creates guest ID if needed)
         await userService.getUserId();
-        console.log('✅ User initialized');
+        console.log("✅ User initialized");
 
         // Load favorites from API
         await fetchFavorites();
         console.log('✅ Favorites loaded');
+        // Ensure downloads service is initialized
+        await downloadsService.ensureInitialized();
+        console.log('✅ Downloads service initialized');
       } catch (error) {
-        console.error('Failed to initialize app:', error);
+        console.error("Failed to initialize app:", error);
       }
     };
 
@@ -70,7 +87,11 @@ function RootLayout() {
   }, [router]);
 
   // Hide mini player on lecture detail page since it has full playback controls
-  const shouldShowMiniPlayer = !pathname.startsWith('/lecture/');
+  const shouldShowMiniPlayer = !pathname.startsWith("/lecture/");
+
+  if (isNavigationLoading || isPlayerStateLoading) {
+    return <Loading fullScreen />;
+  }
 
   return (
     <ErrorBoundary>

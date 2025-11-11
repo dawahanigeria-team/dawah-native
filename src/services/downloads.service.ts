@@ -3,14 +3,18 @@
  * Uses new expo-file-system SDK 54 API with File/Directory classes
  */
 
-import { fetch } from 'expo/fetch';
-import { Directory, File, Paths } from 'expo-file-system';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Episode } from '../types/types';
-import { downloadsApi } from './api/downloads.api';
-import { captureSentryException, addSentryBreadcrumb } from './config/sentry.config';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Directory, File, Paths } from "expo-file-system";
+import { fetch } from "expo/fetch";
+import type { Episode } from "../types/types";
+import { requestStoragePermission } from "../utils/permissions";
+import { downloadsApi } from "./api/downloads.api";
+import {
+    addSentryBreadcrumb,
+    captureSentryException,
+} from "./config/sentry.config";
 
-const DOWNLOADS_METADATA_KEY = 'downloads_metadata';
+const DOWNLOADS_METADATA_KEY = "downloads_metadata";
 
 export interface DownloadMetadata {
   lectureId: string;
@@ -38,9 +42,9 @@ class DownloadsService {
 
   constructor() {
     // Only initialize in React Native environment (not during bundling)
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       // Create downloads directory in app's document storage
-      this.downloadsDirectory = new Directory(Paths.document, 'downloads');
+      this.downloadsDirectory = new Directory(Paths.document, "downloads");
 
       // Ensure downloads directory exists
       if (!this.downloadsDirectory.exists) {
@@ -59,26 +63,30 @@ class DownloadsService {
    * Load download metadata from AsyncStorage
    */
   private async loadMetadataCache(): Promise<void> {
-    if (typeof window === 'undefined') {
+    if (typeof window === "undefined") {
       this.isInitialized = true;
       return;
     }
 
     try {
-      console.log('📦 Downloads Service: Loading metadata from AsyncStorage...');
+      console.log(
+        "📦 Downloads Service: Loading metadata from AsyncStorage..."
+      );
       const stored = await AsyncStorage.getItem(DOWNLOADS_METADATA_KEY);
       if (stored) {
         const metadata: DownloadMetadata[] = JSON.parse(stored);
-        metadata.forEach(item => {
+        metadata.forEach((item) => {
           this.metadataCache.set(item.lectureId, item);
         });
-        console.log(`📦 Downloads Service: Loaded ${metadata.length} downloads from cache`);
+        console.log(
+          `📦 Downloads Service: Loaded ${metadata.length} downloads from cache`
+        );
       } else {
-        console.log('📦 Downloads Service: No cached downloads found');
+        console.log("📦 Downloads Service: No cached downloads found");
       }
       this.isInitialized = true;
     } catch (error) {
-      console.error('Failed to load downloads metadata:', error);
+      console.error("Failed to load downloads metadata:", error);
       this.isInitialized = true;
     }
   }
@@ -96,13 +104,16 @@ class DownloadsService {
    * Save metadata to AsyncStorage
    */
   private async saveMetadata(): Promise<void> {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
 
     try {
       const metadata = Array.from(this.metadataCache.values());
-      await AsyncStorage.setItem(DOWNLOADS_METADATA_KEY, JSON.stringify(metadata));
+      await AsyncStorage.setItem(
+        DOWNLOADS_METADATA_KEY,
+        JSON.stringify(metadata)
+      );
     } catch (error) {
-      console.error('Failed to save downloads metadata:', error);
+      console.error("Failed to save downloads metadata:", error);
     }
   }
 
@@ -143,14 +154,21 @@ class DownloadsService {
     episode: Episode,
     onProgress?: (progress: DownloadProgress) => void
   ): Promise<void> {
-    const { id: lectureId, audioUrl, title, lecturerName, coverUrl, durationSec } = episode;
+    const {
+      id: lectureId,
+      audioUrl,
+      title,
+      lecturerName,
+      coverUrl,
+      durationSec,
+    } = episode;
 
     if (!this.downloadsDirectory) {
-      throw new Error('Downloads directory not initialized');
+      throw new Error("Downloads directory not initialized");
     }
 
     if (!audioUrl) {
-      throw new Error('No audio URL provided');
+      throw new Error("No audio URL provided");
     }
 
     if (this.isDownloaded(lectureId)) {
@@ -160,7 +178,7 @@ class DownloadsService {
 
     const file = this.getDownloadFile(lectureId);
     if (!file) {
-      throw new Error('Could not create download file');
+      throw new Error("Could not create download file");
     }
 
     // Declare variables at function scope for error handling
@@ -168,14 +186,17 @@ class DownloadsService {
     let downloadUrl: string = audioUrl;
 
     try {
+      // Check storage access (permissions are handled automatically for app-specific directories)
+      // This is mainly for logging and ensuring the directory is accessible
+      await requestStoragePermission();
+
       console.log(`📥 Starting download for: ${title}`);
 
       // Add breadcrumb for download tracking
-      addSentryBreadcrumb(
-        `Starting download: ${title}`,
-        'download',
-        { lectureId, title }
-      );
+      addSentryBreadcrumb(`Starting download: ${title}`, "download", {
+        lectureId,
+        title,
+      });
 
       // STEP 1: Call backend API to increment download counter
       // This ensures download analytics are tracked on the server
@@ -196,9 +217,9 @@ class DownloadsService {
         ok: response.ok,
         url: response.url,
         headers: {
-          contentType: response.headers.get('content-type'),
-          contentLength: response.headers.get('content-length'),
-        }
+          contentType: response.headers.get("content-type"),
+          contentLength: response.headers.get("content-length"),
+        },
       });
 
       if (!response.ok) {
@@ -211,37 +232,121 @@ class DownloadsService {
       }
 
       // Get total size for progress tracking
-      const contentLength = response.headers.get('content-length');
+      const contentLength = response.headers.get("content-length");
       const totalBytes = contentLength ? parseInt(contentLength, 10) : 0;
 
-      // Read response as bytes and write to file
-      const bytes = await response.bytes();
+      // Initialize download tracking
+      let bytesDownloaded = 0;
+      let lastProgressUpdate = 0;
+      const PROGRESS_UPDATE_INTERVAL = 100; // Update progress every 100ms
+      const chunks: Uint8Array[] = [];
 
-      // Write the file (uses new SDK 54 API - no base64!)
-      await file.write(bytes);
+      console.log(
+        `📊 Starting streaming download: ${
+          totalBytes > 0 ? `${totalBytes} bytes total` : "unknown size"
+        }`
+      );
 
-      console.log(`✅ Download complete: ${title} (${bytes.length} bytes saved to local storage)`);
+      // Get the response stream
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error("Response body is not readable");
+      }
 
-      // Report completion
-      if (onProgress) {
-        onProgress({
-          lectureId,
-          progress: 1,
-          bytesDownloaded: bytes.length,
-          totalBytes: bytes.length,
-        });
+      try {
+        // Read the stream in chunks
+        while (true) {
+          const { done, value } = await reader.read();
+
+          if (done) {
+            break;
+          }
+
+          // Collect chunk for later writing
+          chunks.push(value);
+
+          // Update progress tracking
+          bytesDownloaded += value.length;
+
+          // Throttle progress updates to avoid too frequent callbacks
+          const now = Date.now();
+          if (now - lastProgressUpdate >= PROGRESS_UPDATE_INTERVAL) {
+            const progress = totalBytes > 0 ? bytesDownloaded / totalBytes : 0;
+
+            if (onProgress) {
+              onProgress({
+                lectureId,
+                progress: Math.min(progress, 0.99), // Don't report 100% until actually done
+                bytesDownloaded,
+                totalBytes: totalBytes > 0 ? totalBytes : bytesDownloaded, // Use downloaded as total if unknown
+              });
+            }
+
+            lastProgressUpdate = now;
+          }
+        }
+
+        // Combine all chunks into a single Uint8Array
+        const totalLength = chunks.reduce(
+          (sum, chunk) => sum + chunk.length,
+          0
+        );
+        const combinedBytes = new Uint8Array(totalLength);
+        let offset = 0;
+        for (const chunk of chunks) {
+          combinedBytes.set(chunk, offset);
+          offset += chunk.length;
+        }
+
+        // Write the complete file
+        // This may fail on older Android devices if permissions are not properly configured
+        try {
+          await file.write(combinedBytes);
+        } catch (writeError: any) {
+          // Check if this is a permission-related error
+          const errorMessage = writeError?.message || String(writeError);
+          if (
+            errorMessage.includes("permission") ||
+            errorMessage.includes("Permission") ||
+            errorMessage.includes("EACCES") ||
+            errorMessage.includes("access denied")
+          ) {
+            throw new Error(
+              "Unable to save file. Please check that the app has storage permissions enabled in your device settings."
+            );
+          }
+          // Re-throw other errors
+          throw writeError;
+        }
+
+        console.log(
+          `✅ Download complete: ${title} (${bytesDownloaded} bytes saved to local storage)`
+        );
+
+        // Report final completion
+        if (onProgress) {
+          onProgress({
+            lectureId,
+            progress: 1,
+            bytesDownloaded,
+            totalBytes: bytesDownloaded,
+          });
+        }
+      } finally {
+        // Always close the reader
+        reader.releaseLock();
       }
 
       // Save metadata
       const metadata: DownloadMetadata = {
         lectureId,
         title,
-        lecturerName: lecturerName || 'Unknown',
+        lecturerName: lecturerName || "Unknown",
         coverUrl,
-        audioUrl: downloadUrl || '', // Store original URL as fallback, default to empty string
+        audioUrl: downloadUrl || "", // Store original URL as fallback, default to empty string
         duration: durationSec,
         downloadedAt: new Date().toISOString(),
-        fileSize: bytes.length,
+        fileSize: bytesDownloaded,
       };
 
       this.metadataCache.set(lectureId, metadata);
@@ -252,9 +357,43 @@ class DownloadsService {
       if (metadataFile) {
         await metadataFile.write(JSON.stringify(metadata, null, 2));
       }
-
     } catch (error: any) {
       console.error(`Failed to download lecture ${lectureId}:`, error);
+
+      // Clean up partial download file if it exists
+      try {
+        if (file && file.exists) {
+          await file.delete();
+        }
+      } catch (cleanupError) {
+        console.warn("Failed to clean up partial download:", cleanupError);
+      }
+
+      // Determine if this is a permission-related error
+      const errorMessage = error?.message || String(error);
+      const isPermissionError =
+        errorMessage.includes("permission") ||
+        errorMessage.includes("Permission") ||
+        errorMessage.includes("Storage permission") ||
+        errorMessage.includes("storage permissions") ||
+        errorMessage.includes("EACCES") ||
+        errorMessage.includes("access denied");
+
+      // Create user-friendly error message
+      let userFriendlyMessage = errorMessage;
+      if (isPermissionError) {
+        userFriendlyMessage =
+          "Storage permission is required to download lectures. Please enable storage permission in your device settings and try again.";
+      } else if (errorMessage.includes("Network") || errorMessage.includes("fetch")) {
+        userFriendlyMessage =
+          "Unable to download lecture. Please check your internet connection and try again.";
+      } else if (errorMessage.includes("not found") || errorMessage.includes("404")) {
+        userFriendlyMessage =
+          "Lecture file not found. Please try again later or contact support if the issue persists.";
+      } else {
+        userFriendlyMessage =
+          errorMessage || "Failed to download lecture. Please try again.";
+      }
 
       // Report download errors to Sentry with full context
       captureSentryException(error, {
@@ -264,17 +403,17 @@ class DownloadsService {
         originalAudioUrl: audioUrl,
         apiResponseUrl: apiResponse?.url,
         attemptedDownloadUrl: downloadUrl,
-        apiResponse: apiResponse ? JSON.stringify(apiResponse) : 'null',
-        errorType: 'download_failed',
+        apiResponse: apiResponse ? JSON.stringify(apiResponse) : "null",
+        errorType: isPermissionError ? "permission_error" : "download_failed",
         errorMessage: error.message,
+        isPermissionError,
       });
 
-      // Clean up partial download
-      if (file.exists) {
-        file.delete();
-      }
-
-      throw error;
+      // Throw error with user-friendly message
+      const friendlyError = new Error(userFriendlyMessage);
+      (friendlyError as any).originalError = error;
+      (friendlyError as any).isPermissionError = isPermissionError;
+      throw friendlyError;
     }
   }
 
@@ -291,7 +430,7 @@ class DownloadsService {
     }
 
     // Return remote URL for online playback
-    return remoteUrl || '';
+    return remoteUrl || "";
   }
 
   /**
@@ -323,14 +462,15 @@ class DownloadsService {
     const allMetadata = Array.from(this.metadataCache.values());
 
     // Filter to only include lectures with existing files
-    const validDownloads = allMetadata.filter(metadata => {
+    const validDownloads = allMetadata.filter((metadata) => {
       const file = this.getDownloadFile(metadata.lectureId);
       return file && file.exists;
     });
 
     // Sort by download date (newest first)
-    return validDownloads.sort((a, b) =>
-      new Date(b.downloadedAt).getTime() - new Date(a.downloadedAt).getTime()
+    return validDownloads.sort(
+      (a, b) =>
+        new Date(b.downloadedAt).getTime() - new Date(a.downloadedAt).getTime()
     );
   }
 
@@ -346,7 +486,7 @@ class DownloadsService {
    */
   getTotalStorageUsed(): number {
     let total = 0;
-    this.metadataCache.forEach(metadata => {
+    this.metadataCache.forEach((metadata) => {
       total += metadata.fileSize || 0;
     });
     return total;
@@ -356,11 +496,11 @@ class DownloadsService {
    * Format bytes to human-readable format
    */
   formatBytes(bytes: number): string {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return "0 Bytes";
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
   }
 
   /**
@@ -368,7 +508,7 @@ class DownloadsService {
    */
   async clearAllDownloads(): Promise<void> {
     if (!this.downloadsDirectory) {
-      console.warn('Cannot clear downloads: directory not initialized');
+      console.warn("Cannot clear downloads: directory not initialized");
       return;
     }
 
@@ -383,7 +523,7 @@ class DownloadsService {
     this.metadataCache.clear();
     await this.saveMetadata();
 
-    console.log('Cleared all downloads');
+    console.log("Cleared all downloads");
   }
 }
 
