@@ -8,7 +8,7 @@ import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -64,18 +64,11 @@ const createEpisodeFromDetail = (detail: LectureDetail | null): Episode | null =
   };
 };
 
-const formatStat = (value?: number) =>
-  (value ?? 0).toLocaleString("en-US");
-
-const formatLabel = (label: string, value?: string) => {
-  if (!value) return null;
-  return `${label}: ${value}`;
-};
-
 const LectureDetailScreen: React.FC = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const lectureId = id ?? "";
   const { lecture, loading, error, refetch } = useLectureDetail(lectureId);
+  const router = useRouter();
 
   const {
     playEpisode,
@@ -83,7 +76,6 @@ const LectureDetailScreen: React.FC = () => {
     currentEpisode,
     isPlaying,
     progress: currentProgress,
-    duration: currentDuration,
   } = usePlayerStore();
 
   const {
@@ -285,7 +277,7 @@ const LectureDetailScreen: React.FC = () => {
         lectureId,
       });
     }
-  }, [lectureId, toggleFavorite, liked, router]);
+  }, [lectureId, toggleFavorite, liked, router, likeScale]);
 
   const handleShare = useCallback(() => {
     if (!lecture) return;
@@ -310,7 +302,7 @@ const LectureDetailScreen: React.FC = () => {
         level: 'warning',
       });
     });
-  }, [lecture]);
+  }, [lecture, id]);
 
   const handleSpeedChange = useCallback(() => {
     const speeds = [0.75, 1.0, 1.25, 1.5, 2.0];

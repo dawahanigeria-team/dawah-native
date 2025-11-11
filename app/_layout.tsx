@@ -59,7 +59,7 @@ function RootLayout() {
     };
 
     initialize();
-  }, [initializeAuth]);
+  }, []);
 
   // Handle deep links when app opens
   useEffect(() => {
