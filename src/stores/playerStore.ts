@@ -1,10 +1,11 @@
 import React, { useCallback } from "react";
 import { entity } from "simpler-state";
-import { Episode, PlayerState } from "../types/types";
 import type { AudioPlaybackControls } from "../hooks/useAudioPlayback";
+import { addSentryBreadcrumb, captureSentryException } from "../services/config/sentry.config";
 import { downloadsService } from "../services/downloads.service";
 import { historyService } from "../services/history.service";
-import { captureSentryException, addSentryBreadcrumb } from "../services/config/sentry.config";
+import { Episode, PlayerState } from "../types/types";
+import { setAndPersistPlayerState } from "./persistentPlayerStore";
 
 const initialState: PlayerState = {
   currentEpisode: null,
