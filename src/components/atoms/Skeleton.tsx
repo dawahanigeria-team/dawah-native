@@ -36,11 +36,10 @@ export const Skeleton: React.FC<SkeletonProps> = ({
     return () => animation.stop();
   }, [opacity]);
 
-  const skeletonStyle: ViewStyle = {
+  const skeletonStyle = {
     width,
     height,
     backgroundColor: designTokens.colors.system.background.secondary,
-    opacity,
     borderRadius:
       variant === "circle"
         ? typeof height === "number"
@@ -49,7 +48,11 @@ export const Skeleton: React.FC<SkeletonProps> = ({
         : designTokens.borderRadius.sm,
   };
 
-  return <Animated.View style={[styles.skeleton, skeletonStyle, style]} />;
+  const animatedStyle = {
+    opacity,
+  };
+
+  return <Animated.View style={[styles.skeleton, skeletonStyle, animatedStyle, style]} />;
 };
 
 const styles = StyleSheet.create({

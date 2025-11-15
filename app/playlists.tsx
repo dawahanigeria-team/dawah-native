@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../src/components/atoms';
-import { CardSkeleton } from '../src/components/molecules'; // Added this line
+import { CardSkeleton } from '../src/components/molecules';
 import { ApiError } from '../src/services/api/base.api';
 import { playlistApi } from '../src/services/api/playlist.api';
 import { useAuthStore } from '../src/stores/authStore';
