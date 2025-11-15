@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../src/components/atoms';
+import { CardSkeleton } from '../src/components/molecules';
 import { ApiError } from '../src/services/api/base.api';
 import { playlistApi } from '../src/services/api/playlist.api';
 import { useAuthStore } from '../src/stores/authStore';
@@ -83,8 +84,18 @@ export default function PlaylistsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: designTokens.colors.system.background.primary }}>
-        <ActivityIndicator size="large" color={designTokens.colors.brand.primary} />
+      <SafeAreaView style={{ flex: 1, backgroundColor: designTokens.colors.system.background.primary }}>
+        <View style={{ padding: designTokens.spacing.lg }}>
+          <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: designTokens.spacing.lg, alignSelf: 'flex-start' }}>
+            <Ionicons name="arrow-back" size={24} color={designTokens.colors.system.label.primary} />
+          </TouchableOpacity>
+          <Text style={{ fontSize: designTokens.typography.fontSize.title1, fontWeight: 'bold', color: designTokens.colors.system.label.primary }}>Playlists</Text>
+          <View style={{ marginTop: designTokens.spacing.lg }}>
+            {[...Array(5)].map((_, index) => (
+              <CardSkeleton key={`skeleton-${index}`} variant="list" />
+            ))}
+          </View>
+        </View>
       </SafeAreaView>
     );
   }

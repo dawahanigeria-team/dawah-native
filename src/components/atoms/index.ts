@@ -7,3 +7,4 @@ export { Icon } from "./Icon";
 export { Loading } from "./Loading";
 export { Text } from "./Text";
 export { Touchable } from "./Touchable";
+export { Skeleton } from "./Skeleton";

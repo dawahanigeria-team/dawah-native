@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LecturerCard } from "../src/components/molecules/LecturerCard";
+import { LecturerCardSkeleton } from "../src/components/molecules/LecturerCard.skeleton";
 import { lecturersApi, Lecturer } from "../src/services/api/lecturers.api";
 import { designTokens } from "../src/theme/designTokens";
 import tw from "../src/theme/twrnc";
@@ -482,20 +483,19 @@ export default function LecturersScreen() {
       </View>
 
       {loading && lecturers.length === 0 ? (
-        <View style={tw`flex-1 items-center justify-center`}>
-          <ActivityIndicator
-            size="large"
-            color={designTokens.colors.brand.primary}
-          />
-          <Text
-            style={[
-              tw`mt-3`,
-              { color: designTokens.colors.system.label.secondary },
-            ]}
-          >
-            Loading scholars...
-          </Text>
-        </View>
+        <FlatList
+          data={Array.from({ length: 10 })}
+          keyExtractor={(_, index) => `skeleton-${index}`}
+          renderItem={() => (
+            <View style={tw`w-1/2 px-2 mb-6`}>
+              <LecturerCardSkeleton />
+            </View>
+          )}
+          numColumns={2}
+          contentContainerStyle={tw`px-3 pb-10`}
+          columnWrapperStyle={tw`justify-between`}
+          showsVerticalScrollIndicator={false}
+        />
       ) : (
         <FlatList
           data={filteredLecturers}
