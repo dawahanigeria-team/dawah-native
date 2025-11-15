@@ -8,24 +8,24 @@ import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    Linking,
-    ScrollView,
-    Share,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Linking,
+  ScrollView,
+  Share,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import Animated, {
-    Extrapolate,
-    interpolate,
-    useAnimatedStyle,
-    useSharedValue,
-    withSpring,
+  Extrapolate,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -33,11 +33,13 @@ import { Button, Chip, Text, Touchable } from "../../src/components/atoms";
 import AddToPlaylistModal from "../../src/components/organisms/AddToPlaylistModal";
 import { useLectureDetail } from "../../src/hooks/useLectureDetail";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
+import { linkingService } from "../../src/services/linking.service";
 import { useAuthStore, useDownloadsStore, useFavoritesStore, usePlayerStore } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import type { LectureDetail } from "../../src/types/api.types";
 import type { Episode } from "../../src/types/types";
+import { appendShareSignature } from "../../src/utils/shareMessage";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HEADER_HEIGHT = 420;
@@ -62,18 +64,11 @@ const createEpisodeFromDetail = (detail: LectureDetail | null): Episode | null =
   };
 };
 
-const formatStat = (value?: number) =>
-  (value ?? 0).toLocaleString("en-US");
-
-const formatLabel = (label: string, value?: string) => {
-  if (!value) return null;
-  return `${label}: ${value}`;
-};
-
 const LectureDetailScreen: React.FC = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const lectureId = id ?? "";
   const { lecture, loading, error, refetch } = useLectureDetail(lectureId);
+  const router = useRouter();
 
   const {
     playEpisode,
@@ -81,7 +76,6 @@ const LectureDetailScreen: React.FC = () => {
     currentEpisode,
     isPlaying,
     progress: currentProgress,
-    duration: currentDuration,
   } = usePlayerStore();
 
   const {
@@ -283,19 +277,21 @@ const LectureDetailScreen: React.FC = () => {
         lectureId,
       });
     }
-  }, [lectureId, toggleFavorite, liked, router]);
+  }, [lectureId, toggleFavorite, liked, router, likeScale]);
 
   const handleShare = useCallback(() => {
     if (!lecture) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    const message = lecture.audioUrl
-      ? `Check out: ${lecture.title} by ${lecture.lecturerName || 'Unknown'}\n\nListen: ${lecture.audioUrl}`
-      : `Check out: ${lecture.title}${lecture.lecturerName ? ` by ${lecture.lecturerName}` : ''}`;
+    const webLink = linkingService.createLectureLink(lecture.id);
+
+    const baseMessage = `🎧 ${lecture.title}\n👤 ${lecture.lecturerName || 'Dawah Nigeria'}\n\n${webLink}`;
+    const message = appendShareSignature(baseMessage);
 
     Share.share({
       title: lecture.title,
       message,
+      url: webLink, // iOS will use this for sharing
     }).catch((shareError) => {
       console.warn("Failed to share lecture", shareError);
       captureSentryException(shareError, {
@@ -306,7 +302,7 @@ const LectureDetailScreen: React.FC = () => {
         level: 'warning',
       });
     });
-  }, [lecture]);
+  }, [lecture, id]);
 
   const handleSpeedChange = useCallback(() => {
     const speeds = [0.75, 1.0, 1.25, 1.5, 2.0];

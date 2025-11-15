@@ -4,7 +4,7 @@
  */
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Directory, File, Paths } from "expo-file-system";
+import { Directory, File, FileHandle, Paths } from "expo-file-system";
 import { fetch } from "expo/fetch";
 import type { Episode } from "../types/types";
 import { requestStoragePermission } from "../utils/permissions";
@@ -239,7 +239,7 @@ class DownloadsService {
       let bytesDownloaded = 0;
       let lastProgressUpdate = 0;
       const PROGRESS_UPDATE_INTERVAL = 100; // Update progress every 100ms
-      const chunks: Uint8Array[] = [];
+      let fileHandle: FileHandle | null = null;
 
       console.log(
         `📊 Starting streaming download: ${
@@ -254,6 +254,18 @@ class DownloadsService {
       }
 
       try {
+        try {
+          // Ensure destination file exists and is truncated before writing
+          file.create({ intermediates: true, overwrite: true });
+          fileHandle = file.open();
+        } catch (fileInitError) {
+          throw new Error(
+            `Unable to prepare download file: ${
+              (fileInitError as Error).message || fileInitError
+            }`
+          );
+        }
+
         // Read the stream in chunks
         while (true) {
           const { done, value } = await reader.read();
@@ -262,8 +274,12 @@ class DownloadsService {
             break;
           }
 
-          // Collect chunk for later writing
-          chunks.push(value);
+          if (!value || !fileHandle) {
+            continue;
+          }
+
+          // Stream chunk directly to disk
+          fileHandle.writeBytes(value);
 
           // Update progress tracking
           bytesDownloaded += value.length;
@@ -286,39 +302,6 @@ class DownloadsService {
           }
         }
 
-        // Combine all chunks into a single Uint8Array
-        const totalLength = chunks.reduce(
-          (sum, chunk) => sum + chunk.length,
-          0
-        );
-        const combinedBytes = new Uint8Array(totalLength);
-        let offset = 0;
-        for (const chunk of chunks) {
-          combinedBytes.set(chunk, offset);
-          offset += chunk.length;
-        }
-
-        // Write the complete file
-        // This may fail on older Android devices if permissions are not properly configured
-        try {
-          await file.write(combinedBytes);
-        } catch (writeError: any) {
-          // Check if this is a permission-related error
-          const errorMessage = writeError?.message || String(writeError);
-          if (
-            errorMessage.includes("permission") ||
-            errorMessage.includes("Permission") ||
-            errorMessage.includes("EACCES") ||
-            errorMessage.includes("access denied")
-          ) {
-            throw new Error(
-              "Unable to save file. Please check that the app has storage permissions enabled in your device settings."
-            );
-          }
-          // Re-throw other errors
-          throw writeError;
-        }
-
         console.log(
           `✅ Download complete: ${title} (${bytesDownloaded} bytes saved to local storage)`
         );
@@ -333,8 +316,19 @@ class DownloadsService {
           });
         }
       } finally {
-        // Always close the reader
-        reader.releaseLock();
+        // Always close the reader and file handle
+        try {
+          reader.releaseLock();
+        } catch (releaseError) {
+          console.warn('Failed to release download reader lock', releaseError);
+        }
+        if (fileHandle) {
+          try {
+            fileHandle.close();
+          } catch (closeError) {
+            console.warn('Failed to close download file handle', closeError);
+          }
+        }
       }
 
       // Save metadata

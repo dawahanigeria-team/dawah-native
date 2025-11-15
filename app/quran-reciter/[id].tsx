@@ -17,6 +17,8 @@ import { addSentryBreadcrumb, captureSentryException } from '../../src/services/
 import { usePlayerStore } from '../../src/stores';
 import { designTokens } from '../../src/theme/designTokens';
 import { Episode } from '../../src/types/types';
+import { linkingService } from '../../src/services/linking.service';
+import { appendShareSignature } from '../../src/utils/shareMessage';
 
 const QuranReciterScreen: React.FC = () => {
   const router = useRouter();
@@ -184,14 +186,18 @@ const QuranReciterScreen: React.FC = () => {
 
       const recitationCount = recitations.length;
 
-      const message = `🕌 Quran Recitations\n\n` +
+      const webLink = linkingService.createQuranReciterLink(String(album.id));
+      const baseMessage = `🕌 Quran Recitations\n\n` +
         `📖 ${album.name}\n\n` +
         `🎙️ ${recitationCount} ${recitationCount === 1 ? 'recitation' : 'recitations'}\n\n` +
-        `Listen on Dawah Nigeria app`;
+        `Listen on Dawah Nigeria app\n\n` +
+        `${webLink}`;
+      const message = appendShareSignature(baseMessage);
 
       await Share.share({
         title: album.name,
         message,
+        url: webLink,
       });
 
       addSentryBreadcrumb('Quran reciter shared successfully', 'user', {

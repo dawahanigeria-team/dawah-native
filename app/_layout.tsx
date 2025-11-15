@@ -1,20 +1,21 @@
 import { Stack, usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
-import { View } from "react-native";
+import { useEffect, useRef } from "react";
+import { Linking, View } from "react-native";
 
 import { useStorageState } from "../src/hooks/useStorageState";
-import { playerStore } from "../src/stores/playerStore";
 
 import { ErrorBoundary } from "../src/components/atoms";
 import { Loading } from "../src/components/atoms/Loading";
 import { MiniPlayer } from "../src/components/organisms";
 import { AudioProvider } from "../src/components/providers/AudioProvider";
 import { initSentry, Sentry } from "../src/services/config/sentry.config";
-import { fetchFavorites } from "../src/stores/favoritesStore";
+import { downloadsService } from "../src/services/downloads.service";
+import { linkingService } from "../src/services/linking.service";
 import { userService } from "../src/services/user.service";
-import { useAuthStore } from "../src/stores/authStore";
-import { downloadsService } from "../src/services/downloads.service"; 
+import { initializeAuth } from "../src/stores/authStore";
+import { fetchFavorites } from "../src/stores/favoritesStore";
+ 
 
 // Initialize Sentry as early as possible
 initSentry();
@@ -24,12 +25,18 @@ const PLAYER_STATE_KEY = "PLAYER_STATE";
 
 function RootLayout() {
   const pathname = usePathname();
-  const { initializeAuth } = useAuthStore(); 
+  const router = useRouter();
   const [isNavigationLoading] = useStorageState(NAVIGATION_PERSISTENCE_KEY);
   const [isPlayerStateLoading] = useStorageState(PLAYER_STATE_KEY);
+  const hasInitializedApp = useRef(false);
 
   // Initialize user, auth, and favorites on app start
   useEffect(() => {
+    if (hasInitializedApp.current) {
+      return;
+    }
+    hasInitializedApp.current = true;
+
     const initialize = async () => {
       try {
         // Initialize authentication state
@@ -53,6 +60,38 @@ function RootLayout() {
 
     initialize();
   }, []);
+
+  // Handle deep links when app opens
+  useEffect(() => {
+    const handleDeepLink = async () => {
+      // Check if app was opened with a URL
+      const initialUrl = await linkingService.getInitialURL();
+      if (initialUrl) {
+        console.log('🔗 App opened with URL:', initialUrl);
+        const parsed = linkingService.parseURL(initialUrl);
+        if (parsed && parsed.path) {
+          console.log('🔗 Navigating to:', parsed.path);
+          router.push(`/${parsed.path}` as any);
+        }
+      }
+    };
+
+    handleDeepLink();
+
+    // Listen for deep links while app is running
+    const subscription = Linking.addEventListener('url', (event) => {
+      console.log('🔗 Deep link received:', event.url);
+      const parsed = linkingService.parseURL(event.url);
+      if (parsed && parsed.path) {
+        console.log('🔗 Navigating to:', parsed.path);
+        router.push(`/${parsed.path}` as any);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [router]);
 
   // Hide mini player on lecture detail page since it has full playback controls
   const shouldShowMiniPlayer = !pathname.startsWith("/lecture/");
