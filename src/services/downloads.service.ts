@@ -1,14 +1,15 @@
 /**
- * Downloads Service - Phase 1: Basic Download
- * Uses new expo-file-system SDK 54 API with File/Directory classes
+ * Downloads Service - Phase 2: Resumable Downloads
+ * Uses expo-file-system's DownloadResumable for pausable/resumable downloads.
  */
 
-import { fetch } from 'expo/fetch';
 import { Directory, File, Paths } from 'expo-file-system';
+import { createDownloadResumable } from 'expo-file-system/legacy';
+import * as MediaLibrary from 'expo-media-library';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Episode } from '../types/types';
 import { downloadsApi } from './api/downloads.api';
-import { captureSentryException, addSentryBreadcrumb } from './config/sentry.config';
+import { captureSentryException } from './config/sentry.config';
 
 const DOWNLOADS_METADATA_KEY = 'downloads_metadata';
 
@@ -17,10 +18,11 @@ export interface DownloadMetadata {
   title: string;
   lecturerName: string;
   coverUrl?: string;
-  audioUrl?: string; // Store original remote URL as fallback
+  audioUrl?: string;
   duration: number;
   downloadedAt: string;
   fileSize?: number;
+  resumableData?: string; // To store resumable state
 }
 
 export interface DownloadProgress {
@@ -30,362 +32,257 @@ export interface DownloadProgress {
   totalBytes: number;
 }
 
+export interface ResumableDownload {
+  id: string;
+  downloader: FileSystem.DownloadResumable;
+  episode: Episode;
+  progressCallback: (progress: DownloadProgress) => void;
+}
+
 class DownloadsService {
-  private downloadsDirectory!: Directory;
+  private downloadsDirectory: Directory;
   private metadataCache: Map<string, DownloadMetadata> = new Map();
+  private activeDownloads: Map<string, ResumableDownload> = new Map();
   private isInitialized = false;
   private initPromise: Promise<void> | null = null;
 
   constructor() {
-    // Only initialize in React Native environment (not during bundling)
-    if (typeof window !== 'undefined') {
-      // Create downloads directory in app's document storage
-      this.downloadsDirectory = new Directory(Paths.document, 'downloads');
+    this.downloadsDirectory = new Directory(Paths.document, 'downloads');
+    this.initPromise = this.initialize();
+  }
 
-      // Ensure downloads directory exists
-      if (!this.downloadsDirectory.exists) {
-        this.downloadsDirectory.create();
-      }
+  private async initialize(): Promise<void> {
+    await this.ensureDirExists();
+    await this.loadMetadataCache();
+    this.isInitialized = true;
+    console.log('📦 Downloads Service Initialized');
+  }
 
-      // Start loading metadata cache
-      this.initPromise = this.loadMetadataCache();
-    } else {
-      // During bundling/export, mark as initialized to avoid errors
-      this.isInitialized = true;
+  private async ensureDirExists(): Promise<void> {
+    if (!this.downloadsDirectory.exists) {
+      await this.downloadsDirectory.create();
     }
   }
 
-  /**
-   * Load download metadata from AsyncStorage
-   */
   private async loadMetadataCache(): Promise<void> {
-    if (typeof window === 'undefined') {
-      this.isInitialized = true;
-      return;
-    }
-
     try {
-      console.log('📦 Downloads Service: Loading metadata from AsyncStorage...');
       const stored = await AsyncStorage.getItem(DOWNLOADS_METADATA_KEY);
       if (stored) {
         const metadata: DownloadMetadata[] = JSON.parse(stored);
-        metadata.forEach(item => {
-          this.metadataCache.set(item.lectureId, item);
-        });
-        console.log(`📦 Downloads Service: Loaded ${metadata.length} downloads from cache`);
-      } else {
-        console.log('📦 Downloads Service: No cached downloads found');
+        metadata.forEach(item => this.metadataCache.set(item.lectureId, item));
       }
-      this.isInitialized = true;
     } catch (error) {
       console.error('Failed to load downloads metadata:', error);
-      this.isInitialized = true;
     }
   }
 
-  /**
-   * Ensure the service is initialized before using
-   */
   async ensureInitialized(): Promise<void> {
     if (this.initPromise) {
       await this.initPromise;
     }
   }
 
-  /**
-   * Save metadata to AsyncStorage
-   */
   private async saveMetadata(): Promise<void> {
-    if (typeof window === 'undefined') return;
-
-    try {
-      const metadata = Array.from(this.metadataCache.values());
-      await AsyncStorage.setItem(DOWNLOADS_METADATA_KEY, JSON.stringify(metadata));
-    } catch (error) {
-      console.error('Failed to save downloads metadata:', error);
-    }
+    const metadata = Array.from(this.metadataCache.values());
+    await AsyncStorage.setItem(DOWNLOADS_METADATA_KEY, JSON.stringify(metadata));
   }
 
-  /**
-   * Get the file path for a downloaded lecture
-   */
-  private getDownloadFile(lectureId: string): File | null {
-    if (!this.downloadsDirectory) return null;
+  private getDownloadFile(lectureId: string): File {
     return new File(this.downloadsDirectory, `${lectureId}.mp3`);
   }
 
-  /**
-   * Get the metadata file for a lecture
-   */
-  private getMetadataFile(lectureId: string): File | null {
-    if (!this.downloadsDirectory) return null;
-    return new File(this.downloadsDirectory, `${lectureId}.json`);
+  private getPartialDownloadFile(lectureId: string): File {
+    return new File(this.downloadsDirectory, `${lectureId}.part`);
   }
 
-  /**
-   * Check if a lecture is downloaded
-   */
   isDownloaded(lectureId: string): boolean {
     const file = this.getDownloadFile(lectureId);
-    return file ? file.exists : false;
+    return file.exists && this.metadataCache.has(lectureId) && !this.metadataCache.get(lectureId)?.resumableData;
   }
 
-  /**
-   * Download a lecture
-   *
-   * Two-step process:
-   * 1. Call backend API (download_api.php) to increment download counter
-   * 2. Download the actual MP3 file to local storage
-   *
-   * This ensures the backend tracks download analytics correctly.
-   */
-  async downloadLecture(
-    episode: Episode,
-    onProgress?: (progress: DownloadProgress) => void
-  ): Promise<void> {
-    const { id: lectureId, audioUrl, title, lecturerName, coverUrl, durationSec } = episode;
-
-    if (!this.downloadsDirectory) {
-      throw new Error('Downloads directory not initialized');
+  public async requestPermissionsAsync(): Promise<boolean> {
+    const { status } = await MediaLibrary.requestPermissionsAsync();
+    if (status !== 'granted') {
+      console.error('Storage permissions not granted');
+      return false;
     }
+    return true;
+  }
+
+  public async hasEnoughStorage(requiredBytes: number): Promise<boolean> {
+    const freeDiskStorage = await Directory.getFreeDiskStorageAsync();
+    return freeDiskStorage > requiredBytes;
+  }
+
+  async createDownload(
+    episode: Episode,
+    onProgress: (progress: DownloadProgress) => void
+  ): Promise<ResumableDownload | null> {
+    const { id: lectureId, audioUrl } = episode;
 
     if (!audioUrl) {
       throw new Error('No audio URL provided');
     }
 
-    if (this.isDownloaded(lectureId)) {
-      console.log(`Lecture ${lectureId} is already downloaded`);
-      return;
+    const hasPermissions = await this.requestPermissionsAsync();
+    if (!hasPermissions) {
+      throw new Error('Storage permissions not granted.');
     }
-
-    const file = this.getDownloadFile(lectureId);
-    if (!file) {
-      throw new Error('Could not create download file');
-    }
-
-    // Declare variables at function scope for error handling
-    let apiResponse: any = null;
-    let downloadUrl: string = audioUrl;
 
     try {
-      console.log(`📥 Starting download for: ${title}`);
+      const apiResponse = await downloadsApi.incrementDownloadCounter(lectureId);
+      const downloadUrl = apiResponse.url || audioUrl;
 
-      // Add breadcrumb for download tracking
-      addSentryBreadcrumb(
-        `Starting download: ${title}`,
-        'download',
-        { lectureId, title }
-      );
+      const partialFile = this.getPartialDownloadFile(lectureId);
+      const resumableData = this.metadataCache.get(lectureId)?.resumableData;
 
-      // STEP 1: Call backend API to increment download counter
-      // This ensures download analytics are tracked on the server
-      console.log(`📊 Incrementing download counter for lecture: ${lectureId}`);
-      apiResponse = await downloadsApi.incrementDownloadCounter(lectureId);
-
-      // Use the URL from API response (may have updated metadata)
-      downloadUrl = apiResponse.url || audioUrl;
-      console.log(`🔗 Download URL: ${downloadUrl}`);
-
-      // STEP 2: Download the MP3 file to local storage using expo/fetch
-      console.log(`📡 Fetching MP3 from: ${downloadUrl}`);
-      const response = await fetch(downloadUrl);
-
-      console.log(`📊 Download response:`, {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        url: response.url,
-        headers: {
-          contentType: response.headers.get('content-type'),
-          contentLength: response.headers.get('content-length'),
-        }
-      });
-
-      if (!response.ok) {
-        const errorMessage = `Download failed (${response.status}): ${response.statusText}`;
-        console.error(`❌ ${errorMessage}`);
-        console.error(`   URL attempted: ${downloadUrl}`);
-        console.error(`   Lecture ID: ${lectureId}`);
-
-        throw new Error(errorMessage);
-      }
-
-      // Get total size for progress tracking
-      const contentLength = response.headers.get('content-length');
-      const totalBytes = contentLength ? parseInt(contentLength, 10) : 0;
-
-      // Read response as bytes and write to file
-      const bytes = await response.bytes();
-
-      // Write the file (uses new SDK 54 API - no base64!)
-      await file.write(bytes);
-
-      console.log(`✅ Download complete: ${title} (${bytes.length} bytes saved to local storage)`);
-
-      // Report completion
-      if (onProgress) {
+      const progressCallback = (p: FileSystem.DownloadProgressData) => {
         onProgress({
           lectureId,
-          progress: 1,
-          bytesDownloaded: bytes.length,
-          totalBytes: bytes.length,
+          progress: p.totalBytesWritten / p.totalBytesExpectedToWrite,
+          bytesDownloaded: p.totalBytesWritten,
+          totalBytes: p.totalBytesExpectedToWrite,
         });
-      }
-
-      // Save metadata
-      const metadata: DownloadMetadata = {
-        lectureId,
-        title,
-        lecturerName: lecturerName || 'Unknown',
-        coverUrl,
-        audioUrl: downloadUrl || '', // Store original URL as fallback, default to empty string
-        duration: durationSec,
-        downloadedAt: new Date().toISOString(),
-        fileSize: bytes.length,
       };
 
-      this.metadataCache.set(lectureId, metadata);
-      await this.saveMetadata();
+      const downloader = createDownloadResumable(
+        downloadUrl,
+        partialFile.uri,
+        {},
+        progressCallback,
+        resumableData
+      );
 
-      // Also save metadata as JSON file for reference
-      const metadataFile = this.getMetadataFile(lectureId);
-      if (metadataFile) {
-        await metadataFile.write(JSON.stringify(metadata, null, 2));
-      }
+      const resumableDownload: ResumableDownload = { id: lectureId, downloader, episode, progressCallback };
+      this.activeDownloads.set(lectureId, resumableDownload);
+      return resumableDownload;
 
-    } catch (error: any) {
-      console.error(`Failed to download lecture ${lectureId}:`, error);
-
-      // Report download errors to Sentry with full context
-      captureSentryException(error, {
-        lectureId,
-        title,
-        lecturerName,
-        originalAudioUrl: audioUrl,
-        apiResponseUrl: apiResponse?.url,
-        attemptedDownloadUrl: downloadUrl,
-        apiResponse: apiResponse ? JSON.stringify(apiResponse) : 'null',
-        errorType: 'download_failed',
-        errorMessage: error.message,
-      });
-
-      // Clean up partial download
-      if (file.exists) {
-        file.delete();
-      }
-
+    } catch (error) {
+      console.error(`Failed to create download for ${lectureId}:`, error);
+      captureSentryException(error, { lectureId, audioUrl });
       throw error;
     }
   }
 
-  /**
-   * Get the local file URI for playback
-   * Returns the downloaded file if available, otherwise returns the remote URL
-   */
+  async startDownload(download: ResumableDownload): Promise<void> {
+    const { id: lectureId, downloader, episode } = download;
+    try {
+      const result = await downloader.downloadAsync();
+      if (result) {
+        const finalFile = this.getDownloadFile(lectureId);
+        const partialFile = new File(this.downloadsDirectory, result.uri.split('/').pop()!);
+        await partialFile.move(finalFile);
+
+        const metadata: DownloadMetadata = {
+          lectureId,
+          title: episode.title,
+          lecturerName: episode.lecturerName || 'Unknown',
+          coverUrl: episode.coverUrl,
+          audioUrl: episode.audioUrl,
+          duration: episode.durationSec,
+          downloadedAt: new Date().toISOString(),
+          fileSize: result.size,
+          resumableData: undefined,
+        };
+        this.metadataCache.set(lectureId, metadata);
+        await this.saveMetadata();
+        this.activeDownloads.delete(lectureId);
+      }
+    } catch (error: any) {
+      console.error(`Download failed for ${lectureId}:`, error);
+      captureSentryException(error, { lectureId });
+      if (error.userInfo?.resumableData) {
+        this.saveResumableData(lectureId, error.userInfo.resumableData);
+      }
+      throw error;
+    }
+  }
+
+  async pauseDownload(lectureId: string): Promise<void> {
+    const download = this.activeDownloads.get(lectureId);
+    if (download) {
+      try {
+        await download.downloader.pauseAsync();
+        this.saveResumableData(lectureId, download.downloader.savable());
+        console.log(`Paused download: ${lectureId}`);
+      } catch (error) {
+        console.error(`Failed to pause download ${lectureId}:`, error);
+        captureSentryException(error, { lectureId });
+      }
+    }
+  }
+
+  async cancelDownload(lectureId: string): Promise<void> {
+    const download = this.activeDownloads.get(lectureId);
+    if (download) {
+      try {
+        await download.downloader.cancelAsync();
+      } catch (error) {
+        console.error(`Failed to cancel download ${lectureId}:`, error);
+      }
+      this.activeDownloads.delete(lectureId);
+    }
+    await this.deleteLecture(lectureId);
+  }
+
+  private async saveResumableData(lectureId: string, resumableData: any): Promise<void> {
+    const metadata = this.metadataCache.get(lectureId) || { lectureId, downloadedAt: '' };
+    const updatedMetadata = { ...metadata, resumableData: JSON.stringify(resumableData) };
+    this.metadataCache.set(lectureId, updatedMetadata as DownloadMetadata);
+    await this.saveMetadata();
+  }
+
   getPlaybackUri(lectureId: string, remoteUrl?: string): string {
     const file = this.getDownloadFile(lectureId);
-
-    if (file && file.exists) {
-      // Return the local file URI for offline playback
+    if (file.exists) {
       return file.uri;
     }
-
-    // Return remote URL for online playback
     return remoteUrl || '';
   }
 
-  /**
-   * Delete a downloaded lecture
-   */
   async deleteLecture(lectureId: string): Promise<void> {
-    const file = this.getDownloadFile(lectureId);
-    const metadataFile = this.getMetadataFile(lectureId);
-
-    if (file && file.exists) {
-      file.delete();
-    }
-
-    if (metadataFile && metadataFile.exists) {
-      metadataFile.delete();
-    }
-
+    await this.deleteFileIfExists(this.getDownloadFile(lectureId));
+    await this.deleteFileIfExists(this.getPartialDownloadFile(lectureId));
     this.metadataCache.delete(lectureId);
     await this.saveMetadata();
-
-    console.log(`Deleted download: ${lectureId}`);
   }
 
-  /**
-   * Get all downloaded lectures
-   * Only returns lectures whose files actually exist
-   */
+  private async deleteFileIfExists(file: File): Promise<void> {
+    if (file.exists) {
+      await file.delete();
+    }
+  }
+
   getDownloadedLectures(): DownloadMetadata[] {
-    const allMetadata = Array.from(this.metadataCache.values());
-
-    // Filter to only include lectures with existing files
-    const validDownloads = allMetadata.filter(metadata => {
-      const file = this.getDownloadFile(metadata.lectureId);
-      return file && file.exists;
-    });
-
-    // Sort by download date (newest first)
-    return validDownloads.sort((a, b) =>
-      new Date(b.downloadedAt).getTime() - new Date(a.downloadedAt).getTime()
-    );
+    return Array.from(this.metadataCache.values())
+      .filter(m => this.isDownloaded(m.lectureId))
+      .sort((a, b) => new Date(b.downloadedAt).getTime() - new Date(a.downloadedAt).getTime());
   }
 
-  /**
-   * Get download metadata for a specific lecture
-   */
   getDownloadMetadata(lectureId: string): DownloadMetadata | null {
     return this.metadataCache.get(lectureId) || null;
   }
 
-  /**
-   * Get total storage used by downloads
-   */
   getTotalStorageUsed(): number {
-    let total = 0;
-    this.metadataCache.forEach(metadata => {
-      total += metadata.fileSize || 0;
-    });
-    return total;
+    return Array.from(this.metadataCache.values()).reduce((acc, m) => acc + (m.fileSize || 0), 0);
   }
 
-  /**
-   * Format bytes to human-readable format
-   */
   formatBytes(bytes: number): string {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+    return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
   }
 
-  /**
-   * Clear all downloads
-   */
   async clearAllDownloads(): Promise<void> {
-    if (!this.downloadsDirectory) {
-      console.warn('Cannot clear downloads: directory not initialized');
-      return;
+    if(this.downloadsDirectory.exists) {
+        await this.downloadsDirectory.delete();
     }
-
-    const items = this.downloadsDirectory.list();
-
-    for (const item of items) {
-      if (item instanceof File) {
-        item.delete();
-      }
-    }
-
+    await this.ensureDirExists();
     this.metadataCache.clear();
     await this.saveMetadata();
-
-    console.log('Cleared all downloads');
   }
 }
 
-// Export singleton instance
 export const downloadsService = new DownloadsService();
