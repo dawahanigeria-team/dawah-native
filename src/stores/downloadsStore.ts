@@ -10,13 +10,13 @@ import { downloadQueueService, QueuedDownload, DownloadStatus } from '../service
 import type { Episode } from '../types/types';
 
 export interface DownloadState {
-  queue: QueuedDownload[];
+  queue: Map<string, QueuedDownload>;
   downloads: DownloadMetadata[];
   isLoading: boolean;
 }
 
 const initialState: DownloadState = {
-  queue: [],
+  queue: new Map(),
   downloads: [],
   isLoading: true,
 };
@@ -41,15 +41,26 @@ if (typeof window !== 'undefined') {
 export const useDownloadsStore = () => {
   const state = downloadsStore.use();
 
-  // Periodically refresh queue state from the service
+  // Subscribe to service updates
   useEffect(() => {
-    const interval = setInterval(() => {
-      const queue = downloadQueueService.getQueue();
+    const updateDownloads = () => {
       const downloads = downloadsService.getDownloadedLectures();
-      downloadsStore.set(prev => ({ ...prev, queue, downloads }));
-    }, 1000); // Refresh every second
+      downloadsStore.set(prev => ({ ...prev, downloads }));
+    };
 
-    return () => clearInterval(interval);
+    const updateQueue = () => {
+      const queueArray = downloadQueueService.getQueue();
+      const queueMap = new Map(queueArray.map(item => [item.id, item]));
+      downloadsStore.set(prev => ({ ...prev, queue: queueMap }));
+    };
+
+    const unsubscribeDownloads = downloadsService.subscribe(updateDownloads);
+    const unsubscribeQueue = downloadQueueService.subscribe(updateQueue);
+
+    return () => {
+      unsubscribeDownloads();
+      unsubscribeQueue();
+    };
   }, []);
 
   const addToQueue = useCallback((episode: Episode) => {
@@ -82,7 +93,7 @@ export const useDownloadsStore = () => {
   }, []);
 
   const getDownloadStatus = useCallback((lectureId: string): DownloadStatus | null => {
-    const download = state.queue.find(d => d.id === lectureId);
+    const download = state.queue.get(lectureId);
     return download?.status || null;
   }, [state.queue]);
 
@@ -92,7 +103,7 @@ export const useDownloadsStore = () => {
   }, [getDownloadStatus]);
   
   const getQueuedDownload = useCallback((lectureId: string): QueuedDownload | null => {
-    return state.queue.find(d => d.id === lectureId) || null;
+    return state.queue.get(lectureId) || null;
   }, [state.queue]);
 
   const getDownloadProgress = useCallback((lectureId: string): number => {
@@ -106,8 +117,9 @@ export const useDownloadsStore = () => {
   const refreshDownloads = useCallback(async () => {
     await downloadsService.ensureInitialized();
     const downloads = downloadsService.getDownloadedLectures();
-    const queue = downloadQueueService.getQueue();
-    downloadsStore.set(prev => ({ ...prev, downloads, queue }));
+    const queueArray = downloadQueueService.getQueue();
+    const queueMap = new Map(queueArray.map(item => [item.id, item]));
+    downloadsStore.set(prev => ({ ...prev, downloads, queue: queueMap }));
   }, []);
 
   const getTotalStorageUsed = useCallback((): string => {
@@ -118,7 +130,7 @@ export const useDownloadsStore = () => {
     await downloadQueueService.pauseAll();
     await downloadsService.clearAllDownloads();
     downloadsStore.set({
-      queue: [],
+      queue: new Map(),
       downloads: [],
       isLoading: false,
     });

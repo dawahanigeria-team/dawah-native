@@ -33,6 +33,7 @@ import AddToPlaylistModal from "../../src/components/organisms/AddToPlaylistModa
 import { useLectureDetail } from "../../src/hooks/useLectureDetail";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
 import { DownloadStatus } from "../../src/services/downloads/downloadQueue.service";
+import { useAuthStore, useDownloadsStore, useFavoritesStore, usePlayerStore } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import type { LectureDetail } from "../../src/types/api.types";
@@ -61,13 +62,9 @@ const createEpisodeFromDetail = (detail: LectureDetail | null): Episode | null =
   };
 };
 
-const formatStat = (value?: number) =>
-  (value ?? 0).toLocaleString("en-US");
 
-const formatLabel = (label: string, value?: string) => {
-  if (!value) return null;
-  return `${label}: ${value}`;
-};
+
+
 
 const LectureDetailScreen: React.FC = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -80,13 +77,10 @@ const LectureDetailScreen: React.FC = () => {
     currentEpisode,
     isPlaying,
     progress: currentProgress,
-    duration: currentDuration,
   } = usePlayerStore();
 
   const {
     addToQueue,
-    isDownloaded: checkIsDownloaded,
-    isDownloading: checkIsDownloading,
     getDownloadProgress,
     getDownloadStatus,
     pauseDownload,
@@ -118,9 +112,8 @@ const LectureDetailScreen: React.FC = () => {
   const isCurrentlyPlaying = isCurrentLecture && isPlaying;
 
   // Download state
-  const isDownloaded = episode ? checkIsDownloaded(episode.id) : false;
+
   const downloadStatus = episode ? getDownloadStatus(episode.id) : null;
-  const isDownloading = downloadStatus === DownloadStatus.DOWNLOADING || downloadStatus === DownloadStatus.QUEUED;
   const downloadProgress = episode ? getDownloadProgress(episode.id) : 0;
 
   // Animated styles
@@ -261,7 +254,7 @@ const LectureDetailScreen: React.FC = () => {
         lectureId,
       });
     }
-  }, [lectureId, toggleFavorite, liked, router]);
+  }, [lectureId, toggleFavorite, liked, likeScale]);
 
   const handleShare = useCallback(() => {
     if (!lecture) return;
@@ -284,7 +277,7 @@ const LectureDetailScreen: React.FC = () => {
         level: 'warning',
       });
     });
-  }, [lecture]);
+  }, [lecture, id]);
 
   const handleSpeedChange = useCallback(() => {
     const speeds = [0.75, 1.0, 1.25, 1.5, 2.0];
@@ -782,17 +775,9 @@ const LectureDetailScreen: React.FC = () => {
         <View style={tw`flex-row items-center justify-between mt-2`}>
           {/* Download Button Group */}
           <View style={tw`flex-row items-center`}>
-            {downloadStatus === DownloadStatus.DOWNLOADING && (
-              <TouchableOpacity onPress={handleCancelDownload} style={tw`mr-4`}>
-                <Ionicons name="close-circle-outline" size={24} color={designTokens.colors.semantic.red} />
-              </TouchableOpacity>
-            )}
-            {downloadStatus === DownloadStatus.PAUSED && (
-              <TouchableOpacity onPress={handleCancelDownload} style={tw`mr-4`}>
-                <Ionicons name="close-circle-outline" size={24} color={designTokens.colors.semantic.red} />
-              </TouchableOpacity>
-            )}
-            {downloadStatus === DownloadStatus.QUEUED && (
+          { (downloadStatus === DownloadStatus.DOWNLOADING ||
+            downloadStatus === DownloadStatus.PAUSED ||
+            downloadStatus === DownloadStatus.QUEUED) && (
               <TouchableOpacity onPress={handleCancelDownload} style={tw`mr-4`}>
                 <Ionicons name="close-circle-outline" size={24} color={designTokens.colors.semantic.red} />
               </TouchableOpacity>
@@ -832,7 +817,7 @@ const LectureDetailScreen: React.FC = () => {
                   downloadStatus === DownloadStatus.COMPLETED
                     ? "brand"
                     : downloadStatus === DownloadStatus.FAILED
-                      ? "semanticRed"
+                      ? "systemRed"
                       : "secondaryLabel"
                 }
                 style={tw`ml-2`}

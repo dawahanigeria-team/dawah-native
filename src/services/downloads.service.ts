@@ -3,9 +3,10 @@
  * Uses expo-file-system's DownloadResumable for pausable/resumable downloads.
  */
 
+import * as FileSystem from 'expo-file-system';
 import { Directory, File, Paths } from 'expo-file-system';
 import { createDownloadResumable } from 'expo-file-system/legacy';
-import * as MediaLibrary from 'expo-media-library';
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Episode } from '../types/types';
 import { downloadsApi } from './api/downloads.api';
@@ -43,12 +44,24 @@ class DownloadsService {
   private downloadsDirectory: Directory;
   private metadataCache: Map<string, DownloadMetadata> = new Map();
   private activeDownloads: Map<string, ResumableDownload> = new Map();
+  private listeners: (() => void)[] = [];
   private isInitialized = false;
   private initPromise: Promise<void> | null = null;
 
   constructor() {
     this.downloadsDirectory = new Directory(Paths.document, 'downloads');
     this.initPromise = this.initialize();
+  }
+
+  public subscribe(listener: () => void): () => void {
+    this.listeners.push(listener);
+    return () => {
+      this.listeners = this.listeners.filter(l => l !== listener);
+    };
+  }
+
+  private notify() {
+    this.listeners.forEach(listener => listener());
   }
 
   private async initialize(): Promise<void> {
@@ -100,14 +113,7 @@ class DownloadsService {
     return file.exists && this.metadataCache.has(lectureId) && !this.metadataCache.get(lectureId)?.resumableData;
   }
 
-  public async requestPermissionsAsync(): Promise<boolean> {
-    const { status } = await MediaLibrary.requestPermissionsAsync();
-    if (status !== 'granted') {
-      console.error('Storage permissions not granted');
-      return false;
-    }
-    return true;
-  }
+
 
   public async hasEnoughStorage(requiredBytes: number): Promise<boolean> {
     const freeDiskStorage = await Directory.getFreeDiskStorageAsync();
@@ -124,10 +130,7 @@ class DownloadsService {
       throw new Error('No audio URL provided');
     }
 
-    const hasPermissions = await this.requestPermissionsAsync();
-    if (!hasPermissions) {
-      throw new Error('Storage permissions not granted.');
-    }
+
 
     try {
       const apiResponse = await downloadsApi.incrementDownloadCounter(lectureId);
@@ -187,6 +190,7 @@ class DownloadsService {
         this.metadataCache.set(lectureId, metadata);
         await this.saveMetadata();
         this.activeDownloads.delete(lectureId);
+        this.notify();
       }
     } catch (error: any) {
       console.error(`Download failed for ${lectureId}:`, error);
@@ -245,6 +249,7 @@ class DownloadsService {
     await this.deleteFileIfExists(this.getPartialDownloadFile(lectureId));
     this.metadataCache.delete(lectureId);
     await this.saveMetadata();
+    this.notify();
   }
 
   private async deleteFileIfExists(file: File): Promise<void> {
@@ -282,6 +287,7 @@ class DownloadsService {
     await this.ensureDirExists();
     this.metadataCache.clear();
     await this.saveMetadata();
+    this.notify();
   }
 }
 

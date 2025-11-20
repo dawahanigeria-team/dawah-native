@@ -6,6 +6,7 @@
 import { downloadsService, DownloadProgress, ResumableDownload } from '../downloads.service';
 import type { Episode } from '../../types/types';
 import { captureSentryException, addSentryBreadcrumb } from '../config/sentry.config';
+import NetInfo, { NetInfoStateType } from '@react-native-community/netinfo';
 
 export enum DownloadStatus {
   QUEUED = 'queued',
@@ -42,6 +43,7 @@ class DownloadQueueService {
 
   private queue: Map<string, QueuedDownload> = new Map();
   private activeDownloads: Map<string, ResumableDownload> = new Map();
+  private listeners: (() => void)[] = [];
   
   private config: DownloadQueueConfig = {
     maxConcurrent: 2,
@@ -50,9 +52,11 @@ class DownloadQueueService {
   };
 
   private speedTrackers: Map<string, { bytes: number; timestamp: number }> = new Map();
+  private isInitialized = false;
 
   private constructor() {
     console.log('📥 Download Queue Service initialized');
+    this._initialize();
   }
 
   public static getInstance(): DownloadQueueService {
@@ -61,6 +65,44 @@ class DownloadQueueService {
     }
     return DownloadQueueService.instance;
   }
+
+  private async _initialize() {
+    if (this.isInitialized) return;
+
+    NetInfo.addEventListener(state => {
+      this._handleNetworkStateChange(state);
+    });
+
+    // Get initial network state
+    NetInfo.fetch().then(state => {
+      this._handleNetworkStateChange(state);
+    });
+
+    this.isInitialized = true;
+  }
+
+  private async _handleNetworkStateChange(state: NetInfoStateType) {
+    if (this.config.wifiOnly && state.type !== 'wifi') {
+      await this.pauseAll(); // Pause all if wifiOnly and not on wifi
+    } else if (!this.config.wifiOnly || state.type === 'wifi') {
+      // If not wifiOnly, or on wifi, try to process queue if autoStart is true
+      if (this.config.autoStart) {
+        await this.processQueue();
+      }
+    }
+  }
+
+  public subscribe(listener: () => void): () => void {
+    this.listeners.push(listener);
+    return () => {
+      this.listeners = this.listeners.filter(l => l !== listener);
+    };
+  }
+
+  private notify() {
+    this.listeners.forEach(listener => listener());
+  }
+
 
   public async addToQueue(episode: Episode, priority: number = 0): Promise<void> {
     const downloadId = episode.id;
@@ -82,6 +124,7 @@ class DownloadQueueService {
 
     this.queue.set(downloadId, queuedDownload);
     addSentryBreadcrumb(`Added to download queue: ${episode.title}`, 'download');
+    this.notify();
 
     if (this.config.autoStart) {
       await this.processQueue();
@@ -89,6 +132,22 @@ class DownloadQueueService {
   }
 
   private async processQueue(): Promise<void> {
+    const netState = await NetInfo.fetch();
+    const isConnected = netState.isConnected;
+    const isWifi = netState.type === 'wifi';
+
+    if (!isConnected) {
+      console.log('No network connection, pausing active downloads.');
+      await this.pauseAll(); // Pause all active downloads if no network
+      return;
+    }
+
+    if (this.config.wifiOnly && !isWifi) {
+      console.log('WiFi-only mode enabled, but not on WiFi. Pausing active downloads.');
+      await this.pauseAll(); // Pause all active downloads if wifiOnly and not on WiFi
+      return;
+    }
+
     const queued = Array.from(this.queue.values())
       .filter(d => d.status === DownloadStatus.QUEUED)
       .sort((a, b) => b.priority - a.priority);
@@ -106,6 +165,7 @@ class DownloadQueueService {
     try {
       download.status = DownloadStatus.DOWNLOADING;
       download.startedAt = Date.now();
+      this.notify();
       
       this.speedTrackers.set(downloadId, { bytes: 0, timestamp: Date.now() });
 
@@ -125,6 +185,7 @@ class DownloadQueueService {
       download.completedAt = Date.now();
       this.activeDownloads.delete(downloadId);
       this.speedTrackers.delete(downloadId);
+      this.notify();
 
       await this.processQueue();
 
@@ -133,6 +194,7 @@ class DownloadQueueService {
       download.error = error.message;
       this.activeDownloads.delete(downloadId);
       this.speedTrackers.delete(downloadId);
+      this.notify();
 
       captureSentryException(error, { operation: 'download_queue_start', downloadId });
       
@@ -159,6 +221,7 @@ class DownloadQueueService {
         this.speedTrackers.set(downloadId, { bytes: progress.bytesDownloaded, timestamp: now });
       }
     }
+    this.notify();
   }
 
   public async pauseDownload(downloadId: string): Promise<void> {
@@ -168,6 +231,7 @@ class DownloadQueueService {
       download.status = DownloadStatus.PAUSED;
       this.activeDownloads.delete(downloadId);
       addSentryBreadcrumb(`Paused download: ${download.episode.title}`, 'download');
+      this.notify();
       await this.processQueue(); // Look for next download to start
     }
   }
@@ -176,6 +240,7 @@ class DownloadQueueService {
     const download = this.queue.get(downloadId);
     if (download?.status === DownloadStatus.PAUSED) {
       download.status = DownloadStatus.QUEUED;
+      this.notify();
       await this.processQueue();
     }
   }
@@ -188,6 +253,7 @@ class DownloadQueueService {
       this.activeDownloads.delete(downloadId);
       this.speedTrackers.delete(downloadId);
       addSentryBreadcrumb(`Cancelled download: ${download.episode.title}`, 'download');
+      this.notify();
       await this.processQueue();
     }
   }
@@ -222,6 +288,7 @@ class DownloadQueueService {
         this.queue.delete(id);
       }
     }
+    this.notify();
   }
 
   public async pauseAll(): Promise<void> {
@@ -230,6 +297,7 @@ class DownloadQueueService {
         await this.pauseDownload(download.id);
       }
     }
+    this.notify();
   }
 
   public async resumeAll(): Promise<void> {
@@ -238,11 +306,13 @@ class DownloadQueueService {
         download.status = DownloadStatus.QUEUED;
       }
     }
+    this.notify();
     await this.processQueue();
   }
 
   public updateConfig(config: Partial<DownloadQueueConfig>): void {
     this.config = { ...this.config, ...config };
+    this.processQueue(); // Re-evaluate queue based on new config
   }
 
   public getConfig(): DownloadQueueConfig {
