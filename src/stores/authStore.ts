@@ -26,6 +26,26 @@ const initialState: AuthState = {
 
 export const authStore = entity(initialState);
 
+let authListenerRegistered = false;
+
+export const initializeAuth = async () => {
+  authStore.set((prev) => ({ ...prev, isLoading: true }));
+
+  if (!authListenerRegistered) {
+    apiClient.setAuthTokenChangeListener((token) => {
+      authStore.set((prev) => ({
+        ...prev,
+        isAuthenticated: !!token,
+        isLoading: false,
+        isInitialized: true,
+      }));
+    });
+    authListenerRegistered = true;
+  }
+
+  await apiClient.loadAuthToken();
+};
+
 export const useAuthStore = () => {
   let state: AuthState;
 
@@ -39,28 +59,6 @@ export const useAuthStore = () => {
   if (!state) {
     state = initialState;
   }
-
-  /**
-   * Initialize authentication state from storage
-   * This should be called once when the app starts.
-   */
-  const initializeAuth = async () => {
-    authStore.set((prev) => ({ ...prev, isLoading: true }));
-    // ApiClient's loadAuthToken will call the registered listener
-    // We don't need to explicitly call it here, as it's called in ApiClient constructor
-    // but we need to ensure the listener is set up before it potentially loads.
-    apiClient.setAuthTokenChangeListener((token) => {
-      authStore.set((prev) => ({
-        ...prev,
-        isAuthenticated: !!token,
-        isLoading: false,
-        isInitialized: true,
-      }));
-    });
-    // Trigger a re-load of the token in case the listener was set up after the initial load
-    // This ensures the authStore is always in sync.
-    await apiClient.loadAuthToken();
-  };
 
   /**
    * Sign in with email and password
@@ -175,8 +173,8 @@ export const useAuthStore = () => {
     // Actions
     login,
     register,
-    logout,
-    clearError,
-    initializeAuth,
+      logout,
+      clearError,
+      initializeAuth,
   };
 };

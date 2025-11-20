@@ -3,10 +3,11 @@ import { router } from "expo-router";
 import React from "react";
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Card } from "../../src/components/molecules/Card";
+import { Card, CardSkeleton } from "../../src/components/molecules";
 import { SearchBar } from "../../src/components/molecules/SearchBar";
 import { ActionGrid } from "../../src/components/organisms/ActionGrid";
 import { HeroCarousel } from "../../src/components/organisms/HeroCarousel";
+import { HeroCarouselSkeleton } from "../../src/components/organisms/HeroCarousel.skeleton";
 import { Row } from "../../src/components/organisms/Row";
 import { usePopularLectures } from "../../src/hooks/usePopularLectures";
 import { useQuranAlbums } from "../../src/hooks/useQuranAlbums";
@@ -231,10 +232,7 @@ export default function HomeScreen() {
       >
         {/* Hero Carousel - Popular Lectures */}
         {popularLoading ? (
-          <View style={tw`h-56 items-center justify-center`}>
-            <ActivityIndicator size="large" color={designTokens.colors.brand.primary} />
-            <Text style={tw`text-white mt-2`}>Loading popular lectures...</Text>
-          </View>
+          <HeroCarouselSkeleton />
         ) : popularError ? (
           <View style={tw`h-56 items-center justify-center px-6`}>
             <Text style={tw`text-white text-center`}>Failed to load popular lectures</Text>
@@ -265,9 +263,15 @@ export default function HomeScreen() {
 
         {/* Recently Played */}
         {recentlyPlayedLoading ? (
-          <View style={tw`h-40 items-center justify-center`}>
-            <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
-          </View>
+          <Row title="Recently Played" subtitle="Continue where you left off">
+            <View style={tw`flex-row`}>
+              {[...Array(3)].map((_, index) => (
+                <View key={`skeleton-recently-played-${index}`} style={tw`mr-4 w-80`}>
+                  <CardSkeleton variant="landscape" />
+                </View>
+              ))}
+            </View>
+          </Row>
         ) : recentlyPlayedError ? (
           <View style={tw`h-40 items-center justify-center px-6`}>
             <Text style={tw`text-white text-center`}>Failed to load recently played</Text>
@@ -299,9 +303,18 @@ export default function HomeScreen() {
 
         {/* Recently Posted */}
         {trendingLoading ? (
-          <View style={tw`h-40 items-center justify-center`}>
-            <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
-          </View>
+          <Row
+            title="Recently Posted"
+            subtitle="Latest content from our scholars"
+          >
+            <View style={tw`flex-row`}>
+              {[...Array(3)].map((_, index) => (
+                <View key={`skeleton-trending-${index}`} style={tw`mr-4 w-80`}>
+                  <CardSkeleton variant="landscape" />
+                </View>
+              ))}
+            </View>
+          </Row>
         ) : trendingError ? (
           <View style={tw`h-40 items-center justify-center px-6`}>
             <Text style={tw`text-white text-center`}>Failed to load recently posted</Text>
@@ -333,9 +346,15 @@ export default function HomeScreen() {
 
         {/* Quran Recitations */}
         {quranLoading ? (
-          <View style={tw`h-40 items-center justify-center`}>
-            <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
-          </View>
+          <Row title="Quran Recitations">
+            <View style={tw`flex-row`}>
+              {[...Array(3)].map((_, index) => (
+                <View key={`skeleton-quran-${index}`} style={tw`mr-4`}>
+                  <CardSkeleton variant="square" />
+                </View>
+              ))}
+            </View>
+          </Row>
         ) : quranError ? (
           <View style={tw`h-40 items-center justify-center px-6`}>
             <Text style={tw`text-white text-center`}>Failed to load Quran recitations</Text>

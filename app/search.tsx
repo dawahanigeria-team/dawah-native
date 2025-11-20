@@ -5,6 +5,7 @@ import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "rea
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Dropdown } from "../src/components/atoms/Dropdown";
 import { Card } from "../src/components/molecules/Card";
+import { CardSkeleton } from "../src/components/molecules/Card.skeleton";
 import { FilterSection } from "../src/components/molecules/FilterSection";
 import { SearchBar } from "../src/components/molecules/SearchBar";
 import { surahs } from "../src/data/surahs";
@@ -610,9 +611,10 @@ export default function SearchScreen() {
         {/* Results */}
         <View style={tw`px-5`}>
           {loading && actualSearchQuery && filteredAndSortedResults.length === 0 ? (
-            <View style={tw`flex-1 items-center justify-center py-20`}>
-              <ActivityIndicator size="large" color={designTokens.colors.brand.primary} />
-              <Text style={tw`text-white mt-4`}>Searching...</Text>
+            <View>
+              {[...Array(5)].map((_, index) => (
+                <CardSkeleton key={`skeleton-${index}`} variant="landscape" style={tw`mb-4`} />
+              ))}
             </View>
           ) : filteredAndSortedResults.length > 0 ? (
             <>

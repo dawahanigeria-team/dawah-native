@@ -8,12 +8,13 @@ import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  Linking,
   ScrollView,
   Share,
   TouchableOpacity,
@@ -32,12 +33,13 @@ import { Button, Chip, Text, Touchable } from "../../src/components/atoms";
 import AddToPlaylistModal from "../../src/components/organisms/AddToPlaylistModal";
 import { useLectureDetail } from "../../src/hooks/useLectureDetail";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
-import { DownloadStatus } from "../../src/services/downloads/downloadQueue.service";
+import { linkingService } from "../../src/services/linking.service";
 import { useAuthStore, useDownloadsStore, useFavoritesStore, usePlayerStore } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import type { LectureDetail } from "../../src/types/api.types";
 import type { Episode } from "../../src/types/types";
+import { appendShareSignature } from "../../src/utils/shareMessage";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HEADER_HEIGHT = 420;
@@ -62,14 +64,11 @@ const createEpisodeFromDetail = (detail: LectureDetail | null): Episode | null =
   };
 };
 
-
-
-
-
 const LectureDetailScreen: React.FC = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const lectureId = id ?? "";
   const { lecture, loading, error, refetch } = useLectureDetail(lectureId);
+  const router = useRouter();
 
   const {
     playEpisode,
@@ -172,29 +171,59 @@ const LectureDetailScreen: React.FC = () => {
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    switch (downloadStatus) {
-      case DownloadStatus.COMPLETED:
+    try {
+      addSentryBreadcrumb('Starting lecture download', 'user', {
+        lectureId: episode.id,
+        title: episode.title,
+      });
+      await downloadLecture(episode);
+      Alert.alert(
+        "Download Complete",
+        `${episode.title} is now available offline!`,
+        [{ text: "OK" }]
+      );
+    } catch (error: any) {
+      captureSentryException(error, {
+        component: 'LectureDetailScreen',
+        action: 'handleDownload',
+        lectureId: episode.id,
+        title: episode.title,
+        level: 'error',
+      });
+      
+      // Check if this is a permission error
+      const isPermissionError = 
+        error?.isPermissionError ||
+        error?.message?.toLowerCase().includes("permission") ||
+        error?.message?.toLowerCase().includes("storage permission");
+      
+      if (isPermissionError) {
         Alert.alert(
-          "Already Downloaded",
-          "This lecture is already available offline.",
+          "Storage Permission Required",
+          error.message || "Storage permission is required to download lectures. Please enable it in your device settings.",
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Open Settings",
+              onPress: () => {
+                Linking.openSettings().catch(() => {
+                  Alert.alert(
+                    "Unable to Open Settings",
+                    "Please manually enable storage permission in your device settings.",
+                    [{ text: "OK" }]
+                  );
+                });
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          "Download Failed",
+          error.message || "Failed to download lecture. Please try again.",
           [{ text: "OK" }]
         );
-        break;
-      case DownloadStatus.PAUSED:
-        resumeDownload(episode.id);
-        break;
-      case DownloadStatus.DOWNLOADING:
-      case DownloadStatus.QUEUED:
-        pauseDownload(episode.id);
-        break;
-      case DownloadStatus.FAILED:
-        // Optionally show an alert for failed download and offer retry/resume
-        // For now, we'll just try to resume it
-        resumeDownload(episode.id);
-        break;
-      default:
-        addToQueue(episode);
-        break;
+      }
     }
   }, [episode, downloadStatus, addToQueue, pauseDownload, resumeDownload]);
 
@@ -254,19 +283,21 @@ const LectureDetailScreen: React.FC = () => {
         lectureId,
       });
     }
-  }, [lectureId, toggleFavorite, liked, likeScale]);
+  }, [lectureId, toggleFavorite, liked, router, likeScale]);
 
   const handleShare = useCallback(() => {
     if (!lecture) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    const message = lecture.audioUrl
-      ? `Check out: ${lecture.title} by ${lecture.lecturerName || 'Unknown'}\n\nListen: ${lecture.audioUrl}`
-      : `Check out: ${lecture.title}${lecture.lecturerName ? ` by ${lecture.lecturerName}` : ''}`;
+    const webLink = linkingService.createLectureLink(lecture.id);
+
+    const baseMessage = `🎧 ${lecture.title}\n👤 ${lecture.lecturerName || 'Dawah Nigeria'}\n\n${webLink}`;
+    const message = appendShareSignature(baseMessage);
 
     Share.share({
       title: lecture.title,
       message,
+      url: webLink, // iOS will use this for sharing
     }).catch((shareError) => {
       console.warn("Failed to share lecture", shareError);
       captureSentryException(shareError, {
