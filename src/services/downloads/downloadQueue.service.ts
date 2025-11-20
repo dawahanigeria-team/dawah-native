@@ -1,18 +1,12 @@
 /**
- * Download Queue Service - Phase 2
- * Advanced download management with queue, pause/resume
- *
- * Features:
- * - Download queue (multiple simultaneous downloads)
- * - Pause/resume individual downloads
- * - Download speed tracking
- * - Priority management
- * - Background downloads
+ * Download Queue Service - Phase 3: Resumable
+ * Integrates with resumable downloads service.
  */
 
-import { downloadsService, DownloadProgress } from '../downloads.service';
+import { downloadsService, DownloadProgress, ResumableDownload } from '../downloads.service';
 import type { Episode } from '../../types/types';
 import { captureSentryException, addSentryBreadcrumb } from '../config/sentry.config';
+import NetInfo, { NetInfoStateType } from '@react-native-community/netinfo';
 
 export enum DownloadStatus {
   QUEUED = 'queued',
@@ -39,31 +33,30 @@ export interface QueuedDownload {
 }
 
 export interface DownloadQueueConfig {
-  maxConcurrent: number; // Max simultaneous downloads
-  autoStart: boolean;     // Auto-start downloads when added
-  wifiOnly: boolean;      // Only download on WiFi
+  maxConcurrent: number;
+  autoStart: boolean;
+  wifiOnly: boolean;
 }
 
 class DownloadQueueService {
   private static instance: DownloadQueueService;
 
   private queue: Map<string, QueuedDownload> = new Map();
-  private activeDownloads: Set<string> = new Set();
-
+  private activeDownloads: Map<string, ResumableDownload> = new Map();
+  private listeners: (() => void)[] = [];
+  
   private config: DownloadQueueConfig = {
     maxConcurrent: 2,
     autoStart: true,
     wifiOnly: false,
   };
 
-  // Abort controllers for active downloads
-  private abortControllers: Map<string, AbortController> = new Map();
-
-  // Speed tracking
   private speedTrackers: Map<string, { bytes: number; timestamp: number }> = new Map();
+  private isInitialized = false;
 
   private constructor() {
     console.log('📥 Download Queue Service initialized');
+    this._initialize();
   }
 
   public static getInstance(): DownloadQueueService {
@@ -73,27 +66,50 @@ class DownloadQueueService {
     return DownloadQueueService.instance;
   }
 
-  /**
-   * Add download to queue
-   */
-  public async addToQueue(
-    episode: Episode,
-    priority: number = 0
-  ): Promise<void> {
+  private async _initialize() {
+    if (this.isInitialized) return;
+
+    NetInfo.addEventListener(state => {
+      this._handleNetworkStateChange(state);
+    });
+
+    // Get initial network state
+    NetInfo.fetch().then(state => {
+      this._handleNetworkStateChange(state);
+    });
+
+    this.isInitialized = true;
+  }
+
+  private async _handleNetworkStateChange(state: NetInfoStateType) {
+    if (this.config.wifiOnly && state.type !== 'wifi') {
+      await this.pauseAll(); // Pause all if wifiOnly and not on wifi
+    } else if (!this.config.wifiOnly || state.type === 'wifi') {
+      // If not wifiOnly, or on wifi, try to process queue if autoStart is true
+      if (this.config.autoStart) {
+        await this.processQueue();
+      }
+    }
+  }
+
+  public subscribe(listener: () => void): () => void {
+    this.listeners.push(listener);
+    return () => {
+      this.listeners = this.listeners.filter(l => l !== listener);
+    };
+  }
+
+  private notify() {
+    this.listeners.forEach(listener => listener());
+  }
+
+
+  public async addToQueue(episode: Episode, priority: number = 0): Promise<void> {
     const downloadId = episode.id;
 
-    // Check if already in queue or downloaded
-    if (this.queue.has(downloadId)) {
-      console.log(`⚠️ Download already in queue: ${downloadId}`);
-      return;
-    }
+    if (this.queue.has(downloadId)) return;
+    if (downloadsService.isDownloaded(downloadId)) return;
 
-    if (downloadsService.isDownloaded(downloadId)) {
-      console.log(`✅ Already downloaded: ${downloadId}`);
-      return;
-    }
-
-    // Create queued download
     const queuedDownload: QueuedDownload = {
       id: downloadId,
       episode,
@@ -107,230 +123,155 @@ class DownloadQueueService {
     };
 
     this.queue.set(downloadId, queuedDownload);
-    console.log(`📥 Added to queue: ${episode.title} (priority: ${priority})`);
+    addSentryBreadcrumb(`Added to download queue: ${episode.title}`, 'download');
+    this.notify();
 
-    addSentryBreadcrumb(
-      `Added to download queue: ${episode.title}`,
-      'download',
-      { downloadId, priority }
-    );
-
-    // Auto-start if enabled
     if (this.config.autoStart) {
       await this.processQueue();
     }
   }
 
-  /**
-   * Process download queue
-   */
   private async processQueue(): Promise<void> {
-    // Get queued downloads sorted by priority
-    const queuedDownloads = Array.from(this.queue.values())
+    const netState = await NetInfo.fetch();
+    const isConnected = netState.isConnected;
+    const isWifi = netState.type === 'wifi';
+
+    if (!isConnected) {
+      console.log('No network connection, pausing active downloads.');
+      await this.pauseAll(); // Pause all active downloads if no network
+      return;
+    }
+
+    if (this.config.wifiOnly && !isWifi) {
+      console.log('WiFi-only mode enabled, but not on WiFi. Pausing active downloads.');
+      await this.pauseAll(); // Pause all active downloads if wifiOnly and not on WiFi
+      return;
+    }
+
+    const queued = Array.from(this.queue.values())
       .filter(d => d.status === DownloadStatus.QUEUED)
       .sort((a, b) => b.priority - a.priority);
 
-    // Start downloads up to max concurrent
-    for (const download of queuedDownloads) {
-      if (this.activeDownloads.size >= this.config.maxConcurrent) {
-        break;
-      }
-
+    for (const download of queued) {
+      if (this.activeDownloads.size >= this.config.maxConcurrent) break;
       await this.startDownload(download.id);
     }
   }
 
-  /**
-   * Start individual download
-   */
   private async startDownload(downloadId: string): Promise<void> {
     const download = this.queue.get(downloadId);
     if (!download) return;
 
     try {
-      // Update status
       download.status = DownloadStatus.DOWNLOADING;
       download.startedAt = Date.now();
-      this.activeDownloads.add(downloadId);
+      this.notify();
+      
+      this.speedTrackers.set(downloadId, { bytes: 0, timestamp: Date.now() });
 
-      console.log(`▶️ Starting download: ${download.episode.title}`);
-
-      // Initialize speed tracker
-      this.speedTrackers.set(downloadId, {
-        bytes: 0,
-        timestamp: Date.now(),
-      });
-
-      // Download with progress tracking
-      await downloadsService.downloadLecture(
+      const resumableDownload = await downloadsService.createDownload(
         download.episode,
-        (progress: DownloadProgress) => {
-          this.updateProgress(downloadId, progress);
-        }
+        (progress) => this.updateProgress(downloadId, progress)
       );
 
-      // Mark as completed
+      if (!resumableDownload) throw new Error('Failed to create download.');
+
+      this.activeDownloads.set(downloadId, resumableDownload);
+      await downloadsService.startDownload(resumableDownload);
+
+      // Post-download completion logic
       download.status = DownloadStatus.COMPLETED;
       download.progress = 100;
       download.completedAt = Date.now();
       this.activeDownloads.delete(downloadId);
       this.speedTrackers.delete(downloadId);
+      this.notify();
 
-      console.log(`✅ Download completed: ${download.episode.title}`);
-
-      // Continue processing queue
       await this.processQueue();
+
     } catch (error: any) {
       download.status = DownloadStatus.FAILED;
       download.error = error.message;
       this.activeDownloads.delete(downloadId);
       this.speedTrackers.delete(downloadId);
+      this.notify();
 
-      console.error(`❌ Download failed: ${download.episode.title}`, error);
-
-      captureSentryException(error, {
-        operation: 'download_queue_start',
-        downloadId,
-        title: download.episode.title,
-      });
-
-      // Continue processing queue
+      captureSentryException(error, { operation: 'download_queue_start', downloadId });
+      
       await this.processQueue();
     }
   }
 
-  /**
-   * Update download progress
-   */
   private updateProgress(downloadId: string, progress: DownloadProgress): void {
     const download = this.queue.get(downloadId);
     if (!download) return;
 
-    // Update progress
     download.progress = progress.progress * 100;
     download.bytesDownloaded = progress.bytesDownloaded;
     download.totalBytes = progress.totalBytes;
 
-    // Calculate speed
     const tracker = this.speedTrackers.get(downloadId);
     if (tracker) {
       const now = Date.now();
-      const timeDiff = (now - tracker.timestamp) / 1000; // seconds
+      const timeDiff = (now - tracker.timestamp) / 1000;
       const bytesDiff = progress.bytesDownloaded - tracker.bytes;
 
-      if (timeDiff > 0) {
+      if (timeDiff > 0.5) { // Update speed every 0.5s
         download.speed = bytesDiff / timeDiff;
-
-        // Update tracker
-        this.speedTrackers.set(downloadId, {
-          bytes: progress.bytesDownloaded,
-          timestamp: now,
-        });
+        this.speedTrackers.set(downloadId, { bytes: progress.bytesDownloaded, timestamp: now });
       }
     }
+    this.notify();
   }
 
-  /**
-   * Pause download
-   */
-  public pauseDownload(downloadId: string): void {
+  public async pauseDownload(downloadId: string): Promise<void> {
     const download = this.queue.get(downloadId);
-    if (!download || download.status !== DownloadStatus.DOWNLOADING) {
-      return;
+    if (download?.status === DownloadStatus.DOWNLOADING) {
+      await downloadsService.pauseDownload(downloadId);
+      download.status = DownloadStatus.PAUSED;
+      this.activeDownloads.delete(downloadId);
+      addSentryBreadcrumb(`Paused download: ${download.episode.title}`, 'download');
+      this.notify();
+      await this.processQueue(); // Look for next download to start
     }
-
-    // Abort the download
-    const controller = this.abortControllers.get(downloadId);
-    if (controller) {
-      controller.abort();
-      this.abortControllers.delete(downloadId);
-    }
-
-    download.status = DownloadStatus.PAUSED;
-    this.activeDownloads.delete(downloadId);
-
-    console.log(`⏸️ Paused download: ${download.episode.title}`);
-
-    addSentryBreadcrumb(
-      `Paused download: ${download.episode.title}`,
-      'download',
-      { downloadId }
-    );
   }
 
-  /**
-   * Resume download
-   */
   public async resumeDownload(downloadId: string): Promise<void> {
     const download = this.queue.get(downloadId);
-    if (!download || download.status !== DownloadStatus.PAUSED) {
-      return;
+    if (download?.status === DownloadStatus.PAUSED) {
+      download.status = DownloadStatus.QUEUED;
+      this.notify();
+      await this.processQueue();
     }
-
-    download.status = DownloadStatus.QUEUED;
-    console.log(`▶️ Resumed download: ${download.episode.title}`);
-
-    await this.processQueue();
   }
 
-  /**
-   * Cancel download
-   */
-  public cancelDownload(downloadId: string): void {
+  public async cancelDownload(downloadId: string): Promise<void> {
     const download = this.queue.get(downloadId);
-    if (!download) return;
-
-    // Abort if downloading
-    if (download.status === DownloadStatus.DOWNLOADING) {
-      const controller = this.abortControllers.get(downloadId);
-      if (controller) {
-        controller.abort();
-        this.abortControllers.delete(downloadId);
-      }
+    if (download) {
+      await downloadsService.cancelDownload(downloadId);
+      this.queue.delete(downloadId);
+      this.activeDownloads.delete(downloadId);
+      this.speedTrackers.delete(downloadId);
+      addSentryBreadcrumb(`Cancelled download: ${download.episode.title}`, 'download');
+      this.notify();
+      await this.processQueue();
     }
-
-    // Remove from queue
-    this.queue.delete(downloadId);
-    this.activeDownloads.delete(downloadId);
-    this.speedTrackers.delete(downloadId);
-
-    console.log(`❌ Cancelled download: ${download.episode.title}`);
-
-    addSentryBreadcrumb(
-      `Cancelled download: ${download.episode.title}`,
-      'download',
-      { downloadId }
-    );
   }
-
-  /**
-   * Get queue state
-   */
+  
   public getQueue(): QueuedDownload[] {
-    return Array.from(this.queue.values())
-      .sort((a, b) => b.priority - a.priority);
+    return Array.from(this.queue.values()).sort((a, b) => b.priority - a.priority);
   }
 
-  /**
-   * Get download by ID
-   */
   public getDownload(downloadId: string): QueuedDownload | null {
     return this.queue.get(downloadId) || null;
   }
 
-  /**
-   * Get active downloads count
-   */
   public getActiveCount(): number {
     return this.activeDownloads.size;
   }
 
-  /**
-   * Get queue statistics
-   */
   public getStats() {
     const queue = Array.from(this.queue.values());
-
     return {
       total: queue.length,
       queued: queue.filter(d => d.status === DownloadStatus.QUEUED).length,
@@ -341,69 +282,48 @@ class DownloadQueueService {
     };
   }
 
-  /**
-   * Clear completed downloads from queue
-   */
   public clearCompleted(): void {
     for (const [id, download] of this.queue.entries()) {
       if (download.status === DownloadStatus.COMPLETED) {
         this.queue.delete(id);
       }
     }
-    console.log('🧹 Cleared completed downloads from queue');
+    this.notify();
   }
 
-  /**
-   * Pause all downloads
-   */
-  public pauseAll(): void {
-    for (const [id, download] of this.queue.entries()) {
+  public async pauseAll(): Promise<void> {
+    for (const download of this.queue.values()) {
       if (download.status === DownloadStatus.DOWNLOADING) {
-        this.pauseDownload(id);
+        await this.pauseDownload(download.id);
       }
     }
-    console.log('⏸️ Paused all downloads');
+    this.notify();
   }
 
-  /**
-   * Resume all paused downloads
-   */
   public async resumeAll(): Promise<void> {
-    for (const [id, download] of this.queue.entries()) {
+    for (const download of this.queue.values()) {
       if (download.status === DownloadStatus.PAUSED) {
         download.status = DownloadStatus.QUEUED;
       }
     }
+    this.notify();
     await this.processQueue();
-    console.log('▶️ Resumed all downloads');
   }
 
-  /**
-   * Update configuration
-   */
   public updateConfig(config: Partial<DownloadQueueConfig>): void {
     this.config = { ...this.config, ...config };
-    console.log('⚙️ Download queue config updated:', this.config);
+    this.processQueue(); // Re-evaluate queue based on new config
   }
 
-  /**
-   * Get configuration
-   */
   public getConfig(): DownloadQueueConfig {
     return { ...this.config };
   }
-
-  /**
-   * Format download speed
-   */
+  
   public formatSpeed(bytesPerSecond: number): string {
-    if (bytesPerSecond === 0) return '0 B/s';
-
-    const units = ['B/s', 'KB/s', 'MB/s'];
+    if (bytesPerSecond < 1) return '0 B/s';
+    const units = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
     const i = Math.floor(Math.log(bytesPerSecond) / Math.log(1024));
-    const value = bytesPerSecond / Math.pow(1024, i);
-
-    return `${value.toFixed(1)} ${units[i]}`;
+    return `${(bytesPerSecond / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
   }
 }
 
