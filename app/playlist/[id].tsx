@@ -102,6 +102,28 @@ const PlaylistDetailScreen: React.FC = () => {
 
 
 
+  const handleRemoveAudio = useCallback(async (audioId: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      await playlistApi.removeAudioFromPlaylist(playlistId, audioId);
+      // Re-fetch playlist details to update the UI after removal
+      await fetchPlaylistDetails();
+    } catch (err) {
+      console.error("Error removing audio from playlist:", err);
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("An unexpected error occurred while removing audio.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [playlistId, fetchPlaylistDetails]);
+
+
   if (loading) {
     return (
       <SafeAreaView style={tw`flex-1 items-center justify-center bg-zinc-900`}>
@@ -161,6 +183,12 @@ const PlaylistDetailScreen: React.FC = () => {
                 <Text style={tw`text-white font-semibold`}>{item.Title}</Text>
                 <Text style={tw`text-zinc-400 text-sm`}>{item.lecturer_name || item.rpname}</Text>
               </View>
+              <TouchableOpacity
+                onPress={() => handleRemoveAudio(item.id || item.nid?.toString() || '')}
+                style={tw`p-2`}
+              >
+                <Ionicons name="remove-circle" size={24} color={designTokens.colors.semantic.red} />
+              </TouchableOpacity>
               <Ionicons name="chevron-forward" size={20} color={designTokens.colors.system.label.tertiary} />
             </TouchableOpacity>
           )}

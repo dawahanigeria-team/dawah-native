@@ -84,6 +84,8 @@ class PlaylistApiService {
       );
 
       console.log("✅ Audio added to playlist successfully:", response.data);
+      // Clear cache for specific playlist data to ensure the list is refreshed
+      await apiClient.clearCache(`playlist_data_${playlistId}`);
       return response.data;
     } catch (error) {
       console.error("❌ Failed to add audio to playlist:", error);
@@ -100,6 +102,51 @@ class PlaylistApiService {
       throw new ApiError("Failed to add audio to playlist", undefined, error);
     }
   }
+
+  async removeAudioFromPlaylist(
+    playlistId: string,
+    audioId: string,
+    action: "remove_playlist_audio" = "remove_playlist_audio"
+  ): Promise<AddToPlaylistResponse> {
+    try {
+      const userId = await this.getUserId();
+      const request: AddToPlaylistRequest = {
+        action,
+        user_id: userId,
+        audio_id: audioId,
+        playlist_id: playlistId,
+      };
+
+      addSentryBreadcrumb("Removing audio from playlist", "user", {
+        playlistId,
+        audioId,
+      });
+
+      const response = await apiClient.post<AddToPlaylistResponse>(
+        "/api/playlistApi.php",
+        request
+      );
+
+      console.log("✅ Audio removed from playlist successfully:", response.data);
+      // Clear cache for specific playlist data to ensure the list is refreshed
+      await apiClient.clearCache(`playlist_data_${playlistId}`);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Failed to remove audio from playlist:", error);
+      captureSentryException(error as Error, {
+        component: "PlaylistApiService",
+        action: "removeAudioFromPlaylist",
+        playlistId,
+        audioId,
+      });
+
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError("Failed to remove audio from playlist", undefined, error);
+    }
+  }
+
 
   async getUserPlaylists(): Promise<UserPlaylistsResponse> {
     let userId: string | undefined;
