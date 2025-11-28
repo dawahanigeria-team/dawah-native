@@ -40,13 +40,29 @@ const PlaylistDetailScreen: React.FC = () => {
     setError(null);
     try {
       const response = await playlistApi.getPlaylistData(playlistId);
-      if (response.success && response.data) {
-        const audioIds = response.data.flatMap((item: any) => item.audio || []);
+      if (response.success) {
+        // The API returns { success: true, data: [ { audio: [id1, id2, ...] } ] }
+        // We need to handle both potential structures if the API is inconsistent, 
+        // but based on logs, it's response.data[0].audio
+        const playlists = response.data || [];
+        const currentPlaylist = playlists[0];
+        // audio can be an array of numbers or strings
+        const audioIds = currentPlaylist?.audio || [];
+
+        if (!audioIds || audioIds.length === 0) {
+          console.log("⚠️ Playlist is empty. Response data:", JSON.stringify(response));
+          setPlaylistContents([]);
+          setLoading(false);
+          return;
+        }
+        console.log(`Found ${audioIds.length} audio IDs in playlist:`, audioIds);
 
         // Fetch details for each audio ID
-        const lectureDetailsPromises = audioIds.map(async (audioId: number) => {
+        const lectureDetailsPromises = audioIds.map(async (audioId: number | string) => {
           try {
+            console.log(`Fetching details for audio ID: ${audioId}`);
             const lectureDetail = await lectureDetailApi.getLectureDetail({ lectureId: audioId });
+            console.log(`Successfully fetched details for audio ID: ${audioId}`);
             // Map LectureDetail to SearchLecture format
             const searchLecture: SearchLecture = {
               id: lectureDetail.id,
@@ -74,9 +90,8 @@ const PlaylistDetailScreen: React.FC = () => {
         });
 
         const fetchedLectures = (await Promise.all(lectureDetailsPromises)).filter(Boolean) as SearchLecture[];
+        console.log(`Successfully loaded ${fetchedLectures.length} lectures out of ${audioIds.length} IDs`);
         setPlaylistContents(fetchedLectures);
-
-        // Playlist name and privacy are now passed via navigation params
       } else {
         setError(response.message || "Failed to fetch playlist contents.");
       }
@@ -103,25 +118,35 @@ const PlaylistDetailScreen: React.FC = () => {
 
 
   const handleRemoveAudio = useCallback(async (audioId: string) => {
-    setLoading(true);
-    setError(null);
+    console.log(`Attempting to remove audio: ${audioId} from playlist: ${playlistId}`);
+
+    // Optimistic update: Immediately remove the item from the list
+    const previousContents = [...playlistContents];
+    setPlaylistContents((prev) => {
+      const newContents = prev.filter((item) => (item.id || item.nid?.toString()) !== audioId);
+      console.log(`Optimistic update: ${prev.length} -> ${newContents.length} items`);
+      return newContents;
+    });
+
     try {
       await playlistApi.removeAudioFromPlaylist(playlistId, audioId);
-      // Re-fetch playlist details to update the UI after removal
-      await fetchPlaylistDetails();
+      console.log("Audio removed successfully from API");
+      // We don't need to re-fetch immediately as we've already updated the UI
+      // and the cache is cleared by the service for the next visit.
     } catch (err) {
       console.error("Error removing audio from playlist:", err);
+      // Revert the change if the API call fails
+      setPlaylistContents(previousContents);
+
       if (err instanceof ApiError) {
-        setError(err.message);
+        alert(err.message);
       } else if (err instanceof Error) {
-        setError(err.message);
+        alert(err.message);
       } else {
-        setError("An unexpected error occurred while removing audio.");
+        alert("An unexpected error occurred while removing audio.");
       }
-    } finally {
-      setLoading(false);
     }
-  }, [playlistId, fetchPlaylistDetails]);
+  }, [playlistId, playlistContents]);
 
 
   if (loading) {

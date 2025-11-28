@@ -130,6 +130,13 @@ export default function PlaylistsScreen() {
                   </View>
                 </TouchableOpacity>
               )}
+              ListEmptyComponent={
+                <View style={{ marginTop: designTokens.spacing.lg, alignItems: 'center' }}>
+                  <Text style={{ color: designTokens.colors.system.label.secondary }}>
+                    You don&apos;t have any playlists yet.
+                  </Text>
+                </View>
+              }
               style={{ marginTop: designTokens.spacing.lg }}
             />
           </>

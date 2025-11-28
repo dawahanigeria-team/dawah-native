@@ -1,14 +1,14 @@
 import {
-  AddToPlaylistRequest,
-  AddToPlaylistResponse,
-  CreatePlaylistRequest,
-  CreatePlaylistResponse,
-  PlaylistDataResponse,
-  UserPlaylistsResponse,
+    AddToPlaylistRequest,
+    AddToPlaylistResponse,
+    CreatePlaylistRequest,
+    CreatePlaylistResponse,
+    PlaylistDataResponse,
+    UserPlaylistsResponse,
 } from "../../types/api.types";
 import {
-  addSentryBreadcrumb,
-  captureSentryException,
+    addSentryBreadcrumb,
+    captureSentryException,
 } from "../config/sentry.config";
 import { userService } from "../user.service";
 import { apiClient, ApiError } from "./base.api";
@@ -68,9 +68,9 @@ class PlaylistApiService {
       const userId = await this.getUserId();
       const request: AddToPlaylistRequest = {
         action,
-        user_id: userId,
-        audio_id: audioId,
-        playlist_id: playlistId,
+        user_id: Number(userId),
+        audio_id: Number(audioId),
+        playlist_id: Number(playlistId),
       };
 
       addSentryBreadcrumb("Adding audio to playlist", "user", {
@@ -85,7 +85,7 @@ class PlaylistApiService {
 
       console.log("✅ Audio added to playlist successfully:", response.data);
       // Clear cache for specific playlist data to ensure the list is refreshed
-      await apiClient.clearCache(`playlist_data_${playlistId}`);
+      await apiClient.clearCache(`playlist_id=${playlistId}`);
       return response.data;
     } catch (error) {
       console.error("❌ Failed to add audio to playlist:", error);
@@ -112,9 +112,9 @@ class PlaylistApiService {
       const userId = await this.getUserId();
       const request: AddToPlaylistRequest = {
         action,
-        user_id: userId,
-        audio_id: audioId,
-        playlist_id: playlistId,
+        user_id: Number(userId),
+        audio_id: Number(audioId),
+        playlist_id: Number(playlistId),
       };
 
       addSentryBreadcrumb("Removing audio from playlist", "user", {
@@ -129,7 +129,7 @@ class PlaylistApiService {
 
       console.log("✅ Audio removed from playlist successfully:", response.data);
       // Clear cache for specific playlist data to ensure the list is refreshed
-      await apiClient.clearCache(`playlist_data_${playlistId}`);
+      await apiClient.clearCache(`playlist_id=${playlistId}`);
       return response.data;
     } catch (error) {
       console.error("❌ Failed to remove audio from playlist:", error);
@@ -146,6 +146,9 @@ class PlaylistApiService {
       throw new ApiError("Failed to remove audio from playlist", undefined, error);
     }
   }
+
+
+
 
 
   async getUserPlaylists(): Promise<UserPlaylistsResponse> {
@@ -205,8 +208,8 @@ class PlaylistApiService {
       const userId = await this.getUserId();
       const params = {
         action: "playlist_data",
-        user_id: userId,
-        playlist_id: playlistId,
+        user_id: Number(userId),
+        playlist_id: Number(playlistId),
       };
 
       addSentryBreadcrumb("Fetching playlist data", "user", {

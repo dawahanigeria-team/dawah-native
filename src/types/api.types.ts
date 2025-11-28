@@ -404,9 +404,9 @@ export interface CreatePlaylistResponse extends BaseApiResponse {
 
 export interface AddToPlaylistRequest {
   action: "add_playlist_audio" | "remove_playlist_audio";
-  user_id: string;
-  audio_id: string;
-  playlist_id: string;
+  user_id: string | number;
+  audio_id: string | number;
+  playlist_id: string | number;
 }
 
 export interface AddToPlaylistResponse {

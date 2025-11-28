@@ -203,13 +203,13 @@ const LectureDetailScreen: React.FC = () => {
         title: episode.title,
         level: 'error',
       });
-      
+
       // Check if this is a permission error
-      const isPermissionError = 
+      const isPermissionError =
         error?.isPermissionError ||
         error?.message?.toLowerCase().includes("permission") ||
         error?.message?.toLowerCase().includes("storage permission");
-      
+
       if (isPermissionError) {
         Alert.alert(
           "Storage Permission Required",
@@ -879,7 +879,7 @@ const LectureDetailScreen: React.FC = () => {
           isVisible={showAddToPlaylistModal}
           onClose={() => setShowAddToPlaylistModal(false)}
           audioId={lecture.id}
-          onAudioAdded={() => Alert.alert('Success', 'Audio added to playlist!')}
+          onAudioAdded={() => { }}
         />
       )}
     </SafeAreaView>
