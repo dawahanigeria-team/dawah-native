@@ -5,14 +5,14 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Directory, File, FileHandle, Paths } from "expo-file-system";
-import * as FileSystem from "expo-file-system";
+
 import { fetch } from "expo/fetch";
 import type { Episode } from "../types/types";
 import { requestStoragePermission } from "../utils/permissions";
 import { downloadsApi } from "./api/downloads.api";
 import {
-    addSentryBreadcrumb,
-    captureSentryException,
+  addSentryBreadcrumb,
+  captureSentryException,
 } from "./config/sentry.config";
 
 const DOWNLOADS_METADATA_KEY = "downloads_metadata";
@@ -242,8 +242,7 @@ class DownloadsService {
       let fileHandle: FileHandle | null = null;
 
       console.log(
-        `📊 Starting streaming download: ${
-          totalBytes > 0 ? `${totalBytes} bytes total` : "unknown size"
+        `📊 Starting streaming download: ${totalBytes > 0 ? `${totalBytes} bytes total` : "unknown size"
         }`
       );
 
@@ -260,8 +259,7 @@ class DownloadsService {
           fileHandle = file.open();
         } catch (fileInitError) {
           throw new Error(
-            `Unable to prepare download file: ${
-              (fileInitError as Error).message || fileInitError
+            `Unable to prepare download file: ${(fileInitError as Error).message || fileInitError
             }`
           );
         }
@@ -606,10 +604,7 @@ class DownloadsService {
         // If completed successfully, move to final location
         if (!resumableDownload.isPaused && bytesDownloaded === totalBytes) {
           const finalFile = this.getDownloadFile(id);
-          await FileSystem.copyAsync({
-            from: file.uri,
-            to: finalFile.uri,
-          });
+          await file.copy(finalFile);
           file.delete();
 
           // Save metadata
