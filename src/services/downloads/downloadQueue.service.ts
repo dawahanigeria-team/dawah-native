@@ -3,10 +3,13 @@
  * Integrates with resumable downloads service.
  */
 
-import { downloadsService, DownloadProgress, ResumableDownload } from '../downloads.service';
-import type { Episode } from '../../types/types';
-import { captureSentryException, addSentryBreadcrumb } from '../config/sentry.config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
+import type { Episode } from '../../types/types';
+import { addSentryBreadcrumb, captureSentryException } from '../config/sentry.config';
+import { DownloadProgress, downloadsService, ResumableDownload } from '../downloads.service';
+
+const DOWNLOAD_QUEUE_KEY = 'download_queue_v1';
 
 export enum DownloadStatus {
   QUEUED = 'queued',
@@ -44,7 +47,7 @@ class DownloadQueueService {
   private queue: Map<string, QueuedDownload> = new Map();
   private activeDownloads: Map<string, ResumableDownload> = new Map();
   private listeners: (() => void)[] = [];
-  
+
   private config: DownloadQueueConfig = {
     maxConcurrent: 2,
     autoStart: true,
@@ -79,6 +82,39 @@ class DownloadQueueService {
     });
 
     this.isInitialized = true;
+
+    // Load queue from storage
+    await this.loadQueue();
+  }
+
+  private async loadQueue() {
+    try {
+      const stored = await AsyncStorage.getItem(DOWNLOAD_QUEUE_KEY);
+      if (stored) {
+        const queueItems: QueuedDownload[] = JSON.parse(stored);
+        this.queue.clear();
+        queueItems.forEach(item => {
+          // Reset downloading items to queued or paused on restart
+          if (item.status === DownloadStatus.DOWNLOADING) {
+            item.status = DownloadStatus.QUEUED;
+          }
+          this.queue.set(item.id, item);
+        });
+        console.log(`📥 Loaded ${this.queue.size} items from download queue`);
+        this.notify();
+      }
+    } catch (error) {
+      console.error('Failed to load download queue:', error);
+    }
+  }
+
+  private async saveQueue() {
+    try {
+      const queueItems = Array.from(this.queue.values());
+      await AsyncStorage.setItem(DOWNLOAD_QUEUE_KEY, JSON.stringify(queueItems));
+    } catch (error) {
+      console.error('Failed to save download queue:', error);
+    }
   }
 
   private async _handleNetworkStateChange(state: NetInfoState) {
@@ -123,6 +159,7 @@ class DownloadQueueService {
     };
 
     this.queue.set(downloadId, queuedDownload);
+    await this.saveQueue();
     addSentryBreadcrumb(`Added to download queue: ${episode.title}`, 'download');
     this.notify();
 
@@ -165,8 +202,9 @@ class DownloadQueueService {
     try {
       download.status = DownloadStatus.DOWNLOADING;
       download.startedAt = Date.now();
+      await this.saveQueue();
       this.notify();
-      
+
       this.speedTrackers.set(downloadId, { bytes: 0, timestamp: Date.now() });
 
       const resumableDownload = await downloadsService.createDownload(
@@ -185,6 +223,7 @@ class DownloadQueueService {
       download.completedAt = Date.now();
       this.activeDownloads.delete(downloadId);
       this.speedTrackers.delete(downloadId);
+      await this.saveQueue();
       this.notify();
 
       await this.processQueue();
@@ -194,10 +233,11 @@ class DownloadQueueService {
       download.error = error.message;
       this.activeDownloads.delete(downloadId);
       this.speedTrackers.delete(downloadId);
+      await this.saveQueue();
       this.notify();
 
       captureSentryException(error, { operation: 'download_queue_start', downloadId });
-      
+
       await this.processQueue();
     }
   }
@@ -231,6 +271,7 @@ class DownloadQueueService {
       download.status = DownloadStatus.PAUSED;
       this.activeDownloads.delete(downloadId);
       addSentryBreadcrumb(`Paused download: ${download.episode.title}`, 'download');
+      await this.saveQueue();
       this.notify();
       await this.processQueue(); // Look for next download to start
     }
@@ -240,6 +281,7 @@ class DownloadQueueService {
     const download = this.queue.get(downloadId);
     if (download?.status === DownloadStatus.PAUSED) {
       download.status = DownloadStatus.QUEUED;
+      await this.saveQueue();
       this.notify();
       await this.processQueue();
     }
@@ -253,11 +295,12 @@ class DownloadQueueService {
       this.activeDownloads.delete(downloadId);
       this.speedTrackers.delete(downloadId);
       addSentryBreadcrumb(`Cancelled download: ${download.episode.title}`, 'download');
+      await this.saveQueue();
       this.notify();
       await this.processQueue();
     }
   }
-  
+
   public getQueue(): QueuedDownload[] {
     return Array.from(this.queue.values()).sort((a, b) => b.priority - a.priority);
   }
@@ -282,12 +325,13 @@ class DownloadQueueService {
     };
   }
 
-  public clearCompleted(): void {
+  public async clearCompleted(): Promise<void> {
     for (const [id, download] of this.queue.entries()) {
       if (download.status === DownloadStatus.COMPLETED) {
         this.queue.delete(id);
       }
     }
+    await this.saveQueue();
     this.notify();
   }
 
@@ -297,6 +341,7 @@ class DownloadQueueService {
         await this.pauseDownload(download.id);
       }
     }
+    await this.saveQueue();
     this.notify();
   }
 
@@ -306,6 +351,7 @@ class DownloadQueueService {
         download.status = DownloadStatus.QUEUED;
       }
     }
+    await this.saveQueue();
     this.notify();
     await this.processQueue();
   }
@@ -318,7 +364,7 @@ class DownloadQueueService {
   public getConfig(): DownloadQueueConfig {
     return { ...this.config };
   }
-  
+
   public formatSpeed(bytesPerSecond: number): string {
     if (bytesPerSecond < 1) return '0 B/s';
     const units = ['B/s', 'KB/s', 'MB/s', 'GB/s'];

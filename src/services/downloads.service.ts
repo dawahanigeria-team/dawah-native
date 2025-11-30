@@ -47,6 +47,18 @@ export interface ResumableDownload {
   totalBytes: number;
 }
 
+export class DownloadError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public originalError?: any,
+    public isPermissionError: boolean = false
+  ) {
+    super(message);
+    this.name = 'DownloadError';
+  }
+}
+
 class DownloadsService {
   private downloadsDirectory: Directory | null = null;
   private metadataCache: Map<string, DownloadMetadata> = new Map();
@@ -405,10 +417,13 @@ class DownloadsService {
       });
 
       // Throw error with user-friendly message
-      const friendlyError = new Error(userFriendlyMessage);
-      (friendlyError as any).originalError = error;
-      (friendlyError as any).isPermissionError = isPermissionError;
-      throw friendlyError;
+      // Throw error with user-friendly message
+      throw new DownloadError(
+        userFriendlyMessage,
+        isPermissionError ? 'PERMISSION_DENIED' : 'DOWNLOAD_FAILED',
+        error,
+        isPermissionError
+      );
     }
   }
 
@@ -555,31 +570,94 @@ class DownloadsService {
     const file = this.getPartialDownloadFile(id);
 
     try {
+      // Check for existing partial file to resume
+      let existingSize = 0;
+      if (file.exists) {
+        // Assuming File class has size property or similar. 
+        // If not available directly, we might need to use stat/getInfo.
+        // For now, relying on the fact that file.exists works, file.size should likely exist 
+        // or we can get it from metadata if we trust it, but checking file is safer.
+        // Using a safe approach if size property isn't guaranteed:
+        try {
+          // @ts-ignore - Assuming size exists on File object in this API version
+          existingSize = file.size ?? 0;
+        } catch (e) {
+          console.warn('Could not get file size', e);
+        }
+      }
+
+      const headers: Record<string, string> = {};
+      if (existingSize > 0) {
+        headers['Range'] = `bytes=${existingSize}-`;
+        console.log(`Resuming download for ${id} from byte ${existingSize}`);
+      }
+
       const response = await fetch(episode.audioUrl!, {
         signal: abortController.signal,
+        headers,
       });
 
       if (!response.ok) {
+        // If Range request fails (e.g. 416), try restarting
+        if (response.status === 416) {
+          console.warn('Range request failed, restarting download from scratch');
+          return this.startDownload({
+            ...resumableDownload,
+            bytesDownloaded: 0
+          });
+        }
         throw new Error(`Download failed: ${response.status}`);
       }
 
       const contentLength = response.headers.get("content-length");
-      const totalBytes = contentLength ? parseInt(contentLength, 10) : 0;
+      // If 206 Partial Content, total length is content-length + existing size
+      // Note: Content-Range header usually has the full size: "bytes 100-200/200"
+      const totalBytesHeader = response.headers.get("content-range")?.split('/')[1];
+      const totalBytes = totalBytesHeader
+        ? parseInt(totalBytesHeader, 10)
+        : (contentLength ? parseInt(contentLength, 10) + existingSize : 0);
+
       resumableDownload.totalBytes = totalBytes;
 
       // Stream to file
-      file.create({ intermediates: true, overwrite: true });
-      const fileHandle = file.open();
+      let fileHandle: FileHandle;
+
+      if (response.status === 206 && existingSize > 0) {
+        // Resuming: Open without truncating
+        file.create({ intermediates: true, overwrite: false });
+        fileHandle = file.open();
+        // Seek to end
+        try {
+          // @ts-ignore - Assuming seek exists
+          fileHandle.seek(existingSize);
+        } catch (e) {
+          // If seek fails, we might have to restart
+          console.error('Seek failed, restarting', e);
+          fileHandle.close();
+          file.delete();
+          return this.startDownload({ ...resumableDownload, bytesDownloaded: 0 });
+        }
+      } else {
+        // New download or server didn't accept range: Overwrite
+        file.create({ intermediates: true, overwrite: true });
+        fileHandle = file.open();
+        existingSize = 0; // Reset if we are overwriting
+      }
+
       const reader = response.body?.getReader();
 
       if (!reader) {
+        fileHandle.close();
         throw new Error("Response body is not readable");
       }
 
       try {
-        let bytesDownloaded = 0;
+        let bytesDownloaded = existingSize;
         let lastProgressUpdate = 0;
         const PROGRESS_UPDATE_INTERVAL = 100; // Update progress every 100ms
+
+        // Update initial state
+        resumableDownload.bytesDownloaded = bytesDownloaded;
 
         while (true) {
           // Check if paused
@@ -610,8 +688,11 @@ class DownloadsService {
         }
 
         // If completed successfully, move to final location
-        if (!resumableDownload.isPaused && bytesDownloaded === totalBytes) {
+        if (!resumableDownload.isPaused && (totalBytes === 0 || bytesDownloaded === totalBytes)) {
           const finalFile = this.getDownloadFile(id);
+          // Ensure destination directory exists (should be handled by getDownloadFile logic but safe to check)
+
+          // Copy to final location
           await file.copy(finalFile);
           file.delete();
 
