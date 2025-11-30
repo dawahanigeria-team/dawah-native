@@ -437,7 +437,7 @@ export default function LecturerDetailScreen() {
           <FlatList
             data={filteredLectures}
             renderItem={({ item, index }) => renderLectureItem(item, index)}
-            keyExtractor={(item: any) => item._uniqueId || `${item.nid}-${index}`}
+            keyExtractor={(item: any, index: number) => item._uniqueId || `${item.nid}-${index}`}
             contentContainerStyle={tw`px-5 pb-20`}
             onEndReached={loadMoreLectures}
             onEndReachedThreshold={0.5}

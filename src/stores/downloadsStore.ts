@@ -63,16 +63,16 @@ export const useDownloadsStore = () => {
     };
   }, []);
 
-  const addToQueue = useCallback((episode: Episode) => {
-    downloadQueueService.addToQueue(episode);
+  const addToQueue = useCallback(async (episode: Episode) => {
+    await downloadQueueService.addToQueue(episode);
   }, []);
 
-  const pauseDownload = useCallback((lectureId: string) => {
-    downloadQueueService.pauseDownload(lectureId);
+  const pauseDownload = useCallback(async (lectureId: string) => {
+    await downloadQueueService.pauseDownload(lectureId);
   }, []);
-  
-  const resumeDownload = useCallback((lectureId: string) => {
-    downloadQueueService.resumeDownload(lectureId);
+
+  const resumeDownload = useCallback(async (lectureId: string) => {
+    await downloadQueueService.resumeDownload(lectureId);
   }, []);
   
   const cancelDownload = useCallback(async (lectureId: string) => {

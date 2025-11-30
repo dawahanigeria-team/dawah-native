@@ -14,7 +14,6 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
-  Linking,
   ScrollView,
   Share,
   TouchableOpacity,
@@ -33,6 +32,7 @@ import { Button, Chip, Text, Touchable } from "../../src/components/atoms";
 import AddToPlaylistModal from "../../src/components/organisms/AddToPlaylistModal";
 import { useLectureDetail } from "../../src/hooks/useLectureDetail";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
+import { DownloadStatus } from "../../src/services/downloads/downloadQueue.service";
 import { linkingService } from "../../src/services/linking.service";
 import { useAuthStore, useDownloadsStore, useFavoritesStore, usePlayerStore } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
@@ -172,58 +172,50 @@ const LectureDetailScreen: React.FC = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      addSentryBreadcrumb('Starting lecture download', 'user', {
-        lectureId: episode.id,
-        title: episode.title,
-      });
-      await downloadLecture(episode);
-      Alert.alert(
-        "Download Complete",
-        `${episode.title} is now available offline!`,
-        [{ text: "OK" }]
-      );
+      // Handle different download states
+      if (downloadStatus === DownloadStatus.DOWNLOADING) {
+        // Pause the download
+        await pauseDownload(episode.id);
+        addSentryBreadcrumb('Paused lecture download', 'user', {
+          lectureId: episode.id,
+          title: episode.title,
+        });
+      } else if (downloadStatus === DownloadStatus.PAUSED) {
+        // Resume the download
+        await resumeDownload(episode.id);
+        addSentryBreadcrumb('Resumed lecture download', 'user', {
+          lectureId: episode.id,
+          title: episode.title,
+        });
+      } else if (downloadStatus === DownloadStatus.COMPLETED) {
+        // Already downloaded, show message
+        Alert.alert(
+          "Already Downloaded",
+          "This lecture is already available offline.",
+          [{ text: "OK" }]
+        );
+      } else {
+        // Start new download by adding to queue
+        addSentryBreadcrumb('Adding lecture to download queue', 'user', {
+          lectureId: episode.id,
+          title: episode.title,
+        });
+        await addToQueue(episode);
+      }
     } catch (error: any) {
       captureSentryException(error, {
         component: 'LectureDetailScreen',
-        action: 'handleDownload',
+        action: 'handleDownloadPress',
         lectureId: episode.id,
         title: episode.title,
         level: 'error',
       });
-      
-      // Check if this is a permission error
-      const isPermissionError = 
-        error?.isPermissionError ||
-        error?.message?.toLowerCase().includes("permission") ||
-        error?.message?.toLowerCase().includes("storage permission");
-      
-      if (isPermissionError) {
-        Alert.alert(
-          "Storage Permission Required",
-          error.message || "Storage permission is required to download lectures. Please enable it in your device settings.",
-          [
-            { text: "Cancel", style: "cancel" },
-            {
-              text: "Open Settings",
-              onPress: () => {
-                Linking.openSettings().catch(() => {
-                  Alert.alert(
-                    "Unable to Open Settings",
-                    "Please manually enable storage permission in your device settings.",
-                    [{ text: "OK" }]
-                  );
-                });
-              },
-            },
-          ]
-        );
-      } else {
-        Alert.alert(
-          "Download Failed",
-          error.message || "Failed to download lecture. Please try again.",
-          [{ text: "OK" }]
-        );
-      }
+
+      Alert.alert(
+        "Download Error",
+        error.message || "Failed to manage download. Please try again.",
+        [{ text: "OK" }]
+      );
     }
   }, [episode, downloadStatus, addToQueue, pauseDownload, resumeDownload]);
 
@@ -642,7 +634,7 @@ const LectureDetailScreen: React.FC = () => {
                 <Text variant="title3" color="label" weight="bold" style={tw`mb-3`}>
                   Details
                 </Text>
-                {meta.map((item: any, index) => (
+                {meta.map((item: any) => (
                   <View key={item.label} style={tw`flex-row items-center mb-3`}>
                     <View style={[tw`w-8 h-8 rounded-full items-center justify-center mr-3`, { backgroundColor: designTokens.colors.system.fill.secondary }]}>
                       <Ionicons name={item.icon} size={16} color={designTokens.colors.system.label.secondary} />

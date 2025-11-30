@@ -6,7 +6,7 @@
 import { downloadsService, DownloadProgress, ResumableDownload } from '../downloads.service';
 import type { Episode } from '../../types/types';
 import { captureSentryException, addSentryBreadcrumb } from '../config/sentry.config';
-import NetInfo, { NetInfoStateType } from '@react-native-community/netinfo';
+import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
 
 export enum DownloadStatus {
   QUEUED = 'queued',
@@ -81,7 +81,7 @@ class DownloadQueueService {
     this.isInitialized = true;
   }
 
-  private async _handleNetworkStateChange(state: NetInfoStateType) {
+  private async _handleNetworkStateChange(state: NetInfoState) {
     if (this.config.wifiOnly && state.type !== 'wifi') {
       await this.pauseAll(); // Pause all if wifiOnly and not on wifi
     } else if (!this.config.wifiOnly || state.type === 'wifi') {
