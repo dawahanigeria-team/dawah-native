@@ -38,9 +38,13 @@ export interface DownloadProgress {
 
 export interface ResumableDownload {
   id: string;
-  downloader: FileSystem.DownloadResumable;
   episode: Episode;
   progressCallback: (progress: DownloadProgress) => void;
+  // New fields for manual pause/resume using streaming API
+  abortController: AbortController;
+  isPaused: boolean;
+  bytesDownloaded: number;
+  totalBytes: number;
 }
 
 class DownloadsService {
@@ -514,31 +518,14 @@ class DownloadsService {
     }
 
     try {
-      const file = this.getPartialDownloadFile(lectureId);
-      const callback = (downloadProgress: {
-        totalBytesWritten: number;
-        totalBytesExpectedToWrite: number;
-      }) => {
-        progressCallback({
-          lectureId,
-          progress: downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite,
-          bytesDownloaded: downloadProgress.totalBytesWritten,
-          totalBytes: downloadProgress.totalBytesExpectedToWrite,
-        });
-      };
-
-      const downloadResumable = FileSystem.createDownloadResumable(
-        audioUrl,
-        file.uri,
-        {},
-        callback
-      );
-
       const resumableDownload: ResumableDownload = {
         id: lectureId,
-        downloader: downloadResumable,
         episode,
         progressCallback,
+        abortController: new AbortController(),
+        isPaused: false,
+        bytesDownloaded: 0,
+        totalBytes: 0,
       };
 
       this.activeDownloads.set(lectureId, resumableDownload);
@@ -558,43 +545,111 @@ class DownloadsService {
    * Start a resumable download
    */
   async startDownload(resumableDownload: ResumableDownload): Promise<void> {
+    const { id, episode, progressCallback, abortController } = resumableDownload;
+    const file = this.getPartialDownloadFile(id);
+
     try {
-      const result = await resumableDownload.downloader.downloadAsync();
+      const response = await fetch(episode.audioUrl!, {
+        signal: abortController.signal,
+      });
 
-      if (result) {
-        // Move from .part to final .mp3 file
-        const partFile = this.getPartialDownloadFile(resumableDownload.id);
-        const finalFile = this.getDownloadFile(resumableDownload.id);
+      if (!response.ok) {
+        throw new Error(`Download failed: ${response.status}`);
+      }
 
-        // Copy content from part file to final file using FileSystem API
-        if (partFile.exists) {
-          await FileSystem.copyAsync({
-            from: partFile.uri,
-            to: finalFile.uri,
-          });
-          partFile.delete();
+      const contentLength = response.headers.get("content-length");
+      const totalBytes = contentLength ? parseInt(contentLength, 10) : 0;
+      resumableDownload.totalBytes = totalBytes;
+
+      // Stream to file
+      file.create({ intermediates: true, overwrite: true });
+      const fileHandle = file.open();
+      const reader = response.body?.getReader();
+
+      if (!reader) {
+        throw new Error("Response body is not readable");
+      }
+
+      try {
+        let bytesDownloaded = 0;
+        let lastProgressUpdate = 0;
+        const PROGRESS_UPDATE_INTERVAL = 100; // Update progress every 100ms
+
+        while (true) {
+          // Check if paused
+          if (resumableDownload.isPaused) {
+            break;
+          }
+
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          if (value && fileHandle) {
+            fileHandle.writeBytes(value);
+            bytesDownloaded += value.length;
+            resumableDownload.bytesDownloaded = bytesDownloaded;
+
+            // Throttle progress updates
+            const now = Date.now();
+            if (now - lastProgressUpdate >= PROGRESS_UPDATE_INTERVAL) {
+              progressCallback({
+                lectureId: id,
+                progress: totalBytes > 0 ? bytesDownloaded / totalBytes : 0,
+                bytesDownloaded,
+                totalBytes: totalBytes || bytesDownloaded,
+              });
+              lastProgressUpdate = now;
+            }
+          }
         }
 
-        // Save metadata
-        const metadata: DownloadMetadata = {
-          lectureId: resumableDownload.id,
-          title: resumableDownload.episode.title,
-          lecturerName: resumableDownload.episode.lecturerName || "Unknown",
-          coverUrl: resumableDownload.episode.coverUrl,
-          audioUrl: resumableDownload.episode.audioUrl,
-          duration: resumableDownload.episode.durationSec,
-          downloadedAt: new Date().toISOString(),
-          fileSize: result.headers["Content-Length"] ? parseInt(result.headers["Content-Length"]) : undefined,
-        };
+        // If completed successfully, move to final location
+        if (!resumableDownload.isPaused && bytesDownloaded === totalBytes) {
+          const finalFile = this.getDownloadFile(id);
+          await FileSystem.copyAsync({
+            from: file.uri,
+            to: finalFile.uri,
+          });
+          file.delete();
 
-        this.metadataCache.set(resumableDownload.id, metadata);
-        await this.saveMetadata();
-        this.activeDownloads.delete(resumableDownload.id);
-        this.notify();
+          // Save metadata
+          const metadata: DownloadMetadata = {
+            lectureId: id,
+            title: episode.title,
+            lecturerName: episode.lecturerName || "Unknown",
+            coverUrl: episode.coverUrl,
+            audioUrl: episode.audioUrl,
+            duration: episode.durationSec,
+            downloadedAt: new Date().toISOString(),
+            fileSize: bytesDownloaded,
+          };
+
+          this.metadataCache.set(id, metadata);
+          await this.saveMetadata();
+          this.activeDownloads.delete(id);
+          this.notify();
+
+          // Report final completion
+          progressCallback({
+            lectureId: id,
+            progress: 1,
+            bytesDownloaded,
+            totalBytes: bytesDownloaded,
+          });
+        }
+      } finally {
+        reader.releaseLock();
+        if (fileHandle) {
+          fileHandle.close();
+        }
       }
-    } catch (error) {
-      console.error("Download failed:", error);
-      throw error;
+    } catch (error: any) {
+      if (error.name === "AbortError") {
+        console.log("Download was cancelled");
+      } else {
+        console.error("Download failed:", error);
+        throw error;
+      }
     }
   }
 
@@ -605,8 +660,23 @@ class DownloadsService {
     const download = this.activeDownloads.get(lectureId);
     if (download) {
       try {
-        const resumableData = await download.downloader.pauseAsync();
-        await this.saveResumableData(lectureId, resumableData);
+        download.isPaused = true;
+        // Save resumable state
+        const metadata = this.metadataCache.get(lectureId) || {
+          lectureId,
+          title: download.episode.title,
+          lecturerName: download.episode.lecturerName || "Unknown",
+          duration: download.episode.durationSec,
+          downloadedAt: new Date().toISOString(),
+        };
+        this.metadataCache.set(lectureId, {
+          ...metadata,
+          resumableData: JSON.stringify({
+            bytesDownloaded: download.bytesDownloaded,
+            totalBytes: download.totalBytes,
+          }),
+        } as DownloadMetadata);
+        await this.saveMetadata();
         this.notify();
       } catch (error) {
         console.error("Failed to pause download:", error);
@@ -625,9 +695,9 @@ class DownloadsService {
     const download = this.activeDownloads.get(lectureId);
     if (download) {
       try {
-        await download.downloader.pauseAsync();
+        download.abortController.abort();
       } catch (error) {
-        console.warn("Error pausing download before cancel:", error);
+        console.warn("Error aborting download:", error);
       }
       this.activeDownloads.delete(lectureId);
     }
