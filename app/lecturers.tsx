@@ -102,25 +102,28 @@ export default function LecturersScreen() {
         setHasMore(true);
         setTotalScholars(response.total || response.data.length);
       } else {
-        // Filter out duplicates before adding
-        const existingIds = new Set(lecturers.map(l => String(l.id)));
-        const newItems = response.data.filter((item: Lecturer) => !existingIds.has(String(item.id)));
+        // Use functional update to avoid stale closure
+        setLecturers(prevLecturers => {
+          // Filter out duplicates before adding
+          const existingIds = new Set(prevLecturers.map(l => String(l.id)));
+          const newItems = response.data.filter((item: Lecturer) => !existingIds.has(String(item.id)));
 
-        if (newItems.length === 0 && response.data.length > 0) {
-          // If we got data but they are all duplicates, it might mean we are fetching the same page or overlapping data.
-          // We should still consider this a successful fetch but maybe not increment the count significantly.
-          console.log(`📊 Page ${pageNum}: Received ${response.data.length} items, but all were duplicates.`);
-        }
+          if (newItems.length === 0 && response.data.length > 0) {
+            // If we got data but they are all duplicates, it might mean we are fetching the same page or overlapping data.
+            console.log(`📊 Page ${pageNum}: Received ${response.data.length} items, but all were duplicates.`);
+          }
 
-        const newLecturers = [...lecturers, ...newItems];
-        console.log(`📊 Total lecturers loaded: ${newLecturers.length} (${newItems.length} new on this page)`);
-        setLecturers(newLecturers);
+          const newLecturers = [...prevLecturers, ...newItems];
+          console.log(`📊 Total lecturers loaded: ${newLecturers.length} (${newItems.length} new on this page)`);
 
-        // Keep trying to load more as long as we got some data (even if duplicates, though that's weird)
-        // Ideally, if we got duplicates, we might want to stop or check if we reached the end.
-        // But for now, trust the hasMorePages flag.
+          // Update total scholars count
+          setTotalScholars(response.total || newLecturers.length);
+
+          return newLecturers;
+        });
+
+        // Keep trying to load more as long as we got some data
         setHasMore(hasMorePages);
-        setTotalScholars(response.total || newLecturers.length);
       }
 
       console.log(`📊 Page ${pageNum}: Got ${response.data.length} scholars, hasMore: ${hasMorePages}`);
