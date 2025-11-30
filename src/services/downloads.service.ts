@@ -48,7 +48,7 @@ export interface ResumableDownload {
 }
 
 class DownloadsService {
-  private downloadsDirectory: Directory;
+  private downloadsDirectory: Directory | null = null;
   private metadataCache: Map<string, DownloadMetadata> = new Map();
   private activeDownloads: Map<string, ResumableDownload> = new Map();
   private listeners: (() => void)[] = [];
@@ -129,14 +129,17 @@ class DownloadsService {
   }
 
   private getDownloadFile(lectureId: string): File {
+    if (!this.downloadsDirectory) throw new Error("Downloads directory not initialized");
     return new File(this.downloadsDirectory, `${lectureId}.mp3`);
   }
 
   private getPartialDownloadFile(lectureId: string): File {
+    if (!this.downloadsDirectory) throw new Error("Downloads directory not initialized");
     return new File(this.downloadsDirectory, `${lectureId}.part`);
   }
 
   isDownloaded(lectureId: string): boolean {
+    if (!this.downloadsDirectory) return false;
     const file = this.getDownloadFile(lectureId);
     return file.exists && this.metadataCache.has(lectureId) && !this.metadataCache.get(lectureId)?.resumableData;
   }
@@ -410,6 +413,7 @@ class DownloadsService {
   }
 
   private getMetadataFile(lectureId: string): File {
+    if (!this.downloadsDirectory) throw new Error("Downloads directory not initialized");
     return new File(this.downloadsDirectory, `${lectureId}.json`);
   }
 
@@ -421,9 +425,11 @@ class DownloadsService {
   }
 
   getPlaybackUri(lectureId: string, remoteUrl?: string): string {
-    const file = this.getDownloadFile(lectureId);
-    if (file.exists) {
-      return file.uri;
+    if (this.downloadsDirectory) {
+      const file = this.getDownloadFile(lectureId);
+      if (file.exists) {
+        return file.uri;
+      }
     }
 
     // Return remote URL for online playback
@@ -431,6 +437,7 @@ class DownloadsService {
   }
 
   async deleteLecture(lectureId: string): Promise<void> {
+    if (!this.downloadsDirectory) return;
     await this.deleteFileIfExists(this.getDownloadFile(lectureId));
     await this.deleteFileIfExists(this.getPartialDownloadFile(lectureId));
     this.metadataCache.delete(lectureId);
@@ -445,6 +452,7 @@ class DownloadsService {
   }
 
   getDownloadedLectures(): DownloadMetadata[] {
+    if (!this.downloadsDirectory) return [];
     const allMetadata = Array.from(this.metadataCache.values());
 
     // Filter to only include lectures with existing files

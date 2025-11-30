@@ -1,17 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState, useEffect, useRef } from "react";
-import { ScrollView, Text, TouchableOpacity, View, Image, ActivityIndicator, TextInput, FlatList } from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, FlatList, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams, router } from "expo-router";
 import { TabView } from "../../src/components/molecules/TabView";
+import { Album, albumsApi } from "../../src/services/api/albums.api";
+import { LecturerLecture, lecturersApi } from "../../src/services/api/lecturers.api";
+import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
 import { usePlayerStore } from "../../src/stores";
-import { lecturersApi, LecturerLecture } from "../../src/services/api/lecturers.api";
-import { albumsApi, Album } from "../../src/services/api/albums.api";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Episode } from "../../src/types/types";
 import { getInitials, getPlaceholderColor } from "../../src/utils/colorPlaceholder";
-import { captureSentryException, addSentryBreadcrumb } from "../../src/services/config/sentry.config";
 
 // Tab types
 type TabType = 'songs' | 'albums' | 'playlists';
@@ -309,29 +309,29 @@ export default function LecturerDetailScreen() {
         style={tw`flex-row items-start p-4 bg-[#1A1A1F] rounded-lg mb-3`}
         onPress={handleAlbumPress}
       >
-      {album.coverUrl ? (
-        <Image
-          source={{ uri: album.coverUrl }}
-          style={tw`w-16 h-16 rounded-lg`}
-        />
-      ) : (
-        <View style={tw`w-16 h-16 rounded-lg bg-gray-700 items-center justify-center`}>
-          <Ionicons name="musical-notes" size={24} color="#9CA3AF" />
+        {album.coverUrl ? (
+          <Image
+            source={{ uri: album.coverUrl }}
+            style={tw`w-16 h-16 rounded-lg`}
+          />
+        ) : (
+          <View style={tw`w-16 h-16 rounded-lg bg-gray-700 items-center justify-center`}>
+            <Ionicons name="musical-notes" size={24} color="#9CA3AF" />
+          </View>
+        )}
+        <View style={tw`flex-1 ml-4`}>
+          <Text style={tw`text-white font-semibold mb-1`} numberOfLines={2}>
+            {album.title}
+          </Text>
+          <Text style={tw`text-gray-400 text-sm`}>
+            {album.trackCount || 0} lectures{album.language ? ` • ${album.language}` : ''}
+          </Text>
         </View>
-      )}
-      <View style={tw`flex-1 ml-4`}>
-        <Text style={tw`text-white font-semibold mb-1`} numberOfLines={2}>
-          {album.title}
-        </Text>
-        <Text style={tw`text-gray-400 text-sm`}>
-          {album.trackCount || 0} lectures{album.language ? ` • ${album.language}` : ''}
-        </Text>
-      </View>
-      <View style={tw`justify-center ml-2`}>
-        <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-      </View>
-    </TouchableOpacity>
-  );
+        <View style={tw`justify-center ml-2`}>
+          <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+        </View>
+      </TouchableOpacity>
+    );
   };
 
   const renderLectureItem = (lecture: LecturerLecture, index: number) => (
@@ -483,6 +483,164 @@ export default function LecturerDetailScreen() {
     }
   };
 
+  const renderHeaderContent = () => (
+    <>
+      {/* Lecturer Info with Cover Image */}
+      <View style={tw`px-5 py-3`}>
+        <View style={tw`flex-row`}>
+          {/* Cover/Profile Image */}
+          {lecturerImage ? (
+            <Image
+              source={{ uri: lecturerImage }}
+              style={tw`w-24 h-24 rounded-lg`}
+            />
+          ) : (
+            <View
+              style={[
+                tw`w-24 h-24 rounded-lg items-center justify-center`,
+                { backgroundColor: getPlaceholderColor(lecturerId) }
+              ]}
+            >
+              <Text style={tw`text-white text-3xl font-bold`}>
+                {getInitials(lecturerName)}
+              </Text>
+            </View>
+          )}
+
+          {/* Info */}
+          <View style={tw`flex-1 ml-4 justify-between`}>
+            <View>
+              <Text style={tw`text-white text-xl font-bold mb-1`}>
+                {lecturerName}
+              </Text>
+              {lecturer.bio && (
+                <Text style={tw`text-gray-300 text-sm`} numberOfLines={2}>
+                  {lecturer.bio}
+                </Text>
+              )}
+            </View>
+
+            {/* Stats */}
+            <View style={tw`flex-row items-center mt-2`}>
+              <View style={tw`flex-row items-center bg-gray-800 rounded-full px-3 py-1.5 mr-2`}>
+                <Ionicons name="heart" size={14} color="#9CA3AF" />
+                <Text style={tw`text-gray-300 text-xs ml-1.5`}>
+                  {formatNumber(favorites)}
+                </Text>
+              </View>
+              <View style={tw`flex-row items-center bg-gray-800 rounded-full px-3 py-1.5 mr-2`}>
+                <Ionicons name="share-social" size={14} color="#9CA3AF" />
+                <Text style={tw`text-gray-300 text-xs ml-1.5`}>
+                  {shares}
+                </Text>
+              </View>
+              <View style={tw`flex-row items-center bg-gray-800 rounded-full px-3 py-1.5`}>
+                <Ionicons name="chatbubble" size={14} color="#9CA3AF" />
+                <Text style={tw`text-gray-300 text-xs ml-1.5`}>
+                  {comments}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Tabs */}
+      <TabView
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={(key) => setActiveTab(key as TabType)}
+      />
+
+      {/* Search Bar */}
+      {activeTab === 'songs' && (
+        <View style={tw`px-5 py-4`}>
+          <View style={tw`flex-row items-center bg-[#1A1A1F] rounded-lg px-4 py-3`}>
+            <Ionicons name="search" size={20} color="#9CA3AF" />
+            <TextInput
+              style={tw`flex-1 ml-3 text-white`}
+              placeholder="Search lectures"
+              placeholderTextColor="#6B7280"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      )}
+    </>
+  );
+
+  const renderSongsList = () => {
+    return (
+      <FlatList
+        data={filteredLectures}
+        renderItem={({ item, index }) => renderLectureItem(item, index)}
+        keyExtractor={(item: any, index: number) => item._uniqueId || `${item.nid}-${index}`}
+        contentContainerStyle={tw`pb-20`}
+        onEndReached={loadMoreLectures}
+        onEndReachedThreshold={0.5}
+        ListHeaderComponent={renderHeaderContent}
+        ListFooterComponent={renderLectureFooter}
+        ListEmptyComponent={() => {
+          if (lecturesLoading) {
+            return (
+              <View style={tw`px-5 py-10 items-center`}>
+                <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
+                <Text style={tw`text-gray-400 mt-2`}>Loading lectures...</Text>
+              </View>
+            );
+          }
+          return (
+            <View style={tw`px-5 py-10 items-center`}>
+              <Text style={tw`text-gray-400 text-center`}>
+                {searchQuery ? 'No lectures found matching your search' : 'No lectures found for this scholar'}
+              </Text>
+            </View>
+          );
+        }}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={20}
+        windowSize={10}
+      />
+    );
+  };
+
+  const renderOtherTabs = () => (
+    <ScrollView style={tw`flex-1`} showsVerticalScrollIndicator={false}>
+      {renderHeaderContent()}
+      {activeTab === 'albums' && (
+        <View style={tw`px-5 pb-20`}>
+          {albumsLoading ? (
+            <View style={tw`py-10 items-center`}>
+              <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
+              <Text style={tw`text-gray-400 mt-2`}>Loading albums...</Text>
+            </View>
+          ) : albums.length > 0 ? (
+            albums.map(album => renderAlbumItem(album))
+          ) : (
+            <View style={tw`py-10 items-center`}>
+              <Text style={tw`text-gray-400 text-center`}>
+                No albums found for this scholar
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+      {activeTab === 'playlists' && (
+        <View style={tw`px-5 py-10 items-center`}>
+          <Text style={tw`text-gray-400 text-center`}>
+            Playlists feature coming soon
+          </Text>
+        </View>
+      )}
+    </ScrollView>
+  );
+
   return (
     <SafeAreaView style={tw`flex-1 bg-[#0A0A0F]`}>
       {/* Header */}
@@ -499,98 +657,7 @@ export default function LecturerDetailScreen() {
         </Text>
       </View>
 
-      <ScrollView style={tw`flex-1`} showsVerticalScrollIndicator={false}>
-        {/* Lecturer Info with Cover Image */}
-        <View style={tw`px-5 py-3`}>
-          <View style={tw`flex-row`}>
-            {/* Cover/Profile Image */}
-            {lecturerImage ? (
-              <Image
-                source={{ uri: lecturerImage }}
-                style={tw`w-24 h-24 rounded-lg`}
-              />
-            ) : (
-              <View
-                style={[
-                  tw`w-24 h-24 rounded-lg items-center justify-center`,
-                  { backgroundColor: getPlaceholderColor(lecturerId) }
-                ]}
-              >
-                <Text style={tw`text-white text-3xl font-bold`}>
-                  {getInitials(lecturerName)}
-                </Text>
-              </View>
-            )}
-
-            {/* Info */}
-            <View style={tw`flex-1 ml-4 justify-between`}>
-              <View>
-                <Text style={tw`text-white text-xl font-bold mb-1`}>
-                  {lecturerName}
-                </Text>
-                {lecturer.bio && (
-                  <Text style={tw`text-gray-300 text-sm`} numberOfLines={2}>
-                    {lecturer.bio}
-                  </Text>
-                )}
-              </View>
-
-              {/* Stats */}
-              <View style={tw`flex-row items-center mt-2`}>
-                <View style={tw`flex-row items-center bg-gray-800 rounded-full px-3 py-1.5 mr-2`}>
-                  <Ionicons name="heart" size={14} color="#9CA3AF" />
-                  <Text style={tw`text-gray-300 text-xs ml-1.5`}>
-                    {formatNumber(favorites)}
-                  </Text>
-                </View>
-                <View style={tw`flex-row items-center bg-gray-800 rounded-full px-3 py-1.5 mr-2`}>
-                  <Ionicons name="share-social" size={14} color="#9CA3AF" />
-                  <Text style={tw`text-gray-300 text-xs ml-1.5`}>
-                    {shares}
-                  </Text>
-                </View>
-                <View style={tw`flex-row items-center bg-gray-800 rounded-full px-3 py-1.5`}>
-                  <Ionicons name="chatbubble" size={14} color="#9CA3AF" />
-                  <Text style={tw`text-gray-300 text-xs ml-1.5`}>
-                    {comments}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Tabs */}
-        <TabView
-          tabs={tabs}
-          activeTab={activeTab}
-          onTabChange={(key) => setActiveTab(key as TabType)}
-        />
-
-        {/* Search Bar */}
-        {activeTab === 'songs' && (
-          <View style={tw`px-5 py-4`}>
-            <View style={tw`flex-row items-center bg-[#1A1A1F] rounded-lg px-4 py-3`}>
-              <Ionicons name="search" size={20} color="#9CA3AF" />
-              <TextInput
-                style={tw`flex-1 ml-3 text-white`}
-                placeholder="Search lectures"
-                placeholderTextColor="#6B7280"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <Ionicons name="close-circle" size={20} color="#9CA3AF" />
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        )}
-
-        {/* Tab Content */}
-        {renderTabContent()}
-      </ScrollView>
+      {activeTab === 'songs' ? renderSongsList() : renderOtherTabs()}
     </SafeAreaView>
   );
 }
