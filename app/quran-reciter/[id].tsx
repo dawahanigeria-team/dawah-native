@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Icon } from '../../src/components/atoms';
 import { Text } from '../../src/components/atoms/Text';
 import { QuranAlbum, quranApi, QuranRecitation } from '../../src/services/api/quran.api';
@@ -267,19 +268,19 @@ const QuranReciterScreen: React.FC = () => {
 
   if (loading) {
     return (
-      <View style={styles.centered}>
+      <SafeAreaView style={styles.centered} edges={['top', 'bottom']}>
         <Stack.Screen options={{ title: 'Quran Reciter' }} />
         <ActivityIndicator size="large" color={designTokens.colors.brand.primary} />
         <Text variant="body" style={styles.loadingText}>
           Loading recitations...
         </Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (error || !album) {
     return (
-      <View style={styles.centered}>
+      <SafeAreaView style={styles.centered} edges={['top', 'bottom']}>
         <Stack.Screen options={{ title: 'Quran Reciter' }} />
         <Icon name="alert-circle" size="lg" color="systemRed" />
         <Text variant="body" color="systemRed" style={styles.errorText}>
@@ -290,12 +291,12 @@ const QuranReciterScreen: React.FC = () => {
             Try Again
           </Text>
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <Stack.Screen options={{ title: album.name || 'Quran Reciter' }} />
 
       <FlatList
@@ -412,7 +413,7 @@ const QuranReciterScreen: React.FC = () => {
       >
         <Icon name="share-social" size="md" color="label" />
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 };
 
