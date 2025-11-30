@@ -72,6 +72,11 @@ export default function LecturerDetailScreen() {
     try {
       isLoadingRef.current = true;
 
+      if (page > 1 && !appendData) {
+        console.warn(`⚠️ Page ${page} > 1 but appendData is false. Forcing append.`);
+        appendData = true;
+      }
+
       if (appendData) {
         setLoadingMore(true);
       } else {
@@ -100,17 +105,10 @@ export default function LecturerDetailScreen() {
           console.log(`📊 Total lectures now: ${prev.length + newLectures.length}`);
           return [...prev, ...newLectures];
         });
-        if (searchQuery.trim() === "") {
-          setFilteredLectures(prev => {
-            const existingIds = new Set(prev.map(l => l.nid));
-            const newLectures = lecturesWithUniqueIds.filter(l => !existingIds.has(l.nid));
-            return [...prev, ...newLectures];
-          });
-        }
       } else {
         // Replace lectures with new data
+        console.log(`🔄 Replacing lectures with ${lecturesWithUniqueIds.length} items`);
         setLectures(lecturesWithUniqueIds);
-        setFilteredLectures(lecturesWithUniqueIds);
       }
 
       // Check if there are more lectures to load
@@ -173,6 +171,7 @@ export default function LecturerDetailScreen() {
   // Handle search
   useEffect(() => {
     if (searchQuery.trim() === "") {
+      // Sync filtered lectures with main lectures list
       setFilteredLectures(lectures);
       setHasMoreLectures(true); // Re-enable pagination when search is cleared
     } else {
