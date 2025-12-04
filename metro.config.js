@@ -8,4 +8,15 @@ const config = getSentryExpoConfig(__dirname, {
   getDefaultConfig,
 });
 
+// Enable inline requires to improve startup time by lazily requiring modules
+config.transformer = {
+  ...config.transformer,
+  getTransformOptions: async () => ({
+    transform: {
+      experimentalImportSupport: false,
+      inlineRequires: true,
+    },
+  }),
+};
+
 module.exports = config;
