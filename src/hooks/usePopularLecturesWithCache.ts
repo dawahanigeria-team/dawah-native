@@ -13,6 +13,7 @@ import { offlineFirstApi } from '../services/cache/offlineFirst.api';
 import { CACHE_CONFIG } from '../services/cache/cache.service';
 import { SearchLecture } from '../types/types';
 import { captureSentryException } from '../services/config/sentry.config';
+import { logger } from '../utils/logger';
 
 export interface UsePopularLecturesResult {
   lectures: SearchLecture[];
@@ -33,13 +34,13 @@ export const usePopularLecturesWithCache = (): UsePopularLecturesResult => {
       setIsLoading(true);
       setError(null);
 
-      console.log('🔍 Fetching popular lectures with cache...');
+      logger.debug('🔍 Fetching popular lectures with cache...');
 
-      // Use offline-first API
+      // Use offline-first API with correct endpoint
       const data = await offlineFirstApi.get<SearchLecture[]>(
-        '/api/search.php',
+        '/api/popular_lec_api.php',
         {
-          sort: 'popular',
+          page: 1,
           limit: CACHE_CONFIG.LIMITS.POPULAR_LECTURES,
         },
         {
@@ -52,11 +53,14 @@ export const usePopularLecturesWithCache = (): UsePopularLecturesResult => {
 
       setLectures(data || []);
       setIsFromCache(!forceFresh);
-      console.log(`✅ Loaded ${data?.length || 0} popular lectures`);
+      logger.debug(`✅ Loaded ${data?.length || 0} popular lectures`);
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to fetch lectures';
       setError(errorMessage);
-      console.error('❌ Error fetching popular lectures:', errorMessage);
+      logger.error('Error fetching popular lectures', err, {
+        operation: 'fetch_popular_lectures_with_cache',
+        forceFresh,
+      });
 
       captureSentryException(err, {
         operation: 'fetch_popular_lectures_with_cache',
