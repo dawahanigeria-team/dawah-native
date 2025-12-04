@@ -56,6 +56,7 @@ class DownloadQueueService {
 
   private speedTrackers: Map<string, { bytes: number; timestamp: number }> = new Map();
   private isInitialized = false;
+  private isProcessing = false;
 
   private constructor() {
     console.log('📥 Download Queue Service initialized');
@@ -169,29 +170,40 @@ class DownloadQueueService {
   }
 
   private async processQueue(): Promise<void> {
-    const netState = await NetInfo.fetch();
-    const isConnected = netState.isConnected;
-    const isWifi = netState.type === 'wifi';
-
-    if (!isConnected) {
-      console.log('No network connection, pausing active downloads.');
-      await this.pauseAll(); // Pause all active downloads if no network
+    // Prevent concurrent processing
+    if (this.isProcessing) {
+      console.log('⏸️ Queue processing already in progress, skipping');
       return;
     }
 
-    if (this.config.wifiOnly && !isWifi) {
-      console.log('WiFi-only mode enabled, but not on WiFi. Pausing active downloads.');
-      await this.pauseAll(); // Pause all active downloads if wifiOnly and not on WiFi
-      return;
-    }
+    this.isProcessing = true;
+    try {
+      const netState = await NetInfo.fetch();
+      const isConnected = netState.isConnected;
+      const isWifi = netState.type === 'wifi';
 
-    const queued = Array.from(this.queue.values())
-      .filter(d => d.status === DownloadStatus.QUEUED)
-      .sort((a, b) => b.priority - a.priority);
+      if (!isConnected) {
+        console.log('No network connection, pausing active downloads.');
+        await this.pauseAll(); // Pause all active downloads if no network
+        return;
+      }
 
-    for (const download of queued) {
-      if (this.activeDownloads.size >= this.config.maxConcurrent) break;
-      await this.startDownload(download.id);
+      if (this.config.wifiOnly && !isWifi) {
+        console.log('WiFi-only mode enabled, but not on WiFi. Pausing active downloads.');
+        await this.pauseAll(); // Pause all active downloads if wifiOnly and not on WiFi
+        return;
+      }
+
+      const queued = Array.from(this.queue.values())
+        .filter(d => d.status === DownloadStatus.QUEUED)
+        .sort((a, b) => b.priority - a.priority);
+
+      for (const download of queued) {
+        if (this.activeDownloads.size >= this.config.maxConcurrent) break;
+        await this.startDownload(download.id);
+      }
+    } finally {
+      this.isProcessing = false;
     }
   }
 

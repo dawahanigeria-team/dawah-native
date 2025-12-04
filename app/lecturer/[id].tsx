@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { TabView } from "../../src/components/molecules/TabView";
+import { useDebounce } from "../../src/hooks/useDebounce";
 import { Album, albumsApi } from "../../src/services/api/albums.api";
 import { LecturerLecture, lecturersApi } from "../../src/services/api/lecturers.api";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
@@ -41,7 +42,6 @@ export default function LecturerDetailScreen() {
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
-  const [filteredLectures, setFilteredLectures] = useState<LecturerLecture[]>([]);
 
   // Fetch lecturer details
   useEffect(() => {
@@ -168,21 +168,35 @@ export default function LecturerDetailScreen() {
 
   // No need to fetch albums on tab change - already loaded on mount
 
-  // Handle search
-  useEffect(() => {
-    if (searchQuery.trim() === "") {
-      // Sync filtered lectures with main lectures list
-      setFilteredLectures(lectures);
-      setHasMoreLectures(true); // Re-enable pagination when search is cleared
-    } else {
-      const filtered = lectures.filter(lecture => {
-        const title = lecture.title || "";
-        return title.toLowerCase().includes(searchQuery.toLowerCase());
-      });
-      setFilteredLectures(filtered);
-      setHasMoreLectures(false); // Disable pagination during search
+  // Debounce search query to avoid excessive filtering
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+
+  // Handle search with debouncing for better performance
+  const filteredLectures = useMemo(() => {
+    if (debouncedSearchQuery.trim() === "") {
+      return lectures;
     }
-  }, [searchQuery, lectures]);
+
+    const lowerSearch = debouncedSearchQuery.toLowerCase();
+    return lectures.filter(lecture => {
+      const title = lecture.title || "";
+      const lecturerName = lecture.rpname || "";
+      return (
+        title.toLowerCase().includes(lowerSearch) ||
+        lecturerName.toLowerCase().includes(lowerSearch)
+      );
+    });
+  }, [debouncedSearchQuery, lectures]);
+
+  // Update hasMoreLectures based on search state
+  useEffect(() => {
+    if (debouncedSearchQuery.trim() !== "") {
+      setHasMoreLectures(false); // Disable pagination during search
+    } else {
+      // Re-enable pagination when search is cleared (if lectures list is not exhausted)
+      setHasMoreLectures(lectures.length >= 10);
+    }
+  }, [debouncedSearchQuery, lectures.length]);
 
   const convertToEpisode = (lecture: LecturerLecture): Episode => {
     const parseDuration = (duration: string | undefined): number => {
