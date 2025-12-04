@@ -120,7 +120,9 @@ const LectureDetailScreen: React.FC = () => {
     const opacity = interpolate(
       scrollY.value,
       [0, HEADER_HEIGHT / 2, HEADER_HEIGHT],
-      [0, 0.5, 1],
+      // Keep header elements (including back button) visible even at the top,
+      // and slightly increase opacity as the user scrolls.
+      [0.9, 0.95, 1],
       Extrapolate.CLAMP
     );
     return { opacity };
