@@ -1,0 +1,244 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
+import { Switch, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+import { Text } from "../src/components/atoms";
+import { designTokens } from "../src/theme/designTokens";
+import tw from "../src/theme/twrnc";
+
+type NotificationPrefs = {
+  enabled: boolean;
+  newLectures: boolean;
+  favoritesActivity: boolean;
+  downloadsComplete: boolean;
+  announcements: boolean;
+};
+
+const STORAGE_KEY = "NOTIFICATION_PREFS";
+
+const defaultPrefs: NotificationPrefs = {
+  enabled: true,
+  newLectures: true,
+  favoritesActivity: true,
+  downloadsComplete: true,
+  announcements: false,
+};
+
+const NotificationsScreen = () => {
+  const router = useRouter();
+  const [prefs, setPrefs] = useState<NotificationPrefs>(defaultPrefs);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadPrefs = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored) as Partial<NotificationPrefs>;
+          setPrefs({ ...defaultPrefs, ...parsed });
+        }
+      } catch (e) {
+        console.warn("Failed to load notification prefs", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPrefs();
+  }, []);
+
+  const updatePref = async <K extends keyof NotificationPrefs>(
+    key: K,
+    value: NotificationPrefs[K]
+  ) => {
+    const next = { ...prefs, [key]: value };
+    setPrefs(next);
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    } catch (e) {
+      console.warn("Failed to save notification prefs", e);
+    }
+  };
+
+  const disabled = !prefs.enabled;
+
+  return (
+    <SafeAreaView
+      style={[
+        tw`flex-1`,
+        { backgroundColor: designTokens.colors.system.background.primary },
+      ]}
+    >
+      {/* Header */}
+      <View style={tw`flex-row items-center px-4 py-3`}>
+        <View style={tw`w-10 h-10 items-center justify-center mr-2`}>
+          <Ionicons
+            name="arrow-back"
+            size={24}
+            color={designTokens.colors.system.label.primary}
+            onPress={() => router.back()}
+          />
+        </View>
+        <Text
+          style={[
+            tw`text-2xl font-bold`,
+            { color: designTokens.colors.system.label.primary },
+          ]}
+          accessibilityRole="header"
+        >
+          Notifications
+        </Text>
+      </View>
+
+      <View
+        style={tw`px-4 pb-4`}
+      >
+        <Text
+          style={[
+            tw`text-sm`,
+            { color: designTokens.colors.system.label.secondary },
+          ]}
+        >
+          Control how Dawah Nigeria notifies you about new content and updates.
+          You can also turn notifications off entirely.
+        </Text>
+      </View>
+
+      <View
+        style={[
+          tw`mx-4 mb-4 rounded-2xl`,
+          { backgroundColor: designTokens.colors.system.background.secondary },
+        ]}
+      >
+        <NotificationRow
+          title="Allow notifications"
+          subtitle="Turn all push notifications on or off"
+          value={prefs.enabled}
+          onChange={(v) => updatePref("enabled", v)}
+        />
+      </View>
+
+      <View
+        style={[
+          tw`mx-4 mb-4 rounded-2xl`,
+          { backgroundColor: designTokens.colors.system.background.secondary },
+        ]}
+      >
+        <NotificationRow
+          title="New lectures from scholars"
+          subtitle="When new lectures are published"
+          value={prefs.newLectures}
+          onChange={(v) => updatePref("newLectures", v)}
+          disabled={disabled}
+        />
+        <NotificationRow
+          title="Updates on favorites"
+          subtitle="Activity on lectures and scholars you follow"
+          value={prefs.favoritesActivity}
+          onChange={(v) => updatePref("favoritesActivity", v)}
+          disabled={disabled}
+          divider
+        />
+        <NotificationRow
+          title="Downloads complete"
+          subtitle="When an offline download finishes"
+          value={prefs.downloadsComplete}
+          onChange={(v) => updatePref("downloadsComplete", v)}
+          disabled={disabled}
+          divider
+        />
+        <NotificationRow
+          title="Announcements & tips"
+          subtitle="Occasional updates about new features"
+          value={prefs.announcements}
+          onChange={(v) => updatePref("announcements", v)}
+          disabled={disabled}
+        />
+      </View>
+
+      <View style={tw`px-4 mt-auto mb-6`}>
+        <Text
+          style={[
+            tw`text-xs`,
+            { color: designTokens.colors.system.label.tertiary },
+          ]}
+        >
+          To fully disable notifications, you may also need to turn them off in
+          your device settings.
+        </Text>
+      </View>
+    </SafeAreaView>
+  );
+};
+
+interface NotificationRowProps {
+  title: string;
+  subtitle?: string;
+  value: boolean;
+  onChange: (next: boolean) => void;
+  disabled?: boolean;
+  divider?: boolean;
+}
+
+const NotificationRow: React.FC<NotificationRowProps> = ({
+  title,
+  subtitle,
+  value,
+  onChange,
+  disabled,
+  divider,
+}) => {
+  return (
+    <View
+      style={[
+        tw`flex-row items-center px-4 py-3`,
+        divider && {
+          borderTopWidth: 1,
+          borderTopColor: "rgba(255,255,255,0.06)",
+        },
+      ]}
+    >
+      <View style={tw`flex-1 mr-3`}>
+        <Text
+          style={[
+            tw`text-base font-medium`,
+            { color: designTokens.colors.system.label.primary },
+          ]}
+        >
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text
+            style={[
+              tw`text-xs mt-1`,
+              { color: designTokens.colors.system.label.secondary },
+            ]}
+          >
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        disabled={disabled}
+        thumbColor={
+          value
+            ? designTokens.colors.system.background.primary
+            : designTokens.colors.system.fill.secondary
+        }
+        trackColor={{
+          true: designTokens.colors.brand.primary,
+          false: designTokens.colors.system.fill.quaternary,
+        }}
+      />
+    </View>
+  );
+};
+
+export default NotificationsScreen;
+
+

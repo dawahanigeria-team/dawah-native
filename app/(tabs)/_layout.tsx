@@ -36,6 +36,7 @@ export default function TabLayout() {
       "/section/",      // Section list pages
       "/search",        // Search (single-task focus)
       "/charts",        // Charts modal
+      "/notifications", // Notification settings
       "/sign-in",       // Auth modals
       "/sign-up",       // Auth modals
       "/lecturers",     // Full list pages

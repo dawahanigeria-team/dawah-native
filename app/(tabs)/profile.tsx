@@ -58,7 +58,7 @@ const ProfileScreen = () => {
     title: "Notifications",
     icon: "notifications-outline",
     subtitle: "Push notifications, alerts",
-    onPress: () => console.log("Notifications pressed"),
+    onPress: () => router.push("/notifications"),
   },
   {
     id: "3",
