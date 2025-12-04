@@ -15,6 +15,7 @@ import { linkingService } from "../src/services/linking.service";
 import { userService } from "../src/services/user.service";
 import { initializeAuth } from "../src/stores/authStore";
 import { fetchFavorites } from "../src/stores/favoritesStore";
+import { offlineFirstApi } from "../src/services/cache/offlineFirst.api";
  
 
 // Initialize Sentry as early as possible
@@ -53,6 +54,9 @@ function RootLayout() {
         // Ensure downloads service is initialized
         await downloadsService.ensureInitialized();
         console.log('✅ Downloads service initialized');
+        // Warm up essential cached data (popular lectures, lecturers list)
+        await offlineFirstApi.warmupEssentialData();
+        console.log('✅ Offline cache warmed');
       } catch (error) {
         console.error("Failed to initialize app:", error);
       }

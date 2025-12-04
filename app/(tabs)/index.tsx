@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -10,7 +10,7 @@ import { ActionGrid } from "../../src/components/organisms/ActionGrid";
 import { HeroCarousel } from "../../src/components/organisms/HeroCarousel";
 import { HeroCarouselSkeleton } from "../../src/components/organisms/HeroCarousel.skeleton";
 import { Row } from "../../src/components/organisms/Row";
-import { usePopularLectures } from "../../src/hooks/usePopularLectures";
+import { usePopularLecturesWithCache } from "../../src/hooks/usePopularLecturesWithCache";
 import { useQuranAlbums } from "../../src/hooks/useQuranAlbums";
 import { useRecentlyPlayedLectures } from "../../src/hooks/useRecentlyPlayedLectures";
 import { useTrending } from "../../src/hooks/useTrending";
@@ -19,6 +19,7 @@ import { usePlayerStore } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Episode } from "../../src/types/types";
+import { SearchLecture } from "../../src/types/api.types";
 
 // Mock data - in a real app this would come from an API
 const mockEpisodes: Episode[] = [
@@ -106,8 +107,12 @@ export default function HomeScreen() {
   const { playEpisode } = playerStore;
 
 
-  // Fetch popular lectures for the carousel
-  const { episodes: popularEpisodes, loading: popularLoading, error: popularError } = usePopularLectures(10);
+  // Fetch popular lectures for the carousel (offline-first with cache)
+  const {
+    lectures: popularLectures,
+    isLoading: popularLoading,
+    error: popularError,
+  } = usePopularLecturesWithCache();
 
   // Fetch trending lectures for the 'Recently Posted' section
   const { lectures: trendingLectures, loading: trendingLoading, error: trendingError } = useTrending({ limit: 10 });
@@ -119,7 +124,47 @@ export default function HomeScreen() {
   const { lectures: recentlyPlayed, loading: recentlyPlayedLoading, error: recentlyPlayedError } = useRecentlyPlayedLectures(10);
 
 
+  // Convert cached popular lectures to Episode shape for the carousel
+  const popularEpisodes: Episode[] = useMemo(() => {
+    const parseDuration = (duration: string | undefined): number => {
+      if (!duration) return 0;
+      const parts = duration.split(":").map(Number);
+      if (parts.length === 3) {
+        return parts[0] * 3600 + parts[1] * 60 + parts[2];
+      } else if (parts.length === 2) {
+        return parts[0] * 60 + parts[1];
+      }
+      return 0;
+    };
 
+    return (popularLectures as SearchLecture[]).map((lecture) => {
+      const id = String(lecture.nid || lecture.id || `lecture-${Date.now()}`);
+      const title = lecture.Title || lecture.mp3_title || "Untitled Lecture";
+      const duration = lecture.duration || lecture.mp3_duration || lecture.Duration;
+      const audioUrl = lecture.audio || lecture.mp3_url || lecture.AudioUrl || "";
+      const coverUrl = lecture.img || lecture.lecturer_image || lecture.CoverUrl || "";
+      const plays = parseInt(String(lecture.views || lecture.Plays || "0")) || 0;
+      const language = lecture.lang || lecture.language || lecture.language_name || lecture.Language || "Unknown";
+      const downloads = parseInt(String(lecture.downloads || lecture.Downloads || "0")) || 0;
+      const createdAt = lecture.created_at || lecture.CreatedAt || new Date().toISOString();
+      const lecturerName = lecture.rpname || lecture.lecturer_name || lecture.LecturerName || undefined;
+
+      return {
+        id,
+        title,
+        durationSec: parseDuration(duration),
+        coverUrl,
+        audioUrl,
+        seriesId: "",
+        plays,
+        liked: false,
+        language,
+        downloads,
+        createdAt,
+        lecturerName,
+      } as Episode;
+    });
+  }, [popularLectures]);
 
   // Preload hero images (popular or mock) so the carousel feels instant
   useEffect(() => {
