@@ -70,11 +70,11 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
     const gestureStartY = useSharedValue(0);
     const isExpandedShared = useSharedValue(isExpanded ? 1 : 0);
 
-    // Check if we're on a tab screen
+    // Check if we're on a screen where the bottom tab bar is actually visible.
+    // This should stay in sync with `shouldShowTabs` in `app/(tabs)/_layout.tsx`:
+    // tabs are only visible on the main tab routes (Home, Library, Profile).
     const isTabScreen =
-      pathname?.includes("/(tabs)") ||
       pathname === "/" ||
-      pathname === "/search" ||
       pathname === "/library" ||
       pathname === "/profile";
 

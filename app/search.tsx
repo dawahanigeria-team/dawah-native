@@ -544,7 +544,8 @@ export default function SearchScreen() {
       <ScrollView
         style={tw`flex-1`}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={tw`pb-20`}
+        // Extra bottom padding so the last search results clear the mini-player
+        contentContainerStyle={tw`pb-40`}
         onScroll={({ nativeEvent }) => {
           // Auto-load more when user scrolls near the bottom
           const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;

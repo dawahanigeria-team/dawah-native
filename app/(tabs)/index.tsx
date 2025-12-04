@@ -227,7 +227,8 @@ export default function HomeScreen() {
       <ScrollView
         style={tw`flex-1`}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={tw`pb-20`}
+        // Extra bottom padding so content never sits under the mini-player + tab bar
+        contentContainerStyle={tw`pb-40`}
         accessibilityLabel="Home content"
       >
         {/* Hero Carousel - Popular Lectures */}
