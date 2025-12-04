@@ -58,7 +58,7 @@ const ProfileScreen = () => {
     title: "Notifications",
     icon: "notifications-outline",
     subtitle: "Push notifications, alerts",
-    onPress: () => console.log("Notifications pressed"),
+    onPress: () => router.push("/notifications"),
   },
   {
     id: "3",
@@ -172,7 +172,8 @@ const ProfileScreen = () => {
       <ScrollView
         style={tw`flex-1`}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={tw`pb-24`}
+        // Extra bottom padding so content doesn’t disappear under the mini-player + tab bar
+        contentContainerStyle={tw`pb-40`}
         accessibilityLabel="Profile content"
       >
         {/* Identity Card */}

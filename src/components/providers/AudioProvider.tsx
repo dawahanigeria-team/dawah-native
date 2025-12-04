@@ -4,11 +4,11 @@
  * Syncs audio status with the playerStore
  */
 
-import React, { useEffect, useRef } from 'react';
 import { setAudioModeAsync } from 'expo-audio';
+import React, { useEffect, useRef } from 'react';
 import { useAudioPlayback } from '../../hooks/useAudioPlayback';
-import { playerStore, setAudioControls, getPlayNextRef } from '../../stores/playerStore';
-import { captureSentryException, addSentryBreadcrumb } from '../../services/config/sentry.config';
+import { addSentryBreadcrumb, captureSentryException } from '../../services/config/sentry.config';
+import { getPlayNextRef, playerStore, setAudioControls } from '../../stores/playerStore';
 
 interface AudioProviderProps {
   children: React.ReactNode;
@@ -17,7 +17,7 @@ interface AudioProviderProps {
 export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   const isInitializedRef = useRef(false);
 
-  // Configure audio mode for background playback
+  // Configure audio mode for background playback and proper audio focus handling
   useEffect(() => {
     const setupAudioMode = async () => {
       try {
@@ -25,14 +25,16 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           // Enable playback in silent mode (iOS)
           playsInSilentMode: true,
 
-          // CRITICAL: Enable background audio playback
+          // Keep audio active when app goes to background
           shouldPlayInBackground: true,
 
-          // Handle audio interruptions gracefully
-          interruptionMode: 'mixWithOthers', // iOS: mix with other audio
-          interruptionModeAndroid: 'duckOthers', // Android: duck other audio
+          // Handle interruptions (phone calls, other apps)
+          // iOS: mix with others so system sounds can play over us
+          interruptionMode: 'mixWithOthers',
+          // Android: temporarily duck other audio instead of fully stopping it
+          interruptionModeAndroid: 'duckOthers',
 
-          // Don't route through earpiece (Android)
+          // Do not route audio through the earpiece on Android
           shouldRouteThroughEarpiece: false,
         });
         console.log('✅ Audio mode configured for background playback');
@@ -102,9 +104,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         try {
           console.log('▶️ Auto-playing next track in queue...');
           await playNext();
-        } catch (error) {
+        } catch (error: any) {
           console.error('Failed to auto-play next track:', error);
-          captureSentryException(error, {
+          captureSentryException(error as Error, {
             component: 'AudioProvider',
             action: 'onPlaybackFinished',
             level: 'error',

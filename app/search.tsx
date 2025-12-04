@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Dropdown } from "../src/components/atoms/Dropdown";
 import { Card } from "../src/components/molecules/Card";
@@ -361,11 +361,33 @@ export default function SearchScreen() {
     return results;
   }, [actualSearchQuery, apiResults, filters]);
 
+  const getItemKey = (item: ExtendedEpisode | ExtendedSeries | SearchLecture, index: number) => {
+    // Generate a stable, unique key for FlatList
+    let metaValue = "";
+    let uniqueKey = "";
+
+    // Check if it's an API lecture (has mp3_title or nid)
+    if ('mp3_title' in item || 'nid' in item) {
+      // API result - support both new and legacy field names
+      const apiItem = item as SearchLecture;
+      uniqueKey = `api-${apiItem.id || apiItem.nid}-${index}`;
+    } else if ("durationSec" in item) {
+      // Mock episode
+      const episode = item as ExtendedEpisode;
+      uniqueKey = `mock-${episode.id}-${index}`;
+    } else {
+      // Mock series
+      const series = item as ExtendedSeries;
+      uniqueKey = `mock-${series.id}-${index}`;
+    }
+
+    return uniqueKey;
+  };
+
   const renderSearchResult = (item: ExtendedEpisode | ExtendedSeries | SearchLecture, index: number) => {
     let metaValue = "";
     let data: Episode | Series;
     let isApiLecture = false;
-    let uniqueKey = "";
 
     // Check if it's an API lecture (has mp3_title or nid)
     if ('mp3_title' in item || 'nid' in item) {
@@ -376,23 +398,20 @@ export default function SearchScreen() {
       metaValue = `${resourcePerson} • ${plays} plays`;
       data = convertToEpisode(apiItem);
       isApiLecture = true;
-      uniqueKey = `api-${apiItem.id || apiItem.nid}-${index}`;
     } else if ("durationSec" in item) {
       // Mock episode
       const episode = item as ExtendedEpisode;
       metaValue = `${episode.views?.toLocaleString() || 0} views • ${episode.language || "Unknown"}`;
       data = episode as Episode;
-      uniqueKey = `mock-${episode.id}-${index}`;
     } else {
       // Mock series
       const series = item as ExtendedSeries;
       metaValue = `${series.followers?.toLocaleString() || 0} followers • ${series.language || "Unknown"}`;
       data = series as Series;
-      uniqueKey = `mock-${series.id}-${index}`;
     }
 
     return (
-      <View key={uniqueKey} style={tw`mb-4`}>
+      <View style={tw`mb-4`}>
         <Card
           variant="landscape"
           data={data}
@@ -541,100 +560,91 @@ export default function SearchScreen() {
         </View>
       </View>
 
-      <ScrollView
+      <FlatList
         style={tw`flex-1`}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={tw`pb-20`}
-        onScroll={({ nativeEvent }) => {
-          // Auto-load more when user scrolls near the bottom
-          const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
-          const paddingToBottom = 200; // Start loading 200px from the bottom
-          const isCloseToBottom =
-            layoutMeasurement.height + contentOffset.y >=
-            contentSize.height - paddingToBottom;
-
-          if (isCloseToBottom && hasMore && !loading && actualSearchQuery) {
-            loadMore();
-          }
-        }}
-        scrollEventThrottle={400}
-      >
-        {/* Filters */}
-        {showFilters && (
-          <View
-            style={tw`bg-[#111827] border-t border-[rgba(255,255,255,0.1)] pt-6 pb-4 mb-6 mx-1 rounded-t-xl`}
-          >
-            {/* Filter Header */}
-            <View style={tw`flex-row items-center justify-between px-5 mb-6`}>
-              <Text style={tw`text-white text-xl font-bold`}>Filters</Text>
-              {hasActiveFilters() && (
-                <TouchableOpacity
-                  onPress={clearFilters}
-                  style={tw`px-3 py-1 bg-[#1F2937] rounded-lg min-h-[44px] justify-center`}
-                >
-                  <Text style={tw`text-[#C6FF00] text-sm font-semibold`}>
-                    Clear All
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* Language Filter */}
-            <FilterSection
-              title="Language"
-              options={languages}
-              selectedValue={filters.language}
-              onSelect={(value) => updateFilter("language", value as Language)}
-            />
-
-            {/* Topic Filter */}
-            <FilterSection
-              title="Topics"
-              options={topics}
-              selectedValue={filters.topic}
-              onSelect={(value) => updateFilter("topic", value as Topic)}
-            />
-
-            {/* Surah Filter - show when Quran Recitation or Tafsir is selected */}
-            {["Quran Recitation", "Tafsir"].includes(filters.topic) && (
-              <FilterSection
-                title="Surah"
-                options={[...surahs]}
-                selectedValue={filters.surah}
-                onSelect={updateSurahFilter}
-                searchable={true}
-              />
-            )}
+        // Extra bottom padding so the last search results clear the mini-player
+        contentContainerStyle={tw`pb-40`}
+        data={
+          loading && actualSearchQuery && filteredAndSortedResults.length === 0
+            ? []
+            : filteredAndSortedResults
+        }
+        keyExtractor={(item, index) => getItemKey(item, index)}
+        renderItem={({ item, index }) => (
+          <View style={tw`px-5`}>
+            {renderSearchResult(item, index)}
           </View>
         )}
+        ListHeaderComponent={
+          showFilters ? (
+            <View
+              style={tw`bg-[#111827] border-t border-[rgba(255,255,255,0.1)] pt-6 pb-4 mb-6 mx-1 rounded-t-xl`}
+            >
+              {/* Filter Header */}
+              <View style={tw`flex-row items-center justify-between px-5 mb-6`}>
+                <Text style={tw`text-white text-xl font-bold`}>Filters</Text>
+                {hasActiveFilters() && (
+                  <TouchableOpacity
+                    onPress={clearFilters}
+                    style={tw`px-3 py-1 bg-[#1F2937] rounded-lg min-h-[44px] justify-center`}
+                  >
+                    <Text style={tw`text-[#C6FF00] text-sm font-semibold`}>
+                      Clear All
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
 
-        {/* Results */}
-        <View style={tw`px-5`}>
-          {loading && actualSearchQuery && filteredAndSortedResults.length === 0 ? (
-            <View>
+              {/* Language Filter */}
+              <FilterSection
+                title="Language"
+                options={languages}
+                selectedValue={filters.language}
+                onSelect={(value) => updateFilter("language", value as Language)}
+              />
+
+              {/* Topic Filter */}
+              <FilterSection
+                title="Topics"
+                options={topics}
+                selectedValue={filters.topic}
+                onSelect={(value) => updateFilter("topic", value as Topic)}
+              />
+
+              {/* Surah Filter - show when Quran Recitation or Tafsir is selected */}
+              {["Quran Recitation", "Tafsir"].includes(filters.topic) && (
+                <FilterSection
+                  title="Surah"
+                  options={[...surahs]}
+                  selectedValue={filters.surah}
+                  onSelect={updateSurahFilter}
+                  searchable={true}
+                />
+              )}
+            </View>
+          ) : null
+        }
+        ListEmptyComponent={
+          loading && actualSearchQuery ? (
+            <View style={tw`px-5`}>
               {[...Array(5)].map((_, index) => (
                 <CardSkeleton key={`skeleton-${index}`} variant="landscape" style={tw`mb-4`} />
               ))}
             </View>
-          ) : filteredAndSortedResults.length > 0 ? (
-            <>
-              {filteredAndSortedResults.map((item, index) => renderSearchResult(item, index))}
-
-              {/* Load More Button / Indicator */}
+          ) : (
+            <View style={tw`px-5`}>{renderEmptyState()}</View>
+          )
+        }
+        ListFooterComponent={
+          filteredAndSortedResults.length > 0 ? (
+            <View style={tw`px-5`}>
+              {/* Load More Indicator */}
               {hasMore && actualSearchQuery && (
                 <View style={tw`py-6`}>
                   {loading ? (
                     <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
-                  ) : (
-                    <TouchableOpacity
-                      onPress={loadMore}
-                      style={tw`bg-[#1F2937] py-3 px-6 rounded-full self-center`}
-                    >
-                      <Text style={tw`text-white font-semibold`}>
-                        Load More ({totalResults - filteredAndSortedResults.length} remaining)
-                      </Text>
-                    </TouchableOpacity>
-                  )}
+                  ) : null}
                 </View>
               )}
 
@@ -646,12 +656,16 @@ export default function SearchScreen() {
                   </Text>
                 </View>
               )}
-            </>
-          ) : (
-            renderEmptyState()
-          )}
-        </View>
-      </ScrollView>
+            </View>
+          ) : null
+        }
+        onEndReachedThreshold={0.5}
+        onEndReached={() => {
+          if (hasMore && !loading && actualSearchQuery) {
+            loadMore();
+          }
+        }}
+      />
     </SafeAreaView>
   );
 }

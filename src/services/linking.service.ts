@@ -86,17 +86,52 @@ export class LinkingService {
    */
   static parseURL(url: string): { path: string; queryParams: Record<string, string> } | null {
     try {
-      // Check if it's a web URL
-      if (url.includes('dawahnigeria.com')) {
-        return this.parseWebURL(url);
+      // Validate URL format
+      if (!url || typeof url !== 'string') {
+        console.warn('Invalid URL provided to parseURL');
+        return null;
       }
 
-      // Parse as app scheme URL
-      const parsed = Linking.parse(url);
-      return {
-        path: parsed.path || '',
-        queryParams: parsed.queryParams as Record<string, string> || {},
-      };
+      // Sanitize URL - remove whitespace, limit length
+      const sanitizedUrl = url.trim();
+
+      // Prevent excessively long URLs (potential attack)
+      if (sanitizedUrl.length > 2000) {
+        console.warn('URL too long, potential security issue');
+        return null;
+      }
+
+      // Check if it's a web URL
+      if (sanitizedUrl.includes('dawahnigeria.com')) {
+        // Validate HTTPS scheme for web URLs
+        if (!sanitizedUrl.startsWith('https://dawahnigeria.com')) {
+          console.warn('Invalid web URL scheme or domain');
+          return null;
+        }
+        return this.parseWebURL(sanitizedUrl);
+      }
+
+      // Validate app scheme
+      if (sanitizedUrl.startsWith('dawahnigeria://')) {
+        const parsed = Linking.parse(sanitizedUrl);
+
+        // Validate allowed paths
+        const allowedPaths = ['lecture', 'album', 'playlist', 'lecturer', 'quran-reciter'];
+        const pathBase = parsed.path?.split('/')[0];
+
+        if (!pathBase || !allowedPaths.includes(pathBase)) {
+          console.warn('Invalid app deep link path:', pathBase);
+          return null;
+        }
+
+        return {
+          path: parsed.path || '',
+          queryParams: (parsed.queryParams as Record<string, string>) || {},
+        };
+      }
+
+      console.warn('Unrecognized URL format:', sanitizedUrl);
+      return null;
     } catch (error) {
       console.error('Failed to parse URL:', url, error);
       return null;
