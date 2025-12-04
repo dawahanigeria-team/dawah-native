@@ -358,7 +358,7 @@ export default function HomeScreen() {
                   showTime={true}
                   showMeta={true}
                   metaValue={episode.lecturerName || "Unknown"}
-                  onMorePress={() => console.log('More options pressed for episode:', episode.id)}
+                  onMorePress={() => router.push(`/lecture/${episode.id}`)}
                 />
               </View>
             ))}
@@ -401,7 +401,7 @@ export default function HomeScreen() {
                   showTime={true}
                   showMeta={true}
                   metaValue={episode.lecturerName || "Unknown"}
-                  onMorePress={() => console.log('More options pressed for episode:', episode.id)}
+                  onMorePress={() => router.push(`/lecture/${episode.id}`)}
                 />
               </View>
             ))}
