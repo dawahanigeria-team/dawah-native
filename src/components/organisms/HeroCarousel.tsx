@@ -5,6 +5,7 @@ import { BorderRadius, designTokens } from "../../theme/designTokens";
 import { Episode } from "../../types/types";
 import { formatDuration } from "../../utils/formatTime";
 import { Badge, Icon, Text, Touchable } from "../atoms";
+import { logger } from "../../utils/logger";
 
 interface HeroCarouselProps {
   items: Episode[];
@@ -67,7 +68,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = memo(
     };
 
     const handleItemPress = (item: Episode) => {
-      console.log('📱 Carousel: Slide tapped (not play button)');
+      logger.debug('📱 Carousel: Slide tapped (not play button)', item.title);
       onItemPress?.(item);
     };
 
@@ -183,12 +184,12 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = memo(
               >
                 <Touchable
                   onPress={() => {
-                    console.log('🎯 Play button clicked in carousel!');
+                    logger.debug('🎯 Play button clicked in carousel!', item.title);
                     if (onPlayPress) {
-                      console.log('🎮 Calling onPlayPress with:', item.title);
+                      logger.debug('🎮 Calling onPlayPress with:', item.title);
                       onPlayPress(item);
                     } else {
-                      console.log('⚠️ onPlayPress not defined!');
+                      logger.debug('⚠️ onPlayPress not defined!');
                     }
                   }}
                   style={{

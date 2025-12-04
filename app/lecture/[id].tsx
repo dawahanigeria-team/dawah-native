@@ -14,7 +14,6 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
-  Linking,
   ScrollView,
   Share,
   TouchableOpacity,
@@ -33,6 +32,7 @@ import { Button, Chip, Text, Touchable } from "../../src/components/atoms";
 import AddToPlaylistModal from "../../src/components/organisms/AddToPlaylistModal";
 import { useLectureDetail } from "../../src/hooks/useLectureDetail";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
+import { DownloadStatus } from "../../src/services/downloads/downloadQueue.service";
 import { linkingService } from "../../src/services/linking.service";
 import { useAuthStore, useDownloadsStore, useFavoritesStore, usePlayerStore } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
@@ -79,10 +79,12 @@ const LectureDetailScreen: React.FC = () => {
   } = usePlayerStore();
 
   const {
-    downloadLecture,
-    isDownloaded: checkIsDownloaded,
-    isDownloading: checkIsDownloading,
+    addToQueue,
     getDownloadProgress,
+    getDownloadStatus,
+    pauseDownload,
+    resumeDownload,
+    cancelDownload,
   } = useDownloadsStore();
 
   const { isFavorited, toggleFavorite } = useFavoritesStore();
@@ -109,8 +111,8 @@ const LectureDetailScreen: React.FC = () => {
   const isCurrentlyPlaying = isCurrentLecture && isPlaying;
 
   // Download state
-  const isDownloaded = episode ? checkIsDownloaded(episode.id) : false;
-  const isDownloading = episode ? checkIsDownloading(episode.id) : false;
+
+  const downloadStatus = episode ? getDownloadStatus(episode.id) : null;
   const downloadProgress = episode ? getDownloadProgress(episode.id) : 0;
 
   // Animated styles
@@ -118,7 +120,9 @@ const LectureDetailScreen: React.FC = () => {
     const opacity = interpolate(
       scrollY.value,
       [0, HEADER_HEIGHT / 2, HEADER_HEIGHT],
-      [0, 0.5, 1],
+      // Keep header elements (including back button) visible even at the top,
+      // and slightly increase opacity as the user scrolls.
+      [0.9, 0.95, 1],
       Extrapolate.CLAMP
     );
     return { opacity };
@@ -164,81 +168,77 @@ const LectureDetailScreen: React.FC = () => {
     }
   }, [episode, canPlay, isCurrentLecture, togglePlayPause, playEpisode]);
 
-  const handleDownload = useCallback(async () => {
+  const handleDownloadPress = useCallback(async () => {
     if (!episode) return;
-
-    // If already downloaded, show alert
-    if (isDownloaded) {
-      Alert.alert(
-        "Already Downloaded",
-        "This lecture is already available offline.",
-        [{ text: "OK" }]
-      );
-      return;
-    }
-
-    // If currently downloading, ignore
-    if (isDownloading) {
-      return;
-    }
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      addSentryBreadcrumb('Starting lecture download', 'user', {
-        lectureId: episode.id,
-        title: episode.title,
-      });
-      await downloadLecture(episode);
-      Alert.alert(
-        "Download Complete",
-        `${episode.title} is now available offline!`,
-        [{ text: "OK" }]
-      );
+      // Handle different download states
+      if (downloadStatus === DownloadStatus.DOWNLOADING) {
+        // Pause the download
+        await pauseDownload(episode.id);
+        addSentryBreadcrumb('Paused lecture download', 'user', {
+          lectureId: episode.id,
+          title: episode.title,
+        });
+      } else if (downloadStatus === DownloadStatus.PAUSED) {
+        // Resume the download
+        await resumeDownload(episode.id);
+        addSentryBreadcrumb('Resumed lecture download', 'user', {
+          lectureId: episode.id,
+          title: episode.title,
+        });
+      } else if (downloadStatus === DownloadStatus.COMPLETED) {
+        // Already downloaded, show message
+        Alert.alert(
+          "Already Downloaded",
+          "This lecture is already available offline.",
+          [{ text: "OK" }]
+        );
+      } else {
+        // Start new download by adding to queue
+        addSentryBreadcrumb('Adding lecture to download queue', 'user', {
+          lectureId: episode.id,
+          title: episode.title,
+        });
+        await addToQueue(episode);
+      }
     } catch (error: any) {
       captureSentryException(error, {
         component: 'LectureDetailScreen',
-        action: 'handleDownload',
+        action: 'handleDownloadPress',
         lectureId: episode.id,
         title: episode.title,
         level: 'error',
       });
-      
-      // Check if this is a permission error
-      const isPermissionError = 
-        error?.isPermissionError ||
-        error?.message?.toLowerCase().includes("permission") ||
-        error?.message?.toLowerCase().includes("storage permission");
-      
-      if (isPermissionError) {
-        Alert.alert(
-          "Storage Permission Required",
-          error.message || "Storage permission is required to download lectures. Please enable it in your device settings.",
-          [
-            { text: "Cancel", style: "cancel" },
-            {
-              text: "Open Settings",
-              onPress: () => {
-                Linking.openSettings().catch(() => {
-                  Alert.alert(
-                    "Unable to Open Settings",
-                    "Please manually enable storage permission in your device settings.",
-                    [{ text: "OK" }]
-                  );
-                });
-              },
-            },
-          ]
-        );
-      } else {
-        Alert.alert(
-          "Download Failed",
-          error.message || "Failed to download lecture. Please try again.",
-          [{ text: "OK" }]
-        );
-      }
+
+      Alert.alert(
+        "Download Error",
+        error.message || "Failed to manage download. Please try again.",
+        [{ text: "OK" }]
+      );
     }
-  }, [episode, isDownloaded, isDownloading, downloadLecture]);
+  }, [episode, downloadStatus, addToQueue, pauseDownload, resumeDownload]);
+
+  const handleCancelDownload = useCallback(() => {
+    if (!episode) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert(
+      "Cancel Download",
+      "Are you sure you want to cancel this download?",
+      [
+        {
+          text: "No",
+          style: "cancel",
+        },
+        {
+          text: "Yes",
+          onPress: () => cancelDownload(episode.id),
+        },
+      ]
+    );
+  }, [episode, cancelDownload]);
 
   const handleLike = useCallback(async () => {
     try {
@@ -636,7 +636,7 @@ const LectureDetailScreen: React.FC = () => {
                 <Text variant="title3" color="label" weight="bold" style={tw`mb-3`}>
                   Details
                 </Text>
-                {meta.map((item: any, index) => (
+                {meta.map((item: any) => (
                   <View key={item.label} style={tw`flex-row items-center mb-3`}>
                     <View style={[tw`w-8 h-8 rounded-full items-center justify-center mr-3`, { backgroundColor: designTokens.colors.system.fill.secondary }]}>
                       <Ionicons name={item.icon} size={16} color={designTokens.colors.system.label.secondary} />
@@ -798,38 +798,69 @@ const LectureDetailScreen: React.FC = () => {
 
         {/* Secondary Actions */}
         <View style={tw`flex-row items-center justify-between mt-2`}>
-          <TouchableOpacity
-            onPress={handleDownload}
-            disabled={isDownloading}
-            style={tw`flex-row items-center`}
-          >
-            <Ionicons
-              name={
-                isDownloaded
-                  ? "checkmark-circle"
-                  : isDownloading
-                    ? "cloud-download"
-                    : "arrow-down-circle-outline"
-              }
-              size={24}
-              color={
-                isDownloaded
-                  ? designTokens.colors.brand.primary
-                  : designTokens.colors.system.label.secondary
-              }
-            />
-            <Text
-              variant="caption1"
-              color={isDownloaded ? "brand" : "secondaryLabel"}
-              style={tw`ml-2`}
+          {/* Download Button Group */}
+          <View style={tw`flex-row items-center`}>
+          { (downloadStatus === DownloadStatus.DOWNLOADING ||
+            downloadStatus === DownloadStatus.PAUSED ||
+            downloadStatus === DownloadStatus.QUEUED) && (
+              <TouchableOpacity onPress={handleCancelDownload} style={tw`mr-4`}>
+                <Ionicons name="close-circle-outline" size={24} color={designTokens.colors.semantic.red} />
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              onPress={handleDownloadPress}
+              disabled={episode === null}
+              style={tw`flex-row items-center`}
             >
-              {isDownloaded
-                ? "Downloaded"
-                : isDownloading
-                  ? `${Math.round(downloadProgress * 100)}%`
-                  : "Download"}
-            </Text>
-          </TouchableOpacity>
+              <Ionicons
+                name={
+                  downloadStatus === DownloadStatus.COMPLETED
+                    ? "checkmark-circle"
+                    : downloadStatus === DownloadStatus.DOWNLOADING
+                      ? "pause-circle-outline"
+                      : downloadStatus === DownloadStatus.PAUSED
+                        ? "play-circle-outline"
+                        : downloadStatus === DownloadStatus.QUEUED
+                          ? "time-outline"
+                          : downloadStatus === DownloadStatus.FAILED
+                            ? "alert-circle-outline"
+                            : "arrow-down-circle-outline"
+                }
+                size={24}
+                color={
+                  downloadStatus === DownloadStatus.COMPLETED
+                    ? designTokens.colors.brand.primary
+                    : downloadStatus === DownloadStatus.FAILED
+                      ? designTokens.colors.semantic.red
+                      : designTokens.colors.system.label.secondary
+                }
+              />
+              <Text
+                variant="caption1"
+                color={
+                  downloadStatus === DownloadStatus.COMPLETED
+                    ? "brand"
+                    : downloadStatus === DownloadStatus.FAILED
+                      ? "systemRed"
+                      : "secondaryLabel"
+                }
+                style={tw`ml-2`}
+              >
+                {downloadStatus === DownloadStatus.COMPLETED
+                  ? "Downloaded"
+                  : downloadStatus === DownloadStatus.DOWNLOADING
+                    ? `${Math.round(downloadProgress * 100)}%`
+                    : downloadStatus === DownloadStatus.PAUSED
+                      ? "Paused"
+                      : downloadStatus === DownloadStatus.QUEUED
+                        ? "Queued"
+                        : downloadStatus === DownloadStatus.FAILED
+                          ? "Failed"
+                          : "Download"}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity onPress={handleShare} style={tw`flex-row items-center`}>
             <Ionicons name="share-outline" size={24} color={designTokens.colors.system.label.secondary} />

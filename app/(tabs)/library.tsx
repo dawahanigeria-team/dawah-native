@@ -420,7 +420,8 @@ export default function LibraryScreen() {
       <ScrollView
         style={tw`flex-1`}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={tw`pb-24`}
+        // Extra bottom padding so the last items don’t sit under the mini-player + tab bar
+        contentContainerStyle={tw`pb-40`}
         accessibilityLabel="Library content"
       >
         {renderContent()}

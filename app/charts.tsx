@@ -1,5 +1,6 @@
 import React, { memo, useEffect, useState, useCallback } from 'react';
 import { View, FlatList, ActivityIndicator, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { Text } from '../src/components/atoms/Text';
 import { Icon } from '../src/components/atoms';
@@ -127,7 +128,7 @@ const ChartsScreen: React.FC = memo(() => {
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container}>
         <Stack.Screen options={{ title: getTitle() }} />
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Icon name="arrow-back" size="lg" color="label" />
@@ -177,20 +178,20 @@ const ChartsScreen: React.FC = memo(() => {
           renderItem={() => <ChartItemSkeleton />}
           contentContainerStyle={styles.listContent}
         />
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.centered}>
+      <SafeAreaView style={styles.centered}>
         <Text variant="body" color="systemRed">{error}</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ title: getTitle() }} />
       <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
         <Icon name="arrow-back" size="lg" color="label" />
@@ -248,7 +249,7 @@ const ChartsScreen: React.FC = memo(() => {
         )}
         contentContainerStyle={styles.listContent}
       />
-    </View>
+    </SafeAreaView>
   );
 });
 

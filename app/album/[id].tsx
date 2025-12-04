@@ -9,6 +9,7 @@ import {
   FlatList,
   Share,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { Text } from '../../src/components/atoms/Text';
 import { Icon } from '../../src/components/atoms';
@@ -295,19 +296,19 @@ const AlbumDetailScreen: React.FC = () => {
 
   if (loading) {
     return (
-      <View style={styles.centered}>
+      <SafeAreaView style={styles.centered} edges={['top', 'bottom']}>
         <Stack.Screen options={{ title: 'Album' }} />
         <ActivityIndicator size="large" color={designTokens.colors.brand.primary} />
         <Text variant="body" style={styles.loadingText}>
           Loading album...
         </Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (error || !album) {
     return (
-      <View style={styles.centered}>
+      <SafeAreaView style={styles.centered} edges={['top', 'bottom']}>
         <Stack.Screen options={{ title: 'Album' }} />
         <Icon name="alert-circle" size="lg" color="systemRed" />
         <Text variant="body" color="systemRed" style={styles.errorText}>
@@ -318,12 +319,12 @@ const AlbumDetailScreen: React.FC = () => {
             Try Again
           </Text>
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <Stack.Screen options={{ title: album.title || 'Album' }} />
 
       <FlatList
@@ -455,7 +456,7 @@ const AlbumDetailScreen: React.FC = () => {
       >
         <Icon name="share-social" size="md" color="label" />
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 };
 
