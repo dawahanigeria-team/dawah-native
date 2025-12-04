@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React from "react";
+import React, { useEffect } from "react";
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Image as ExpoImage } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card, CardSkeleton } from "../../src/components/molecules";
 import { SearchBar } from "../../src/components/molecules/SearchBar";
@@ -119,6 +120,23 @@ export default function HomeScreen() {
 
 
 
+
+  // Preload hero images (popular or mock) so the carousel feels instant
+  useEffect(() => {
+    const heroSource = popularEpisodes.length > 0
+      ? popularEpisodes
+      : mockEpisodes.slice(0, 5);
+
+    const uris = heroSource
+      .map((episode) => episode.coverUrl)
+      .filter(Boolean);
+
+    uris.forEach((uri) => {
+      ExpoImage.prefetch(uri as string).catch(() => {
+        // Ignore individual prefetch failures
+      });
+    });
+  }, [popularEpisodes]);
 
 
   const handleEpisodePress = async (episode: Episode) => {
