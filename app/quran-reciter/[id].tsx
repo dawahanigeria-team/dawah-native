@@ -242,7 +242,7 @@ const QuranReciterScreen: React.FC = () => {
     }
   }, [album, recitations, albumId]);
 
-  const renderRecitationItem = ({ item, index }: { item: QuranRecitation; index: number }) => {
+  const renderRecitationItem = useCallback(({ item, index }: { item: QuranRecitation; index: number }) => {
     const isPlaying = currentEpisode?.id === String(item.id);
 
     return (
@@ -294,11 +294,11 @@ const QuranReciterScreen: React.FC = () => {
               </Text>
             </View>
 
-            {item.plays > 0 && (
+            {(item.plays || 0) > 0 && (
               <View style={styles.metaBadge}>
                 <Icon name="headset-outline" size="sm" color="secondaryLabel" />
                 <Text variant="caption1" color="secondaryLabel" weight="medium">
-                  {item.plays.toLocaleString()}
+                  {(item.plays || 0).toLocaleString()}
                 </Text>
               </View>
             )}
@@ -320,7 +320,7 @@ const QuranReciterScreen: React.FC = () => {
         </View>
       </TouchableOpacity>
     );
-  };
+  }, [currentEpisode, handleRecitationPress]);
 
   if (loading) {
     return (

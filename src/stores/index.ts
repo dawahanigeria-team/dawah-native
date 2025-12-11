@@ -1,5 +1,5 @@
 // Export the player store with audio service integration
-export { usePlayerStore, playerStore } from "./playerStore";
+export { usePlayerStore, usePlayerActions, playerStore } from "./playerStore";
 
 // Export theme store
 export { useThemeStore } from "./themeStore";

@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { ScrollView, Text, TouchableOpacity, View, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../../src/components/molecules/Card";
-import { usePlayerStore, useDownloadsStore, useFavoritesStore } from "../../src/stores";
+import { usePlayerActions, useDownloadsStore, useFavoritesStore } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Episode, Series } from "../../src/types/types";
@@ -32,7 +32,7 @@ const downloadToEpisode = (download: DownloadMetadata): Episode => ({
 });
 
 export default function LibraryScreen() {
-  const { playEpisode } = usePlayerStore();
+  const { playEpisode } = usePlayerActions();
   const { downloads, deleteLecture, getTotalStorageUsed, refreshDownloads } = useDownloadsStore();
   const { favoriteIds, fetchFavorites, loading: favoritesLoading } = useFavoritesStore();
   const [activeTab, setActiveTab] = useState<LibraryTab>("Downloads");

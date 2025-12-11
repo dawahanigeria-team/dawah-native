@@ -8,7 +8,7 @@ import { useDebounce } from "../../src/hooks/useDebounce";
 import { Album, albumsApi } from "../../src/services/api/albums.api";
 import { LecturerLecture, lecturersApi } from "../../src/services/api/lecturers.api";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
-import { usePlayerStore } from "../../src/stores";
+import { usePlayerActions } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Episode } from "../../src/types/types";
@@ -20,7 +20,7 @@ type TabType = 'songs' | 'albums' | 'playlists';
 export default function LecturerDetailScreen() {
   const { id } = useLocalSearchParams();
   const lecturerId = id as string;
-  const { playEpisode } = usePlayerStore();
+  const { playEpisode } = usePlayerActions();
 
   // States
   const [lecturer, setLecturer] = useState<any>(null);

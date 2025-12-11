@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useCallback } from "react";
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -15,7 +15,7 @@ import { useQuranAlbums } from "../../src/hooks/useQuranAlbums";
 import { useRecentlyPlayedLectures } from "../../src/hooks/useRecentlyPlayedLectures";
 import { useTrending } from "../../src/hooks/useTrending";
 import { QuranAlbum } from "../../src/services/api/quran.api";
-import { usePlayerStore } from "../../src/stores";
+import { usePlayerActions } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Episode } from "../../src/types/types";
@@ -100,11 +100,14 @@ const mockEpisodes: Episode[] = [
   },
 ];
 
+const ITEM_WIDTH = 320; // w-80
+const ITEM_SPACING = 16; // mr-4
+const SNAP_INTERVAL = ITEM_WIDTH + ITEM_SPACING;
 
+const Separator = () => <View style={{ width: ITEM_SPACING }} />;
 
 export default function HomeScreen() {
-  const playerStore = usePlayerStore();
-  const { playEpisode } = playerStore;
+  const { playEpisode } = usePlayerActions();
 
 
   // Fetch popular lectures for the carousel (offline-first with cache)
@@ -196,13 +199,13 @@ export default function HomeScreen() {
     }
   };
 
-  const handleCarouselItemPress = (episode: Episode) => {
+  const handleCarouselItemPress = useCallback((episode: Episode) => {
     router.push(`/lecture/${episode.id}`);
-  };
+  }, []);
 
-  const handleAlbumPress = (album: QuranAlbum) => {
+  const handleAlbumPress = useCallback((album: QuranAlbum) => {
     router.push(`/quran-reciter/${album.id}`);
-  };
+  }, []);
 
   const handleSearchSubmit = (query: string) => {
     // Navigate to search page when user submits
@@ -217,6 +220,47 @@ export default function HomeScreen() {
     // Navigate to search page for voice search
     router.push("/search?voice=true");
   };
+
+  const renderLectureItem = useCallback(({ item }: { item: Episode }) => (
+    <View style={{ width: ITEM_WIDTH }}>
+      <Card
+        variant="landscape"
+        data={item}
+        onPress={() => handleCarouselItemPress(item)}
+        playOnPress={false}
+        showTime={true}
+        showMeta={true}
+        metaValue={item.lecturerName || "Unknown"}
+        onMorePress={() => router.push(`/lecture/${item.id}`)}
+      />
+    </View>
+  ), [handleCarouselItemPress]);
+
+  const renderAlbumItem = useCallback(({ item }: { item: QuranAlbum }) => (
+    <View style={{ width: 140 }}>
+      <Card
+        variant="square"
+        data={{
+          id: item.id,
+          title: item.name,
+          durationSec: 0,
+          coverUrl: item.img || item.alb_thumbnail,
+          audioUrl: '',
+          seriesId: '',
+          plays: item.views || 0,
+          liked: false,
+          language: item.language || '',
+          downloads: item.downloads || 0,
+          createdAt: item.post_date || '',
+          lecturerName: item.name,
+        }}
+        onPress={() => handleAlbumPress(item)}
+        playOnPress={false}
+        showMeta={true}
+        metaValue={item.name}
+      />
+    </View>
+  ), [handleAlbumPress]);
 
   return (
     <SafeAreaView
@@ -345,24 +389,12 @@ export default function HomeScreen() {
             title="Recently Played"
             subtitle="Continue where you left off"
             onSeeAll={() => router.push("/section/recently-played")}
-          >
-            {recentlyPlayed.map((episode, index) => (
-              <View
-                key={`recently-played-${episode.id}`}
-                style={tw`${index < recentlyPlayed.length - 1 ? "mr-4" : ""} w-80`}>
-                <Card
-                  variant="landscape"
-                  data={episode}
-                  onPress={() => handleCarouselItemPress(episode)}
-                  playOnPress={false}
-                  showTime={true}
-                  showMeta={true}
-                  metaValue={episode.lecturerName || "Unknown"}
-                  onMorePress={() => router.push(`/lecture/${episode.id}`)}
-                />
-              </View>
-            ))}
-          </Row>
+            data={recentlyPlayed}
+            renderItem={renderLectureItem}
+            keyExtractor={(item) => `recently-played-${item.id}`}
+            ItemSeparatorComponent={Separator}
+            snapInterval={SNAP_INTERVAL}
+          />
         ) : null}
 
         {/* Recently Posted */}
@@ -388,24 +420,12 @@ export default function HomeScreen() {
             title="Recently Posted"
             subtitle="Latest content from our scholars"
             onSeeAll={() => router.push("/section/recently-posted")}
-          >
-            {trendingLectures.map((episode, index) => (
-              <View
-                key={`recent-${episode.id}`}
-                style={tw`${index < trendingLectures.length - 1 ? "mr-4" : ""} w-80`}>
-                <Card
-                  variant="landscape"
-                  data={episode}
-                  onPress={() => handleCarouselItemPress(episode)}
-                  playOnPress={false}
-                  showTime={true}
-                  showMeta={true}
-                  metaValue={episode.lecturerName || "Unknown"}
-                  onMorePress={() => router.push(`/lecture/${episode.id}`)}
-                />
-              </View>
-            ))}
-          </Row>
+            data={trendingLectures}
+            renderItem={renderLectureItem}
+            keyExtractor={(item) => `recent-${item.id}`}
+            ItemSeparatorComponent={Separator}
+            snapInterval={SNAP_INTERVAL}
+          />
         ) : null}
 
         {/* Quran Recitations */}
@@ -427,37 +447,13 @@ export default function HomeScreen() {
           <Row
             title="Quran Recitations"
             onSeeAll={() => router.push("/section/quran-recitations")}
-          >
-            {quranAlbums.map((album, index) => (
-              <View
-                key={`quran-${album.id}-${index}`}
-                style={tw`${index < quranAlbums.length - 1 ? "mr-4" : ""}`}>
-                <View style={{ width: 140 }}>
-                  <Card
-                    variant="square"
-                    data={{
-                      id: album.id,
-                      title: album.name,
-                      durationSec: 0,
-                      coverUrl: album.img || album.alb_thumbnail,
-                      audioUrl: '',
-                      seriesId: '',
-                      plays: album.views || 0,
-                      liked: false,
-                      language: album.language || '',
-                      downloads: album.downloads || 0,
-                      createdAt: album.post_date || '',
-                      lecturerName: album.name,
-                    }}
-                    onPress={() => handleAlbumPress(album)}
-                    playOnPress={false}
-                    showMeta={true}
-                    metaValue={album.name}
-                  />
-                </View>
-              </View>
-            ))}
-          </Row>
+            data={quranAlbums}
+            renderItem={renderAlbumItem}
+            keyExtractor={(item) => `quran-${item.id}`}
+            ItemSeparatorComponent={Separator}
+            // Quran albums are smaller, calculate specific snap interval if needed, or rely on default
+            snapInterval={140 + 16}
+          />
         ) : null}
       </ScrollView>
     </SafeAreaView>

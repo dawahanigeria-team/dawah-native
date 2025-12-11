@@ -10,7 +10,7 @@ import { FilterSection } from "../src/components/molecules/FilterSection";
 import { SearchBar } from "../src/components/molecules/SearchBar";
 import { surahs } from "../src/data/surahs";
 import { useSearchLectures } from "../src/hooks/useSearch";
-import { usePlayerStore } from "../src/stores";
+import { usePlayerActions } from "../src/stores";
 import { designTokens } from "../src/theme/designTokens";
 import tw from "../src/theme/twrnc";
 import { SearchLecture } from "../src/types/api.types";
@@ -180,7 +180,7 @@ const mockSearchResults: (ExtendedEpisode | ExtendedSeries)[] = [
 ];
 
 export default function SearchScreen() {
-  const { playEpisode } = usePlayerStore();
+  const { playEpisode } = usePlayerActions();
   const searchParams = useLocalSearchParams();
   const initialQuery = (searchParams.q as string) || "";
 
