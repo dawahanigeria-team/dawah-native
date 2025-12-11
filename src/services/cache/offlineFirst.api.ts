@@ -96,24 +96,7 @@ class OfflineFirstApi {
         }
       }
 
-      // Step 2: Check if online
-      const online = await this.isOnline();
-
-      if (!online) {
-        // Offline - try stale cache
-        if (allowStale) {
-          const staleData = await cacheService.get<T>(cacheKey);
-          if (staleData) {
-            console.log(`🔄 Offline-First: Serving stale cache: ${endpoint}`);
-            addSentryBreadcrumb(`Stale cache served (offline): ${endpoint}`, 'api', { cacheKey });
-            return staleData;
-          }
-        }
-
-        throw new Error('No internet connection and no cached data available');
-      }
-
-      // Step 3: Fetch from API
+      // Step 2: Fetch from API (let the request itself determine connectivity)
       console.log(`🌐 Offline-First: Fetching from API: ${endpoint}`);
       const response = await apiClient.get<T>(endpoint, params);
 
@@ -237,7 +220,7 @@ class OfflineFirstApi {
       addSentryBreadcrumb('Essential data warmup complete', 'cache');
     } catch (error: any) {
       console.error('Warmup error:', error);
-      captureSentryException(error, { operation: 'warmup_essential_data' });
+      captureSentryException(error as Error, { operation: 'warmup_essential_data' });
     }
   }
 

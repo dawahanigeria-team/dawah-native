@@ -8,6 +8,7 @@ import { Card } from "../../src/components/molecules/Card";
 import { SearchBar } from "../../src/components/molecules/SearchBar";
 import { useQuranAlbums } from "../../src/hooks/useQuranAlbums";
 import { useTrending } from "../../src/hooks/useTrending";
+import { useRecentlyPlayedLectures } from "../../src/hooks/useRecentlyPlayedLectures";
 import { QuranAlbum } from "../../src/services/api/quran.api";
 
 import { designTokens } from "../../src/theme/designTokens";
@@ -221,8 +222,8 @@ type LanguageFilter = "all" | "hausa" | "english" | "yoruba" | "arabic";
 export default function SectionScreen() {
   const { type } = useLocalSearchParams<{ type: string }>();
 
-  // Fetch trending data if this is the trending section
-  const trendingParams = type === "trending" ? { page: 1, limit: 20 } : undefined;
+  // Fetch trending data if this is the trending or recently-posted section
+  const trendingParams = (type === "trending" || type === "recently-posted") ? { page: 1, limit: 50 } : undefined;
   console.log(`📱 SectionScreen render - type: ${type}, trendingParams:`, trendingParams);
 
   const {
@@ -236,6 +237,15 @@ export default function SectionScreen() {
   } = useTrending(trendingParams);
 
   console.log(`📊 useTrending values - lectures: ${trendingLectures.length}, loading: ${trendingLoading}, hasMore: ${hasMoreTrending}, isLoadingMore: ${isLoadingMoreTrending}`);
+
+  // Fetch recently played lectures if this is the recently-played section
+  const {
+    lectures: recentlyPlayedLectures,
+    loading: recentlyPlayedLoading,
+    error: recentlyPlayedError,
+  } = useRecentlyPlayedLectures(type === "recently-played" ? 50 : 0);
+
+  console.log(`🕐 useRecentlyPlayed values - lectures: ${recentlyPlayedLectures.length}, loading: ${recentlyPlayedLoading}`);
 
   // Fetch Quran albums if this is the quran-recitations section
   const quranParams = type === "quran-recitations" ? { page: 1, limit: 20 } : undefined;
@@ -261,21 +271,51 @@ export default function SectionScreen() {
 
   const showFilters = type === "trending";
 
+  // Determine which data source to use based on section type
   const rawData =
     type === "trending" ? trendingLectures :
-      type === "quran-recitations" ? quranAlbums :
-        sectionInfo.data;
+    type === "recently-posted" ? trendingLectures :
+    type === "recently-played" ? recentlyPlayedLectures :
+    type === "quran-recitations" ? quranAlbums :
+    sectionInfo.data;
 
-  const isLoading = type === "trending" ? trendingLoading : type === "quran-recitations" ? quranLoading : false;
-  const hasError = type === "trending" ? trendingError : type === "quran-recitations" ? quranError : null;
+  const isLoading =
+    type === "trending" ? trendingLoading :
+    type === "recently-posted" ? trendingLoading :
+    type === "recently-played" ? recentlyPlayedLoading :
+    type === "quran-recitations" ? quranLoading :
+    false;
+
+  const hasError =
+    type === "trending" ? trendingError :
+    type === "recently-posted" ? trendingError :
+    type === "recently-played" ? recentlyPlayedError :
+    type === "quran-recitations" ? quranError :
+    null;
+
   const refetch = useMemo(() => {
-    return type === "trending" ? refetchTrending : type === "quran-recitations" ? refetchQuran : () => Promise.resolve();
+    if (type === "trending" || type === "recently-posted") return refetchTrending;
+    if (type === "quran-recitations") return refetchQuran;
+    return () => Promise.resolve();
   }, [type, refetchTrending, refetchQuran]);
+
   const loadMore = useMemo(() => {
-    return type === "trending" ? loadMoreTrending : type === "quran-recitations" ? loadMoreQuran : () => Promise.resolve();
+    if (type === "trending" || type === "recently-posted") return loadMoreTrending;
+    if (type === "quran-recitations") return loadMoreQuran;
+    return () => Promise.resolve();
   }, [type, loadMoreTrending, loadMoreQuran]);
-  const hasMore = type === "trending" ? hasMoreTrending : type === "quran-recitations" ? hasMoreQuran : false;
-  const isLoadingMore = type === "trending" ? isLoadingMoreTrending : type === "quran-recitations" ? isLoadingMoreQuran : false;
+
+  const hasMore =
+    type === "trending" ? hasMoreTrending :
+    type === "recently-posted" ? hasMoreTrending :
+    type === "quran-recitations" ? hasMoreQuran :
+    false;
+
+  const isLoadingMore =
+    type === "trending" ? isLoadingMoreTrending :
+    type === "recently-posted" ? isLoadingMoreTrending :
+    type === "quran-recitations" ? isLoadingMoreQuran :
+    false;
 
   // Filter and sort data based on search query, language, and sort option
   const filteredData = useMemo(() => {
@@ -386,7 +426,7 @@ export default function SectionScreen() {
   // Handle infinite scroll load more
   const handleLoadMore = useCallback(() => {
     console.log(`🔄 onEndReached triggered - type: ${type}, hasMore: ${hasMore}, isLoadingMore: ${isLoadingMore}`);
-    if ((type === "trending" || type === "quran-recitations") && hasMore && !isLoadingMore) {
+    if ((type === "trending" || type === "recently-posted" || type === "quran-recitations") && hasMore && !isLoadingMore) {
       console.log('✅ Triggering loadMore()');
       loadMore();
     }
@@ -419,14 +459,14 @@ export default function SectionScreen() {
 
     // Handle Episodes
     if (sectionInfo.variant === "section") {
-      const isTrendingSection = type === "trending";
+      const shouldNavigate = type === "trending" || type === "recently-posted" || type === "recently-played";
 
       return (
         <Card
           variant="section"
           data={item as Episode}
           onPress={
-            isTrendingSection
+            shouldNavigate
               ? () => handleLecturePress(item as Episode)
               : undefined
           }
@@ -632,9 +672,13 @@ export default function SectionScreen() {
             >
               {type === "trending"
                 ? `${trendingLectures.length > 0 ? trendingLectures.length : sectionInfo.count} lectures`
-                : type === "quran-recitations"
-                  ? `${quranAlbums.length > 0 ? quranAlbums.length : sectionInfo.count} reciters`
-                  : `${sectionInfo.count} lectures`
+                : type === "recently-posted"
+                  ? `${trendingLectures.length > 0 ? trendingLectures.length : sectionInfo.count} lectures`
+                  : type === "recently-played"
+                    ? `${recentlyPlayedLectures.length > 0 ? recentlyPlayedLectures.length : sectionInfo.count} lectures`
+                    : type === "quran-recitations"
+                      ? `${quranAlbums.length > 0 ? quranAlbums.length : sectionInfo.count} reciters`
+                      : `${sectionInfo.count} lectures`
               }
             </Text>
           </View>

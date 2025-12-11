@@ -9,15 +9,18 @@ import {
   FlatList,
   Share,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { Text } from '../../src/components/atoms/Text';
 import { Icon } from '../../src/components/atoms';
 import { albumsApi, Album, AlbumTrack } from '../../src/services/api/albums.api';
 import { designTokens } from '../../src/theme/designTokens';
 import { addSentryBreadcrumb, captureSentryException } from '../../src/services/config/sentry.config';
+import { linkingService } from '../../src/services/linking.service';
 import * as Haptics from 'expo-haptics';
 import { usePlayerStore } from '../../src/stores';
 import { Episode } from '../../src/types/types';
+import { appendShareSignature } from '../../src/utils/shareMessage';
 
 const AlbumDetailScreen: React.FC = () => {
   const router = useRouter();
@@ -212,14 +215,18 @@ const AlbumDetailScreen: React.FC = () => {
       const lecturerInfo = album.lecturerName ? ` by ${album.lecturerName}` : '';
       const languageInfo = album.language ? ` (${album.language})` : '';
 
-      const message = `🎧 Islamic Lectures Album${languageInfo}\n\n` +
+      const webLink = linkingService.createAlbumLink(String(album.id));
+      const baseMessage = `🎧 Islamic Lectures Album${languageInfo}\n\n` +
         `📖 ${album.title}${lecturerInfo}\n\n` +
         `🎤 ${lectureCount} ${lectureCount === 1 ? 'lecture' : 'lectures'}\n\n` +
-        `Listen on Dawah Nigeria app`;
+        `Listen on Dawah Nigeria app\n\n` +
+        `${webLink}`;
+      const message = appendShareSignature(baseMessage);
 
       await Share.share({
         title: album.title,
         message,
+        url: webLink,
       });
 
       addSentryBreadcrumb('Album shared successfully', 'user', {
@@ -289,19 +296,19 @@ const AlbumDetailScreen: React.FC = () => {
 
   if (loading) {
     return (
-      <View style={styles.centered}>
+      <SafeAreaView style={styles.centered} edges={['top', 'bottom']}>
         <Stack.Screen options={{ title: 'Album' }} />
         <ActivityIndicator size="large" color={designTokens.colors.brand.primary} />
         <Text variant="body" style={styles.loadingText}>
           Loading album...
         </Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (error || !album) {
     return (
-      <View style={styles.centered}>
+      <SafeAreaView style={styles.centered} edges={['top', 'bottom']}>
         <Stack.Screen options={{ title: 'Album' }} />
         <Icon name="alert-circle" size="lg" color="systemRed" />
         <Text variant="body" color="systemRed" style={styles.errorText}>
@@ -312,12 +319,12 @@ const AlbumDetailScreen: React.FC = () => {
             Try Again
           </Text>
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <Stack.Screen options={{ title: album.title || 'Album' }} />
 
       <FlatList
@@ -449,7 +456,7 @@ const AlbumDetailScreen: React.FC = () => {
       >
         <Icon name="share-social" size="md" color="label" />
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 };
 

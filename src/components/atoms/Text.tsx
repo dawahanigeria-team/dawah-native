@@ -29,7 +29,7 @@ interface TextProps extends Omit<RNTextProps, 'style'> {
   variant?: IOSTextStyle;
   color?: ColorVariant;
   weight?: FontWeight;
-  align?: 'left' | 'center' | 'right';
+  align?: 'left' | 'center' | 'right' | 'auto';
   maxFontSizeMultiplier?: number; // For accessibility - limits Dynamic Type scaling
   style?: RNTextProps['style'];
 }
@@ -38,8 +38,10 @@ export const Text: React.FC<TextProps> = ({
   variant = 'body',
   color = 'label',
   weight,
-  align = 'left',
-  maxFontSizeMultiplier = 1.5, // Reasonable limit for Dynamic Type
+  // Default to "auto" so the platform can pick correct direction for RTL/LTR
+  align = 'auto',
+  // Slightly higher default so users on large-accessibility-text settings aren't cut off
+  maxFontSizeMultiplier = 2.0,
   style,
   children,
   ...props
@@ -164,7 +166,8 @@ export const Text: React.FC<TextProps> = ({
   };
 
   const getTextAlign = () => {
-    return { textAlign: align };
+    // Let the system decide for "auto" (better RTL behavior), otherwise use explicit value
+    return align === 'auto' ? {} : { textAlign: align };
   };
 
   const combinedStyle = [

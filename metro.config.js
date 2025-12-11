@@ -1,7 +1,22 @@
 // Learn more https://docs.expo.io/guides/customizing-metro
+const { getDefaultConfig } = require("expo/metro-config");
 const { getSentryExpoConfig } = require("@sentry/react-native/metro");
 
-// Get the default config from @sentry/react-native/metro
-const config = getSentryExpoConfig(__dirname);
+// Get the default Expo Metro config with Sentry plugins
+// Pass getDefaultConfig explicitly to avoid module resolution issues
+const config = getSentryExpoConfig(__dirname, {
+  getDefaultConfig,
+});
+
+// Enable inline requires to improve startup time by lazily requiring modules
+config.transformer = {
+  ...config.transformer,
+  getTransformOptions: async () => ({
+    transform: {
+      experimentalImportSupport: false,
+      inlineRequires: true,
+    },
+  }),
+};
 
 module.exports = config;

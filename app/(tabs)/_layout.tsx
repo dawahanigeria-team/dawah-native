@@ -1,22 +1,59 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { Tabs } from "expo-router";
+import { Tabs, usePathname } from "expo-router";
 import { Platform } from "react-native";
 import { designTokens } from "../../src/theme/designTokens";
 
 export default function TabLayout() {
+  const pathname = usePathname();
+
   const handleTabPress = () => {
     if (Platform.OS === "ios") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
 
+  /**
+   * Determine if tabs should be visible based on current route
+   * Following iOS/Android best practices:
+   * - Show tabs on main navigation screens (tab screens)
+   * - Hide tabs on detail pages, modals, and single-task screens
+   * - Hide tabs on deep navigation levels
+   */
+  const shouldShowTabs = () => {
+    // Always show on main tab screens
+    if (pathname === "/" || pathname === "/library" || pathname === "/profile") {
+      return true;
+    }
+
+    // Hide on detail pages (deep navigation)
+    const hideOnRoutes = [
+      "/lecture/",      // Lecture detail
+      "/lecturer/",     // Lecturer detail
+      "/album/",        // Album detail
+      "/quran-reciter/",// Quran reciter detail
+      "/playlist/",     // Playlist detail
+      "/section/",      // Section list pages
+      "/search",        // Search (single-task focus)
+      "/charts",        // Charts modal
+      "/notifications", // Notification settings
+      "/sign-in",       // Auth modals
+      "/sign-up",       // Auth modals
+      "/lecturers",     // Full list pages
+      "/playlists",     // Full list pages
+    ];
+
+    return !hideOnRoutes.some(route => pathname.startsWith(route));
+  };
+
+  const tabBarVisible = shouldShowTabs();
+
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: designTokens.colors.brand.primary,
         tabBarInactiveTintColor: designTokens.colors.system.label.tertiary,
-        tabBarStyle: {
+        tabBarStyle: tabBarVisible ? {
           backgroundColor: designTokens.colors.system.background.secondary,
           borderTopColor: designTokens.colors.system.separator.primary,
           borderTopWidth: 0.5, // iOS standard separator width
@@ -28,6 +65,8 @@ export default function TabLayout() {
             backgroundColor: "rgba(28, 28, 30, 0.95)", // Semi-transparent
             backdropFilter: "blur(20px)", // iOS blur effect
           }),
+        } : {
+          display: "none", // Hide tab bar completely
         },
         tabBarLabelStyle: {
           fontSize: designTokens.typography.fontSize.caption1,
