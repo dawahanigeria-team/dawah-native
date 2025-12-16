@@ -17,6 +17,9 @@ import { getInitials, getPlaceholderColor } from "../../src/utils/colorPlacehold
 // Tab types
 type TabType = 'songs' | 'albums' | 'playlists';
 
+// Pagination constants
+const PAGE_SIZE = 10;
+
 export default function LecturerDetailScreen() {
   const { id } = useLocalSearchParams();
   const lecturerId = id as string;
@@ -112,8 +115,8 @@ export default function LecturerDetailScreen() {
       }
 
       // Check if there are more lectures to load
-      // API returns 30 by default, if we get less than 10, probably no more
-      const hasMore = response.data.length >= 10;
+      // API returns 30 by default, if we get less than PAGE_SIZE, probably no more
+      const hasMore = response.data.length >= PAGE_SIZE;
       console.log(`📊 Pagination status: Page ${page}, Has more: ${hasMore} (received ${response.data.length} lectures)`);
       setHasMoreLectures(hasMore);
       setCurrentPage(page);
@@ -194,7 +197,7 @@ export default function LecturerDetailScreen() {
       setHasMoreLectures(false); // Disable pagination during search
     } else {
       // Re-enable pagination when search is cleared (if lectures list is not exhausted)
-      setHasMoreLectures(lectures.length >= 10);
+      setHasMoreLectures(lectures.length >= PAGE_SIZE);
     }
   }, [debouncedSearchQuery, lectures.length]);
 

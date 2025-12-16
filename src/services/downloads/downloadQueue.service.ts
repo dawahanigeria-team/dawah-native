@@ -57,6 +57,7 @@ class DownloadQueueService {
   private speedTrackers: Map<string, { bytes: number; timestamp: number }> = new Map();
   private isInitialized = false;
   private isProcessing = false;
+  private unsubscribeNetInfo: (() => void) | null = null;
 
   private constructor() {
     console.log('📥 Download Queue Service initialized');
@@ -73,7 +74,8 @@ class DownloadQueueService {
   private async _initialize() {
     if (this.isInitialized) return;
 
-    NetInfo.addEventListener(state => {
+    // Store unsubscribe function to prevent memory leak
+    this.unsubscribeNetInfo = NetInfo.addEventListener(state => {
       this._handleNetworkStateChange(state);
     });
 
@@ -86,6 +88,17 @@ class DownloadQueueService {
 
     // Load queue from storage
     await this.loadQueue();
+  }
+
+  /**
+   * Cleanup resources - call this when the service is no longer needed
+   */
+  public cleanup(): void {
+    if (this.unsubscribeNetInfo) {
+      this.unsubscribeNetInfo();
+      this.unsubscribeNetInfo = null;
+    }
+    this.listeners = [];
   }
 
   private async loadQueue() {

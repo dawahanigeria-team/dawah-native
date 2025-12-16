@@ -221,46 +221,60 @@ export default function HomeScreen() {
     router.push("/search?voice=true");
   };
 
-  const renderLectureItem = useCallback(({ item }: { item: Episode }) => (
-    <View style={{ width: ITEM_WIDTH }}>
-      <Card
-        variant="landscape"
-        data={item}
-        onPress={() => handleCarouselItemPress(item)}
-        playOnPress={false}
-        showTime={true}
-        showMeta={true}
-        metaValue={item.lecturerName || "Unknown"}
-        onMorePress={() => router.push(`/lecture/${item.id}`)}
-      />
-    </View>
-  ), [handleCarouselItemPress]);
+  const renderLectureItem = useCallback(({ item }: { item: Episode }) => {
+    // Defensive check to prevent crashes from malformed data
+    if (!item?.id) {
+      return null;
+    }
 
-  const renderAlbumItem = useCallback(({ item }: { item: QuranAlbum }) => (
-    <View style={{ width: 140 }}>
-      <Card
-        variant="square"
-        data={{
-          id: item.id,
-          title: item.name,
-          durationSec: 0,
-          coverUrl: item.img || item.alb_thumbnail,
-          audioUrl: '',
-          seriesId: '',
-          plays: item.views || 0,
-          liked: false,
-          language: item.language || '',
-          downloads: item.downloads || 0,
-          createdAt: item.post_date || '',
-          lecturerName: item.name,
-        }}
-        onPress={() => handleAlbumPress(item)}
-        playOnPress={false}
-        showMeta={true}
-        metaValue={item.name}
-      />
-    </View>
-  ), [handleAlbumPress]);
+    return (
+      <View style={{ width: ITEM_WIDTH }}>
+        <Card
+          variant="landscape"
+          data={item}
+          onPress={() => handleCarouselItemPress(item)}
+          playOnPress={false}
+          showTime={true}
+          showMeta={true}
+          metaValue={item.lecturerName || "Unknown"}
+          onMorePress={() => router.push(`/lecture/${item.id}`)}
+        />
+      </View>
+    );
+  }, [handleCarouselItemPress]);
+
+  const renderAlbumItem = useCallback(({ item }: { item: QuranAlbum }) => {
+    // Defensive check to prevent crashes from malformed data
+    if (!item?.id) {
+      return null;
+    }
+
+    return (
+      <View style={{ width: 140 }}>
+        <Card
+          variant="square"
+          data={{
+            id: item.id,
+            title: item.name || 'Unknown Album',
+            durationSec: 0,
+            coverUrl: item.img || item.alb_thumbnail,
+            audioUrl: '',
+            seriesId: '',
+            plays: item.views || 0,
+            liked: false,
+            language: item.language || '',
+            downloads: item.downloads || 0,
+            createdAt: item.post_date || '',
+            lecturerName: item.name || 'Unknown',
+          }}
+          onPress={() => handleAlbumPress(item)}
+          playOnPress={false}
+          showMeta={true}
+          metaValue={item.name || 'Unknown'}
+        />
+      </View>
+    );
+  }, [handleAlbumPress]);
 
   return (
     <SafeAreaView

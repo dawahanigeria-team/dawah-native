@@ -154,4 +154,6 @@ const RowComponent = <T,>({
     );
   };
 
-export const Row = memo(RowComponent) as typeof RowComponent;
+// Preserve generic type signature through memo
+// See: https://react.dev/reference/react/memo#memo-with-generics
+export const Row = memo(RowComponent) as <T>(props: RowProps<T>) => React.ReactElement | null;

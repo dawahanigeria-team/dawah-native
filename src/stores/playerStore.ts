@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { useCallback } from "react";
+import React from "react";
 import { entity } from "simpler-state";
 import type { AudioPlaybackControls } from "../hooks/useAudioPlayback";
 import { addSentryBreadcrumb, captureSentryException } from "../services/config/sentry.config";
@@ -30,16 +30,27 @@ export const playerStore = entity(initialState);
 
 const PLAYER_STATE_KEY = "PLAYER_STATE";
 
+// Chain persistence writes to prevent race conditions
+let persistenceQueue: Promise<void> = Promise.resolve();
+
 /**
  * Set player state and persist it to AsyncStorage
+ * Uses a promise chain to prevent race conditions from rapid state updates
  */
 const setAndPersistPlayerState = (newState: Partial<PlayerState>) => {
   const currentState = playerStore.get();
   const updatedState = { ...currentState, ...newState };
   playerStore.set(updatedState);
+
   // Avoid storing the entire queue, as it can be large
   const persistableState = { ...updatedState, queue: [] };
-  AsyncStorage.setItem(PLAYER_STATE_KEY, JSON.stringify(persistableState));
+
+  // Chain writes to prevent out-of-order persistence
+  persistenceQueue = persistenceQueue
+    .then(() => AsyncStorage.setItem(PLAYER_STATE_KEY, JSON.stringify(persistableState)))
+    .catch(error => {
+      logger.error('Failed to persist player state', error as Error);
+    });
 };
 
 // Audio controls instance - will be set by AudioProvider

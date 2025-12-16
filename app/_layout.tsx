@@ -38,31 +38,46 @@ function RootLayout() {
     }
     hasInitializedApp.current = true;
 
+    // Track if component is still mounted to prevent state updates after unmount
+    let isMounted = true;
+
     const initialize = async () => {
       try {
         // Initialize authentication state
         await initializeAuth();
+        if (!isMounted) return;
         console.log('✅ Auth initialized');
 
         // Ensure user ID exists (creates guest ID if needed)
         await userService.getUserId();
+        if (!isMounted) return;
         console.log("✅ User initialized");
 
         // Load favorites from API
         await fetchFavorites();
+        if (!isMounted) return;
         console.log('✅ Favorites loaded');
+
         // Ensure downloads service is initialized
         await downloadsService.ensureInitialized();
+        if (!isMounted) return;
         console.log('✅ Downloads service initialized');
+
         // Warm up essential cached data (popular lectures, lecturers list)
         await offlineFirstApi.warmupEssentialData();
+        if (!isMounted) return;
         console.log('✅ Offline cache warmed');
       } catch (error) {
+        if (!isMounted) return;
         console.error("Failed to initialize app:", error);
       }
     };
 
     initialize();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Handle deep links when app opens

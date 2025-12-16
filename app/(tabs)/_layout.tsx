@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Tabs, usePathname } from "expo-router";
+import { useMemo } from "react";
 import { Platform } from "react-native";
 import { designTokens } from "../../src/theme/designTokens";
 
@@ -19,8 +20,10 @@ export default function TabLayout() {
    * - Show tabs on main navigation screens (tab screens)
    * - Hide tabs on detail pages, modals, and single-task screens
    * - Hide tabs on deep navigation levels
+   *
+   * Memoized to prevent recalculation on every render
    */
-  const shouldShowTabs = () => {
+  const tabBarVisible = useMemo(() => {
     // Always show on main tab screens
     if (pathname === "/" || pathname === "/library" || pathname === "/profile") {
       return true;
@@ -44,9 +47,7 @@ export default function TabLayout() {
     ];
 
     return !hideOnRoutes.some(route => pathname.startsWith(route));
-  };
-
-  const tabBarVisible = shouldShowTabs();
+  }, [pathname]);
 
   return (
     <Tabs
