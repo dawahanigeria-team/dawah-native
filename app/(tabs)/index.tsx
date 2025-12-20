@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useCallback } from "react";
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -183,8 +183,12 @@ export default function HomeScreen() {
     });
   }, [popularEpisodes]);
 
+  // ⚡ Performance: Wrap handlers in useCallback to prevent unnecessary re-renders
+  // of memoized child components (HeroCarousel, Row, Card).
+  // Without this, every render of HomeScreen would create new function references,
+  // causing children to re-render even if their data props hadn't changed.
 
-  const handleEpisodePress = async (episode: Episode) => {
+  const handleEpisodePress = useCallback(async (episode: Episode) => {
     console.log('🎵 Play button pressed for:', episode.title);
     console.log('🔗 Audio URL:', episode.audioUrl);
 
@@ -194,29 +198,29 @@ export default function HomeScreen() {
     } catch (error) {
       console.error('❌ Error playing episode:', error);
     }
-  };
+  }, [playEpisode]);
 
-  const handleCarouselItemPress = (episode: Episode) => {
+  const handleCarouselItemPress = useCallback((episode: Episode) => {
     router.push(`/lecture/${episode.id}`);
-  };
+  }, []);
 
-  const handleAlbumPress = (album: QuranAlbum) => {
+  const handleAlbumPress = useCallback((album: QuranAlbum) => {
     router.push(`/quran-reciter/${album.id}`);
-  };
+  }, []);
 
-  const handleSearchSubmit = (query: string) => {
+  const handleSearchSubmit = useCallback((query: string) => {
     // Navigate to search page when user submits
     if (query.trim()) {
       router.push(`/search?q=${encodeURIComponent(query)}`);
     } else {
       router.push("/search");
     }
-  };
+  }, []);
 
-  const handleMicPress = () => {
+  const handleMicPress = useCallback(() => {
     // Navigate to search page for voice search
     router.push("/search?voice=true");
-  };
+  }, []);
 
   return (
     <SafeAreaView
