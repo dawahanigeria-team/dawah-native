@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useEffect, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo } from "react";
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -184,7 +184,7 @@ export default function HomeScreen() {
   }, [popularEpisodes]);
 
 
-  const handleEpisodePress = async (episode: Episode) => {
+  const handleEpisodePress = useCallback(async (episode: Episode) => {
     console.log('🎵 Play button pressed for:', episode.title);
     console.log('🔗 Audio URL:', episode.audioUrl);
 
@@ -194,29 +194,108 @@ export default function HomeScreen() {
     } catch (error) {
       console.error('❌ Error playing episode:', error);
     }
-  };
+  }, [playEpisode]);
 
-  const handleCarouselItemPress = (episode: Episode) => {
+  const handleCarouselItemPress = useCallback((episode: Episode) => {
     router.push(`/lecture/${episode.id}`);
-  };
+  }, []);
 
-  const handleAlbumPress = (album: QuranAlbum) => {
+  const handleAlbumPress = useCallback((album: QuranAlbum) => {
     router.push(`/quran-reciter/${album.id}`);
-  };
+  }, []);
 
-  const handleSearchSubmit = (query: string) => {
+  const handleSearchSubmit = useCallback((query: string) => {
     // Navigate to search page when user submits
     if (query.trim()) {
       router.push(`/search?q=${encodeURIComponent(query)}`);
     } else {
       router.push("/search");
     }
-  };
+  }, []);
 
-  const handleMicPress = () => {
+  const handleMicPress = useCallback(() => {
     // Navigate to search page for voice search
     router.push("/search?voice=true");
-  };
+  }, []);
+
+  // Memoize the recently played list to prevent re-renders of heavy Card components
+  const recentlyPlayedList = useMemo(() => {
+    if (!recentlyPlayed || recentlyPlayed.length === 0) return null;
+
+    return recentlyPlayed.map((episode, index) => (
+      <View
+        key={`recently-played-${episode.id}`}
+        style={tw`${index < recentlyPlayed.length - 1 ? "mr-4" : ""} w-80`}>
+        <Card
+          variant="landscape"
+          data={episode}
+          onPress={() => handleCarouselItemPress(episode)}
+          playOnPress={false}
+          showTime={true}
+          showMeta={true}
+          metaValue={episode.lecturerName || "Unknown"}
+          onMorePress={() => router.push(`/lecture/${episode.id}`)}
+        />
+      </View>
+    ));
+  }, [recentlyPlayed, handleCarouselItemPress]);
+
+  // Memoize the trending list
+  const trendingList = useMemo(() => {
+    if (!trendingLectures || trendingLectures.length === 0) return null;
+
+    return trendingLectures.map((episode, index) => (
+      <View
+        key={`recent-${episode.id}`}
+        style={tw`${index < trendingLectures.length - 1 ? "mr-4" : ""} w-80`}>
+        <Card
+          variant="landscape"
+          data={episode}
+          onPress={() => handleCarouselItemPress(episode)}
+          playOnPress={false}
+          showTime={true}
+          showMeta={true}
+          metaValue={episode.lecturerName || "Unknown"}
+          onMorePress={() => router.push(`/lecture/${episode.id}`)}
+        />
+      </View>
+    ));
+  }, [trendingLectures, handleCarouselItemPress]);
+
+  // Memoize the Quran list
+  const quranList = useMemo(() => {
+    if (!quranAlbums || quranAlbums.length === 0) return null;
+
+    return quranAlbums.map((album, index) => (
+      <View
+        key={`quran-${album.id}-${index}`}
+        style={tw`${index < quranAlbums.length - 1 ? "mr-4" : ""}`}>
+        <View style={{ width: 140 }}>
+          <Card
+            variant="square"
+            data={{
+              id: album.id,
+              title: album.name,
+              durationSec: 0,
+              coverUrl: album.img || album.alb_thumbnail,
+              audioUrl: '',
+              seriesId: '',
+              plays: album.views || 0,
+              liked: false,
+              language: album.language || '',
+              downloads: album.downloads || 0,
+              createdAt: album.post_date || '',
+              lecturerName: album.name,
+            }}
+            onPress={() => handleAlbumPress(album)}
+            playOnPress={false}
+            showMeta={true}
+            metaValue={album.name}
+          />
+        </View>
+      </View>
+    ));
+  }, [quranAlbums, handleAlbumPress]);
 
   return (
     <SafeAreaView
@@ -340,28 +419,13 @@ export default function HomeScreen() {
           <View style={tw`h-40 items-center justify-center px-6`}>
             <Text style={tw`text-white text-center`}>Failed to load recently played</Text>
           </View>
-        ) : recentlyPlayed.length > 0 ? (
+        ) : recentlyPlayedList ? (
           <Row
             title="Recently Played"
             subtitle="Continue where you left off"
             onSeeAll={() => router.push("/section/recently-played")}
           >
-            {recentlyPlayed.map((episode, index) => (
-              <View
-                key={`recently-played-${episode.id}`}
-                style={tw`${index < recentlyPlayed.length - 1 ? "mr-4" : ""} w-80`}>
-                <Card
-                  variant="landscape"
-                  data={episode}
-                  onPress={() => handleCarouselItemPress(episode)}
-                  playOnPress={false}
-                  showTime={true}
-                  showMeta={true}
-                  metaValue={episode.lecturerName || "Unknown"}
-                  onMorePress={() => router.push(`/lecture/${episode.id}`)}
-                />
-              </View>
-            ))}
+            {recentlyPlayedList}
           </Row>
         ) : null}
 
@@ -383,28 +447,13 @@ export default function HomeScreen() {
           <View style={tw`h-40 items-center justify-center px-6`}>
             <Text style={tw`text-white text-center`}>Failed to load recently posted</Text>
           </View>
-        ) : trendingLectures.length > 0 ? (
+        ) : trendingList ? (
           <Row
             title="Recently Posted"
             subtitle="Latest content from our scholars"
             onSeeAll={() => router.push("/section/recently-posted")}
           >
-            {trendingLectures.map((episode, index) => (
-              <View
-                key={`recent-${episode.id}`}
-                style={tw`${index < trendingLectures.length - 1 ? "mr-4" : ""} w-80`}>
-                <Card
-                  variant="landscape"
-                  data={episode}
-                  onPress={() => handleCarouselItemPress(episode)}
-                  playOnPress={false}
-                  showTime={true}
-                  showMeta={true}
-                  metaValue={episode.lecturerName || "Unknown"}
-                  onMorePress={() => router.push(`/lecture/${episode.id}`)}
-                />
-              </View>
-            ))}
+            {trendingList}
           </Row>
         ) : null}
 
@@ -423,40 +472,12 @@ export default function HomeScreen() {
           <View style={tw`h-40 items-center justify-center px-6`}>
             <Text style={tw`text-white text-center`}>Failed to load Quran recitations</Text>
           </View>
-        ) : quranAlbums.length > 0 ? (
+        ) : quranList ? (
           <Row
             title="Quran Recitations"
             onSeeAll={() => router.push("/section/quran-recitations")}
           >
-            {quranAlbums.map((album, index) => (
-              <View
-                key={`quran-${album.id}-${index}`}
-                style={tw`${index < quranAlbums.length - 1 ? "mr-4" : ""}`}>
-                <View style={{ width: 140 }}>
-                  <Card
-                    variant="square"
-                    data={{
-                      id: album.id,
-                      title: album.name,
-                      durationSec: 0,
-                      coverUrl: album.img || album.alb_thumbnail,
-                      audioUrl: '',
-                      seriesId: '',
-                      plays: album.views || 0,
-                      liked: false,
-                      language: album.language || '',
-                      downloads: album.downloads || 0,
-                      createdAt: album.post_date || '',
-                      lecturerName: album.name,
-                    }}
-                    onPress={() => handleAlbumPress(album)}
-                    playOnPress={false}
-                    showMeta={true}
-                    metaValue={album.name}
-                  />
-                </View>
-              </View>
-            ))}
+            {quranList}
           </Row>
         ) : null}
       </ScrollView>
