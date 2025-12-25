@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import React, { useEffect, useMemo, useCallback } from "react";
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { Image as ExpoImage } from "expo-image";
+import { router } from "expo-router";
+import React, { useCallback, useEffect, useMemo } from "react";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card, CardSkeleton } from "../../src/components/molecules";
 import { SearchBar } from "../../src/components/molecules/SearchBar";
@@ -18,8 +18,8 @@ import { QuranAlbum } from "../../src/services/api/quran.api";
 import { usePlayerActions } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
-import { Episode } from "../../src/types/types";
 import { SearchLecture } from "../../src/types/api.types";
+import { Episode } from "../../src/types/types";
 
 // Mock data - in a real app this would come from an API
 const mockEpisodes: Episode[] = [
@@ -201,11 +201,11 @@ export default function HomeScreen() {
 
   const handleCarouselItemPress = useCallback((episode: Episode) => {
     router.push(`/lecture/${episode.id}`);
-  }, []);
+  }, [router]);
 
   const handleAlbumPress = useCallback((album: QuranAlbum) => {
     router.push(`/quran-reciter/${album.id}`);
-  }, []);
+  }, [router]);
 
   const handleSearchSubmit = (query: string) => {
     // Navigate to search page when user submits
@@ -241,7 +241,7 @@ export default function HomeScreen() {
         />
       </View>
     );
-  }, [handleCarouselItemPress]);
+  }, [handleCarouselItemPress, router]);
 
   const renderAlbumItem = useCallback(({ item }: { item: QuranAlbum }) => {
     // Defensive check to prevent crashes from malformed data

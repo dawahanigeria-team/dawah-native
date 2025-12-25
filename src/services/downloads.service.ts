@@ -358,7 +358,7 @@ class DownloadsService {
       // Clean up partial download file if it exists
       try {
         if (file && file.exists) {
-          file.delete();
+          await file.delete();
         }
       } catch (cleanupError) {
         logger.warn("Failed to clean up partial download:", cleanupError);

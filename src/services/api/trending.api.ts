@@ -3,9 +3,9 @@
  * Handles fetching trending lectures data (popular lectures with langid=6)
  */
 
+import { SearchLecture } from '../../types/api.types';
 import { API_CONFIG } from '../config/api.config';
 import { apiClient, ApiError } from './base.api';
-import { SearchLecture } from '../../types/api.types';
 
 export interface TrendingLecturesParams {
   page?: number;
@@ -41,7 +41,7 @@ class TrendingLecturesApiService {
       // Check if we need to fetch fresh data
       const now = Date.now();
       const cacheExpired = now - this.cacheTimestamp > this.CACHE_DURATION;
-      const requestLimit = 1000;
+      const requestLimit = 100; // Match the actual API request limit
       const configChanged = this.cachedLimit !== requestLimit;
 
       if (!this.allTrendingCache || cacheExpired || configChanged) {
