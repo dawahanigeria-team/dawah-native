@@ -223,7 +223,7 @@ export default function SectionScreen() {
   const { type } = useLocalSearchParams<{ type: string }>();
 
   // Fetch trending data if this is the trending or recently-posted section
-  const trendingParams = (type === "trending" || type === "recently-posted") ? { page: 1, limit: 50 } : undefined;
+  const trendingParams = (type === "trending" || type === "recently-posted") ? { page: 1, limit: 20 } : undefined;
   console.log(`📱 SectionScreen render - type: ${type}, trendingParams:`, trendingParams);
 
   const {

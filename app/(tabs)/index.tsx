@@ -305,17 +305,6 @@ export default function HomeScreen() {
             </Text>
           </View>
 
-          {/* Center - App Title */}
-          <Text
-            style={[
-              tw`text-xl font-bold flex-1 text-center`,
-              { color: designTokens.colors.system.label.primary },
-            ]}
-            accessibilityRole="header"
-          >
-            Dawah Nigeria
-          </Text>
-
           {/* Right side - Notifications */}
           <View style={tw`w-8`}>
             <TouchableOpacity
