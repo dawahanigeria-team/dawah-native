@@ -60,7 +60,7 @@ const createEpisodeFromDetail = (detail: LectureDetail | null): Episode | null =
     language: detail.language || "",
     downloads: detail.downloads || 0,
     createdAt: detail.postedDate || new Date().toISOString(),
-    lecturerName: detail.lecturerName || "",
+    lecturerName: detail.lecturerName || detail.reciter?.name || "",
   };
 };
 

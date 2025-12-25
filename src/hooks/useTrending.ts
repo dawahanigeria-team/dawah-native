@@ -75,7 +75,7 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
           language: lecture.lang || lecture.language || lecture.Language || '',
           downloads: parseInt(lecture.share?.toString() || '0') || 0,
           createdAt: lecture.created_at || '',
-          lecturerName: lecture.rpname || lecture.lecturer_name || lecture.ResourcePerson || '',
+          lecturerName: lecture.rpname || lecture.lecturer_name || lecture.ResourcePerson || (lecture as any).reciter_name || '',
         }));
 
       // Append or replace lectures based on pagination

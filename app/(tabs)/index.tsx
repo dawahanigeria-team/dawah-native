@@ -150,7 +150,7 @@ export default function HomeScreen() {
       const language = lecture.lang || lecture.language || lecture.language_name || lecture.Language || "Unknown";
       const downloads = parseInt(String(lecture.downloads || lecture.Downloads || "0")) || 0;
       const createdAt = lecture.created_at || lecture.CreatedAt || new Date().toISOString();
-      const lecturerName = lecture.rpname || lecture.lecturer_name || lecture.LecturerName || undefined;
+      const lecturerName = lecture.rpname || lecture.lecturer_name || lecture.LecturerName || (lecture as any).reciter_name || undefined;
 
       return {
         id,

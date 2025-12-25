@@ -261,7 +261,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
               {currentEpisode.title}
             </Text>
             <Text variant="caption1" color="secondaryLabel" numberOfLines={1}>
-              {currentEpisode.lecturerName || "Dawah Nigeria"} • {formatDuration(progress)}/{formatDuration(duration)}
+              {currentEpisode.lecturerName ? `${currentEpisode.lecturerName} • ` : ""}{formatDuration(progress)}/{formatDuration(duration)}
             </Text>
           </View>
 
@@ -415,7 +415,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                 color="secondaryLabel"
                 style={{ textAlign: "center", marginBottom: 4 }}
               >
-                {currentEpisode.lecturerName || "Dawah Nigeria"}
+                {currentEpisode.lecturerName || ""}
               </Text>
               <Text
                 variant="caption1"
