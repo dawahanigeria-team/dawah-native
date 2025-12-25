@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { usePathname } from "expo-router";
-import React, { memo, useEffect, useMemo, useState } from "react";
+import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   Dimensions,
   Pressable,
@@ -69,6 +69,17 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
     const dragY = useSharedValue(0);
     const gestureStartY = useSharedValue(0);
     const isExpandedShared = useSharedValue(isExpanded ? 1 : 0);
+
+    // Refs for interval to avoid re-creation on every render/progress update
+    const progressRef = useRef(progress);
+    const durationRef = useRef(duration);
+    const setProgressRef = useRef(setProgress);
+
+    useEffect(() => {
+      progressRef.current = progress;
+      durationRef.current = duration;
+      setProgressRef.current = setProgress;
+    }, [progress, duration, setProgress]);
 
     // Check if we're on a screen where the bottom tab bar is actually visible.
     // This should stay in sync with `shouldShowTabs` in `app/(tabs)/_layout.tsx`:
@@ -140,13 +151,16 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       let interval: ReturnType<typeof setInterval>;
       if (isPlaying && !isLoading) {
         interval = setInterval(() => {
-          setProgress(Math.min(progress + 1, duration));
+          // Use refs to get latest values without triggering effect cleanup
+          const currentProgress = progressRef.current;
+          const currentDuration = durationRef.current;
+          setProgressRef.current(Math.min(currentProgress + 1, currentDuration));
         }, 1000);
       }
       return () => {
         if (interval) clearInterval(interval);
       };
-    }, [isPlaying, isLoading, progress, duration, setProgress, currentEpisode]);
+    }, [isPlaying, isLoading, currentEpisode]);
 
     // Don't render if no episode is playing
     if (!currentEpisode) {
