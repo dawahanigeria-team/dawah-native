@@ -61,6 +61,8 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       downloadEpisode,
       closePlayer,
       setProgress,
+      playbackSpeed,
+      setPlaybackSpeed,
     } = usePlayerStore();
 
     const [imageError, setImageError] = useState(false);
@@ -522,6 +524,22 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
 
             {/* Secondary Controls */}
             <View style={styles.secondaryControls}>
+              <Touchable
+                onPress={() => {
+                  const speeds = [0.75, 1.0, 1.25, 1.5, 2.0];
+                  const currentIndex = speeds.indexOf(playbackSpeed);
+                  const nextIndex = (currentIndex + 1) % speeds.length;
+                  setPlaybackSpeed(speeds[nextIndex]);
+                }}
+                style={styles.secondaryButton}
+                accessibilityLabel={`Playback speed ${playbackSpeed}x`}
+                accessibilityRole="button"
+              >
+                <Text variant="caption2" color="secondaryLabel" weight="bold">
+                  {playbackSpeed}x
+                </Text>
+              </Touchable>
+
               <Touchable
                 style={styles.secondaryButton}
                 accessibilityLabel="Share"
