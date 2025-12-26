@@ -133,21 +133,6 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       };
     });
 
-    // Simulate audio progress (in real implementation, this comes from expo-audio via AudioProvider)
-    useEffect(() => {
-      if (!currentEpisode) return;
-
-      let interval: ReturnType<typeof setInterval>;
-      if (isPlaying && !isLoading) {
-        interval = setInterval(() => {
-          setProgress(Math.min(progress + 1, duration));
-        }, 1000);
-      }
-      return () => {
-        if (interval) clearInterval(interval);
-      };
-    }, [isPlaying, isLoading, progress, duration, setProgress, currentEpisode]);
-
     // Don't render if no episode is playing
     if (!currentEpisode) {
       return null;
