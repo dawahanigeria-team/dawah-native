@@ -10,9 +10,9 @@ import {
   View,
 } from "react-native";
 import {
-  GestureHandlerRootView,
-  GestureDetector,
   Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
   PanGestureHandler,
 } from "react-native-gesture-handler";
 import Animated, {

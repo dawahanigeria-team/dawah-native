@@ -1,8 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Redirect } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
 import OnboardingScreen from "../src/screens/OnboardingScreen";
+import { Loading } from "../src/components/atoms/Loading";
 
 export default function Index() {
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean | null>(null);
@@ -22,11 +22,7 @@ export default function Index() {
   }, []);
 
   if (hasSeenOnboarding === null) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2C3E50" />
-      </View>
-    );
+    return <Loading fullScreen />;
   }
 
   if (hasSeenOnboarding) {
@@ -35,12 +31,3 @@ export default function Index() {
 
   return <OnboardingScreen />;
 }
-
-const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-  },
-});

@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import React from "react";
 import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "../../src/stores";
 import { useThemeStore } from "../../src/stores/themeStore";
 import { designTokens } from "../../src/theme/designTokens";
@@ -97,6 +98,27 @@ const ProfileScreen = () => {
     );
   };
 
+  const handleResetOnboarding = () => {
+    Alert.alert(
+      "Reset Onboarding",
+      "Are you sure you want to see the welcome screens again?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Reset",
+          style: "destructive",
+          onPress: async () => {
+            await AsyncStorage.removeItem("hasSeenOnboarding");
+            Alert.alert("Onboarding Reset", "Please restart the app to see the welcome screens again.");
+          },
+        },
+      ]
+    );
+  };
+
   const debugItems: SettingItem[] = [
     {
       id: "1",
@@ -104,6 +126,13 @@ const ProfileScreen = () => {
       icon: "refresh-outline",
       subtitle: "Clear local user data",
       onPress: handleResetUserId,
+    },
+    {
+      id: "2",
+      title: "Reset Onboarding",
+      icon: "refresh-circle-outline",
+      subtitle: "Show welcome screens again",
+      onPress: handleResetOnboarding,
     },
   ];
 
