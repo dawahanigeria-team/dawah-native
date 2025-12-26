@@ -174,13 +174,27 @@ export function useSearch<T = any>(
     [searchType, minQueryLength, cacheResults, enableQuickSearch, state.filters]
   );
 
+  // Refs to keep setFilters stable
+  const performSearchRef = useRef(performSearch);
+  performSearchRef.current = performSearch;
+  
+  const queryRef = useRef(query);
+  queryRef.current = query;
+
   // Update setFilters to trigger search
+  // This function is now stable and won't change on re-renders
   const setFilters = useCallback((newFilters: Record<string, any>) => {
-    setState(prev => ({ ...prev, filters: newFilters }));
-    if (query) {
-      performSearch(query, 1, false, newFilters);
+    // Only update if filters actually changed
+    const currentFilters = filtersRef.current;
+    const filtersChanged = JSON.stringify(currentFilters) !== JSON.stringify(newFilters);
+
+    if (filtersChanged) {
+      setState(prev => ({ ...prev, filters: newFilters }));
+      if (queryRef.current) {
+        performSearchRef.current(queryRef.current, 1, false, newFilters);
+      }
     }
-  }, [query, performSearch]);
+  }, []);
 
   // Effect to perform search when debounced query changes
   useEffect(() => {
