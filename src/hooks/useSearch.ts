@@ -32,23 +32,12 @@ interface SearchState<T> {
   query: string;
   hasMore: boolean;
   page: number;
+  filters: Record<string, any>;
 }
 
 // Debounce helper
 function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [value, delay]);
-
-  return debouncedValue;
+// ... existing code ...
 }
 
 /**
@@ -72,6 +61,7 @@ export function useSearch<T = any>(
     query: '',
     hasMore: false,
     page: 1,
+    filters: {},
   });
 
   const [query, setQuery] = useState('');
@@ -81,7 +71,7 @@ export function useSearch<T = any>(
 
   // Search function
   const performSearch = useCallback(
-    async (searchQuery: string, page = 1, append = false) => {
+    async (searchQuery: string, page = 1, append = false, searchFilters = state.filters) => {
       // Validate query length
       if (!searchQuery || searchQuery.trim().length < minQueryLength) {
         setState(prev => ({
@@ -90,12 +80,17 @@ export function useSearch<T = any>(
           loading: false,
           error: null,
           hasMore: false,
+          query: searchQuery,
+          filters: searchFilters,
         }));
         return;
       }
 
       // Check cache
-      const cacheKey = `${searchType}_${searchQuery}_${page}`;
+      // Include filters in cache key
+      const filterKey = JSON.stringify(searchFilters);
+      const cacheKey = `${searchType}_${searchQuery}_${page}_${filterKey}`;
+      
       if (cacheResults && cacheRef.current.has(cacheKey) && !append) {
         const cachedData = cacheRef.current.get(cacheKey)!;
         setState(prev => ({
@@ -104,6 +99,8 @@ export function useSearch<T = any>(
           loading: false,
           error: null,
           hasMore: page < cachedData.total_pages,
+          query: searchQuery,
+          filters: searchFilters,
         }));
         return;
       }
@@ -118,15 +115,29 @@ export function useSearch<T = any>(
         ...prev,
         loading: true,
         error: null,
+        filters: searchFilters,
       }));
 
       try {
-        const response = await searchApi.search<T>({
+        // Map UI filters to API params
+        const apiParams: any = {
           type: searchType,
           query: searchQuery,
           page,
           quick: enableQuickSearch && page === 1,
-        });
+          ...searchFilters
+        };
+        
+        // Handle specific filter mappings if needed
+        if (searchFilters.topic && searchFilters.topic !== 'All') {
+          apiParams.category = searchFilters.topic;
+        }
+        
+        if (searchFilters.lecturerId) {
+          apiParams.lecturer_nid = searchFilters.lecturerId;
+        }
+
+        const response = await searchApi.search<T>(apiParams);
 
         // Cache result
         if (cacheResults) {
@@ -146,6 +157,7 @@ export function useSearch<T = any>(
           query: searchQuery,
           hasMore: page < response.total_pages,
           page,
+          filters: searchFilters,
         }));
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
@@ -159,22 +171,31 @@ export function useSearch<T = any>(
         }));
       }
     },
-    [searchType, minQueryLength, cacheResults, enableQuickSearch]
+    [searchType, minQueryLength, cacheResults, enableQuickSearch, state.filters]
   );
+
+  // Update setFilters to trigger search
+  const setFilters = useCallback((newFilters: Record<string, any>) => {
+    setState(prev => ({ ...prev, filters: newFilters }));
+    if (query) {
+      performSearch(query, 1, false, newFilters);
+    }
+  }, [query, performSearch]);
 
   // Effect to perform search when debounced query changes
   useEffect(() => {
     if (debouncedQuery) {
-      performSearch(debouncedQuery, 1);
+      performSearch(debouncedQuery, 1, false, state.filters);
     }
-  }, [debouncedQuery, performSearch]);
+  }, [debouncedQuery, performSearch, state.filters]); // Added state.filters dependency
 
   // Load more function for pagination
   const loadMore = useCallback(() => {
     if (!state.loading && state.hasMore && state.query) {
-      performSearch(state.query, state.page + 1, true);
+      performSearch(state.query, state.page + 1, true, state.filters);
     }
-  }, [state.loading, state.hasMore, state.query, state.page, performSearch]);
+  }, [state.loading, state.hasMore, state.query, state.page, performSearch, state.filters]);
+
 
   // Clear search
   const clearSearch = useCallback(() => {
@@ -209,6 +230,7 @@ export function useSearch<T = any>(
 
     // Actions
     setQuery,
+    setFilters,
     clearSearch,
     loadMore,
     retry,

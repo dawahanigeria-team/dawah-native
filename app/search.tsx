@@ -10,6 +10,7 @@ import { FilterSection } from "../src/components/molecules/FilterSection";
 import { SearchBar } from "../src/components/molecules/SearchBar";
 import { surahs } from "../src/data/surahs";
 import { useSearchLectures } from "../src/hooks/useSearch";
+import { useLecturers } from "../src/hooks/useLecturers";
 import { usePlayerActions } from "../src/stores";
 import { designTokens } from "../src/theme/designTokens";
 import tw from "../src/theme/twrnc";
@@ -183,6 +184,9 @@ export default function SearchScreen() {
   const { playEpisode } = usePlayerActions();
   const searchParams = useLocalSearchParams();
   const initialQuery = (searchParams.q as string) || "";
+  
+  // Fetch lecturers for filter
+  const { lecturerCards } = useLecturers(50);
 
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<SearchFilters>({
@@ -190,6 +194,7 @@ export default function SearchScreen() {
     topic: "All",
     surah: "All",
     sortBy: "followers",
+    lecturerId: undefined,
   });
 
   // Local state for search input - separate from actual search query
@@ -202,6 +207,7 @@ export default function SearchScreen() {
     loading,
     error,
     setQuery,
+    setFilters: setSearchFilters,
     loadMore,
     hasMore,
     totalResults,
@@ -219,6 +225,15 @@ export default function SearchScreen() {
       setQuery(actualSearchQuery);
     }
   }, [actualSearchQuery, setQuery]);
+  
+  // Sync filters with search hook
+  useEffect(() => {
+    // Map UI filters to what the hook expects
+    setSearchFilters({
+      ...filters,
+      lecturerId: filters.lecturerId === 'All' ? undefined : filters.lecturerId
+    });
+  }, [filters, setSearchFilters]);
 
   // Handle search submission (Enter key or search button)
   const handleSearch = (searchText: string) => {
@@ -247,6 +262,7 @@ export default function SearchScreen() {
       topic: "All",
       surah: "All",
       sortBy: "followers",
+      lecturerId: undefined,
     });
   };
 
@@ -363,7 +379,6 @@ export default function SearchScreen() {
 
   const getItemKey = (item: ExtendedEpisode | ExtendedSeries | SearchLecture, index: number) => {
     // Generate a stable, unique key for FlatList
-    let metaValue = "";
     let uniqueKey = "";
 
     // Check if it's an API lecture (has mp3_title or nid)
@@ -469,6 +484,7 @@ export default function SearchScreen() {
     return (
       filters.language !== "All" ||
       filters.topic !== "All" ||
+      (filters.lecturerId && filters.lecturerId !== "All") ||
       (["Quran Recitation", "Tafsir"].includes(filters.topic) &&
         filters.surah !== "All")
     );
@@ -478,6 +494,7 @@ export default function SearchScreen() {
     let count = 0;
     if (filters.language !== "All") count++;
     if (filters.topic !== "All") count++;
+    if (filters.lecturerId && filters.lecturerId !== "All") count++;
     if (
       ["Quran Recitation", "Tafsir"].includes(filters.topic) &&
       filters.surah !== "All"
@@ -610,6 +627,22 @@ export default function SearchScreen() {
                 options={topics}
                 selectedValue={filters.topic}
                 onSelect={(value) => updateFilter("topic", value as Topic)}
+              />
+
+              {/* Scholar Filter */}
+              <FilterSection
+                title="Scholar"
+                options={["All", ...lecturerCards.map(l => l.name)]}
+                selectedValue={
+                  filters.lecturerId 
+                    ? lecturerCards.find(l => l.id === filters.lecturerId)?.name || "All" 
+                    : "All"
+                }
+                onSelect={(name) => {
+                  const lecturer = lecturerCards.find(l => l.name === name);
+                  updateFilter("lecturerId", lecturer ? lecturer.id : undefined);
+                }}
+                searchable={true}
               />
 
               {/* Surah Filter - show when Quran Recitation or Tafsir is selected */}

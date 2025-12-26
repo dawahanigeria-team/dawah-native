@@ -11,6 +11,7 @@ export interface SearchFilters {
   topic: Topic;
   surah: Surah;
   sortBy: SortOption;
+  lecturerId?: string;
 }
 
 export interface SearchState {
