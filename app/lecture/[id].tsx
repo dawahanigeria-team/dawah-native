@@ -850,7 +850,7 @@ const LectureDetailScreen: React.FC = () => {
                 {downloadStatus === DownloadStatus.COMPLETED
                   ? "Downloaded"
                   : downloadStatus === DownloadStatus.DOWNLOADING
-                    ? `${Math.round(downloadProgress * 100)}%`
+                    ? `${Math.round(downloadProgress)}%`
                     : downloadStatus === DownloadStatus.PAUSED
                       ? "Paused"
                       : downloadStatus === DownloadStatus.QUEUED

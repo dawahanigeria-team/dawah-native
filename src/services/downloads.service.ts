@@ -736,9 +736,10 @@ class DownloadsService {
           // Throttle progress updates
           const now = Date.now();
           if (now - lastProgressUpdate >= PROGRESS_UPDATE_INTERVAL) {
+            const rawProgress = totalBytes > 0 ? bytesDownloaded / totalBytes : 0;
             progressCallback({
               lectureId: id,
-              progress: totalBytes > 0 ? bytesDownloaded / totalBytes : 0,
+              progress: Math.min(rawProgress, 1),
               bytesDownloaded,
               totalBytes: totalBytes || bytesDownloaded,
             });
