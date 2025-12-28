@@ -9,9 +9,8 @@ import { CardSkeleton } from "../src/components/molecules/Card.skeleton";
 import { FilterSection } from "../src/components/molecules/FilterSection";
 import { SearchBar } from "../src/components/molecules/SearchBar";
 import { surahs } from "../src/data/surahs";
-import { useSearchLectures } from "../src/hooks/useSearch";
 import { useLecturers } from "../src/hooks/useLecturers";
-import { usePlayerActions } from "../src/stores";
+import { useSearchLectures } from "../src/hooks/useSearch";
 import { designTokens } from "../src/theme/designTokens";
 import tw from "../src/theme/twrnc";
 import { SearchLecture } from "../src/types/api.types";
@@ -21,7 +20,7 @@ import {
   SortOption,
   Topic,
 } from "../src/types/search";
-import { Episode, Series } from "../src/types/types";
+import { Episode } from "../src/types/types";
 
 const languages: Language[] = [
   "All",
@@ -49,139 +48,8 @@ const sortOptions = [
   { label: "Z-A", value: "z-a" as SortOption },
 ];
 
-interface ExtendedEpisode extends Omit<Episode, 'language'> {
-  followers?: number;
-  views?: number;
-  language: Language;
-  topic?: Topic;
-  surah?: string;
-}
-
-interface ExtendedSeries extends Omit<Series, 'language'> {
-  followers?: number;
-  views?: number;
-  language: Language;
-  topic?: Topic;
-}
-
-const mockSearchResults: (ExtendedEpisode | ExtendedSeries)[] = [
-  {
-    id: "1",
-    title: "Introduction to Tafsir Methodology",
-    durationSec: 3600,
-    coverUrl:
-      "https://images.unsplash.com/photo-1542810634-71277d95dcbb?w=300&h=300&fit=crop",
-    audioUrl: "https://example.com/audio1.mp3",
-    seriesId: "1",
-    plays: 1250,
-    liked: true,
-    followers: 15400,
-    views: 45600,
-    language: "English",
-    topic: "Tafsir",
-    downloads: 250,
-    createdAt: "2024-03-15T10:00:00Z",
-  },
-  {
-    id: "2",
-    title: "Tafsir Al-Qur'an Series",
-    coverUrl:
-      "https://images.unsplash.com/photo-1542810634-71277d95dcbb?w=300&h=300&fit=crop",
-    language: "Hausa",
-    tags: ["Tafsir", "Qur'an", "Islamic Studies"],
-    lecturerId: "1",
-    followers: 28900,
-    views: 120000,
-    topic: "Tafsir",
-  },
-  {
-    id: "3",
-    title: "Building Good Character",
-    durationSec: 3300,
-    coverUrl:
-      "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=300&h=300&fit=crop",
-    audioUrl: "https://example.com/audio3.mp3",
-    seriesId: "2",
-    plays: 756,
-    liked: true,
-    followers: 8200,
-    views: 23400,
-    language: "Yoruba",
-    topic: "Faith & Creed",
-    downloads: 120,
-    createdAt: "2024-03-05T09:15:00Z",
-  },
-  {
-    id: "4",
-    title: "Al-Fatiha Recitation",
-    durationSec: 180,
-    coverUrl: "",
-    audioUrl: "https://example.com/audio4.mp3",
-    seriesId: "3",
-    plays: 2100,
-    liked: false,
-    followers: 34500,
-    views: 89000,
-    language: "English",
-    topic: "Quran Recitation",
-    surah: "Al-Fatiha",
-    downloads: 340,
-    createdAt: "2024-02-25T11:00:00Z",
-  },
-  {
-    id: "5",
-    title: "Ramadan Reflections",
-    durationSec: 2400,
-    coverUrl:
-      "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=300&h=300&fit=crop",
-    audioUrl: "https://example.com/audio5.mp3",
-    seriesId: "4",
-    plays: 1800,
-    liked: true,
-    followers: 12300,
-    views: 34500,
-    language: "English",
-    topic: "Ramadan",
-    downloads: 210,
-    createdAt: "2024-03-01T08:30:00Z",
-  },
-  {
-    id: "6",
-    title: "Charity in Islam",
-    durationSec: 2100,
-    coverUrl: "",
-    audioUrl: "https://example.com/audio6.mp3",
-    seriesId: "5",
-    plays: 980,
-    liked: false,
-    followers: 7800,
-    views: 18900,
-    language: "Igbo",
-    topic: "Charity",
-    downloads: 95,
-    createdAt: "2024-02-18T14:20:00Z",
-  },
-  {
-    id: "7",
-    title: "Al-Baqarah Verses 1-10",
-    durationSec: 420,
-    coverUrl: "",
-    audioUrl: "https://example.com/audio7.mp3",
-    seriesId: "6",
-    plays: 3400,
-    liked: true,
-    followers: 56700,
-    views: 134000,
-    language: "English",
-    topic: "Quran Recitation",
-    surah: "Al-Baqarah",
-    downloads: 450,
-    createdAt: "2024-02-10T16:00:00Z",
-  },
-];
 
 export default function SearchScreen() {
-  const { playEpisode } = usePlayerActions();
   const searchParams = useLocalSearchParams();
   const initialQuery = (searchParams.q as string) || "";
   
@@ -308,122 +176,27 @@ export default function SearchScreen() {
     };
   };
 
-  const handleItemPress = (item: ExtendedEpisode | ExtendedSeries | SearchLecture) => {
-    if ("mp3_title" in item || "nid" in item) {
-      const apiItem = item as SearchLecture;
-      const lectureId = apiItem.nid || apiItem.id;
-      if (lectureId) {
-        router.push(`/lecture/${lectureId}`);
-      }
-      return;
-    }
-
-    if ("durationSec" in item) {
-      playEpisode(item as Episode);
-      return;
+  const handleItemPress = (item: SearchLecture) => {
+    const lectureId = item.nid || item.id;
+    if (lectureId) {
+      router.push(`/lecture/${lectureId}`);
     }
   };
 
-  // Combine API results with mock data when no query
+  // Only show real API results (no dummy/mock lectures)
   const filteredAndSortedResults = useMemo(() => {
-    // If we have a search query and API results, use them
-    if (actualSearchQuery && apiResults.length > 0) {
-      return apiResults;
-    }
+    return apiResults;
+  }, [apiResults]);
 
-    // Otherwise use mock data for demonstration
-    let results = [...mockSearchResults];
-
-    // Apply search query filter for mock data
-    if (actualSearchQuery && actualSearchQuery.trim()) {
-      results = results.filter((item) =>
-        item.title.toLowerCase().includes(actualSearchQuery.toLowerCase())
-      );
-    }
-
-    // Apply language filter
-    if (filters.language !== "All") {
-      results = results.filter((item) => item.language === filters.language);
-    }
-
-    // Apply topic filter
-    if (filters.topic !== "All") {
-      results = results.filter((item) => item.topic === filters.topic);
-    }
-
-    // Apply surah filter when Quran Recitation or Tafsir is selected
-    if (["Quran Recitation", "Tafsir"].includes(filters.topic) && filters.surah !== "All") {
-      results = results.filter(
-        (item) => "surah" in item && item.surah === filters.surah
-      );
-    }
-
-    // Apply sorting
-    results.sort((a, b) => {
-      switch (filters.sortBy) {
-        case "followers":
-          return (b.followers || 0) - (a.followers || 0);
-        case "views":
-          return (b.views || 0) - (a.views || 0);
-        case "a-z":
-          return a.title.localeCompare(b.title);
-        case "z-a":
-          return b.title.localeCompare(a.title);
-        default:
-          return 0;
-      }
-    });
-
-    return results;
-  }, [actualSearchQuery, apiResults, filters]);
-
-  const getItemKey = (item: ExtendedEpisode | ExtendedSeries | SearchLecture, index: number) => {
-    // Generate a stable, unique key for FlatList
-    let uniqueKey = "";
-
-    // Check if it's an API lecture (has mp3_title or nid)
-    if ('mp3_title' in item || 'nid' in item) {
-      // API result - support both new and legacy field names
-      const apiItem = item as SearchLecture;
-      uniqueKey = `api-${apiItem.id || apiItem.nid}-${index}`;
-    } else if ("durationSec" in item) {
-      // Mock episode
-      const episode = item as ExtendedEpisode;
-      uniqueKey = `mock-${episode.id}-${index}`;
-    } else {
-      // Mock series
-      const series = item as ExtendedSeries;
-      uniqueKey = `mock-${series.id}-${index}`;
-    }
-
-    return uniqueKey;
+  const getItemKey = (item: SearchLecture, index: number) => {
+    return `api-${String(item.id || item.nid || index)}-${index}`;
   };
 
-  const renderSearchResult = (item: ExtendedEpisode | ExtendedSeries | SearchLecture, index: number) => {
-    let metaValue = "";
-    let data: Episode | Series;
-    let isApiLecture = false;
-
-    // Check if it's an API lecture (has mp3_title or nid)
-    if ('mp3_title' in item || 'nid' in item) {
-      // API result - support both new and legacy field names
-      const apiItem = item as SearchLecture;
-      const resourcePerson = apiItem.lecturer_name || apiItem.ResourcePerson || "Unknown Scholar";
-      const plays = parseInt(apiItem.views || apiItem.Plays || "0").toLocaleString();
-      metaValue = `${resourcePerson} • ${plays} plays`;
-      data = convertToEpisode(apiItem);
-      isApiLecture = true;
-    } else if ("durationSec" in item) {
-      // Mock episode
-      const episode = item as ExtendedEpisode;
-      metaValue = `${episode.views?.toLocaleString() || 0} views • ${episode.language || "Unknown"}`;
-      data = episode as Episode;
-    } else {
-      // Mock series
-      const series = item as ExtendedSeries;
-      metaValue = `${series.followers?.toLocaleString() || 0} followers • ${series.language || "Unknown"}`;
-      data = series as Series;
-    }
+  const renderSearchResult = (item: SearchLecture) => {
+    const resourcePerson = item.lecturer_name || item.ResourcePerson || "Unknown Scholar";
+    const plays = parseInt(item.views || item.Plays || "0").toLocaleString();
+    const metaValue = `${resourcePerson} • ${plays} plays`;
+    const data = convertToEpisode(item);
 
     return (
       <View style={tw`mb-4`}>
@@ -432,11 +205,10 @@ export default function SearchScreen() {
           data={data}
           onPress={() => handleItemPress(item)}
           playOnPress={false}
-          showTime={"durationSec" in item || isApiLecture}
+          showTime={true}
           showMeta={true}
           metaValue={metaValue}
-          showBadge={!("durationSec" in item) && !isApiLecture}
-          badgeText="DN"
+          showBadge={false}
         />
       </View>
     );
@@ -590,7 +362,7 @@ export default function SearchScreen() {
         keyExtractor={(item, index) => getItemKey(item, index)}
         renderItem={({ item, index }) => (
           <View style={tw`px-5`}>
-            {renderSearchResult(item, index)}
+            {renderSearchResult(item)}
           </View>
         )}
         ListHeaderComponent={

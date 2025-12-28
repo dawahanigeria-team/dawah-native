@@ -21,85 +21,6 @@ import tw from "../../src/theme/twrnc";
 import { SearchLecture } from "../../src/types/api.types";
 import { Episode } from "../../src/types/types";
 
-// Mock data - in a real app this would come from an API
-const mockEpisodes: Episode[] = [
-  {
-    id: "1",
-    title: "Introduction to Tafsir Methodology",
-    durationSec: 3600,
-    coverUrl:
-      "https://images.unsplash.com/photo-1542810634-71277d95dcbb?w=300&h=300&fit=crop",
-    audioUrl: "https://example.com/audio1.mp3",
-    seriesId: "1",
-    plays: 1250,
-    liked: true,
-    language: "English",
-    downloads: 250,
-    createdAt: "2024-03-15T10:00:00Z",
-    lecturerName: "Sheikh Muhammad Ali",
-  },
-  {
-    id: "2",
-    title: "Understanding Surah Al-Fatiha",
-    durationSec: 2700,
-    coverUrl:
-      "https://images.unsplash.com/photo-1542810634-71277d95dcbb?w=300&h=300&fit=crop",
-    audioUrl: "https://example.com/audio2.mp3",
-    seriesId: "1",
-    plays: 980,
-    liked: false,
-    language: "English",
-    downloads: 180,
-    createdAt: "2024-03-10T14:30:00Z",
-    lecturerName: "Dr. Bilal Philips",
-  },
-  {
-    id: "3",
-    title: "Building Good Character in Daily Life",
-    durationSec: 3300,
-    coverUrl:
-      "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=300&h=300&fit=crop",
-    audioUrl: "https://example.com/audio3.mp3",
-    seriesId: "2",
-    plays: 756,
-    liked: true,
-    language: "Hausa",
-    downloads: 120,
-    createdAt: "2024-03-05T09:15:00Z",
-    lecturerName: "Sheikh Abubakar Gumi",
-  },
-  {
-    id: "4",
-    title: "The Rights of Women in Islamic Law",
-    durationSec: 4200,
-    coverUrl:
-      "https://images.unsplash.com/photo-1487412720507-e7abf03fe3bf?w=300&h=300&fit=crop",
-    audioUrl: "https://example.com/audio4.mp3",
-    seriesId: "3",
-    plays: 892,
-    liked: false,
-    language: "Yoruba",
-    downloads: 160,
-    createdAt: "2024-02-28T16:45:00Z",
-    lecturerName: "Ustadh Abdullah Hakim",
-  },
-  {
-    id: "5",
-    title: "The Golden Age of Islamic Civilization",
-    durationSec: 4800,
-    coverUrl:
-      "https://images.unsplash.com/photo-1447069388813-9e89e38406f7?w=300&h=300&fit=crop",
-    audioUrl: "https://example.com/audio5.mp3",
-    seriesId: "4",
-    plays: 654,
-    liked: true,
-    language: "English",
-    downloads: 95,
-    createdAt: "2024-02-20T11:20:00Z",
-    lecturerName: "Sheikh Ibrahim Zakzaky",
-  },
-];
-
 const ITEM_WIDTH = 320; // w-80
 const ITEM_SPACING = 16; // mr-4
 const SNAP_INTERVAL = ITEM_WIDTH + ITEM_SPACING;
@@ -171,11 +92,7 @@ export default function HomeScreen() {
 
   // Preload hero images (popular or mock) so the carousel feels instant
   useEffect(() => {
-    const heroSource = popularEpisodes.length > 0
-      ? popularEpisodes
-      : mockEpisodes.slice(0, 5);
-
-    const uris = heroSource
+    const uris = popularEpisodes
       .map((episode) => episode.coverUrl)
       .filter(Boolean);
 
@@ -346,13 +263,7 @@ export default function HomeScreen() {
           <HeroCarouselSkeleton />
         ) : popularError ? (
           <View style={tw`h-56 items-center justify-center px-6`}>
-            <Text style={tw`text-white text-center`}>Failed to load popular lectures</Text>
-            <Text style={tw`text-gray-400 text-sm text-center mt-1`}>Using offline content</Text>
-            <HeroCarousel
-              items={mockEpisodes.slice(0, 5)}
-              onItemPress={handleCarouselItemPress}
-              onPlayPress={handleEpisodePress}
-            />
+              <Text style={tw`text-white text-center`}>Failed to load popular lectures</Text>
           </View>
         ) : popularEpisodes.length > 0 ? (
           <HeroCarousel
@@ -360,14 +271,7 @@ export default function HomeScreen() {
             onItemPress={handleCarouselItemPress}
             onPlayPress={handleEpisodePress}
           />
-        ) : (
-          // Fallback to mock data if no popular lectures
-          <HeroCarousel
-            items={mockEpisodes.slice(0, 5)}
-            onItemPress={handleCarouselItemPress}
-            onPlayPress={handleEpisodePress}
-          />
-        )}
+        ) : null}
 
         {/* Action Grid */}
         <ActionGrid />
