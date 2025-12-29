@@ -202,7 +202,7 @@ class DownloadsService {
       // This is mainly for logging and ensuring the directory is accessible
       await requestStoragePermission();
 
-      console.log(`📥 Starting download for: ${title}`);
+      logger.debug(`📥 Starting download for: ${title}`);
 
       // Add breadcrumb for download tracking
       addSentryBreadcrumb(`Starting download: ${title}`, "download", {
@@ -212,33 +212,25 @@ class DownloadsService {
 
       // STEP 1: Call backend API to increment download counter
       // This ensures download analytics are tracked on the server
-      console.log(`📊 Incrementing download counter for lecture: ${lectureId}`);
+      logger.debug(`📊 Incrementing download counter for lecture: ${lectureId}`);
       apiResponse = await downloadsApi.incrementDownloadCounter(lectureId);
 
       // Use the URL from API response (may have updated metadata)
       downloadUrl = apiResponse.url || audioUrl;
-      console.log(`🔗 Download URL: ${downloadUrl}`);
+      logger.debug(`🔗 Download URL: ${downloadUrl}`);
 
       // STEP 2: Download the MP3 file to local storage using expo/fetch
-      console.log(`📡 Fetching MP3 from: ${downloadUrl}`);
+      logger.debug(`📡 Fetching MP3 from: ${downloadUrl}`);
       const response = await fetch(downloadUrl);
 
-      console.log(`📊 Download response:`, {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        url: response.url,
-        headers: {
-          contentType: response.headers.get("content-type"),
-          contentLength: response.headers.get("content-length"),
-        },
-      });
+      logger.debug(`📊 Download response: status=${response.status}, ok=${response.ok}`);
 
       if (!response.ok) {
         const errorMessage = `Download failed (${response.status}): ${response.statusText}`;
-        console.error(`❌ ${errorMessage}`);
-        console.error(`   URL attempted: ${downloadUrl}`);
-        console.error(`   Lecture ID: ${lectureId}`);
+        logger.error(`❌ ${errorMessage}`, new Error(errorMessage), {
+          url: downloadUrl,
+          lectureId,
+        });
 
         throw new Error(errorMessage);
       }
@@ -253,9 +245,8 @@ class DownloadsService {
       const PROGRESS_UPDATE_INTERVAL = 100; // Update progress every 100ms
       let fileHandle: FileHandle | null = null;
 
-      console.log(
-        `📊 Starting streaming download: ${totalBytes > 0 ? `${totalBytes} bytes total` : "unknown size"
-        }`
+      logger.debug(
+        `📊 Starting streaming download: ${totalBytes > 0 ? `${totalBytes} bytes total` : "unknown size"}`
       );
 
       // Get the response stream
@@ -312,7 +303,7 @@ class DownloadsService {
           }
         }
 
-        console.log(
+        logger.debug(
           `✅ Download complete: ${title} (${bytesDownloaded} bytes saved to local storage)`
         );
 
@@ -362,7 +353,7 @@ class DownloadsService {
         await metadataFile.write(JSON.stringify(metadata, null, 2));
       }
     } catch (error: any) {
-      console.error(`Failed to download lecture ${lectureId}:`, error);
+      logger.error(`Failed to download lecture ${lectureId}`, error as Error);
 
       // Clean up partial download file if it exists
       try {
@@ -370,7 +361,7 @@ class DownloadsService {
           await file.delete();
         }
       } catch (cleanupError) {
-        console.warn("Failed to clean up partial download:", cleanupError);
+        logger.warn("Failed to clean up partial download:", cleanupError);
       }
 
       // Determine if this is a permission-related error
@@ -502,7 +493,7 @@ class DownloadsService {
 
   async clearAllDownloads(): Promise<void> {
     if (!this.downloadsDirectory) {
-      console.warn("Cannot clear downloads: directory not initialized");
+      logger.warn("Cannot clear downloads: directory not initialized");
       return;
     }
 
@@ -518,7 +509,7 @@ class DownloadsService {
     await this.saveMetadata();
     this.notify();
 
-    console.log("Cleared all downloads");
+    logger.debug("Cleared all downloads");
   }
 
   /**
@@ -531,7 +522,7 @@ class DownloadsService {
     const { id: lectureId, audioUrl, title } = episode;
 
     if (!audioUrl) {
-      console.error("No audio URL provided for episode:", lectureId);
+      logger.error("No audio URL provided for episode", new Error("Missing audio URL"), { lectureId });
       return null;
     }
 
@@ -549,7 +540,7 @@ class DownloadsService {
       this.activeDownloads.set(lectureId, resumableDownload);
       return resumableDownload;
     } catch (error) {
-      console.error("Failed to create resumable download:", error);
+      logger.error("Failed to create resumable download", error as Error);
       captureSentryException(error as Error, {
         operation: "create_resumable_download",
         lectureId,
@@ -572,15 +563,15 @@ class DownloadsService {
       // Check for existing partial file to resume
       let existingSize = 0;
       if (file.exists) {
-        // Try to get file size - check if property exists
-        // expo-file-system File objects may have size property
+        // Try to get file size using type-safe approach
+        // expo-file-system File objects in SDK 54 have a size property
         try {
-          const fileWithSize = file as any;
-          if ('size' in fileWithSize && typeof fileWithSize.size === 'number') {
-            existingSize = fileWithSize.size;
+          // Type guard to safely access size property
+          const fileInfo = file as { size?: number };
+          if (typeof fileInfo.size === 'number' && fileInfo.size > 0) {
+            existingSize = fileInfo.size;
           } else {
-            // Alternative: Get file info using md5 or other method
-            // For now, if size is not available, we restart the download
+            // Size property not available or zero, restart the download
             logger.warn('File size property not available, restarting download from scratch');
             file.delete();
             existingSize = 0;
@@ -684,8 +675,15 @@ class DownloadsService {
         // Set offset to the end of the partial file to append new data
         // In Expo SDK 54, FileHandle has an 'offset' property that controls write position
         try {
-          (fileHandle as any).offset = existingSize;
-          logger.debug(`Set file offset to ${existingSize} for resume`);
+          // Type-safe approach to set offset property
+          const handleWithOffset = fileHandle as { offset?: number };
+          if ('offset' in handleWithOffset) {
+            handleWithOffset.offset = existingSize;
+            logger.debug(`Set file offset to ${existingSize} for resume`);
+          } else {
+            // offset property not supported, restart download
+            throw new Error('FileHandle offset property not supported');
+          }
         } catch (e) {
           // If setting offset fails, cannot resume - restart download
           logger.error('Failed to set file offset, restarting download', e as Error);
@@ -738,9 +736,10 @@ class DownloadsService {
           // Throttle progress updates
           const now = Date.now();
           if (now - lastProgressUpdate >= PROGRESS_UPDATE_INTERVAL) {
+            const rawProgress = totalBytes > 0 ? bytesDownloaded / totalBytes : 0;
             progressCallback({
               lectureId: id,
-              progress: totalBytes > 0 ? bytesDownloaded / totalBytes : 0,
+              progress: Math.min(rawProgress, 1),
               bytesDownloaded,
               totalBytes: totalBytes || bytesDownloaded,
             });
@@ -834,7 +833,7 @@ class DownloadsService {
         await this.saveMetadata();
         this.notify();
       } catch (error) {
-        console.error("Failed to pause download:", error);
+        logger.error("Failed to pause download", error as Error);
         captureSentryException(error as Error, {
           operation: "pause_download",
           lectureId,
@@ -852,7 +851,7 @@ class DownloadsService {
       try {
         download.abortController.abort();
       } catch (error) {
-        console.warn("Error aborting download:", error);
+        logger.warn("Error aborting download:", error);
       }
       this.activeDownloads.delete(lectureId);
     }

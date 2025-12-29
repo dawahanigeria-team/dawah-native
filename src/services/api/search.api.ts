@@ -25,6 +25,7 @@ export interface SearchParams {
   category?: string;
   sortBy?: 'relevance' | 'date' | 'popularity';
   field?: string;
+  lecturer_nid?: string;
 }
 
 class SearchApiService {
@@ -86,6 +87,10 @@ class SearchApiService {
 
       if (params.category) {
         requestParams.category = params.category;
+      }
+
+      if (params.lecturer_nid) {
+        requestParams.lecturer_nid = params.lecturer_nid;
       }
 
       if (params.field) {
@@ -182,6 +187,7 @@ class SearchApiService {
       language?: string;
       category?: string;
       sortBy?: 'relevance' | 'date' | 'popularity';
+      lecturer_nid?: string;
     }
   ): Promise<SearchResponse<SearchLecture>> {
     return this.search<SearchLecture>({

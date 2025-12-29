@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import React, { memo, useState } from "react";
 import { View, ViewStyle } from "react-native";
-import { usePlayerStore } from "../../stores";
+import { usePlayerActions } from "../../stores";
 import { BorderRadius, designTokens } from "../../theme/designTokens";
 import { Episode, Series } from "../../types/types";
 import { getInitials, getPlaceholderStyle } from "../../utils/colorPlaceholder";
@@ -47,7 +47,7 @@ export const Card: React.FC<CardProps> = memo(
     const isEpisode = "durationSec" in data;
     const episode = isEpisode ? (data as Episode) : null;
     const [imageError, setImageError] = useState(false);
-    const { playEpisode } = usePlayerStore();
+    const { playEpisode } = usePlayerActions();
 
     const getAccessibilityLabel = () => {
       let label = `${data.title}`;

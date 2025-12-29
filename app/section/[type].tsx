@@ -7,159 +7,13 @@ import { Chip, Text } from "../../src/components/atoms";
 import { Card } from "../../src/components/molecules/Card";
 import { SearchBar } from "../../src/components/molecules/SearchBar";
 import { useQuranAlbums } from "../../src/hooks/useQuranAlbums";
-import { useTrending } from "../../src/hooks/useTrending";
 import { useRecentlyPlayedLectures } from "../../src/hooks/useRecentlyPlayedLectures";
+import { useTrending } from "../../src/hooks/useTrending";
 import { QuranAlbum } from "../../src/services/api/quran.api";
 
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Episode, Series } from "../../src/types/types";
-
-// Mock data - in a real app this would come from an API
-const mockEpisodes: Episode[] = [
-  {
-    id: "1",
-    title: "Introduction to Tafsir Methodology",
-    durationSec: 3600,
-    coverUrl:
-      "https://images.unsplash.com/photo-1542810634-71277d95dcbb?w=300&h=300&fit=crop",
-    audioUrl: "https://example.com/audio1.mp3",
-    seriesId: "1",
-    plays: 1250,
-    liked: true,
-    language: "Hausa",
-    downloads: 890,
-    createdAt: "2024-01-15T10:30:00Z",
-  },
-  {
-    id: "2",
-    title: "Understanding Surah Al-Fatiha",
-    durationSec: 2700,
-    coverUrl:
-      "https://images.unsplash.com/photo-1542810634-71277d95dcbb?w=300&h=300&fit=crop",
-    audioUrl: "https://example.com/audio2.mp3",
-    seriesId: "1",
-    plays: 980,
-    liked: false,
-    language: "English",
-    downloads: 654,
-    createdAt: "2024-01-10T14:20:00Z",
-  },
-  {
-    id: "3",
-    title: "Building Good Character in Daily Life",
-    durationSec: 3300,
-    coverUrl:
-      "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=300&h=300&fit=crop",
-    audioUrl: "https://example.com/audio3.mp3",
-    seriesId: "2",
-    plays: 756,
-    liked: true,
-    language: "Yoruba",
-    downloads: 432,
-    createdAt: "2024-01-08T09:15:00Z",
-  },
-  {
-    id: "4",
-    title: "The Rights of Women in Islamic Law",
-    durationSec: 4200,
-    coverUrl:
-      "https://images.unsplash.com/photo-1487412720507-e7abf03fe3bf?w=300&h=300&fit=crop",
-    audioUrl: "https://example.com/audio4.mp3",
-    seriesId: "3",
-    plays: 892,
-    liked: false,
-    language: "English",
-    downloads: 567,
-    createdAt: "2024-01-12T16:45:00Z",
-  },
-  {
-    id: "5",
-    title: "The Golden Age of Islamic Civilization",
-    durationSec: 4800,
-    coverUrl:
-      "https://images.unsplash.com/photo-1447069388813-9e89e38406f7?w=300&h=300&fit=crop",
-    audioUrl: "https://example.com/audio5.mp3",
-    seriesId: "4",
-    plays: 654,
-    liked: true,
-    language: "Hausa",
-    downloads: 789,
-    createdAt: "2024-01-05T11:30:00Z",
-  },
-];
-
-const mockSeries: Series[] = [
-  {
-    id: "1",
-    title: "Tafsir Al-Qur'an",
-    coverUrl:
-      "https://images.unsplash.com/photo-1542810634-71277d95dcbb?w=300&h=300&fit=crop",
-    language: "Hausa",
-    tags: ["Tafsir", "Qur'an", "Islamic Studies"],
-    lecturerId: "1",
-  },
-  {
-    id: "2",
-    title: "Akhlaq & Character Building",
-    coverUrl: "",
-    language: "English",
-    tags: ["Akhlaq", "Character", "Ethics"],
-    lecturerId: "2",
-  },
-  {
-    id: "3",
-    title: "Women in Islam",
-    coverUrl: "",
-    language: "Yoruba",
-    tags: ["Women", "Islamic Rights", "Empowerment"],
-    lecturerId: "3",
-  },
-  {
-    id: "4",
-    title: "Islamic History & Civilization",
-    coverUrl:
-      "https://images.unsplash.com/photo-1447069388813-9e89e38406f7?w=300&h=300&fit=crop",
-    language: "Hausa",
-    tags: ["History", "Civilization", "Islamic Heritage"],
-    lecturerId: "4",
-  },
-];
-
-// Generate more data for sections
-const generateSectionData = (type: string) => {
-  const baseEpisodes = [...mockEpisodes];
-  const baseSeries = [...mockSeries];
-  const languages = ["Hausa", "English", "Yoruba", "Arabic"];
-
-  // Create more episodes by duplicating and modifying
-  const moreEpisodes = Array.from({ length: 20 }, (_, i) => {
-    const baseEpisode = baseEpisodes[i % baseEpisodes.length];
-    const randomLanguage = languages[i % languages.length];
-    const randomPlays = Math.floor(Math.random() * 2000) + 100;
-    const randomDownloads = Math.floor(Math.random() * 1000) + 50;
-    const randomDate = new Date(2024, 0, Math.floor(Math.random() * 30) + 1);
-
-    return {
-      ...baseEpisode,
-      id: `${type}-episode-${i + 1}`,
-      title: `${baseEpisode.title} ${i + 1}`,
-      language: randomLanguage,
-      plays: randomPlays,
-      downloads: randomDownloads,
-      createdAt: randomDate.toISOString(),
-    };
-  });
-
-  // Create more series by duplicating and modifying
-  const moreSeries = Array.from({ length: 20 }, (_, i) => ({
-    ...baseSeries[i % baseSeries.length],
-    id: `${type}-series-${i + 1}`,
-    title: `${baseSeries[i % baseSeries.length].title} ${i + 1}`,
-  }));
-
-  return { episodes: moreEpisodes, series: moreSeries };
-};
 
 const getSectionInfo = (type: string) => {
   switch (type) {
@@ -168,8 +22,8 @@ const getSectionInfo = (type: string) => {
         title: "Featured Lectures",
         description:
           "Handpicked content curated by our scholars for your spiritual growth and learning",
-        count: 20,
-        data: generateSectionData(type).episodes,
+        count: 0,
+        data: [],
         variant: "section" as const,
       };
     case "recently-posted":
@@ -177,31 +31,31 @@ const getSectionInfo = (type: string) => {
         title: "Recently Posted",
         description:
           "Latest content from our scholars, fresh insights and teachings",
-        count: 20,
-        data: generateSectionData(type).episodes,
+        count: 0,
+        data: [],
         variant: "section" as const,
       };
     case "recently-played":
       return {
         title: "Recently Played",
         description: "Continue where you left off with your learning journey",
-        count: 20,
-        data: generateSectionData(type).episodes,
+        count: 0,
+        data: [],
         variant: "section" as const,
       };
     case "trending":
       return {
         title: "Trending",
         description: "Most popular and engaging content loved by our community",
-        count: 20,
-        data: generateSectionData(type).episodes,
+        count: 0,
+        data: [],
         variant: "section" as const,
       };
     case "quran-recitations":
       return {
         title: "Quran Reciters",
         description: "Discover renowned Quran reciters and their beautiful recitations",
-        count: 20,
+        count: 0,
         data: [], 
         variant: "quran" as const,
       };
@@ -223,7 +77,7 @@ export default function SectionScreen() {
   const { type } = useLocalSearchParams<{ type: string }>();
 
   // Fetch trending data if this is the trending or recently-posted section
-  const trendingParams = (type === "trending" || type === "recently-posted") ? { page: 1, limit: 50 } : undefined;
+  const trendingParams = (type === "trending" || type === "recently-posted") ? { page: 1, limit: 20 } : undefined;
   console.log(`📱 SectionScreen render - type: ${type}, trendingParams:`, trendingParams);
 
   const {

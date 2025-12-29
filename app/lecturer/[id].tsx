@@ -1,26 +1,32 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, ScrollView, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Text } from "../../src/components/atoms";
 import { TabView } from "../../src/components/molecules/TabView";
 import { useDebounce } from "../../src/hooks/useDebounce";
 import { Album, albumsApi } from "../../src/services/api/albums.api";
 import { LecturerLecture, lecturersApi } from "../../src/services/api/lecturers.api";
+import { searchApi } from "../../src/services/api/search.api";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
-import { usePlayerStore } from "../../src/stores";
+import { usePlayerActions } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
+import { SearchPlaylist } from "../../src/types/api.types";
 import { Episode } from "../../src/types/types";
 import { getInitials, getPlaceholderColor } from "../../src/utils/colorPlaceholder";
 
 // Tab types
 type TabType = 'songs' | 'albums' | 'playlists';
 
+// Pagination constants
+const PAGE_SIZE = 10;
+
 export default function LecturerDetailScreen() {
   const { id } = useLocalSearchParams();
   const lecturerId = id as string;
-  const { playEpisode } = usePlayerStore();
+  const { playEpisode } = usePlayerActions();
 
   // States
   const [lecturer, setLecturer] = useState<any>(null);
@@ -36,6 +42,20 @@ export default function LecturerDetailScreen() {
   const [hasMoreLectures, setHasMoreLectures] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const isLoadingRef = useRef(false);
+
+  // Album Pagination states
+  const [currentAlbumPage, setCurrentAlbumPage] = useState(1);
+  const [hasMoreAlbums, setHasMoreAlbums] = useState(true);
+  const [loadingMoreAlbums, setLoadingMoreAlbums] = useState(false);
+  const isAlbumLoadingRef = useRef(false);
+
+  // Playlist Pagination states
+  const [playlists, setPlaylists] = useState<SearchPlaylist[]>([]);
+  const [playlistsLoading, setPlaylistsLoading] = useState(false);
+  const [currentPlaylistPage, setCurrentPlaylistPage] = useState(1);
+  const [hasMorePlaylists, setHasMorePlaylists] = useState(true);
+  const [loadingMorePlaylists, setLoadingMorePlaylists] = useState(false);
+  const isPlaylistLoadingRef = useRef(false);
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabType>('songs');
@@ -112,8 +132,8 @@ export default function LecturerDetailScreen() {
       }
 
       // Check if there are more lectures to load
-      // API returns 30 by default, if we get less than 10, probably no more
-      const hasMore = response.data.length >= 10;
+      // API returns 30 by default, if we get less than PAGE_SIZE, probably no more
+      const hasMore = response.data.length >= PAGE_SIZE;
       console.log(`📊 Pagination status: Page ${page}, Has more: ${hasMore} (received ${response.data.length} lectures)`);
       setHasMoreLectures(hasMore);
       setCurrentPage(page);
@@ -136,22 +156,45 @@ export default function LecturerDetailScreen() {
     fetchLecturerLectures(currentPage + 1, true);
   };
 
-  const fetchAlbums = async () => {
+  const fetchAlbums = async (page = 1, appendData = false) => {
+    if (isAlbumLoadingRef.current) return;
+
     try {
-      setAlbumsLoading(true);
+      isAlbumLoadingRef.current = true;
+      if (appendData) {
+        setLoadingMoreAlbums(true);
+      } else {
+        setAlbumsLoading(true);
+      }
 
       addSentryBreadcrumb('Fetching albums for lecturer', 'http', {
         lecturerId,
+        page,
         lecturerName: lecturer?.rpname || lecturer?.name,
       });
 
-      const response = await albumsApi.getAlbumsByLecturer(lecturerId);
-      setAlbums(response.data);
+      const response = await albumsApi.getAlbumsByLecturer(lecturerId, page);
+      
+      if (appendData) {
+        setAlbums(prev => {
+           // Simple duplicate check by ID
+           const existingIds = new Set(prev.map(a => a.id));
+           const newAlbums = response.data.filter(a => !existingIds.has(a.id));
+           return [...prev, ...newAlbums];
+        });
+      } else {
+        setAlbums(response.data);
+      }
+      
+      const hasMore = response.data.length >= PAGE_SIZE;
+      setHasMoreAlbums(hasMore);
+      setCurrentAlbumPage(page);
 
-      console.log('✅ Loaded albums:', response.data.length);
+      console.log('✅ Loaded albums:', response.data.length, 'Page:', page);
       addSentryBreadcrumb('Albums loaded successfully', 'info', {
         lecturerId,
         albumCount: response.data.length,
+        page
       });
     } catch (err: any) {
       console.error('Failed to fetch albums:', err);
@@ -161,12 +204,82 @@ export default function LecturerDetailScreen() {
         lecturerId,
         level: 'error',
       });
+      setHasMoreAlbums(false);
     } finally {
       setAlbumsLoading(false);
+      setLoadingMoreAlbums(false);
+      isAlbumLoadingRef.current = false;
     }
   };
 
-  // No need to fetch albums on tab change - already loaded on mount
+  const loadMoreAlbums = () => {
+    if (!hasMoreAlbums || loadingMoreAlbums || albumsLoading || isAlbumLoadingRef.current) return;
+    fetchAlbums(currentAlbumPage + 1, true);
+  };
+
+  const fetchPlaylists = async (page = 1, appendData = false) => {
+    if (isPlaylistLoadingRef.current) return;
+
+    // Need lecturer name to search
+    const queryName = lecturer?.rpname || lecturer?.name;
+    if (!queryName) {
+      setPlaylistsLoading(false);
+      return;
+    }
+
+    try {
+      isPlaylistLoadingRef.current = true;
+      if (appendData) {
+        setLoadingMorePlaylists(true);
+      } else {
+        setPlaylistsLoading(true);
+      }
+
+      addSentryBreadcrumb('Fetching playlists for lecturer', 'http', {
+        lecturerId,
+        queryName,
+        page,
+      });
+
+      const response = await searchApi.searchPlaylists(queryName, page);
+      
+      if (appendData) {
+        setPlaylists(prev => {
+           const existingIds = new Set(prev.map(p => p.id));
+           const newPlaylists = response.data.filter(p => !existingIds.has(p.id));
+           return [...prev, ...newPlaylists];
+        });
+      } else {
+        setPlaylists(response.data);
+      }
+      
+      const hasMore = response.data.length >= PAGE_SIZE;
+      setHasMorePlaylists(hasMore);
+      setCurrentPlaylistPage(page);
+
+      console.log('✅ Loaded playlists:', response.data.length, 'Page:', page);
+    } catch (err: any) {
+      console.error('Failed to fetch playlists:', err);
+      // Don't show full error for empty search results
+      setHasMorePlaylists(false);
+    } finally {
+      setPlaylistsLoading(false);
+      setLoadingMorePlaylists(false);
+      isPlaylistLoadingRef.current = false;
+    }
+  };
+
+  const loadMorePlaylists = () => {
+    if (!hasMorePlaylists || loadingMorePlaylists || playlistsLoading || isPlaylistLoadingRef.current) return;
+    fetchPlaylists(currentPlaylistPage + 1, true);
+  };
+
+  // Fetch playlists when tab changes
+  useEffect(() => {
+    if (activeTab === 'playlists' && playlists.length === 0 && !playlistsLoading && (lecturer?.rpname || lecturer?.name)) {
+      fetchPlaylists();
+    }
+  }, [activeTab, lecturer]);
 
   // Debounce search query to avoid excessive filtering
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
@@ -194,7 +307,7 @@ export default function LecturerDetailScreen() {
       setHasMoreLectures(false); // Disable pagination during search
     } else {
       // Re-enable pagination when search is cleared (if lectures list is not exhausted)
-      setHasMoreLectures(lectures.length >= 10);
+      setHasMoreLectures(lectures.length >= PAGE_SIZE);
     }
   }, [debouncedSearchQuery, lectures.length]);
 
@@ -289,42 +402,41 @@ export default function LecturerDetailScreen() {
   const tabs = [
     { key: 'songs' as TabType, title: 'Lectures', count: lectures.length },
     { key: 'albums' as TabType, title: 'Albums', count: albums.length },
-    { key: 'playlists' as TabType, title: 'Playlists', count: 0 },
+    { key: 'playlists' as TabType, title: 'Playlists', count: playlists.length },
   ];
 
-  const renderAlbumItem = (album: Album) => {
+  const renderAlbumItem = ({ item }: { item: Album }) => {
     const handleAlbumPress = () => {
       try {
         addSentryBreadcrumb('Album pressed', 'user', {
-          albumId: album.id,
-          albumTitle: album.title,
+          albumId: item.id,
+          albumTitle: item.title,
           lecturerId,
           lecturerName: lecturer?.rpname || lecturer?.name,
         });
 
-        console.log('📀 Navigating to album:', album.id, album.title);
+        console.log('📀 Navigating to album:', item.id, item.title);
 
         // Navigate to album detail page
-        router.push(`/album/${album.id}`);
+        router.push(`/album/${item.id}`);
       } catch (err: any) {
         console.error('Album press error:', err);
         captureSentryException(err, {
           component: 'LecturerDetailScreen',
           action: 'handleAlbumPress',
-          albumId: album.id,
+          albumId: item.id,
         });
       }
     };
 
     return (
       <TouchableOpacity
-        key={album.id}
         style={tw`flex-row items-start p-4 bg-[#1A1A1F] rounded-lg mb-3`}
         onPress={handleAlbumPress}
       >
-        {album.coverUrl ? (
+        {item.coverUrl ? (
           <Image
-            source={{ uri: album.coverUrl }}
+            source={{ uri: item.coverUrl }}
             style={tw`w-16 h-16 rounded-lg`}
           />
         ) : (
@@ -334,10 +446,10 @@ export default function LecturerDetailScreen() {
         )}
         <View style={tw`flex-1 ml-4`}>
           <Text style={tw`text-white font-semibold mb-1`} numberOfLines={2}>
-            {album.title}
+            {item.title}
           </Text>
           <Text style={tw`text-gray-400 text-sm`}>
-            {album.trackCount || 0} lectures{album.language ? ` • ${album.language}` : ''}
+            {item.trackCount || 0} lectures{item.language ? ` • ${item.language}` : ''}
           </Text>
         </View>
         <View style={tw`justify-center ml-2`}>
@@ -424,76 +536,95 @@ export default function LecturerDetailScreen() {
     );
   };
 
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'songs':
-        if (lecturesLoading) {
-          return (
-            <View style={tw`px-5 py-10 items-center`}>
-              <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
-              <Text style={tw`text-gray-400 mt-2`}>Loading lectures...</Text>
-            </View>
-          );
-        }
+  const renderAlbumFooter = () => {
+    if (!loadingMoreAlbums) return null;
+    return (
+      <View style={tw`py-4 items-center`}>
+        <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
+        <Text style={tw`text-gray-400 mt-2 text-xs`}>Loading more albums...</Text>
+      </View>
+    );
+  };
 
-        if (filteredLectures.length === 0) {
-          return (
-            <View style={tw`px-5 py-10 items-center`}>
-              <Text style={tw`text-gray-400 text-center`}>
-                {searchQuery ? 'No lectures found matching your search' : 'No lectures found for this scholar'}
-              </Text>
-            </View>
-          );
-        }
+  const renderPlaylistFooter = () => {
+    if (!loadingMorePlaylists) return null;
+    return (
+      <View style={tw`py-4 items-center`}>
+        <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
+        <Text style={tw`text-gray-400 mt-2 text-xs`}>Loading more playlists...</Text>
+      </View>
+    );
+  };
 
-        return (
-          <FlatList
-            data={filteredLectures}
-            renderItem={({ item, index }) => renderLectureItem(item, index)}
-            keyExtractor={(item: any, index: number) => item._uniqueId || `${item.nid}-${index}`}
-            contentContainerStyle={tw`px-5 pb-20`}
-            onEndReached={loadMoreLectures}
-            onEndReachedThreshold={0.5}
-            ListFooterComponent={renderLectureFooter}
-            scrollEnabled={false}
-            removeClippedSubviews={true}
-            maxToRenderPerBatch={20}
-            windowSize={10}
+  const renderPlaylistItem = ({ item }: { item: SearchPlaylist }) => {
+    const handlePlaylistPress = () => {
+      // Navigate to playlist detail page
+      router.push(`/playlist/${item.id}`);
+    };
+
+    return (
+      <TouchableOpacity
+        style={tw`flex-row items-start p-4 bg-[#1A1A1F] rounded-lg mb-3`}
+        onPress={handlePlaylistPress}
+      >
+        {item.coverUrl ? (
+          <Image
+            source={{ uri: item.coverUrl }}
+            style={tw`w-16 h-16 rounded-lg`}
           />
-        );
+        ) : (
+          <View style={tw`w-16 h-16 rounded-lg bg-gray-700 items-center justify-center`}>
+            <Ionicons name="list" size={24} color="#9CA3AF" />
+          </View>
+        )}
+        <View style={tw`flex-1 ml-4`}>
+          <Text style={tw`text-white font-semibold mb-1`} numberOfLines={2}>
+            {item.title}
+          </Text>
+          <Text style={tw`text-gray-400 text-sm`}>
+            {item.itemCount || 0} items{item.userName ? ` • by ${item.userName}` : ''}
+          </Text>
+        </View>
+        <View style={tw`justify-center ml-2`}>
+          <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
-      case 'albums':
+  const renderPlaylistsList = () => {
+    if (playlistsLoading) {
         return (
-          <View style={tw`px-5 pb-20`}>
-            {albumsLoading ? (
-              <View style={tw`py-10 items-center`}>
-                <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
-                <Text style={tw`text-gray-400 mt-2`}>Loading albums...</Text>
-              </View>
-            ) : albums.length > 0 ? (
-              albums.map(album => renderAlbumItem(album))
-            ) : (
-              <View style={tw`py-10 items-center`}>
-                <Text style={tw`text-gray-400 text-center`}>
-                  No albums found for this scholar
-                </Text>
-              </View>
-            )}
+          <View style={tw`py-10 items-center`}>
+            <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
+            <Text style={tw`text-gray-400 mt-2`}>Loading playlists...</Text>
           </View>
         );
-
-      case 'playlists':
-        return (
-          <View style={tw`px-5 py-10 items-center`}>
+    }
+    
+    if (playlists.length === 0) {
+       return (
+          <View style={tw`py-10 items-center`}>
             <Text style={tw`text-gray-400 text-center`}>
-              Playlists feature coming soon
+              No playlists found for this scholar
             </Text>
           </View>
         );
-
-      default:
-        return null;
     }
+
+    return (
+      <FlatList
+        data={playlists}
+        renderItem={renderPlaylistItem}
+        keyExtractor={(item) => item.id.toString()}
+        contentContainerStyle={tw`px-5 pb-20`}
+        onEndReached={loadMorePlaylists}
+        onEndReachedThreshold={0.5}
+        ListHeaderComponent={renderHeaderContent}
+        ListFooterComponent={renderPlaylistFooter}
+        scrollEnabled={false}
+      />
+    );
   };
 
   const renderHeaderContent = () => (
@@ -622,55 +753,56 @@ export default function LecturerDetailScreen() {
       />
     );
   };
-
-  const renderOtherTabs = () => (
-    <ScrollView style={tw`flex-1`} showsVerticalScrollIndicator={false}>
-      {renderHeaderContent()}
-      {activeTab === 'albums' && (
-        <View style={tw`px-5 pb-20`}>
-          {albumsLoading ? (
-            <View style={tw`py-10 items-center`}>
-              <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
-              <Text style={tw`text-gray-400 mt-2`}>Loading albums...</Text>
-            </View>
-          ) : albums.length > 0 ? (
-            albums.map(album => renderAlbumItem(album))
-          ) : (
-            <View style={tw`py-10 items-center`}>
-              <Text style={tw`text-gray-400 text-center`}>
-                No albums found for this scholar
-              </Text>
-            </View>
-          )}
-        </View>
-      )}
-      {activeTab === 'playlists' && (
-        <View style={tw`px-5 py-10 items-center`}>
-          <Text style={tw`text-gray-400 text-center`}>
-            Playlists feature coming soon
-          </Text>
-        </View>
-      )}
-    </ScrollView>
-  );
+  
+  const renderAlbumsList = () => {
+    return (
+        <FlatList
+            data={albums}
+            renderItem={renderAlbumItem}
+            keyExtractor={(item) => item.id.toString()}
+            contentContainerStyle={tw`pb-20`}
+            onEndReached={loadMoreAlbums}
+            onEndReachedThreshold={0.5}
+            ListHeaderComponent={renderHeaderContent}
+            ListFooterComponent={renderAlbumFooter}
+            ListEmptyComponent={() => {
+              if (albumsLoading) {
+                return (
+                  <View style={tw`py-10 items-center`}>
+                    <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
+                    <Text style={tw`text-gray-400 mt-2`}>Loading albums...</Text>
+                  </View>
+                );
+              }
+              return (
+                <View style={tw`py-10 items-center`}>
+                  <Text style={tw`text-gray-400 text-center`}>
+                    No albums found for this scholar
+                  </Text>
+                </View>
+              );
+            }}
+        />
+    )
+  }
 
   return (
-    <SafeAreaView style={tw`flex-1 bg-[#0A0A0F]`}>
+    <SafeAreaView style={[tw`flex-1`, { backgroundColor: designTokens.colors.system.background.primary }]}>
       {/* Header */}
       <View style={tw`flex-row items-center justify-between px-5 py-4`}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={tw`w-10 h-10 items-center justify-center rounded-full`}
         >
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          <Ionicons name="arrow-back" size={24} color={designTokens.colors.system.label.primary} />
         </TouchableOpacity>
 
-        <Text style={tw`text-white text-xl font-bold flex-1 text-center mr-10`}>
+        <Text variant="title3" weight="bold" color="label" style={tw`flex-1 text-center mr-10`}>
           {lecturerName}
         </Text>
       </View>
 
-      {activeTab === 'songs' ? renderSongsList() : renderOtherTabs()}
+      {activeTab === 'songs' ? renderSongsList() : activeTab === 'albums' ? renderAlbumsList() : renderPlaylistsList()}
     </SafeAreaView>
   );
 }

@@ -60,7 +60,7 @@ const createEpisodeFromDetail = (detail: LectureDetail | null): Episode | null =
     language: detail.language || "",
     downloads: detail.downloads || 0,
     createdAt: detail.postedDate || new Date().toISOString(),
-    lecturerName: detail.lecturerName || "",
+    lecturerName: detail.lecturerName || detail.reciter?.name || "",
   };
 };
 
@@ -76,6 +76,8 @@ const LectureDetailScreen: React.FC = () => {
     currentEpisode,
     isPlaying,
     progress: currentProgress,
+    playbackSpeed,
+    setPlaybackSpeed,
   } = usePlayerStore();
 
   const {
@@ -93,7 +95,6 @@ const LectureDetailScreen: React.FC = () => {
 
   // State management
   const [showFullDescription, setShowFullDescription] = useState(false);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   const [showAddToPlaylistModal, setShowAddToPlaylistModal] = useState(false);
 
   // Check if lecture is liked
@@ -308,9 +309,10 @@ const LectureDetailScreen: React.FC = () => {
     const speeds = [0.75, 1.0, 1.25, 1.5, 2.0];
     const currentIndex = speeds.indexOf(playbackSpeed);
     const nextIndex = (currentIndex + 1) % speeds.length;
-    setPlaybackSpeed(speeds[nextIndex]);
+    const newSpeed = speeds[nextIndex];
+    setPlaybackSpeed(newSpeed);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, [playbackSpeed]);
+  }, [playbackSpeed, setPlaybackSpeed]);
 
   const formatNumber = (num?: number): string => {
     if (!num) return '0';
@@ -850,7 +852,7 @@ const LectureDetailScreen: React.FC = () => {
                 {downloadStatus === DownloadStatus.COMPLETED
                   ? "Downloaded"
                   : downloadStatus === DownloadStatus.DOWNLOADING
-                    ? `${Math.round(downloadProgress * 100)}%`
+                    ? `${Math.round(downloadProgress)}%`
                     : downloadStatus === DownloadStatus.PAUSED
                       ? "Paused"
                       : downloadStatus === DownloadStatus.QUEUED

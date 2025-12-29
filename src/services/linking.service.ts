@@ -101,14 +101,17 @@ export class LinkingService {
         return null;
       }
 
-      // Check if it's a web URL
-      if (sanitizedUrl.includes('dawahnigeria.com')) {
-        // Validate HTTPS scheme for web URLs
-        if (!sanitizedUrl.startsWith('https://dawahnigeria.com')) {
-          console.warn('Invalid web URL scheme or domain');
-          return null;
-        }
+      // Check if it's a valid web URL from our domain
+      // IMPORTANT: Check startsWith FIRST to prevent URL spoofing attacks
+      // (e.g., https://evil.com?redirect=dawahnigeria.com would pass includes check)
+      if (sanitizedUrl.startsWith('https://dawahnigeria.com')) {
         return this.parseWebURL(sanitizedUrl);
+      }
+
+      // Reject any other URLs containing dawahnigeria.com (potential spoofing)
+      if (sanitizedUrl.includes('dawahnigeria.com')) {
+        console.warn('Suspicious URL containing dawahnigeria.com but not from the domain');
+        return null;
       }
 
       // Validate app scheme

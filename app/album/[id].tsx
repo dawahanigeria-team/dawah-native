@@ -247,7 +247,7 @@ const AlbumDetailScreen: React.FC = () => {
     }
   }, [album, tracks, albumId]);
 
-  const renderTrackItem = ({ item, index }: { item: AlbumTrack; index: number }) => {
+  const renderTrackItem = useCallback(({ item, index }: { item: AlbumTrack; index: number }) => {
     const isPlaying = currentEpisode?.id === String(item.id);
 
     return (
@@ -292,7 +292,7 @@ const AlbumDetailScreen: React.FC = () => {
         </View>
       </TouchableOpacity>
     );
-  };
+  }, [currentEpisode, handleTrackPress]);
 
   if (loading) {
     return (

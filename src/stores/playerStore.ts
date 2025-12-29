@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { useCallback } from "react";
+import React from "react";
 import { entity } from "simpler-state";
 import type { AudioPlaybackControls } from "../hooks/useAudioPlayback";
 import { addSentryBreadcrumb, captureSentryException } from "../services/config/sentry.config";
@@ -30,16 +30,27 @@ export const playerStore = entity(initialState);
 
 const PLAYER_STATE_KEY = "PLAYER_STATE";
 
+// Chain persistence writes to prevent race conditions
+let persistenceQueue: Promise<void> = Promise.resolve();
+
 /**
  * Set player state and persist it to AsyncStorage
+ * Uses a promise chain to prevent race conditions from rapid state updates
  */
 const setAndPersistPlayerState = (newState: Partial<PlayerState>) => {
   const currentState = playerStore.get();
   const updatedState = { ...currentState, ...newState };
   playerStore.set(updatedState);
+
   // Avoid storing the entire queue, as it can be large
   const persistableState = { ...updatedState, queue: [] };
-  AsyncStorage.setItem(PLAYER_STATE_KEY, JSON.stringify(persistableState));
+
+  // Chain writes to prevent out-of-order persistence
+  persistenceQueue = persistenceQueue
+    .then(() => AsyncStorage.setItem(PLAYER_STATE_KEY, JSON.stringify(persistableState)))
+    .catch(error => {
+      logger.error('Failed to persist player state', error as Error);
+    });
 };
 
 // Audio controls instance - will be set by AudioProvider
@@ -72,8 +83,588 @@ export const setPlayNextRef = (fn: (() => Promise<void>) | null) => {
  */
 export const getPlayNextRef = () => playNextRef;
 
+// ----------------------------------------------------------------------
+// ACTION IMPLEMENTATIONS
+// These functions operate on the store but do NOT cause subscriptions
+// Defined as standalone constants to ensure closure capture
+// ----------------------------------------------------------------------
+
+const playEpisode = async (episode: Episode) => {
+  logger.debug('🎮 PlayerStore: playEpisode called with:', episode.title);
+
+  addSentryBreadcrumb(
+    `Playing episode: ${episode.title}`,
+    'playback',
+    { episodeId: episode.id, title: episode.title }
+  );
+
+  if (!audioControls) {
+    logger.error('❌ PlayerStore: Audio controls not initialized', new Error('Audio controls not initialized'), {
+      episodeId: episode.id,
+      title: episode.title,
+    });
+    captureSentryException(
+      new Error('Audio controls not initialized'),
+      { episodeId: episode.id, title: episode.title }
+    );
+    return;
+  }
+
+  try {
+    const currentState = playerStore.get();
+
+    // Check if we're already playing this episode
+    if (currentState.currentEpisode?.id === episode.id) {
+      logger.debug('📱 PlayerStore: Same episode already loaded');
+
+      // If it's paused, just resume
+      if (!currentState.isPlaying) {
+        logger.debug('▶️ PlayerStore: Resuming playback...');
+        audioControls.play();
+        setAndPersistPlayerState({
+          ...currentState,
+          isPlaying: true,
+          isExpanded: false,  // Show mini player
+        });
+      } else {
+        logger.debug('⏸️ PlayerStore: Already playing this episode');
+        // Just show the mini player if it's hidden
+        setAndPersistPlayerState({
+          ...currentState,
+          isExpanded: false,
+        });
+      }
+      return;
+    }
+
+    // If playing a different episode, stop the current one first
+    if (currentState.currentEpisode) {
+      logger.debug('🛑 PlayerStore: Stopping current episode...');
+      audioControls.stop();
+      audioControls.unload();
+    }
+
+    // Set loading state
+    logger.debug('📊 PlayerStore: Setting initial state...');
+    setAndPersistPlayerState({
+      ...playerStore.get(),
+      currentEpisode: episode,
+      isPlaying: false,
+      progress: 0,
+      duration: episode.durationSec,
+      isExpanded: false,  // Changed to false - show mini player by default
+      isLoading: true,
+    });
+
+    // Load and play the audio (use downloaded file if available)
+    if (episode.audioUrl) {
+      // Check if lecture is downloaded, use local file if available
+      const playbackUri = downloadsService.getPlaybackUri(episode.id, episode.audioUrl);
+      const isOffline = downloadsService.isDownloaded(episode.id);
+
+      if (isOffline) {
+        logger.debug('🔊 PlayerStore: Loading from DOWNLOADED file:', playbackUri);
+      } else {
+        logger.debug('🔊 PlayerStore: Loading from REMOTE URL:', playbackUri);
+      }
+
+      // loadAudio now properly waits for the audio to be ready
+      await audioControls.loadAudio(playbackUri);
+
+      logger.debug('▶️ PlayerStore: Starting playback...');
+      audioControls.play();
+
+      // Add to history
+      try {
+        await historyService.addToHistory(episode, 0);
+        logger.debug('📚 Added lecture to history');
+      } catch (error) {
+        logger.error('Failed to add to history', error as Error, {
+          episodeId: episode.id,
+        });
+        // Don't block playback if history fails
+      }
+
+      // Update state after successful play
+      logger.debug('✅ PlayerStore: Updating state to playing...');
+      setAndPersistPlayerState({
+        ...playerStore.get(),
+        isPlaying: true,
+        isLoading: false,
+        isDownloaded: isOffline,
+      });
+    } else {
+      logger.error('❌ PlayerStore: No audio URL provided!', new Error('No audio URL provided for episode'), {
+        episodeId: episode.id,
+        title: episode.title,
+      });
+      captureSentryException(
+        new Error('No audio URL provided for episode'),
+        { episodeId: episode.id, title: episode.title }
+      );
+    }
+  } catch (error: any) {
+    logger.error('❌ PlayerStore: Failed to play episode', error as Error, {
+      episodeId: episode.id,
+      title: episode.title,
+      audioUrl: episode.audioUrl,
+    });
+
+    const errorMessage = error.message?.includes('timeout')
+      ? 'Audio loading timed out. Please check your internet connection and try again.'
+      : 'Failed to play audio. Please try again.';
+
+    captureSentryException(error, {
+      episodeId: episode.id,
+      title: episode.title,
+      audioUrl: episode.audioUrl,
+      errorType: error.message?.includes('timeout') ? 'loading_timeout' : 'playback_failed',
+      errorMessage: error.message,
+    });
+
+    playerStore.set({
+      ...playerStore.get(),
+      isPlaying: false,
+      isLoading: false,
+      currentEpisode: episode,
+    });
+
+    logger.warn('⚠️ User message:', errorMessage);
+  }
+};
+
+const playNext = async () => {
+  const currentState = playerStore.get();
+  const { queue, currentQueueIndex, repeatMode } = currentState;
+
+  logger.debug('⏭️ PlayerStore: playNext called, currentIndex:', currentQueueIndex, 'queueLength:', queue.length);
+
+  if (queue.length === 0) {
+    logger.warn('⚠️ PlayerStore: No queue to play next');
+    return;
+  }
+
+  if (repeatMode === 'one' && currentState.currentEpisode) {
+    logger.debug('🔂 PlayerStore: Repeat one, replaying current episode');
+    await playEpisode(currentState.currentEpisode);
+    return;
+  }
+
+  let nextIndex = currentQueueIndex + 1;
+
+  if (nextIndex >= queue.length) {
+    if (repeatMode === 'all') {
+      logger.debug('🔁 PlayerStore: Repeat all, going back to start');
+      nextIndex = 0;
+    } else {
+      logger.debug('⏹️ PlayerStore: End of queue reached');
+      if (audioControls) {
+        audioControls.stop();
+      }
+      setAndPersistPlayerState({
+        ...currentState,
+        isPlaying: false,
+      });
+      return;
+    }
+  }
+
+  setAndPersistPlayerState({
+    ...currentState,
+    currentQueueIndex: nextIndex,
+  });
+
+  await playEpisode(queue[nextIndex]);
+};
+
+const playPrevious = async () => {
+  const currentState = playerStore.get();
+  const { queue, currentQueueIndex } = currentState;
+
+  logger.debug('⏮️ PlayerStore: playPrevious called, currentIndex:', currentQueueIndex);
+
+  if (queue.length === 0) {
+    logger.warn('⚠️ PlayerStore: No queue to play previous');
+    return;
+  }
+
+  if (currentState.progress > 3 && currentState.currentEpisode) {
+    logger.debug('🔄 PlayerStore: Restarting current episode');
+    if (audioControls) {
+      audioControls.seekTo(0);
+    }
+    return;
+  }
+
+  let prevIndex = currentQueueIndex - 1;
+
+  if (prevIndex < 0) {
+    prevIndex = queue.length - 1;
+  }
+
+  setAndPersistPlayerState({
+    ...currentState,
+    currentQueueIndex: prevIndex,
+  });
+
+  await playEpisode(queue[prevIndex]);
+};
+
+const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: boolean = false) => {
+  logger.debug('🎵 PlayerStore: playQueue called with', episodes.length, 'episodes, startIndex:', startIndex);
+
+  addSentryBreadcrumb(
+    'Playing queue',
+    'playback',
+    { episodeCount: episodes.length, startIndex, shuffle }
+  );
+
+  if (episodes.length === 0) {
+    logger.warn('⚠️ PlayerStore: Cannot play empty queue');
+    return;
+  }
+
+  try {
+    let queue = [...episodes];
+
+    if (shuffle) {
+      const startEpisode = queue[startIndex];
+      const remaining = queue.filter((_, i) => i !== startIndex);
+      // Fisher-Yates shuffle
+      for (let i = remaining.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
+      }
+      queue = [startEpisode, ...remaining];
+      startIndex = 0;
+    }
+
+    setAndPersistPlayerState({
+      ...playerStore.get(),
+      queue,
+      currentQueueIndex: startIndex,
+      isShuffled: shuffle,
+    });
+
+    await playEpisode(queue[startIndex]);
+  } catch (error) {
+    logger.error('Failed to play queue', error as Error);
+    captureSentryException(error as Error, { action: 'playQueue', episodeCount: episodes.length });
+  }
+};
+
+const togglePlayPause = () => {
+  if (!audioControls) {
+    logger.error('❌ PlayerStore: Audio controls not initialized', new Error('Audio controls not initialized'));
+    return;
+  }
+
+  try {
+    const currentState = playerStore.get();
+    if (!currentState.currentEpisode) return;
+
+    playerStore.set({
+      ...currentState,
+      isLoading: true,
+    });
+
+    audioControls.togglePlayPause();
+  } catch (error) {
+    logger.error('Failed to toggle play/pause', error as Error);
+  }
+};
+
+const setProgress = (progress: number) => {
+  if (!audioControls) {
+    logger.error('❌ PlayerStore: Audio controls not initialized', new Error('Audio controls not initialized'));
+    return;
+  }
+
+  try {
+    setAndPersistPlayerState({
+      ...playerStore.get(),
+      progress,
+    });
+    audioControls.seekTo(progress);
+  } catch (error) {
+    logger.error('Failed to set progress', error as Error);
+  }
+};
+
+const expandPlayer = () => {
+  setAndPersistPlayerState({
+    ...playerStore.get(),
+    isExpanded: true,
+  });
+};
+
+const minimizePlayer = () => {
+  setAndPersistPlayerState({
+    ...playerStore.get(),
+    isExpanded: false,
+  });
+};
+
+const likeEpisode = (episodeId: string) => {
+  const currentState = playerStore.get();
+  if (currentState.currentEpisode?.id === episodeId) {
+    setAndPersistPlayerState({
+      ...currentState,
+      currentEpisode: {
+        ...currentState.currentEpisode,
+        liked: !currentState.currentEpisode.liked,
+      },
+    });
+  }
+};
+
+const seekForward = (seconds: number = 15) => {
+  if (!audioControls) {
+    logger.error('❌ PlayerStore: Audio controls not initialized', new Error('Audio controls not initialized'));
+    return;
+  }
+
+  try {
+    audioControls.seekForward(seconds);
+  } catch (error) {
+    logger.error('Failed to seek forward', error as Error);
+  }
+};
+
+const seekBackward = (seconds: number = 15) => {
+  if (!audioControls) {
+    logger.error('❌ PlayerStore: Audio controls not initialized', new Error('Audio controls not initialized'));
+    return;
+  }
+
+  try {
+    audioControls.seekBackward(seconds);
+  } catch (error) {
+    logger.error('Failed to seek backward', error as Error);
+  }
+};
+
+const setPlaybackSpeed = (speed: number) => {
+  if (!audioControls) {
+    logger.error('❌ PlayerStore: Audio controls not initialized', new Error('Audio controls not initialized'));
+    return;
+  }
+
+  try {
+    setAndPersistPlayerState({
+      ...playerStore.get(),
+      playbackSpeed: speed,
+    });
+    audioControls.setPlaybackRate(speed);
+  } catch (error) {
+    logger.error('Failed to set playback speed', error as Error);
+  }
+};
+
+const setVolume = (volume: number) => {
+  if (!audioControls) {
+    logger.error('❌ PlayerStore: Audio controls not initialized', new Error('Audio controls not initialized'));
+    return;
+  }
+
+  try {
+    const clampedVolume = Math.max(0, Math.min(1, volume));
+    setAndPersistPlayerState({
+      ...playerStore.get(),
+      volume: clampedVolume,
+    });
+    audioControls.setVolume(clampedVolume);
+  } catch (error) {
+    logger.error('Failed to set volume', error as Error);
+  }
+};
+
+const setLoading = (isLoading: boolean) => {
+  setAndPersistPlayerState({
+    ...playerStore.get(),
+    isLoading,
+  });
+};
+
+const downloadEpisode = (_episode: Episode) => {
+  const state = playerStore.get();
+  setAndPersistPlayerState({
+    ...state,
+    isDownloading: true,
+    downloadProgress: 0,
+  });
+
+  const simulateDownload = () => {
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += Math.random() * 0.1;
+      if (progress >= 1) {
+        progress = 1;
+        clearInterval(interval);
+        setAndPersistPlayerState({
+          ...playerStore.get(),
+          isDownloading: false,
+          isDownloaded: true,
+          downloadProgress: 1,
+        });
+      } else {
+        setAndPersistPlayerState({
+          ...playerStore.get(),
+          downloadProgress: progress,
+        });
+      }
+    }, 200);
+  };
+
+  simulateDownload();
+};
+
+const closePlayer = () => {
+  if (!audioControls) {
+    logger.error('❌ PlayerStore: Audio controls not initialized', new Error('Audio controls not initialized'));
+    return;
+  }
+
+  try {
+    audioControls.stop();
+    audioControls.unload();
+
+    setAndPersistPlayerState({
+      ...initialState,
+    });
+  } catch (error) {
+    logger.error('Failed to close player', error as Error);
+    setAndPersistPlayerState({
+      ...initialState,
+    });
+  }
+};
+
+const addToQueue = (episodes: Episode | Episode[]) => {
+  const episodeArray = Array.isArray(episodes) ? episodes : [episodes];
+  const currentState = playerStore.get();
+
+  logger.debug('➕ PlayerStore: Adding', episodeArray.length, 'episodes to queue');
+
+  addSentryBreadcrumb(
+    'Adding to queue',
+    'playback',
+    { episodeCount: episodeArray.length }
+  );
+
+  setAndPersistPlayerState({
+    ...currentState,
+    queue: [...currentState.queue, ...episodeArray],
+  });
+};
+
+const removeFromQueue = (index: number) => {
+  const currentState = playerStore.get();
+  const newQueue = currentState.queue.filter((_, i) => i !== index);
+
+  logger.debug('➖ PlayerStore: Removing episode at index', index);
+
+  let newIndex = currentState.currentQueueIndex;
+  if (index < currentState.currentQueueIndex) {
+    newIndex--;
+  } else if (index === currentState.currentQueueIndex) {
+  }
+
+  setAndPersistPlayerState({
+    ...currentState,
+    queue: newQueue,
+    currentQueueIndex: newIndex,
+  });
+};
+
+const toggleShuffle = () => {
+  const currentState = playerStore.get();
+  const newShuffleState = !currentState.isShuffled;
+
+  logger.debug('🔀 PlayerStore: Toggle shuffle:', newShuffleState);
+
+  if (newShuffleState && currentState.queue.length > 0) {
+    const currentEpisode = currentState.queue[currentState.currentQueueIndex];
+    const remaining = currentState.queue.filter((_, i) => i !== currentState.currentQueueIndex);
+
+    for (let i = remaining.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
+    }
+
+    const newQueue = [currentEpisode, ...remaining];
+
+    setAndPersistPlayerState({
+      ...currentState,
+      queue: newQueue,
+      currentQueueIndex: 0,
+      isShuffled: true,
+    });
+  } else {
+    setAndPersistPlayerState({
+      ...currentState,
+      isShuffled: false,
+    });
+  }
+};
+
+const setRepeatMode = (mode: 'off' | 'all' | 'one') => {
+  logger.debug('🔁 PlayerStore: Set repeat mode:', mode);
+
+  setAndPersistPlayerState({
+    ...playerStore.get(),
+    repeatMode: mode,
+  });
+};
+
+const clearQueue = () => {
+  logger.debug('🗑️ PlayerStore: Clearing queue');
+
+  setAndPersistPlayerState({
+    ...playerStore.get(),
+    queue: [],
+    currentQueueIndex: -1,
+    isShuffled: false,
+  });
+};
+
+const actions = {
+  playEpisode,
+  playNext,
+  playPrevious,
+  playQueue,
+  togglePlayPause,
+  setProgress,
+  expandPlayer,
+  minimizePlayer,
+  likeEpisode,
+  seekForward,
+  seekBackward,
+  setPlaybackSpeed,
+  setVolume,
+  setLoading,
+  downloadEpisode,
+  closePlayer,
+  addToQueue,
+  removeFromQueue,
+  toggleShuffle,
+  setRepeatMode,
+  clearQueue,
+};
+
+/**
+ * Hook to access player actions without subscribing to state changes.
+ * Use this in components that only need to control playback but don't need to render progress.
+ */
+export const usePlayerActions = () => {
+  return actions;
+};
+
+/**
+ * Hook to access player state and actions.
+ * Use this when you need both state (like progress) and actions.
+ */
 export const usePlayerStore = () => {
-  // Use try-catch to handle potential initialization issues
   let state: PlayerState;
 
   try {
@@ -83,635 +674,18 @@ export const usePlayerStore = () => {
     state = initialState;
   }
 
-  // Ensure state is valid
   if (!state) {
     state = initialState;
   }
 
-  const playEpisode = useCallback(async (episode: Episode) => {
-    logger.debug('🎮 PlayerStore: playEpisode called with:', episode.title);
-
-    // Add breadcrumb for playback tracking
-    addSentryBreadcrumb(
-      `Playing episode: ${episode.title}`,
-      'playback',
-      { episodeId: episode.id, title: episode.title }
-    );
-
-    if (!audioControls) {
-      logger.error('❌ PlayerStore: Audio controls not initialized', new Error('Audio controls not initialized'), {
-        episodeId: episode.id,
-        title: episode.title,
-      });
-      captureSentryException(
-        new Error('Audio controls not initialized'),
-        { episodeId: episode.id, title: episode.title }
-      );
-      return;
-    }
-
-    try {
-      const currentState = playerStore.get();
-
-      // Check if we're already playing this episode
-      if (currentState.currentEpisode?.id === episode.id) {
-        logger.debug('📱 PlayerStore: Same episode already loaded');
-
-        // If it's paused, just resume
-        if (!currentState.isPlaying) {
-          logger.debug('▶️ PlayerStore: Resuming playback...');
-          audioControls.play();
-          setAndPersistPlayerState({
-            ...currentState,
-            isPlaying: true,
-            isExpanded: false,  // Show mini player
-          });
-        } else {
-          logger.debug('⏸️ PlayerStore: Already playing this episode');
-          // Just show the mini player if it's hidden
-          setAndPersistPlayerState({
-            ...currentState,
-            isExpanded: false,
-          });
-        }
-        return;
-      }
-
-      // If playing a different episode, stop the current one first
-      if (currentState.currentEpisode) {
-        logger.debug('🛑 PlayerStore: Stopping current episode...');
-        audioControls.stop();
-        audioControls.unload();
-      }
-
-      // Set loading state
-      logger.debug('📊 PlayerStore: Setting initial state...');
-      setAndPersistPlayerState({
-        ...playerStore.get(),
-        currentEpisode: episode,
-        isPlaying: false,
-        progress: 0,
-        duration: episode.durationSec,
-        isExpanded: false,  // Changed to false - show mini player by default
-        isLoading: true,
-      });
-
-      // Load and play the audio (use downloaded file if available)
-      if (episode.audioUrl) {
-        // Check if lecture is downloaded, use local file if available
-        const playbackUri = downloadsService.getPlaybackUri(episode.id, episode.audioUrl);
-        const isOffline = downloadsService.isDownloaded(episode.id);
-
-        if (isOffline) {
-          logger.debug('🔊 PlayerStore: Loading from DOWNLOADED file:', playbackUri);
-        } else {
-          logger.debug('🔊 PlayerStore: Loading from REMOTE URL:', playbackUri);
-        }
-
-        // loadAudio now properly waits for the audio to be ready
-        await audioControls.loadAudio(playbackUri);
-
-        logger.debug('▶️ PlayerStore: Starting playback...');
-        audioControls.play();
-
-        // Add to history
-        try {
-          await historyService.addToHistory(episode, 0);
-          logger.debug('📚 Added lecture to history');
-        } catch (error) {
-          logger.error('Failed to add to history', error as Error, {
-            episodeId: episode.id,
-          });
-          // Don't block playback if history fails
-        }
-
-        // Update state after successful play
-        logger.debug('✅ PlayerStore: Updating state to playing...');
-        setAndPersistPlayerState({
-          ...playerStore.get(),
-          isPlaying: true,
-          isLoading: false,
-          isDownloaded: isOffline,
-        });
-      } else {
-        logger.error('❌ PlayerStore: No audio URL provided!', new Error('No audio URL provided for episode'), {
-          episodeId: episode.id,
-          title: episode.title,
-        });
-        captureSentryException(
-          new Error('No audio URL provided for episode'),
-          { episodeId: episode.id, title: episode.title }
-        );
-      }
-    } catch (error: any) {
-      logger.error('❌ PlayerStore: Failed to play episode', error as Error, {
-        episodeId: episode.id,
-        title: episode.title,
-        audioUrl: episode.audioUrl,
-      });
-
-      // Show user-friendly error message
-      const errorMessage = error.message?.includes('timeout')
-        ? 'Audio loading timed out. Please check your internet connection and try again.'
-        : 'Failed to play audio. Please try again.';
-
-      // Report playback errors to Sentry
-      captureSentryException(error, {
-        episodeId: episode.id,
-        title: episode.title,
-        audioUrl: episode.audioUrl,
-        errorType: error.message?.includes('timeout') ? 'loading_timeout' : 'playback_failed',
-        errorMessage: error.message,
-      });
-
-      // Update state to show error
-      playerStore.set({
-        ...playerStore.get(),
-        isPlaying: false,
-        isLoading: false,
-        currentEpisode: episode, // Keep episode info to allow retry
-      });
-
-      // Could show alert to user here if needed
-      logger.warn('⚠️ User message:', errorMessage);
-    }
-  }, []); // Empty deps - function only uses module-level audioControls and stable playerStore.get()
-
-  const togglePlayPause = () => {
-    if (!audioControls) {
-      logger.error('❌ PlayerStore: Audio controls not initialized', new Error('Audio controls not initialized'));
-      return;
-    }
-
-    try {
-      const currentState = playerStore.get();
-      if (!currentState.currentEpisode) return;
-
-      // Set loading state immediately for better UX
-      playerStore.set({
-        ...currentState,
-        isLoading: true,
-      });
-
-      audioControls.togglePlayPause();
-      // State will be updated by the status callback
-    } catch (error) {
-      logger.error('Failed to toggle play/pause', error as Error);
-    }
-  };
-
-  const setProgress = (progress: number) => {
-    if (!audioControls) {
-      logger.error('❌ PlayerStore: Audio controls not initialized', new Error('Audio controls not initialized'));
-      return;
-    }
-
-    try {
-      // Update store immediately for UI responsiveness
-      setAndPersistPlayerState({
-        ...playerStore.get(),
-        progress,
-      });
-      // Seek audio to the position (expo-audio uses seconds)
-      audioControls.seekTo(progress);
-    } catch (error) {
-      logger.error('Failed to set progress', error as Error);
-    }
-  };
-
-  const expandPlayer = () => {
-    setAndPersistPlayerState({
-      ...playerStore.get(),
-      isExpanded: true,
-    });
-  };
-
-  const minimizePlayer = () => {
-    setAndPersistPlayerState({
-      ...playerStore.get(),
-      isExpanded: false,
-    });
-  };
-
-  const likeEpisode = (episodeId: string) => {
-    const currentState = playerStore.get();
-    if (currentState.currentEpisode?.id === episodeId) {
-      setAndPersistPlayerState({
-        ...currentState,
-        currentEpisode: {
-          ...currentState.currentEpisode,
-          liked: !currentState.currentEpisode.liked,
-        },
-      });
-    }
-  };
-
-  const seekForward = (seconds: number = 15) => {
-    if (!audioControls) {
-      logger.error('❌ PlayerStore: Audio controls not initialized', new Error('Audio controls not initialized'));
-      return;
-    }
-
-    try {
-      audioControls.seekForward(seconds);
-      // Progress will be updated via the playback status callback
-    } catch (error) {
-      logger.error('Failed to seek forward', error as Error);
-    }
-  };
-
-  const seekBackward = (seconds: number = 15) => {
-    if (!audioControls) {
-      logger.error('❌ PlayerStore: Audio controls not initialized', new Error('Audio controls not initialized'));
-      return;
-    }
-
-    try {
-      audioControls.seekBackward(seconds);
-      // Progress will be updated via the playback status callback
-    } catch (error) {
-      logger.error('Failed to seek backward', error as Error);
-    }
-  };
-
-  const setPlaybackSpeed = (speed: number) => {
-    if (!audioControls) {
-      logger.error('❌ PlayerStore: Audio controls not initialized', new Error('Audio controls not initialized'));
-      return;
-    }
-
-    try {
-      setAndPersistPlayerState({
-        ...playerStore.get(),
-        playbackSpeed: speed,
-      });
-      audioControls.setPlaybackRate(speed);
-    } catch (error) {
-      logger.error('Failed to set playback speed', error as Error);
-    }
-  };
-
-  const setVolume = (volume: number) => {
-    if (!audioControls) {
-      logger.error('❌ PlayerStore: Audio controls not initialized', new Error('Audio controls not initialized'));
-      return;
-    }
-
-    try {
-      const clampedVolume = Math.max(0, Math.min(1, volume));
-      setAndPersistPlayerState({
-        ...playerStore.get(),
-        volume: clampedVolume,
-      });
-      audioControls.setVolume(clampedVolume);
-    } catch (error) {
-      logger.error('Failed to set volume', error as Error);
-    }
-  };
-
-  const setLoading = (isLoading: boolean) => {
-    setAndPersistPlayerState({
-      ...playerStore.get(),
-      isLoading,
-    });
-  };
-
-  const downloadEpisode = (_episode: Episode) => {
-    setAndPersistPlayerState({
-      ...state,
-      isDownloading: true,
-      downloadProgress: 0,
-    });
-
-    // Simulate download progress
-    const simulateDownload = () => {
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += Math.random() * 0.1;
-        if (progress >= 1) {
-          progress = 1;
-          clearInterval(interval);
-          setAndPersistPlayerState({
-            ...playerStore.get(),
-            isDownloading: false,
-            isDownloaded: true,
-            downloadProgress: 1,
-          });
-        } else {
-          setAndPersistPlayerState({
-            ...playerStore.get(),
-            downloadProgress: progress,
-          });
-        }
-      }, 200);
-    };
-
-    simulateDownload();
-  };
-
-  const closePlayer = () => {
-    if (!audioControls) {
-      logger.error('❌ PlayerStore: Audio controls not initialized', new Error('Audio controls not initialized'));
-      return;
-    }
-
-    try {
-      // Stop and unload audio
-      audioControls.stop();
-      audioControls.unload();
-
-      // Reset store to initial state
-      setAndPersistPlayerState({
-        ...initialState,
-      });
-    } catch (error) {
-      logger.error('Failed to close player', error as Error);
-      // Reset store even if audio cleanup fails
-      setAndPersistPlayerState({
-        ...initialState,
-      });
-    }
-  };
-
-  // Queue Management Functions
-
-  /**
-   * Play a queue of episodes starting from a specific index
-   */
-  const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: boolean = false) => {
-    logger.debug('🎵 PlayerStore: playQueue called with', episodes.length, 'episodes, startIndex:', startIndex);
-
-    addSentryBreadcrumb(
-      'Playing queue',
-      'playback',
-      { episodeCount: episodes.length, startIndex, shuffle }
-    );
-
-    if (episodes.length === 0) {
-      logger.warn('⚠️ PlayerStore: Cannot play empty queue');
-      return;
-    }
-
-    try {
-      let queue = [...episodes];
-
-      // Shuffle if requested (but keep start episode at index 0)
-      if (shuffle) {
-        const startEpisode = queue[startIndex];
-        const remaining = queue.filter((_, i) => i !== startIndex);
-        // Fisher-Yates shuffle
-        for (let i = remaining.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
-        }
-        queue = [startEpisode, ...remaining];
-        startIndex = 0;
-      }
-
-      // Update store with queue
-      setAndPersistPlayerState({
-        ...playerStore.get(),
-        queue,
-        currentQueueIndex: startIndex,
-        isShuffled: shuffle,
-      });
-
-      // Play the first episode
-      await playEpisode(queue[startIndex]);
-    } catch (error) {
-      logger.error('Failed to play queue', error as Error);
-      captureSentryException(error as Error, { action: 'playQueue', episodeCount: episodes.length });
-    }
-  };
-
-  /**
-   * Play next episode in queue
-   */
-  const playNext = useCallback(async () => {
-    const currentState = playerStore.get();
-    const { queue, currentQueueIndex, repeatMode } = currentState;
-
-    logger.debug('⏭️ PlayerStore: playNext called, currentIndex:', currentQueueIndex, 'queueLength:', queue.length);
-
-    if (queue.length === 0) {
-      logger.warn('⚠️ PlayerStore: No queue to play next');
-      return;
-    }
-
-    // Handle repeat one
-    if (repeatMode === 'one' && currentState.currentEpisode) {
-      logger.debug('🔂 PlayerStore: Repeat one, replaying current episode');
-      await playEpisode(currentState.currentEpisode);
-      return;
-    }
-
-    let nextIndex = currentQueueIndex + 1;
-
-    // Handle end of queue
-    if (nextIndex >= queue.length) {
-      if (repeatMode === 'all') {
-        logger.debug('🔁 PlayerStore: Repeat all, going back to start');
-        nextIndex = 0;
-      } else {
-        logger.debug('⏹️ PlayerStore: End of queue reached');
-        // Stop playback
-        if (audioControls) {
-          audioControls.stop();
-        }
-        setAndPersistPlayerState({
-          ...currentState,
-          isPlaying: false,
-        });
-        return;
-      }
-    }
-
-    // Update index and play
-    setAndPersistPlayerState({
-      ...currentState,
-      currentQueueIndex: nextIndex,
-    });
-
-    await playEpisode(queue[nextIndex]);
-  }, [playEpisode]);
-
-  /**
-   * Play previous episode in queue
-   */
-  const playPrevious = async () => {
-    const currentState = playerStore.get();
-    const { queue, currentQueueIndex } = currentState;
-
-    logger.debug('⏮️ PlayerStore: playPrevious called, currentIndex:', currentQueueIndex);
-
-    if (queue.length === 0) {
-      logger.warn('⚠️ PlayerStore: No queue to play previous');
-      return;
-    }
-
-    // If we're more than 3 seconds into the track, restart it
-    if (currentState.progress > 3 && currentState.currentEpisode) {
-      logger.debug('🔄 PlayerStore: Restarting current episode');
-      if (audioControls) {
-        audioControls.seekTo(0);
-      }
-      return;
-    }
-
-    let prevIndex = currentQueueIndex - 1;
-
-    // Handle start of queue
-    if (prevIndex < 0) {
-      prevIndex = queue.length - 1; // Go to last episode
-    }
-
-    // Update index and play
-    setAndPersistPlayerState({
-      ...currentState,
-      currentQueueIndex: prevIndex,
-    });
-
-    await playEpisode(queue[prevIndex]);
-  };
-
-  /**
-   * Add episodes to end of queue
-   */
-  const addToQueue = (episodes: Episode | Episode[]) => {
-    const episodeArray = Array.isArray(episodes) ? episodes : [episodes];
-    const currentState = playerStore.get();
-
-    logger.debug('➕ PlayerStore: Adding', episodeArray.length, 'episodes to queue');
-
-    addSentryBreadcrumb(
-      'Adding to queue',
-      'playback',
-      { episodeCount: episodeArray.length }
-    );
-
-    setAndPersistPlayerState({
-      ...currentState,
-      queue: [...currentState.queue, ...episodeArray],
-    });
-  };
-
-  /**
-   * Remove episode from queue by index
-   */
-  const removeFromQueue = (index: number) => {
-    const currentState = playerStore.get();
-    const newQueue = currentState.queue.filter((_, i) => i !== index);
-
-    logger.debug('➖ PlayerStore: Removing episode at index', index);
-
-    // Adjust current index if necessary
-    let newIndex = currentState.currentQueueIndex;
-    if (index < currentState.currentQueueIndex) {
-      newIndex--;
-    } else if (index === currentState.currentQueueIndex) {
-      // If we removed the current episode, don't change index
-      // (next episode will now be at same index)
-    }
-
-    setAndPersistPlayerState({
-      ...currentState,
-      queue: newQueue,
-      currentQueueIndex: newIndex,
-    });
-  };
-
-  /**
-   * Toggle shuffle mode
-   */
-  const toggleShuffle = () => {
-    const currentState = playerStore.get();
-    const newShuffleState = !currentState.isShuffled;
-
-    logger.debug('🔀 PlayerStore: Toggle shuffle:', newShuffleState);
-
-    if (newShuffleState && currentState.queue.length > 0) {
-      // Shuffle queue, keeping current episode at current position
-      const currentEpisode = currentState.queue[currentState.currentQueueIndex];
-      const remaining = currentState.queue.filter((_, i) => i !== currentState.currentQueueIndex);
-
-      // Fisher-Yates shuffle
-      for (let i = remaining.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
-      }
-
-      const newQueue = [currentEpisode, ...remaining];
-
-      setAndPersistPlayerState({
-        ...currentState,
-        queue: newQueue,
-        currentQueueIndex: 0,
-        isShuffled: true,
-      });
-    } else {
-      // Un-shuffle: restore original order (not implemented yet, just toggle flag)
-      setAndPersistPlayerState({
-        ...currentState,
-        isShuffled: false,
-      });
-    }
-  };
-
-  /**
-   * Set repeat mode (off, all, one)
-   */
-  const setRepeatMode = (mode: 'off' | 'all' | 'one') => {
-    logger.debug('🔁 PlayerStore: Set repeat mode:', mode);
-
-    setAndPersistPlayerState({
-      ...playerStore.get(),
-      repeatMode: mode,
-    });
-  };
-
-  /**
-   * Clear queue
-   */
-  const clearQueue = () => {
-    logger.debug('🗑️ PlayerStore: Clearing queue');
-
-    setAndPersistPlayerState({
-      ...playerStore.get(),
-      queue: [],
-      currentQueueIndex: -1,
-      isShuffled: false,
-    });
-  };
-
   // Set playNext reference for use in AudioProvider
   React.useEffect(() => {
-    setPlayNextRef(playNext);
+    setPlayNextRef(actions.playNext);
     return () => setPlayNextRef(null);
-  }, [playNext]);
+  }, []);
 
   return {
     ...state,
-    playEpisode,
-    togglePlayPause,
-    setProgress,
-    expandPlayer,
-    minimizePlayer,
-    likeEpisode,
-    seekForward,
-    seekBackward,
-    setPlaybackSpeed,
-    setVolume,
-    setLoading,
-    downloadEpisode,
-    closePlayer,
-    // Queue management
-    playQueue,
-    playNext,
-    playPrevious,
-    addToQueue,
-    removeFromQueue,
-    toggleShuffle,
-    setRepeatMode,
-    clearQueue,
+    ...actions
   };
 };

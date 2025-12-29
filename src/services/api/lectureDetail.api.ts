@@ -120,7 +120,7 @@ class LectureDetailApiService {
       downloads,
       comments,
       language: item.lang ?? '',
-      lecturerName: item.rpname ?? '',
+      lecturerName: item.rpname || item.reciter_name || '',
       updatedDate: item.updated_date ?? '',
       postedDate: item.post_date ?? '',
       charts: item.charts ?? {},

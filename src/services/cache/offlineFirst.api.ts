@@ -191,37 +191,47 @@ class OfflineFirstApi {
 
   /**
    * Warm up cache with essential data
+   * Each call is wrapped independently so one failure doesn't block others
    */
   public async warmupEssentialData(): Promise<void> {
-    try {
-      console.log('🔥 Warming up essential data...');
+    console.log('🔥 Warming up essential data...');
 
-      // Fetch and cache popular lectures
-      void await this.get(
-        '/api/search.php',
-        { sort: 'popular', limit: CACHE_CONFIG.LIMITS.POPULAR_LECTURES },
+    // Fetch and cache popular lectures
+    // Uses the same endpoint as usePopularLecturesWithCache hook
+    try {
+      await this.get(
+        '/api/popular_lec_api.php',
+        { limit: CACHE_CONFIG.LIMITS.POPULAR_LECTURES },
         {
           cacheKey: CACHE_CONFIG.KEYS.POPULAR_LECTURES,
           ttl: CACHE_CONFIG.TTL.LECTURES,
         }
       );
+      console.log('✅ Popular lectures cached');
+    } catch (error: any) {
+      console.warn('⚠️ Failed to warm popular lectures:', error.message);
+      captureSentryException(error as Error, { operation: 'warmup_popular_lectures' });
+    }
 
-      // Fetch and cache lecturers
-      void await this.get(
-        '/api/lecturers.php',
-        {},
+    // Fetch and cache lecturers
+    // Uses the same endpoint as lecturers.api.ts
+    try {
+      await this.get(
+        '/api/all_rps_api.php',
+        { page: 1, lim: 20, offset: 0 },
         {
           cacheKey: CACHE_CONFIG.KEYS.LECTURERS_LIST,
           ttl: CACHE_CONFIG.TTL.LECTURERS,
         }
       );
-
-      console.log('✅ Essential data warmed up');
-      addSentryBreadcrumb('Essential data warmup complete', 'cache');
+      console.log('✅ Lecturers list cached');
     } catch (error: any) {
-      console.error('Warmup error:', error);
-      captureSentryException(error as Error, { operation: 'warmup_essential_data' });
+      console.warn('⚠️ Failed to warm lecturers list:', error.message);
+      captureSentryException(error as Error, { operation: 'warmup_lecturers_list' });
     }
+
+    console.log('✅ Essential data warmup complete');
+    addSentryBreadcrumb('Essential data warmup complete', 'cache');
   }
 
   /**

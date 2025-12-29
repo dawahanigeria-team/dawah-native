@@ -3,9 +3,9 @@
  * Handles fetching trending lectures data (popular lectures with langid=6)
  */
 
+import { SearchLecture } from '../../types/api.types';
 import { API_CONFIG } from '../config/api.config';
 import { apiClient, ApiError } from './base.api';
-import { SearchLecture } from '../../types/api.types';
 
 export interface TrendingLecturesParams {
   page?: number;
@@ -41,22 +41,28 @@ class TrendingLecturesApiService {
       // Check if we need to fetch fresh data
       const now = Date.now();
       const cacheExpired = now - this.cacheTimestamp > this.CACHE_DURATION;
-      const requestLimit = 1000;
+      const requestLimit = 100; // Match the actual API request limit
       const configChanged = this.cachedLimit !== requestLimit;
 
       if (!this.allTrendingCache || cacheExpired || configChanged) {
         if (configChanged) {
           console.log('🔄 Cache invalidated due to limit change:', this.cachedLimit, '→', requestLimit);
         }
+        
+        // Randomize langid to get varied trending content from different languages
+        // 6: English, 8: Hausa, 7: Yoruba
+        const langIds = [6, 7, 8];
+        const randomLangId = langIds[Math.floor(Math.random() * langIds.length)];
+
         // Fetch all trending lectures at once (API doesn't support pagination)
         // Request a large limit to get all available items
         const requestParams: Record<string, any> = {
-          langid: 6, // Trending content uses langid=6
-          lim: 1000, // Request up to 1000 items to get everything
+          langid: randomLangId,
+          lim: 100, // Request up to 100 items (reduced from 1000 for 3G optimization)
         };
 
         // Log the API call
-        console.log('🔥 Trending Lectures API Call (fetching all with limit 1000):', {
+        console.log(`🔥 Trending Lectures API Call (fetching for langid ${randomLangId} with limit 100):`, {
           endpoint: '/api/popular_lec_api.php',
           params: requestParams,
           fullUrl: `${API_CONFIG.BASE_URL}/api/popular_lec_api.php?${new URLSearchParams(requestParams).toString()}`

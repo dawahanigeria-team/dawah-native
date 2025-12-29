@@ -3,28 +3,29 @@ import { Image } from "expo-image";
 import { usePathname } from "expo-router";
 import React, { memo, useEffect, useMemo, useState } from "react";
 import {
-  Dimensions,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
+    Dimensions,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    View,
 } from "react-native";
 import {
-  GestureHandlerRootView,
-  GestureDetector,
-  Gesture,
-  PanGestureHandler,
+    Gesture,
+    GestureDetector,
+    GestureHandlerRootView,
+    PanGestureHandler,
 } from "react-native-gesture-handler";
 import Animated, {
-  Extrapolate,
-  interpolate,
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
+    Extrapolate,
+    interpolate,
+    runOnJS,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
+    withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useLectureDetail } from "../../hooks/useLectureDetail";
 import { usePlayerStore } from "../../stores/playerStore";
 import { designTokens } from "../../theme/designTokens";
 import { getInitials, getPlaceholderStyle } from "../../utils/colorPlaceholder";
@@ -61,7 +62,33 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       downloadEpisode,
       closePlayer,
       setProgress,
+      playbackSpeed,
+      setPlaybackSpeed,
     } = usePlayerStore();
+
+    // Fetch richer lecture metadata only when the player is expanded.
+    const { lecture: lectureDetail } = useLectureDetail(
+      isExpanded && currentEpisode ? currentEpisode.id : undefined,
+    );
+
+    const languageLabel = (lectureDetail?.language || currentEpisode?.language || "").trim();
+
+    const releasedDateLabel = (() => {
+      const raw = lectureDetail?.postedDate || currentEpisode?.createdAt;
+      if (!raw) return "";
+      const date = new Date(raw);
+      if (Number.isNaN(date.getTime())) return "";
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    })();
+
+    const topicsLabel = (lectureDetail?.categories || [])
+      .map((c) => String(c).trim())
+      .filter(Boolean)
+      .join(", ");
 
     const [imageError, setImageError] = useState(false);
     const translateY = useSharedValue(0);
@@ -261,7 +288,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
               {currentEpisode.title}
             </Text>
             <Text variant="caption1" color="secondaryLabel" numberOfLines={1}>
-              {currentEpisode.lecturerName || "Dawah Nigeria"} • {formatDuration(progress)}/{formatDuration(duration)}
+              {currentEpisode.lecturerName ? `${currentEpisode.lecturerName} • ` : ""}{formatDuration(progress)}/{formatDuration(duration)}
             </Text>
           </View>
 
@@ -415,14 +442,14 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                 color="secondaryLabel"
                 style={{ textAlign: "center", marginBottom: 4 }}
               >
-                {currentEpisode.lecturerName || "Dawah Nigeria"}
+                {currentEpisode.lecturerName || ""}
               </Text>
               <Text
                 variant="caption1"
                 color="tertiaryLabel"
                 style={{ textAlign: "center" }}
               >
-                Islamic Lecture • {currentEpisode.language || "Hausa"}
+                {`Islamic Lecture${languageLabel ? ` • ${languageLabel}` : ""}`}
               </Text>
             </View>
 
@@ -523,6 +550,22 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
             {/* Secondary Controls */}
             <View style={styles.secondaryControls}>
               <Touchable
+                onPress={() => {
+                  const speeds = [0.75, 1.0, 1.25, 1.5, 2.0];
+                  const currentIndex = speeds.indexOf(playbackSpeed);
+                  const nextIndex = (currentIndex + 1) % speeds.length;
+                  setPlaybackSpeed(speeds[nextIndex]);
+                }}
+                style={styles.secondaryButton}
+                accessibilityLabel={`Playback speed ${playbackSpeed}x`}
+                accessibilityRole="button"
+              >
+                <Text variant="caption2" color="secondaryLabel" weight="bold">
+                  {playbackSpeed}x
+                </Text>
+              </Touchable>
+
+              <Touchable
                 style={styles.secondaryButton}
                 accessibilityLabel="Share"
                 accessibilityRole="button"
@@ -565,173 +608,110 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
 
             {/* Detailed Metadata Section */}
             <View style={styles.metadataSection}>
-              <View style={styles.metadataRow}>
-                <View style={styles.metadataItem}>
-                  <Ionicons
-                    name="calendar-outline"
-                    size={16}
-                    color={designTokens.colors.system.label.tertiary}
-                  />
-                  <Text
-                    variant="caption1"
-                    color="tertiaryLabel"
-                    style={{ marginLeft: 6 }}
-                  >
-                    Released
-                  </Text>
-                  <Text
-                    variant="subheadline"
-                    color="label"
-                    style={{ marginLeft: 8 }}
-                  >
-                    March 15, 2024
-                  </Text>
+              {releasedDateLabel ? (
+                <View style={styles.metadataRow}>
+                  <View style={styles.metadataItem}>
+                    <Ionicons
+                      name="calendar-outline"
+                      size={16}
+                      color={designTokens.colors.system.label.tertiary}
+                    />
+                    <Text
+                      variant="caption1"
+                      color="tertiaryLabel"
+                      style={{ marginLeft: 6 }}
+                    >
+                      Released
+                    </Text>
+                    <Text
+                      variant="subheadline"
+                      color="label"
+                      style={{ marginLeft: 8 }}
+                    >
+                      {releasedDateLabel}
+                    </Text>
+                  </View>
                 </View>
-              </View>
+              ) : null}
 
-              <View style={styles.metadataRow}>
-                <View style={styles.metadataItem}>
-                  <Ionicons
-                    name="musical-notes-outline"
-                    size={16}
-                    color={designTokens.colors.system.label.tertiary}
-                  />
-                  <Text
-                    variant="caption1"
-                    color="tertiaryLabel"
-                    style={{ marginLeft: 6 }}
-                  >
-                    Genre
-                  </Text>
-                  <Text
-                    variant="subheadline"
-                    color="label"
-                    style={{ marginLeft: 8 }}
-                  >
-                    Islamic Tafsir &amp; Exegesis
-                  </Text>
+              {languageLabel ? (
+                <View style={styles.metadataRow}>
+                  <View style={styles.metadataItem}>
+                    <Ionicons
+                      name="language-outline"
+                      size={16}
+                      color={designTokens.colors.system.label.tertiary}
+                    />
+                    <Text
+                      variant="caption1"
+                      color="tertiaryLabel"
+                      style={{ marginLeft: 6 }}
+                    >
+                      Language
+                    </Text>
+                    <Text
+                      variant="subheadline"
+                      color="label"
+                      style={{ marginLeft: 8 }}
+                    >
+                      {languageLabel}
+                    </Text>
+                  </View>
                 </View>
-              </View>
+              ) : null}
 
-              <View style={styles.metadataRow}>
-                <View style={styles.metadataItem}>
-                  <Ionicons
-                    name="language-outline"
-                    size={16}
-                    color={designTokens.colors.system.label.tertiary}
-                  />
-                  <Text
-                    variant="caption1"
-                    color="tertiaryLabel"
-                    style={{ marginLeft: 6 }}
-                  >
-                    Language
-                  </Text>
-                  <Text
-                    variant="subheadline"
-                    color="label"
-                    style={{ marginLeft: 8 }}
-                  >
-                    Arabic & English
-                  </Text>
+              {lectureDetail?.albumName ? (
+                <View style={styles.metadataRow}>
+                  <View style={styles.metadataItem}>
+                    <Ionicons
+                      name="albums-outline"
+                      size={16}
+                      color={designTokens.colors.system.label.tertiary}
+                    />
+                    <Text
+                      variant="caption1"
+                      color="tertiaryLabel"
+                      style={{ marginLeft: 6 }}
+                    >
+                      Album
+                    </Text>
+                    <Text
+                      variant="subheadline"
+                      color="label"
+                      style={{ marginLeft: 8 }}
+                    >
+                      {lectureDetail.albumName}
+                    </Text>
+                  </View>
                 </View>
-              </View>
+              ) : null}
 
-              <View style={styles.metadataRow}>
-                <View style={styles.metadataItem}>
-                  <Ionicons
-                    name="school-outline"
-                    size={16}
-                    color={designTokens.colors.system.label.tertiary}
-                  />
-                  <Text
-                    variant="caption1"
-                    color="tertiaryLabel"
-                    style={{ marginLeft: 6 }}
-                  >
-                    Series
-                  </Text>
-                  <Text
-                    variant="subheadline"
-                    color="label"
-                    style={{ marginLeft: 8 }}
-                  >
-                    Tafsir Al-Qur&apos;an Al-Kareem
-                  </Text>
+              {topicsLabel ? (
+                <View style={styles.metadataRow}>
+                  <View style={styles.metadataItem}>
+                    <Ionicons
+                      name="pricetag-outline"
+                      size={16}
+                      color={designTokens.colors.system.label.tertiary}
+                    />
+                    <Text
+                      variant="caption1"
+                      color="tertiaryLabel"
+                      style={{ marginLeft: 6 }}
+                    >
+                      Topics
+                    </Text>
+                    <Text
+                      variant="subheadline"
+                      color="label"
+                      style={{ marginLeft: 8 }}
+                      numberOfLines={2}
+                    >
+                      {topicsLabel}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-
-              <View style={styles.metadataRow}>
-                <View style={styles.metadataItem}>
-                  <Ionicons
-                    name="location-outline"
-                    size={16}
-                    color={designTokens.colors.system.label.tertiary}
-                  />
-                  <Text
-                    variant="caption1"
-                    color="tertiaryLabel"
-                    style={{ marginLeft: 6 }}
-                  >
-                    Recorded
-                  </Text>
-                  <Text
-                    variant="subheadline"
-                    color="label"
-                    style={{ marginLeft: 8 }}
-                  >
-                    Masjid Al-Nabawi, Madinah
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.metadataRow}>
-                <View style={styles.metadataItem}>
-                  <Ionicons
-                    name="people-outline"
-                    size={16}
-                    color={designTokens.colors.system.label.tertiary}
-                  />
-                  <Text
-                    variant="caption1"
-                    color="tertiaryLabel"
-                    style={{ marginLeft: 6 }}
-                  >
-                    Audience
-                  </Text>
-                  <Text
-                    variant="subheadline"
-                    color="label"
-                    style={{ marginLeft: 8 }}
-                  >
-                    Students & Scholars
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.metadataRow}>
-                <View style={styles.metadataItem}>
-                  <Ionicons
-                    name="bookmark-outline"
-                    size={16}
-                    color={designTokens.colors.system.label.tertiary}
-                  />
-                  <Text
-                    variant="caption1"
-                    color="tertiaryLabel"
-                    style={{ marginLeft: 6 }}
-                  >
-                    Topics
-                  </Text>
-                  <Text
-                    variant="subheadline"
-                    color="label"
-                    style={{ marginLeft: 8 }}
-                  >
-                    Quranic Interpretation, Islamic Law, Spirituality
-                  </Text>
-                </View>
-              </View>
+              ) : null}
             </View>
           </ScrollView>
         </Animated.View>
