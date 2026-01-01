@@ -1,11 +1,9 @@
-import { Image } from "expo-image";
-import React, { memo, useEffect, useRef, useState } from "react";
-import { Dimensions, ScrollView, View, ViewStyle } from "react-native";
+import React, { memo, useEffect, useRef, useState, useCallback } from "react";
+import { Dimensions, View, ViewStyle, FlatList, ListRenderItem } from "react-native";
 import { BorderRadius, designTokens } from "../../theme/designTokens";
 import { Episode } from "../../types/types";
-import { formatDuration } from "../../utils/formatTime";
-import { Badge, Icon, Text, Touchable } from "../atoms";
 import { logger } from "../../utils/logger";
+import { HeroCarouselItem } from "./HeroCarouselItem";
 
 interface HeroCarouselProps {
   items: Episode[];
@@ -34,7 +32,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = memo(
     style,
   }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
-    const scrollViewRef = useRef<ScrollView>(null);
+    const flatListRef = useRef<FlatList<Episode>>(null);
 
     const CARD_WIDTH = screenWidth - designTokens.spacing.lg * 2;
     const CARD_SPACING = designTokens.spacing.sm;
@@ -45,8 +43,8 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = memo(
       const interval = setInterval(() => {
         const nextIndex = (currentIndex + 1) % items.length;
         setCurrentIndex(nextIndex);
-        scrollViewRef.current?.scrollTo({
-          x: nextIndex * (CARD_WIDTH + CARD_SPACING),
+        flatListRef.current?.scrollToOffset({
+          offset: nextIndex * (CARD_WIDTH + CARD_SPACING),
           animated: true,
         });
       }, autoplayInterval);
@@ -61,167 +59,39 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = memo(
       CARD_SPACING,
     ]);
 
-    const handleScroll = (event: any) => {
+    const handleScroll = useCallback((event: any) => {
       const contentOffset = event.nativeEvent.contentOffset.x;
       const index = Math.round(contentOffset / (CARD_WIDTH + CARD_SPACING));
       setCurrentIndex(Math.max(0, Math.min(index, items.length - 1)));
-    };
+    }, [CARD_WIDTH, CARD_SPACING, items.length]);
 
-    const handleItemPress = (item: Episode) => {
+    const handleItemPress = useCallback((item: Episode) => {
       logger.debug('📱 Carousel: Slide tapped (not play button)', item.title);
       onItemPress?.(item);
-    };
+    }, [onItemPress]);
 
-    const renderItem = (item: Episode, index: number) => {
-      const itemStyle: ViewStyle = {
-        width: CARD_WIDTH,
-        height,
-        marginRight: index < items.length - 1 ? CARD_SPACING : 0,
-      };
+    const renderItem: ListRenderItem<Episode> = useCallback(({ item }) => (
+      <HeroCarouselItem
+        item={item}
+        width={CARD_WIDTH}
+        height={height}
+        borderRadius={borderRadius}
+        onPress={handleItemPress}
+        onPlayPress={onPlayPress}
+      />
+    ), [CARD_WIDTH, height, borderRadius, handleItemPress, onPlayPress]);
 
-      return (
-        <View key={item.id} style={itemStyle}>
-          <Touchable
-            style={{ flex: 1 }}
-            onPress={() => handleItemPress(item)}
-            accessibilityLabel={`${item.title}, duration ${formatDuration(
-              item.durationSec
-            )}`}
-            accessibilityHint="Tap to play this episode"
-            accessibilityRole="button"
-          >
-            <View
-              style={{
-                flex: 1,
-                position: "relative",
-                borderRadius: designTokens.borderRadius[borderRadius],
-                overflow: "hidden",
-              }}
-            >
-              <Image
-                source={{ uri: item.coverUrl }}
-                style={{ width: "100%", height: "100%" }}
-                contentFit="cover"
-                accessibilityIgnoresInvertColors={true}
-              />
+    const keyExtractor = useCallback((item: Episode) => item.id, []);
 
-              {/* Gradient overlay */}
-              <View
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  backgroundColor: "transparent",
-                }}
-              >
-                <View
-                  style={{
-                    position: "absolute",
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    height: "60%",
-                    backgroundColor: "rgba(0, 0, 0, 0.7)",
-                    opacity: 0.8,
-                  }}
-                />
-              </View>
+    const getItemLayout = useCallback((_: any, index: number) => ({
+      length: CARD_WIDTH,
+      offset: (CARD_WIDTH + CARD_SPACING) * index,
+      index,
+    }), [CARD_WIDTH, CARD_SPACING]);
 
-              {/* Content overlay */}
-              <View
-                style={{
-                  position: "absolute",
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  padding: designTokens.spacing.lg,
-                }}
-              >
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    marginBottom: designTokens.spacing.sm,
-                  }}
-                >
-                  <Badge variant="primary" size="small">
-                    DN
-                  </Badge>
-                  <Text
-                    variant="caption1"
-                    color="label"
-                    style={{
-                      marginLeft: designTokens.spacing.sm,
-                      color: "rgba(235, 235, 245, 0.6)",
-                    }}
-                  >
-                    {formatDuration(item.durationSec)}
-                  </Text>
-                </View>
-
-                <Text
-                  variant="title3"
-                  color="label"
-                  weight="bold"
-                  numberOfLines={2}
-                  style={{
-                    lineHeight: designTokens.typography.fontSize.title3 * 1.2,
-                  }}
-                >
-                  {item.title}
-                </Text>
-              </View>
-
-              {/* Play button */}
-              <View
-                style={{
-                  position: "absolute",
-                  top: designTokens.spacing.lg,
-                  right: designTokens.spacing.lg,
-                }}
-              >
-                <Touchable
-                  onPress={() => {
-                    logger.debug('🎯 Play button clicked in carousel!', item.title);
-                    if (onPlayPress) {
-                      logger.debug('🎮 Calling onPlayPress with:', item.title);
-                      onPlayPress(item);
-                    } else {
-                      logger.debug('⚠️ onPlayPress not defined!');
-                    }
-                  }}
-                  style={{
-                    backgroundColor: "rgba(255, 255, 255, 0.95)",
-                    borderRadius: designTokens.borderRadius.full,
-                    width: 48,
-                    height: 48,
-                    justifyContent: "center",
-                    alignItems: "center",
-                    shadowColor: "#000",
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.25,
-                    shadowRadius: 4,
-                    elevation: 5,
-                  }}
-                  accessibilityLabel="Play episode"
-                  accessibilityRole="button"
-                  accessibilityHint="Tap to play this episode immediately"
-                >
-                  <Icon
-                    name="play"
-                    size="xl"
-                    color="primary"
-                    accessibilityLabel="Play"
-                  />
-                </Touchable>
-              </View>
-            </View>
-          </Touchable>
-        </View>
-      );
-    };
+    const ItemSeparator = useCallback(() => (
+      <View style={{ width: CARD_SPACING }} />
+    ), [CARD_SPACING]);
 
     const containerStyle: ViewStyle = {
       marginBottom: designTokens.spacing["4xl"],
@@ -230,22 +100,25 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = memo(
 
     return (
       <View style={containerStyle}>
-        <ScrollView
-          ref={scrollViewRef}
+        <FlatList
+          ref={flatListRef}
+          data={items}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{
             paddingHorizontal: designTokens.spacing[contentPadding],
           }}
+          ItemSeparatorComponent={ItemSeparator}
           snapToInterval={CARD_WIDTH + CARD_SPACING}
           decelerationRate="fast"
           onScroll={handleScroll}
           scrollEventThrottle={16}
           bounces={true}
+          getItemLayout={getItemLayout}
           accessibilityLabel="Featured episodes carousel"
-        >
-          {items.map((item, index) => renderItem(item, index))}
-        </ScrollView>
+        />
 
         {/* Pagination dots */}
         {items.length > 1 && (
