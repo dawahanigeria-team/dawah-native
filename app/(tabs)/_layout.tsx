@@ -3,10 +3,12 @@ import * as Haptics from "expo-haptics";
 import { Tabs, usePathname } from "expo-router";
 import { useMemo } from "react";
 import { Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { designTokens } from "../../src/theme/designTokens";
 
 export default function TabLayout() {
   const pathname = usePathname();
+  const insets = useSafeAreaInsets();
 
   const handleTabPress = () => {
     if (Platform.OS === "ios") {
@@ -49,17 +51,32 @@ export default function TabLayout() {
     return !hideOnRoutes.some(route => pathname.startsWith(route));
   }, [pathname]);
 
+  const tabBarPaddingBottom = useMemo(() => {
+    // Android soft-navigation/gesture bars vary a lot by device.
+    // Use safe-area insets when available, with a small minimum so labels/icons don't get clipped.
+    const minimum = Platform.OS === "ios" ? 16 : 10;
+    return Math.max(insets.bottom, minimum);
+  }, [insets.bottom]);
+
+  const tabBarHeight = useMemo(() => {
+    // Base bar height + adaptive bottom padding.
+    // iOS base is ~49; Android is ~56 (material-ish). Keep paddingTop below for spacing.
+    const base = Platform.OS === "ios" ? 49 : 56;
+    return base + tabBarPaddingBottom;
+  }, [tabBarPaddingBottom]);
+
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: designTokens.colors.brand.primary,
         tabBarInactiveTintColor: designTokens.colors.system.label.tertiary,
+        tabBarHideOnKeyboard: true,
         tabBarStyle: tabBarVisible ? {
           backgroundColor: designTokens.colors.system.background.secondary,
           borderTopColor: designTokens.colors.system.separator.primary,
           borderTopWidth: 0.5, // iOS standard separator width
-          height: Platform.OS === "ios" ? 83 : 84, // iOS standard tab bar height
-          paddingBottom: Platform.OS === "ios" ? 20 : 16,
+          height: tabBarHeight,
+          paddingBottom: tabBarPaddingBottom,
           paddingTop: 8,
           // Add translucent effect for iOS
           ...(Platform.OS === "ios" && {

@@ -4,6 +4,7 @@ import { usePathname } from "expo-router";
 import React, { memo, useEffect, useMemo, useState } from "react";
 import {
     Dimensions,
+    Platform,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -34,7 +35,12 @@ import { Loading, Text, Touchable } from "../atoms";
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 const MINI_PLAYER_HEIGHT = 72;
-const TAB_BAR_HEIGHT = 83; // iOS standard tab bar height
+const getTabBarHeight = (bottomInset: number) => {
+  const minimumPaddingBottom = Platform.OS === "ios" ? 16 : 10;
+  const paddingBottom = Math.max(bottomInset, minimumPaddingBottom);
+  const base = Platform.OS === "ios" ? 49 : 56;
+  return base + paddingBottom;
+};
 
 interface MiniPlayerProps {
   onExpand?: () => void;
@@ -105,10 +111,12 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       pathname === "/library" ||
       pathname === "/profile";
 
+    const tabBarHeight = useMemo(() => getTabBarHeight(insets.bottom), [insets.bottom]);
+
     // Calculate expanded height based on whether we're on a tab screen
     // Use full screen height with only top safe area
     const EXPANDED_PLAYER_HEIGHT = isTabScreen
-      ? screenHeight - TAB_BAR_HEIGHT - insets.top
+      ? screenHeight - tabBarHeight - insets.top
       : screenHeight - insets.top;
 
     useEffect(() => {
@@ -725,7 +733,9 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
           styles.container,
           {
             // Dynamically position based on whether we're on a tab screen
-            bottom: isTabScreen ? TAB_BAR_HEIGHT + insets.bottom : insets.bottom,
+            // When tabs are visible, sit directly above the tab bar.
+            // Avoid double-counting bottom insets (tabBarHeight already accounts for them).
+            bottom: isTabScreen ? tabBarHeight : insets.bottom,
           },
         ]}
       >
