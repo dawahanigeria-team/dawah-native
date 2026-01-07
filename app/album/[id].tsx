@@ -282,7 +282,7 @@ const AlbumDetailScreen: React.FC = () => {
       >
         <View style={styles.trackNumber}>
           {isPlaying ? (
-            <Icon name="musical-notes" size="sm" />
+            <Icon name="musical-notes" size="sm" color="brand" />
           ) : (
             <Text variant="subheadline" color="secondaryLabel" weight="medium">
               {item.trackNumber || index + 1}
@@ -295,7 +295,7 @@ const AlbumDetailScreen: React.FC = () => {
             variant="body"
             weight="semibold"
             numberOfLines={2}
-            color={isPlaying ? 'label' : 'label'}
+            color={isPlaying ? 'brand' : 'label'}
           >
             {item.title}
           </Text>
@@ -312,7 +312,7 @@ const AlbumDetailScreen: React.FC = () => {
         </View>
 
         <View style={{ paddingTop: designTokens.spacing.xs }}>
-          <Icon name="play-circle" size="sm" color={isPlaying ? 'tintColor' : 'tertiaryLabel'} />
+          <Icon name="play-circle" size="sm" color={isPlaying ? 'brand' : 'tertiaryLabel'} />
         </View>
       </TouchableOpacity>
     );
