@@ -35,10 +35,10 @@ export function usePopularLectures(limit = 10) {
     const audioUrl = lecture.audio || lecture.mp3_url || lecture.AudioUrl || '';
     const coverUrl = lecture.img || lecture.lecturer_image || lecture.CoverUrl || '';
     const plays = parseInt(String(lecture.views || lecture.Plays || "0")) || 0;
-    const language = lecture.lang || lecture.language || lecture.Language || "Unknown";
+    const language = lecture.lang || lecture.language || lecture.language_name || lecture.Language || "Unknown";
     const downloads = parseInt(String(lecture.downloads || lecture.Downloads || "0")) || 0;
     const createdAt = lecture.created_at || lecture.CreatedAt || new Date().toISOString();
-    const lecturerName = lecture.rpname || lecture.lecturer_name || undefined;
+    const lecturerName = lecture.rpname || lecture.lecturer_name || lecture.LecturerName || undefined;
 
     return {
       id,

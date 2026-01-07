@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { memo } from 'react';
-import { ViewStyle } from 'react-native';
+import { StyleProp, TextStyle } from 'react-native';
 import { designTokens } from '../../theme/designTokens';
 
 type IconColorVariant = 
@@ -18,7 +18,7 @@ interface IconProps {
   name: keyof typeof Ionicons.glyphMap;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   color?: IconColorVariant | string;
-  style?: ViewStyle;
+  style?: StyleProp<TextStyle>;
   accessibilityLabel?: string;
 }
 
@@ -80,6 +80,7 @@ export const Icon: React.FC<IconProps> = memo(({
       name={name}
       size={getSizeValue()}
       color={getColorValue()}
+      style={style}
       accessibilityLabel={accessibilityLabel}
     />
   );

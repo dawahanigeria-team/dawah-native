@@ -3,27 +3,27 @@ import { Image } from "expo-image";
 import { usePathname } from "expo-router";
 import React, { memo, useEffect, useMemo, useState } from "react";
 import {
-    Dimensions,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    View,
+  Dimensions,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
 } from "react-native";
 import {
-    Gesture,
-    GestureDetector,
-    GestureHandlerRootView,
-    PanGestureHandler,
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
+  PanGestureHandler,
 } from "react-native-gesture-handler";
 import Animated, {
-    Extrapolate,
-    interpolate,
-    runOnJS,
-    useAnimatedStyle,
-    useSharedValue,
-    withSpring,
-    withTiming,
+  Extrapolate,
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useDerivedValue,
+  useSharedValue,
+  withSpring,
+  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLectureDetail } from "../../hooks/useLectureDetail";
@@ -108,11 +108,24 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
 
     const tabBarHeight = useMemo(() => getTabBarHeight(insets.bottom), [insets.bottom]);
 
-    // Calculate expanded height based on whether we're on a tab screen
-    // Use full screen height with only top safe area
-    const EXPANDED_PLAYER_HEIGHT = isTabScreen
-      ? screenHeight - tabBarHeight - insets.top
-      : screenHeight - insets.top;
+    // Use shared values for reactive animation updates
+    const insetsTopShared = useSharedValue(insets.top);
+    const tabBarHeightShared = useSharedValue(tabBarHeight);
+    const isTabScreenShared = useSharedValue(isTabScreen ? 1 : 0);
+
+    // Update shared values when dependencies change
+    useEffect(() => {
+      insetsTopShared.value = insets.top;
+      tabBarHeightShared.value = tabBarHeight;
+      isTabScreenShared.value = isTabScreen ? 1 : 0;
+    }, [insets.top, tabBarHeight, isTabScreen, insetsTopShared, tabBarHeightShared, isTabScreenShared]);
+
+    // Calculate expanded height reactively using derived value
+    const expandedPlayerHeight = useDerivedValue(() => {
+      return isTabScreenShared.value === 1
+        ? screenHeight - tabBarHeightShared.value - insetsTopShared.value
+        : screenHeight - insetsTopShared.value;
+    });
 
     useEffect(() => {
       isExpandedShared.value = isExpanded ? 1 : 0;
@@ -149,10 +162,11 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
 
     // Animation styles
     const animatedStyle = useAnimatedStyle(() => {
+      const currentExpandedHeight = expandedPlayerHeight.value;
       const height = interpolate(
         dragY.value,
         [0, 200],
-        [EXPANDED_PLAYER_HEIGHT, MINI_PLAYER_HEIGHT],
+        [currentExpandedHeight, MINI_PLAYER_HEIGHT],
         Extrapolate.CLAMP
       );
 
@@ -161,7 +175,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
         transform: [{ translateY: withSpring(translateY.value) }],
         opacity: opacity.value,
       };
-    }, [EXPANDED_PLAYER_HEIGHT, isExpanded]);
+    });
 
     // Don't render if no episode is playing
     if (!currentEpisode) {

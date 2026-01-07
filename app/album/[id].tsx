@@ -34,15 +34,36 @@ const AlbumDetailScreen: React.FC = () => {
 
   useEffect(() => {
     fetchAlbumData();
-  }, [albumId]);
+  }, [albumId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Convert AlbumTrack to Episode for player
   const trackToEpisode = useCallback((track: AlbumTrack, album: Album): Episode => {
+    // Parse duration string (format: "HH:MM:SS" or "MM:SS") to seconds
+    const parseDuration = (duration: string | number | undefined): number => {
+      if (typeof duration === 'number') {
+        return duration;
+      }
+      if (!duration || typeof duration !== 'string') {
+        return 0;
+      }
+      const parts = duration.split(':').map(Number);
+      if (parts.length === 3) {
+        // HH:MM:SS format
+        return parts[0] * 3600 + parts[1] * 60 + parts[2];
+      } else if (parts.length === 2) {
+        // MM:SS format
+        return parts[0] * 60 + parts[1];
+      }
+      // Try parsing as number string (e.g., "120" for 120 seconds)
+      const numericDuration = parseInt(duration, 10);
+      return isNaN(numericDuration) ? 0 : numericDuration;
+    };
+
     return {
       id: String(track.id),
       title: track.title,
       audioUrl: track.audioUrl,
-      durationSec: typeof track.duration === 'string' ? 0 : (track.duration || 0),
+      durationSec: parseDuration(track.duration),
       coverUrl: album.coverUrl || '',
       lecturerName: album.lecturerName || 'Unknown',
       plays: track.plays || 0,
