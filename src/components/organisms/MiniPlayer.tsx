@@ -171,7 +171,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       );
 
       return {
-        height: withSpring(isExpanded ? height : MINI_PLAYER_HEIGHT),
+        height: withSpring(isExpandedShared.value === 1 ? height : MINI_PLAYER_HEIGHT),
         transform: [{ translateY: withSpring(translateY.value) }],
         opacity: opacity.value,
       };
