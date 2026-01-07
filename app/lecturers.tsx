@@ -518,7 +518,7 @@ export default function LecturersScreen() {
           }
           initialNumToRender={10}
           maxToRenderPerBatch={5}
-          windowSize={5}
+          windowSize={11}
           removeClippedSubviews={true}
           showsVerticalScrollIndicator={false}
           accessibilityLabel="List of scholars"

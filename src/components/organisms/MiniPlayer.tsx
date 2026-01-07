@@ -29,18 +29,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLectureDetail } from "../../hooks/useLectureDetail";
 import { usePlayerStore } from "../../stores/playerStore";
 import { designTokens } from "../../theme/designTokens";
+import { getTabBarHeight } from "../../utils";
 import { getInitials, getPlaceholderStyle } from "../../utils/colorPlaceholder";
 import { Loading, Text, Touchable } from "../atoms";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 const MINI_PLAYER_HEIGHT = 72;
-const getTabBarHeight = (bottomInset: number) => {
-  const minimumPaddingBottom = 16;
-  const paddingBottom = Math.max(bottomInset, minimumPaddingBottom);
-  const base = Platform.OS === "ios" ? 49 : 56;
-  return base + paddingBottom;
-};
 
 interface MiniPlayerProps {
   onExpand?: () => void;
@@ -118,12 +113,6 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
     const EXPANDED_PLAYER_HEIGHT = isTabScreen
       ? screenHeight - tabBarHeight - insets.top
       : screenHeight - insets.top;
-
-    useEffect(() => {
-      if (!__DEV__) return;
-      return () => {
-      };
-    }, []);
 
     useEffect(() => {
       isExpandedShared.value = isExpanded ? 1 : 0;

@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { designTokens } from "../../src/theme/designTokens";
+import { getTabBarHeight, getTabBarPaddingBottom } from "../../src/utils";
 
 export default function TabLayout() {
   const pathname = usePathname();
@@ -52,18 +53,12 @@ export default function TabLayout() {
   }, [pathname]);
 
   const tabBarPaddingBottom = useMemo(() => {
-    // Android soft-navigation/gesture bars vary a lot by device.
-    // Use safe-area insets when available, with a small minimum so labels/icons don't get clipped.
-    const minimum = 16;
-    return Math.max(insets.bottom, minimum);
+    return getTabBarPaddingBottom(insets.bottom);
   }, [insets.bottom]);
 
   const tabBarHeight = useMemo(() => {
-    // Base bar height + adaptive bottom padding.
-    // iOS base is ~49; Android is ~56 (material-ish). Keep paddingTop below for spacing.
-    const base = Platform.OS === "ios" ? 49 : 56;
-    return base + tabBarPaddingBottom;
-  }, [tabBarPaddingBottom]);
+    return getTabBarHeight(insets.bottom);
+  }, [insets.bottom]);
 
   return (
     <Tabs
