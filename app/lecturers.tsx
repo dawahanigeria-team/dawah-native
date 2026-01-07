@@ -72,7 +72,6 @@ export default function LecturersScreen() {
       const activeLanguage = filters?.language || selectedLanguage;
       const languageId = getLanguageId(activeLanguage);
 
-      console.log(`📚 Fetching lecturers - Page: ${pageNum}, Limit: ${itemsPerPage}, Language: ${activeLanguage || 'All'} (ID: ${languageId})`);
 
       const requestParams: any = {
         page: pageNum,
@@ -86,7 +85,6 @@ export default function LecturersScreen() {
 
       const response = await lecturersApi.getAllLecturers(requestParams);
 
-      console.log(`✅ Received ${response.data.length} lecturers for page ${pageNum}`);
 
       // Determine if there are more pages based on data received
       const hasMorePages = response.data.length > 0;
@@ -110,11 +108,9 @@ export default function LecturersScreen() {
 
           if (newItems.length === 0 && response.data.length > 0) {
             // If we got data but they are all duplicates, it might mean we are fetching the same page or overlapping data.
-            console.log(`📊 Page ${pageNum}: Received ${response.data.length} items, but all were duplicates.`);
           }
 
           const newLecturers = [...prevLecturers, ...newItems];
-          console.log(`📊 Total lecturers loaded: ${newLecturers.length} (${newItems.length} new on this page)`);
 
           // Update total scholars count
           setTotalScholars(response.total || newLecturers.length);
@@ -126,7 +122,6 @@ export default function LecturersScreen() {
         setHasMore(hasMorePages);
       }
 
-      console.log(`📊 Page ${pageNum}: Got ${response.data.length} scholars, hasMore: ${hasMorePages}`);
     } catch (err) {
       console.error('Failed to fetch lecturers:', err);
       setError('Failed to load scholars');
@@ -521,6 +516,10 @@ export default function LecturersScreen() {
               tintColor={designTokens.colors.brand.primary}
             />
           }
+          initialNumToRender={10}
+          maxToRenderPerBatch={5}
+          windowSize={5}
+          removeClippedSubviews={true}
           showsVerticalScrollIndicator={false}
           accessibilityLabel="List of scholars"
         />

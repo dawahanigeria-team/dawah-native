@@ -38,8 +38,6 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           // Do not route audio through the earpiece on Android
           shouldRouteThroughEarpiece: false,
         });
-        console.log('✅ Audio mode configured for background playback');
-        console.log('🎵 Background audio: ENABLED');
 
         addSentryBreadcrumb('Background audio configured', 'info', {
           playsInSilentMode: true,
@@ -95,7 +93,6 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       }
     },
     onPlaybackFinished: async () => {
-      console.log('🎵 Playback finished');
 
       const currentState = playerStore.get();
       const playNext = getPlayNextRef();
@@ -103,7 +100,6 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       // If there's a queue and playNext is available, play next track
       if (playNext && currentState.queue.length > 0) {
         try {
-          console.log('▶️ Auto-playing next track in queue...');
           await playNext();
         } catch (error: any) {
           console.error('Failed to auto-play next track:', error);
@@ -126,7 +122,6 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           isPlaying: false,
           progress: 0,
         });
-        console.log('⏹️ No queue, playback stopped');
       }
     },
   });
@@ -134,7 +129,6 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   // Update audio controls reference whenever it changes
   useEffect(() => {
     if (!isInitializedRef.current) {
-      console.log('🎵 AudioProvider: Initializing audio controls');
       isInitializedRef.current = true;
     }
 
@@ -145,7 +139,6 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   // Cleanup only on unmount
   useEffect(() => {
     return () => {
-      console.log('🎵 AudioProvider: Cleaning up audio controls');
       setAudioControls(null);
       isInitializedRef.current = false;
     };
