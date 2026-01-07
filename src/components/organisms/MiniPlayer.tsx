@@ -120,6 +120,14 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       : screenHeight - insets.top;
 
     useEffect(() => {
+      if (!__DEV__) return;
+      console.log("🎛️ MiniPlayer mounted");
+      return () => {
+        console.log("🎛️ MiniPlayer unmounted");
+      };
+    }, []);
+
+    useEffect(() => {
       isExpandedShared.value = isExpanded ? 1 : 0;
     }, [isExpanded, isExpandedShared]);
 
@@ -166,7 +174,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
         transform: [{ translateY: withSpring(translateY.value) }],
         opacity: opacity.value,
       };
-    });
+    }, [EXPANDED_PLAYER_HEIGHT, isExpanded]);
 
     // Simulate audio progress (in real implementation, this comes from expo-audio via AudioProvider)
     useEffect(() => {

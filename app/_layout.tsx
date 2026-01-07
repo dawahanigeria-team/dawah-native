@@ -1,7 +1,7 @@
 import { Stack, usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef } from "react";
-import { Linking, View } from "react-native";
+import { Linking, StyleSheet, View } from "react-native";
 
 import { useStorageState } from "../src/hooks/useStorageState";
 
@@ -9,13 +9,13 @@ import { ErrorBoundary } from "../src/components/atoms";
 import { Loading } from "../src/components/atoms/Loading";
 import { MiniPlayer } from "../src/components/organisms";
 import { AudioProvider } from "../src/components/providers/AudioProvider";
+import { offlineFirstApi } from "../src/services/cache/offlineFirst.api";
 import { initSentry, Sentry } from "../src/services/config/sentry.config";
 import { downloadsService } from "../src/services/downloads.service";
 import { linkingService } from "../src/services/linking.service";
 import { userService } from "../src/services/user.service";
 import { initializeAuth } from "../src/stores/authStore";
 import { fetchFavorites } from "../src/stores/favoritesStore";
-import { offlineFirstApi } from "../src/services/cache/offlineFirst.api";
  
 
 // Initialize Sentry as early as possible
@@ -30,6 +30,15 @@ function RootLayout() {
   const [isNavigationLoading] = useStorageState(NAVIGATION_PERSISTENCE_KEY);
   const [isPlayerStateLoading] = useStorageState(PLAYER_STATE_KEY);
   const hasInitializedApp = useRef(false);
+
+  useEffect(() => {
+    if (!__DEV__) return;
+    // Helps confirm whether RootLayout is truly remounting during navigation.
+    console.log("🧩 RootLayout mounted");
+    return () => {
+      console.log("🧩 RootLayout unmounted");
+    };
+  }, []);
 
   // Initialize user, auth, and favorites on app start
   useEffect(() => {
@@ -115,9 +124,7 @@ function RootLayout() {
   // Hide mini player on lecture detail page since it has full playback controls
   const shouldShowMiniPlayer = !pathname.startsWith("/lecture/");
 
-  if (isNavigationLoading || isPlayerStateLoading) {
-    return <Loading fullScreen />;
-  }
+  const isHydrating = isNavigationLoading || isPlayerStateLoading;
 
   return (
     <ErrorBoundary>
@@ -151,6 +158,14 @@ function RootLayout() {
           </Stack>
           {/* Mini Player - hidden on lecture detail page */}
           {shouldShowMiniPlayer && <MiniPlayer />}
+
+          {/* Keep the app tree mounted while AsyncStorage hydration happens.
+              This prevents MiniPlayer/provider unmounts which look like "reloads". */}
+          {isHydrating && (
+            <View style={StyleSheet.absoluteFill} pointerEvents="auto">
+              <Loading fullScreen />
+            </View>
+          )}
         </View>
       </AudioProvider>
     </ErrorBoundary>
