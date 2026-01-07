@@ -1,6 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { memo } from 'react';
 import { ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { designTokens } from '../../theme/designTokens';
 
 type IconColorVariant = 
@@ -80,7 +80,6 @@ export const Icon: React.FC<IconProps> = memo(({
       name={name}
       size={getSizeValue()}
       color={getColorValue()}
-      style={style}
       accessibilityLabel={accessibilityLabel}
     />
   );

@@ -195,8 +195,7 @@ export const Button: React.FC<ButtonProps> = memo(
           />
         ) : (
           <Text
-            variant={getTextVariant()}
-            color={getTextColor()}
+              variant={getTextVariant()}
             weight={variant === "plain" ? "regular" : "semibold"}
             style={{
               marginLeft: leftIcon ? designTokens.spacing.sm : 0,

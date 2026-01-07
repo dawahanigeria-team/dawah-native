@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { View, ViewStyle } from 'react-native';
-import { designTokens, BorderRadius } from '../../theme/designTokens';
+import { BorderRadius, designTokens } from '../../theme/designTokens';
 import { Text } from './Text';
 
 interface BadgeProps {
@@ -116,8 +116,7 @@ export const Badge: React.FC<BadgeProps> = memo(({
   return (
     <View style={combinedStyle}>
       <Text 
-        variant={getTextVariant()} 
-        color={getTextColor()}
+        variant="caption1"
         weight="semibold"
         align="center"
       >
