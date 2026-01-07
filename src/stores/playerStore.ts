@@ -171,6 +171,13 @@ const playEpisode = async (episode: Episode) => {
       // loadAudio now properly waits for the audio to be ready
       await audioControls.loadAudio(playbackUri);
 
+      // Set lock screen controls to maintain background playback priority
+      audioControls.setLockScreenInfo({
+        title: episode.title,
+        artist: episode.lecturerName || 'Dawah Nigeria',
+        artwork: episode.coverUrl || '',
+      });
+
       logger.debug('▶️ PlayerStore: Starting playback...');
       audioControls.play();
 

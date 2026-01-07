@@ -56,8 +56,10 @@ export interface AudioPlaybackControls {
   setVolume: (volume: number) => void;
   stop: () => void;
   unload: () => void;
+  setLockScreenInfo: (info: { title: string; artist?: string; artwork?: string }) => void;
   status: AudioPlaybackStatus;
   isReady: boolean;
+  player: any; // Expose player instance for advanced use cases
 }
 
 /**
@@ -73,7 +75,10 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
 
   // Create audio player instance with current URI (recreates when URI changes)
   // Pass empty string initially, will be updated via state
-  const player = useAudioPlayer(currentUri || '');
+  // Configure with keepAudioSessionActive to prevent iOS from stopping playback
+  const player = useAudioPlayer(currentUri || '', {
+    keepAudioSessionActive: true, // Prevent audio session deactivation on iOS
+  });
 
   // Get real-time playback status
   const playerStatus = useAudioPlayerStatus(player);
@@ -340,6 +345,20 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
     }
   };
 
+  // Set lock screen information to maintain background playback
+  const setLockScreenInfo = (info: { title: string; artist?: string; artwork?: string }) => {
+    try {
+      console.log('🔒 Setting lock screen info:', info.title);
+      player.setActiveForLockScreen(true, {
+        title: info.title,
+        artist: info.artist || '',
+        artworkUrl: info.artwork || '',
+      });
+    } catch (error) {
+      console.error('Failed to set lock screen info:', error);
+    }
+  };
+
   return {
     loadAudio,
     play,
@@ -352,7 +371,9 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
     setVolume,
     stop,
     unload,
+    setLockScreenInfo,
     status,
     isReady,
+    player, // Expose player instance
   };
 }

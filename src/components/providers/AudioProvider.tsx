@@ -29,8 +29,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           shouldPlayInBackground: true,
 
           // Handle interruptions (phone calls, other apps)
-          // iOS: mix with others so system sounds can play over us
-          interruptionMode: 'mixWithOthers',
+          // iOS: Request exclusive audio focus to prevent background interruption
+          // Using 'doNotMix' ensures iOS gives our audio priority and doesn't stop it
+          interruptionMode: 'doNotMix',
           // Android: temporarily duck other audio instead of fully stopping it
           interruptionModeAndroid: 'duckOthers',
 
