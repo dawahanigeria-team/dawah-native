@@ -54,7 +54,7 @@ export default function TabLayout() {
   const tabBarPaddingBottom = useMemo(() => {
     // Android soft-navigation/gesture bars vary a lot by device.
     // Use safe-area insets when available, with a small minimum so labels/icons don't get clipped.
-    const minimum = Platform.OS === "ios" ? 16 : 10;
+    const minimum = 16;
     return Math.max(insets.bottom, minimum);
   }, [insets.bottom]);
 
@@ -90,10 +90,10 @@ export default function TabLayout() {
           fontSize: designTokens.typography.fontSize.caption1,
           fontWeight: designTokens.typography.fontWeight.medium,
           fontFamily: designTokens.typography.fontFamily.system,
-          marginTop: 2,
+          marginTop: 0,
         },
         tabBarIconStyle: {
-          marginBottom: 2,
+          marginBottom: 0,
         },
         headerShown: false,
       }}

@@ -36,7 +36,7 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 const MINI_PLAYER_HEIGHT = 72;
 const getTabBarHeight = (bottomInset: number) => {
-  const minimumPaddingBottom = Platform.OS === "ios" ? 16 : 10;
+  const minimumPaddingBottom = 16;
   const paddingBottom = Math.max(bottomInset, minimumPaddingBottom);
   const base = Platform.OS === "ios" ? 49 : 56;
   return base + paddingBottom;
