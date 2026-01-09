@@ -334,8 +334,8 @@ const AlbumDetailScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.centered} edges={['top', 'bottom']}>
         <Stack.Screen options={{ title: 'Album' }} />
-        <Icon name="alert-circle" size="lg" />
-        <Text variant="body" style={styles.errorText}>
+        <Icon name="alert-circle" size="lg" color="systemRed" />
+        <Text variant="body" color="systemRed" style={styles.errorText}>
           {error || 'Album not found'}
         </Text>
         <TouchableOpacity onPress={fetchAlbumData} style={styles.retryButton}>
