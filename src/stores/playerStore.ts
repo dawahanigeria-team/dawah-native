@@ -83,6 +83,17 @@ export const setPlayNextRef = (fn: (() => Promise<void>) | null) => {
  */
 export const getPlayNextRef = () => playNextRef;
 
+/**
+ * Build lock screen info from an episode
+ */
+function buildLockScreenInfo(episode: Episode): { title: string; artist: string; artwork: string } {
+  return {
+    title: episode.title,
+    artist: episode.lecturerName || 'Dawah Nigeria',
+    artwork: episode.coverUrl || '',
+  };
+}
+
 // ----------------------------------------------------------------------
 // ACTION IMPLEMENTATIONS
 // These functions operate on the store but do NOT cause subscriptions
@@ -121,10 +132,11 @@ const playEpisode = async (episode: Episode) => {
       if (!currentState.isPlaying) {
         logger.debug('▶️ PlayerStore: Resuming playback...');
         audioControls.play();
+        audioControls.setLockScreenInfo(buildLockScreenInfo(episode));
         setAndPersistPlayerState({
           ...currentState,
           isPlaying: true,
-          isExpanded: false,  // Show mini player
+          isExpanded: false,
         });
       } else {
         logger.debug('⏸️ PlayerStore: Already playing this episode');
@@ -171,15 +183,11 @@ const playEpisode = async (episode: Episode) => {
       // loadAudio now properly waits for the audio to be ready
       await audioControls.loadAudio(playbackUri);
 
-      // Set lock screen controls to maintain background playback priority
-      audioControls.setLockScreenInfo({
-        title: episode.title,
-        artist: episode.lecturerName || 'Dawah Nigeria',
-        artwork: episode.coverUrl || '',
-      });
-
       logger.debug('▶️ PlayerStore: Starting playback...');
       audioControls.play();
+
+      // Set lock screen controls after playback starts (iOS requires active playback)
+      audioControls.setLockScreenInfo(buildLockScreenInfo(episode));
 
       // Add to history
       try {

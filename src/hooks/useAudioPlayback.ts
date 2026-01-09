@@ -327,8 +327,16 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
   };
 
   // Set lock screen information to maintain background playback
+  // iOS requires audio to be loaded and preferably playing for lock screen controls to appear
   const setLockScreenInfo = (info: { title: string; artist?: string; artwork?: string }) => {
     try {
+      // Only set lock screen info if audio is loaded
+      // This ensures iOS recognizes the audio session as active
+      if (!status.isLoaded) {
+        console.warn('Cannot set lock screen info: audio not loaded yet');
+        return;
+      }
+
       player.setActiveForLockScreen(true, {
         title: info.title,
         artist: info.artist || '',
