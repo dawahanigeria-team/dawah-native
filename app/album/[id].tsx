@@ -430,8 +430,8 @@ const AlbumDetailScreen: React.FC = () => {
                 onPress={handlePlayAll}
                 activeOpacity={0.7}
               >
-                <Icon name="play-circle" size="md" />
-                <Text variant="body" weight="semibold">
+                <Icon name="play-circle" size="md" color="#FFFFFF" />
+                <Text variant="body" weight="semibold" style={{ color: '#FFFFFF' }}>
                   Play All
                 </Text>
               </TouchableOpacity>
