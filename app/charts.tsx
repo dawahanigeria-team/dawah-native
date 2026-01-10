@@ -7,15 +7,16 @@ import { Text } from '../src/components/atoms/Text';
 import { ChartItem } from '../src/components/molecules/ChartItem';
 import { ChartItemSkeleton } from '../src/components/molecules/ChartItem.skeleton';
 import {
-    ChartItem as ChartItemType,
-    ChartPeriod,
-    fetchAlbumCharts,
-    fetchLectureCharts,
-    fetchLecturerCharts,
-    fetchPlaylistCharts,
+  ChartItem as ChartItemType,
+  ChartPeriod,
+  fetchAlbumCharts,
+  fetchLectureCharts,
+  fetchLecturerCharts,
+  fetchPlaylistCharts,
 } from '../src/services/api/charts.api';
 import { addSentryBreadcrumb, captureSentryException } from '../src/services/config/sentry.config';
 import { designTokens } from '../src/theme/designTokens';
+import { getTabBarPaddingBottom } from '../src/utils';
 
 type ChartType = 'album' | 'lecturer' | 'playlist' | 'lecture';
 
@@ -32,7 +33,7 @@ const ChartsScreen: React.FC = memo(() => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const listPaddingBottom = designTokens.spacing.lg + MINI_PLAYER_HEIGHT + insets.bottom;
+  const listPaddingBottom = designTokens.spacing.lg + MINI_PLAYER_HEIGHT + getTabBarPaddingBottom(insets.bottom);
 
   const getChartData = useCallback(async (chartType: ChartType, period: ChartPeriod) => {
     try {
