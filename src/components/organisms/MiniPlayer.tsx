@@ -118,7 +118,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       insetsTopShared.value = insets.top;
       tabBarHeightShared.value = tabBarHeight;
       isTabScreenShared.value = isTabScreen ? 1 : 0;
-    }, [insets.top, tabBarHeight, isTabScreen, insetsTopShared, tabBarHeightShared, isTabScreenShared]);
+    }, [insets.top, tabBarHeight, isTabScreen]);
 
     // Calculate expanded height reactively using derived value
     const expandedPlayerHeight = useDerivedValue(() => {
@@ -129,7 +129,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
 
     useEffect(() => {
       isExpandedShared.value = isExpanded ? 1 : 0;
-    }, [isExpanded, isExpandedShared]);
+    }, [isExpanded]);
 
     // Gesture handler for drag-to-minimize using Reanimated 4+ Gesture API
     const expandedPanGesture = useMemo(
