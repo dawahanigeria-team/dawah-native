@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
 import { router } from "expo-router";
-import React, { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card, CardSkeleton } from "../../src/components/molecules";
@@ -68,10 +68,10 @@ export default function HomeScreen() {
       const audioUrl = lecture.audio || lecture.mp3_url || lecture.AudioUrl || "";
       const coverUrl = lecture.img || lecture.lecturer_image || lecture.CoverUrl || "";
       const plays = parseInt(String(lecture.views || lecture.Plays || "0")) || 0;
-      const language = lecture.lang || lecture.language || lecture.language_name || lecture.Language || "Unknown";
+      const language = lecture.lang || lecture.language || (lecture as any).language_name || lecture.Language || "Unknown";
       const downloads = parseInt(String(lecture.downloads || lecture.Downloads || "0")) || 0;
       const createdAt = lecture.created_at || lecture.CreatedAt || new Date().toISOString();
-      const lecturerName = lecture.rpname || lecture.lecturer_name || lecture.LecturerName || (lecture as any).reciter_name || undefined;
+      const lecturerName = lecture.rpname || lecture.lecturer_name || (lecture as any).LecturerName || (lecture as any).reciter_name || undefined;
 
       return {
         id,

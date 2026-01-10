@@ -3,10 +3,13 @@ import * as Haptics from "expo-haptics";
 import { Tabs, usePathname } from "expo-router";
 import { useMemo } from "react";
 import { Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { designTokens } from "../../src/theme/designTokens";
+import { getTabBarHeight, getTabBarPaddingBottom } from "../../src/utils";
 
 export default function TabLayout() {
   const pathname = usePathname();
+  const insets = useSafeAreaInsets();
 
   const handleTabPress = () => {
     if (Platform.OS === "ios") {
@@ -49,17 +52,26 @@ export default function TabLayout() {
     return !hideOnRoutes.some(route => pathname.startsWith(route));
   }, [pathname]);
 
+  const tabBarPaddingBottom = useMemo(() => {
+    return getTabBarPaddingBottom(insets.bottom);
+  }, [insets.bottom]);
+
+  const tabBarHeight = useMemo(() => {
+    return getTabBarHeight(insets.bottom);
+  }, [insets.bottom]);
+
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: designTokens.colors.brand.primary,
         tabBarInactiveTintColor: designTokens.colors.system.label.tertiary,
+        tabBarHideOnKeyboard: true,
         tabBarStyle: tabBarVisible ? {
           backgroundColor: designTokens.colors.system.background.secondary,
           borderTopColor: designTokens.colors.system.separator.primary,
           borderTopWidth: 0.5, // iOS standard separator width
-          height: Platform.OS === "ios" ? 83 : 84, // iOS standard tab bar height
-          paddingBottom: Platform.OS === "ios" ? 20 : 16,
+          height: tabBarHeight,
+          paddingBottom: tabBarPaddingBottom,
           paddingTop: 8,
           // Add translucent effect for iOS
           ...(Platform.OS === "ios" && {
@@ -73,10 +85,10 @@ export default function TabLayout() {
           fontSize: designTokens.typography.fontSize.caption1,
           fontWeight: designTokens.typography.fontWeight.medium,
           fontFamily: designTokens.typography.fontFamily.system,
-          marginTop: 2,
+          marginTop: 0,
         },
         tabBarIconStyle: {
-          marginBottom: 2,
+          marginBottom: 0,
         },
         headerShown: false,
       }}

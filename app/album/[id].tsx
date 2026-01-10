@@ -1,24 +1,23 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import * as Haptics from 'expo-haptics';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  View,
-  ScrollView,
   ActivityIndicator,
+  FlatList,
+  Image,
+  Share,
   StyleSheet,
   TouchableOpacity,
-  Image,
-  FlatList,
-  Share,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
-import { Text } from '../../src/components/atoms/Text';
 import { Icon } from '../../src/components/atoms';
-import { albumsApi, Album, AlbumTrack } from '../../src/services/api/albums.api';
-import { designTokens } from '../../src/theme/designTokens';
+import { Text } from '../../src/components/atoms/Text';
+import { Album, albumsApi, AlbumTrack } from '../../src/services/api/albums.api';
 import { addSentryBreadcrumb, captureSentryException } from '../../src/services/config/sentry.config';
 import { linkingService } from '../../src/services/linking.service';
-import * as Haptics from 'expo-haptics';
 import { usePlayerStore } from '../../src/stores';
+import { designTokens } from '../../src/theme/designTokens';
 import { Episode } from '../../src/types/types';
 import { appendShareSignature } from '../../src/utils/shareMessage';
 
@@ -35,19 +34,44 @@ const AlbumDetailScreen: React.FC = () => {
 
   useEffect(() => {
     fetchAlbumData();
-  }, [albumId]);
+  }, [albumId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Convert AlbumTrack to Episode for player
   const trackToEpisode = useCallback((track: AlbumTrack, album: Album): Episode => {
+    // Parse duration string (format: "HH:MM:SS" or "MM:SS") to seconds
+    const parseDuration = (duration: string | number | undefined): number => {
+      if (typeof duration === 'number') {
+        return duration;
+      }
+      if (!duration || typeof duration !== 'string') {
+        return 0;
+      }
+      const parts = duration.split(':').map(Number);
+      if (parts.length === 3) {
+        // HH:MM:SS format
+        return parts[0] * 3600 + parts[1] * 60 + parts[2];
+      } else if (parts.length === 2) {
+        // MM:SS format
+        return parts[0] * 60 + parts[1];
+      }
+      // Try parsing as number string (e.g., "120" for 120 seconds)
+      const numericDuration = parseInt(duration, 10);
+      return isNaN(numericDuration) ? 0 : numericDuration;
+    };
+
     return {
       id: String(track.id),
       title: track.title,
       audioUrl: track.audioUrl,
-      duration: track.duration,
+      durationSec: parseDuration(track.duration),
       coverUrl: album.coverUrl || '',
       lecturerName: album.lecturerName || 'Unknown',
       plays: track.plays || 0,
       liked: false,
+      seriesId: String(album.id || ''),
+      language: album.language || 'Unknown',
+      downloads: 0,
+      createdAt: new Date().toISOString(),
     };
   }, []);
 
@@ -258,7 +282,7 @@ const AlbumDetailScreen: React.FC = () => {
       >
         <View style={styles.trackNumber}>
           {isPlaying ? (
-            <Icon name="musical-notes" size="sm" color="tintColor" />
+            <Icon name="musical-notes" size="sm" color="brand" />
           ) : (
             <Text variant="subheadline" color="secondaryLabel" weight="medium">
               {item.trackNumber || index + 1}
@@ -271,7 +295,7 @@ const AlbumDetailScreen: React.FC = () => {
             variant="body"
             weight="semibold"
             numberOfLines={2}
-            color={isPlaying ? 'tintColor' : 'label'}
+            color={isPlaying ? 'brand' : 'label'}
           >
             {item.title}
           </Text>
@@ -288,7 +312,7 @@ const AlbumDetailScreen: React.FC = () => {
         </View>
 
         <View style={{ paddingTop: designTokens.spacing.xs }}>
-          <Icon name="play-circle" size="sm" color={isPlaying ? 'tintColor' : 'tertiaryLabel'} />
+          <Icon name="play-circle" size="sm" color={isPlaying ? 'brand' : 'tertiaryLabel'} />
         </View>
       </TouchableOpacity>
     );
@@ -315,7 +339,7 @@ const AlbumDetailScreen: React.FC = () => {
           {error || 'Album not found'}
         </Text>
         <TouchableOpacity onPress={fetchAlbumData} style={styles.retryButton}>
-          <Text variant="body" color="tintColor" weight="semibold">
+          <Text variant="body" weight="semibold">
             Try Again
           </Text>
         </TouchableOpacity>
@@ -349,7 +373,7 @@ const AlbumDetailScreen: React.FC = () => {
 
               {album.lecturerName && (
                 <TouchableOpacity onPress={handleLecturerPress} activeOpacity={0.7}>
-                  <Text variant="body" color="tintColor" weight="medium">
+                  <Text variant="body" weight="medium">
                     {album.lecturerName}
                   </Text>
                 </TouchableOpacity>
@@ -406,8 +430,8 @@ const AlbumDetailScreen: React.FC = () => {
                 onPress={handlePlayAll}
                 activeOpacity={0.7}
               >
-                <Icon name="play-circle" size="md" color="systemBackground" />
-                <Text variant="body" weight="semibold" color="systemBackground">
+                <Icon name="play-circle" size="md" />
+                <Text variant="body" weight="semibold">
                   Play All
                 </Text>
               </TouchableOpacity>
@@ -417,8 +441,8 @@ const AlbumDetailScreen: React.FC = () => {
                 onPress={handleShuffle}
                 activeOpacity={0.7}
               >
-                <Icon name="shuffle" size="sm" color="tintColor" />
-                <Text variant="body" weight="semibold" color="tintColor">
+                <Icon name="shuffle" size="sm" />
+                <Text variant="body" weight="semibold">
                   Shuffle
                 </Text>
               </TouchableOpacity>
@@ -576,7 +600,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: designTokens.spacing.lg,
     backgroundColor: designTokens.colors.system.background.primary,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: designTokens.colors.system.separator,
+    borderBottomColor: designTokens.colors.system.separator.primary,
     minHeight: 64,
   },
   trackItemPlaying: {

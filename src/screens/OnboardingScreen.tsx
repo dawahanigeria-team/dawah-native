@@ -9,7 +9,7 @@ import {
   ScrollView,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Text } from "../components/atoms";
 import { designTokens } from "../theme/designTokens";
@@ -169,6 +169,7 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
+  const insets = useSafeAreaInsets();
 
   const handleScroll = (event: any) => {
     const slideIndex = Math.round(
@@ -210,9 +211,15 @@ export default function OnboardingScreen() {
         tw`flex-1`,
         { backgroundColor: designTokens.colors.system.background.primary },
       ]}
+      edges={['top', 'bottom']}
     >
       {!isLastSlide && (
-        <View style={tw`absolute top-4 right-6 z-10`}>
+        <View 
+          style={[
+            tw`absolute right-6 z-10`,
+            { top: Math.max(insets.top, 16) }
+          ]}
+        >
           <Pressable
             onPress={handleSkip}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}

@@ -1,8 +1,8 @@
-import React, { useState, memo } from 'react';
-import { Modal, TouchableOpacity, ViewStyle, FlatList } from 'react-native';
+import React, { memo, useState } from 'react';
+import { FlatList, Modal, TouchableOpacity, ViewStyle } from 'react-native';
 import { designTokens } from '../../theme/designTokens';
-import { Text } from './Text';
 import { Icon } from './Icon';
+import { Text } from './Text';
 import { Touchable } from './Touchable';
 
 interface DropdownOption {
@@ -124,10 +124,11 @@ export const Dropdown: React.FC<DropdownProps> = memo(({
               showsVerticalScrollIndicator={false}
               renderItem={({ item }) => (
                 <Touchable
-                  style={[
-                    optionStyle,
-                    item.value === selectedValue && selectedOptionStyle,
-                  ]}
+                  style={
+                    item.value === selectedValue
+                      ? StyleSheet.flatten([optionStyle, selectedOptionStyle])
+                      : optionStyle
+                  }
                   onPress={() => handleSelect(item.value)}
                   accessibilityLabel={item.label}
                   accessibilityRole="button"

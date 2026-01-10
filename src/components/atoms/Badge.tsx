@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { View, ViewStyle } from 'react-native';
-import { designTokens, BorderRadius } from '../../theme/designTokens';
+import { BorderRadius, designTokens } from '../../theme/designTokens';
 import { Text } from './Text';
 
 interface BadgeProps {
@@ -78,30 +78,32 @@ export const Badge: React.FC<BadgeProps> = memo(({
     }
   };
 
-  const getTextColor = () => {
+  const getTextColor = (): 'label' | 'secondaryLabel' | 'tertiaryLabel' | 'quaternaryLabel' | 'systemBlue' | 'systemGreen' | 'systemRed' | 'brand' => {
     switch (variant) {
       case 'primary':
       case 'success':
       case 'warning':
       case 'error':
       case 'info':
-        return 'inverse';
+        // For colored backgrounds, use label color (which adapts to light/dark mode)
+        // In practice, this will be white/light on dark backgrounds
+        return 'label';
       case 'secondary':
       default:
-        return 'primary';
+        return 'label';
     }
   };
 
   const getTextVariant = () => {
     switch (size) {
       case 'small':
-        return 'caption';
+        return 'caption1';
       case 'medium':
-        return 'bodySmall';
+        return 'caption1';
       case 'large':
         return 'body';
       default:
-        return 'bodySmall';
+        return 'caption1';
     }
   };
 
@@ -116,7 +118,7 @@ export const Badge: React.FC<BadgeProps> = memo(({
   return (
     <View style={combinedStyle}>
       <Text 
-        variant={getTextVariant()} 
+        variant={getTextVariant()}
         color={getTextColor()}
         weight="semibold"
         align="center"
