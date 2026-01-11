@@ -29,7 +29,6 @@ const QuranReciterScreen: React.FC = () => {
   const { colors } = useTheme();
   const navigation = useNavigation();
 
-  // Robust back navigation handler
   const handleBack = useCallback(() => {
     if (navigation.canGoBack()) {
       router.back();
@@ -342,8 +341,7 @@ const QuranReciterScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.system.background.primary }]} edges={['top']}>
-      {/* Custom Header Row */}
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.system.background.primary }]} edges={['top', 'bottom']}>
       <View style={styles.customHeader}>
         <TouchableOpacity
           onPress={handleBack}

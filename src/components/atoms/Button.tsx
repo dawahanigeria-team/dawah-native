@@ -122,47 +122,24 @@ export const Button: React.FC<ButtonProps> = memo(
       }
     };
 
-    const getTextColor = () => {
-      const isDisabled = disabled || loading;
-
-      if (isDisabled) {
-        return "quaternaryLabel";
+    const getTextColor = (): { semanticColor?: string; fixedColor?: string } => {
+      if (disabled || loading) {
+        return { semanticColor: "quaternaryLabel" };
       }
 
       switch (variant) {
         case "filled":
         case "destructive":
-          return "label"; // White on colored background? Actually label.primary for filled might not be right if label is black in light mode.
-          // For filled buttons (brand color), we usually want white text regardless of theme, 
-          // unless brand color changes to very light. 
-          // However, colors.brand.primary is ~#30D158 (Green). White text is accessible on it?
-          // #30D158 is light green. White text on it might have low contrast (1.5:1).
-          // iOS often uses white text on systemBlue.
-          // Let's check contrast. #30D158 is quite bright.
-          // The previous code had: return "primary"; // White on colored background
-          // But "primary" label color in light mode is Black.
-          // So "filled" variant needs explicit white text usually.
+          return { fixedColor: "#FFFFFF" };
         case "tinted":
+          return { semanticColor: "brand" };
         case "gray":
-          return "brand"; // Use brand color for tinted text? Or label?
-          // Previous code: return "primary"; 
+          return { semanticColor: "label" };
         case "plain":
         default:
-          return "brand";
+          return { semanticColor: "brand" };
       }
     };
-
-    // Fix for button text color handling in light mode
-    // We can't rely just on 'label' (which flips black/white) for filled buttons if we want white text always.
-    // But let's stick to the mapping logic for now and assume the Text component handles 'label' correctly.
-    // Wait, the `Text` component maps `color='label'` to `colors.system.label.primary`.
-    // In Light Mode, `label.primary` is Black.
-    // If we have a Green button, we might want White text or Black text depending on the green.
-    // If `colors.brand.primary` is #34C759 (Light Mode Green), Black text (13:1) is better than White (1.5:1).
-    // So actually, standard `label` color (Black in light mode) is CORRECT for accessibility on bright green.
-    // In Dark Mode, `label.primary` is White. Green is #30D158. Black text is still better contrast, but White is 1.6:1.
-    // Apple uses White on Blue/Green usually. But pure accessibility says Black on Light Green.
-    // Let's trust the system label color for now.
 
     const getTextVariant = () => {
       switch (size) {
@@ -195,42 +172,12 @@ export const Button: React.FC<ButtonProps> = memo(
     const finalAccessibilityLabel =
       accessibilityLabel || defaultAccessibilityLabel;
 
-    // Special handling for filled button text color to ensure contrast
-    // If variant is filled, we might want to force a specific color if the brand color requires it.
-    // But for now, let's pass the semantic color variant.
-    
-    let textColorVariant: any = getTextColor();
-    
-    // Override: If filled, usually we want white text if the background is dark enough, 
-    // or black if it's light.
-    // Current design tokens: Light Green and Dark Green.
-    // Let's stick to 'label' (primary system color) which adapts.
+    const textColorConfig = getTextColor();
 
-    if (variant === 'filled') {
-        // If we want white text explicitly (like standard iOS buttons often do), 
-        // we need to pass a specific style or color prop that resolves to white.
-        // But `Text` component doesn't have a 'white' variant.
-        // `label` is the safest semantic choice.
-        textColorVariant = 'label'; 
-        // Wait, previous code returned 'primary'. In Text.tsx, 'primary' wasn't a valid key for `color` prop. 
-        // The `Text` component accepts `ColorVariant` = 'label' | 'brand' etc.
-        // The previous `Button.tsx` returned strings like "primary", "secondary" which matched... what?
-        // Ah, `Text` props: `color?: 'label' | ...`.
-        // The previous Button code had `getTextColor` returning "primary", "secondary".
-        // This likely meant it was relying on a different Text component or I misread `Text.tsx`.
-        // `Text.tsx` has `color?: ColorVariant`. 
-        // ColorVariant = 'label' | 'secondaryLabel' ...
-        // So `return "primary"` was actually invalid or falling back to default?
-        // Let's check `Text.tsx` again. It has `default: return { color: designTokens.colors.system.label.primary };`.
-        // So "primary" fell back to default label color.
-        
-        // Correcting this:
-        textColorVariant = 'label';
-    } else if (variant === 'plain') {
-        textColorVariant = 'brand';
-    } else {
-        textColorVariant = 'label';
-    }
+    // Determine loader color based on button variant
+    const loaderColor = (variant === 'filled' || variant === 'destructive')
+      ? '#FFFFFF'
+      : colors.system.label.primary;
 
     return (
       <TouchableOpacity
@@ -247,23 +194,16 @@ export const Button: React.FC<ButtonProps> = memo(
         {leftIcon && !loading && leftIcon}
 
         {loading ? (
-          <ActivityIndicator
-            size="small"
-            color={
-               // Ensure loader is visible
-               colors.system.label.primary
-            }
-          />
+          <ActivityIndicator size="small" color={loaderColor} />
         ) : (
           <Text
             variant={getTextVariant()}
-            color={textColorVariant}
+            color={textColorConfig.semanticColor as any}
             weight={variant === "plain" ? "regular" : "semibold"}
             style={{
               marginLeft: leftIcon ? designTokens.spacing.sm : 0,
               marginRight: rightIcon ? designTokens.spacing.sm : 0,
-              // If it's a filled button, and we really want White text (common for brand buttons):
-              ...(variant === 'filled' || variant === 'destructive' ? { color: '#FFFFFF' } : {})
+              ...(textColorConfig.fixedColor && { color: textColorConfig.fixedColor })
             }}
           >
             {children}

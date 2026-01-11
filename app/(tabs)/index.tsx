@@ -42,7 +42,18 @@ export default function HomeScreen() {
   const { lectures: trendingLectures, loading: trendingLoading, error: trendingError } = useTrending({ limit: 10 });
 
   // Fetch Quran albums for the 'Quran Recitations' section
-  const { albums: quranAlbums, loading: quranLoading, error: quranError } = useQuranAlbums({ limit: 10 });
+  const { albums: quranAlbumsRaw, loading: quranLoading, error: quranError } = useQuranAlbums({ limit: 10 });
+
+  // Deduplicate Quran albums by name (API may return duplicates)
+  const quranAlbums = useMemo(() => {
+    const seen = new Set<string>();
+    return quranAlbumsRaw.filter((album) => {
+      const name = album.name?.toLowerCase().trim();
+      if (!name || seen.has(name)) return false;
+      seen.add(name);
+      return true;
+    });
+  }, [quranAlbumsRaw]);
 
   // Fetch recently played lectures using the custom hook
   const { lectures: recentlyPlayed, loading: recentlyPlayedLoading, error: recentlyPlayedError } = useRecentlyPlayedLectures(10);
@@ -166,13 +177,19 @@ export default function HomeScreen() {
       return null;
     }
 
+    // Build meaningful subtitle: "X Surahs • Language" or just count/language
+    const surahCount = item.lec_no || 0;
+    const subtitle = surahCount > 0
+      ? `${surahCount} ${surahCount === 1 ? 'Surah' : 'Surahs'}`
+      : item.language || '';
+
     return (
       <View style={{ width: 140 }}>
         <Card
           variant="square"
           data={{
             id: item.id,
-            title: item.name || 'Unknown Album',
+            title: item.name || 'Unknown Reciter',
             durationSec: 0,
             coverUrl: item.img || item.alb_thumbnail,
             audioUrl: '',
@@ -186,8 +203,8 @@ export default function HomeScreen() {
           }}
           onPress={() => handleAlbumPress(item)}
           playOnPress={false}
-          showMeta={true}
-          metaValue={item.name || 'Unknown'}
+          showMeta={!!subtitle}
+          metaValue={subtitle}
         />
       </View>
     );

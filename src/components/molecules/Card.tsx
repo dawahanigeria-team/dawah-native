@@ -165,12 +165,12 @@ export const Card: React.FC<CardProps> = memo(
               )}
             </View>
 
-            <View style={{ marginTop: designTokens.spacing.sm }}>
+            <View style={{ marginTop: designTokens.spacing.sm, height: 56 }}>
               <Text
                 variant="subheadline"
                 color="label"
                 weight="semibold"
-                numberOfLines={2}
+                numberOfLines={1}
                 style={{
                   lineHeight:
                     designTokens.typography.fontSize.subheadline *
@@ -182,8 +182,10 @@ export const Card: React.FC<CardProps> = memo(
               {showMeta && metaValue && (
                 <Text
                   variant="caption1"
-                  color="secondaryLabel"
-                  style={{ marginTop: designTokens.spacing.xs }}
+                  color="label"
+                  weight="regular"
+                  numberOfLines={1}
+                  style={{ marginTop: designTokens.spacing.xs, opacity: 0.7 }}
                 >
                   {metaValue}
                 </Text>
