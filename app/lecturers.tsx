@@ -28,6 +28,7 @@ export default function LecturersScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalScholars, setTotalScholars] = useState<number>(0);
+  const [allLecturersLoaded, setAllLecturersLoaded] = useState(false);
   const itemsPerPage = 20; // Optimized for Nigerian internet speeds
 
   // Filter & Search states
@@ -49,10 +50,100 @@ export default function LecturersScreen() {
     router.push(`/lecturer/${id}`);
   }, []);
 
+  // Load all lecturers for accurate filtering
+  const fetchAllLecturers = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const allData: Lecturer[] = [];
+      let currentPage = 1;
+      let hasMoreData = true;
+      const batchSize = 50; // Larger batches for efficiency
+
+      console.log('📚 Loading all lecturers for filtering...');
+
+      while (hasMoreData) {
+        console.log(`⏳ Fetching page ${currentPage} with batch size ${batchSize}...`);
+
+        const response = await lecturersApi.getAllLecturers({
+          page: currentPage,
+          lim: batchSize,
+        });
+
+        console.log(`📦 Response for page ${currentPage}:`, {
+          dataLength: response.data.length,
+          total: response.total,
+          hasData: response.data.length > 0
+        });
+
+        if (response.data.length > 0) {
+          // Filter out duplicates before adding
+          const existingIds = new Set(allData.map(l => String(l.id)));
+          const newItems = response.data.filter((item: Lecturer) => !existingIds.has(String(item.id)));
+
+          // Log sample names from this batch
+          if (newItems.length > 0) {
+            console.log(`📝 Sample names from page ${currentPage}:`, newItems.slice(0, 3).map(l => l.name));
+          }
+
+          allData.push(...newItems);
+
+          console.log(`📖 Page ${currentPage}: Loaded ${newItems.length} new lecturers (Total: ${allData.length}/${response.total || 'unknown'})`);
+
+          currentPage++;
+          hasMoreData = response.data.length === batchSize;
+
+          console.log(`🔄 Continue loading? ${hasMoreData} (got ${response.data.length}, expected ${batchSize})`);
+        } else {
+          console.log(`🛑 No more data on page ${currentPage}`);
+          hasMoreData = false;
+        }
+
+        // Safety limit to prevent infinite loops
+        if (currentPage > 100) {
+          console.warn('⚠️ Reached safety limit of 100 pages');
+          break;
+        }
+      }
+
+      console.log(`✅ FINAL: Loaded ${allData.length} total lecturers`);
+
+      // Log all unique locations
+      const allLocations = allData
+        .map(l => extractLocationFromName(l.name))
+        .filter(Boolean);
+      const uniqueLocations = Array.from(new Set(allLocations));
+      console.log(`🌍 Unique locations found (${uniqueLocations.length}):`, uniqueLocations.sort());
+
+      // Count lecturers per location
+      const locationCounts: Record<string, number> = {};
+      allData.forEach(l => {
+        const loc = extractLocationFromName(l.name);
+        if (loc) {
+          locationCounts[loc] = (locationCounts[loc] || 0) + 1;
+        }
+      });
+      console.log(`📊 Lecturers per location:`, locationCounts);
+
+      setLecturers(allData);
+      setTotalScholars(allData.length);
+      setAllLecturersLoaded(true);
+      setHasMore(false); // All data is loaded
+
+    } catch (err) {
+      console.error('❌ Failed to fetch all lecturers:', err);
+      setError('Failed to load scholars');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const fetchLecturers = useCallback(async (pageNum: number, isRefresh = false) => {
     try {
       if (isRefresh) {
         setRefreshing(true);
+        setAllLecturersLoaded(false); // Reset on refresh
       } else if (pageNum > 1) {
         setLoadingMore(true);
       } else {
@@ -123,6 +214,13 @@ export default function LecturersScreen() {
   useEffect(() => {
     let result = [...lecturers];
 
+    console.log('🔍 Filtering with:', {
+      totalLecturers: lecturers.length,
+      searchQuery,
+      selectedLocation,
+      sortBy
+    });
+
     // Apply search filter (client-side)
     if (searchQuery.trim()) {
       result = result.filter(lecturer =>
@@ -132,10 +230,27 @@ export default function LecturersScreen() {
 
     // Apply location filter (client-side)
     if (selectedLocation) {
+      console.log(`📍 Filtering for location: "${selectedLocation}"`);
+
+      // Debug: Log all extracted locations
+      const locationMap = lecturers.map(l => ({
+        name: l.name,
+        extractedLocation: extractLocationFromName(l.name)
+      }));
+      console.log('🗺️ All extracted locations:', locationMap);
+
       result = result.filter((lecturer) => {
         const location = extractLocationFromName(lecturer.name);
-        return location === selectedLocation;
+        const matches = location === selectedLocation;
+
+        if (matches) {
+          console.log(`✅ Match found: "${lecturer.name}" → "${location}"`);
+        }
+
+        return matches;
       });
+
+      console.log(`🎯 Filtered to ${result.length} lecturers for location "${selectedLocation}"`);
     }
 
     // Apply sorting
@@ -155,17 +270,17 @@ export default function LecturersScreen() {
     setFilteredLecturers(result);
   }, [lecturers, searchQuery, sortBy, selectedLocation]);
 
-  // Reset page when filters are cleared to re-enable pagination
+  // Load all lecturers when location filter is applied
   useEffect(() => {
-    if (!searchQuery && !selectedLocation && page > 1) {
-      // Filters cleared, reset to enable pagination from current point
-      setHasMore(lecturers.length < totalScholars);
+    if (selectedLocation && !allLecturersLoaded) {
+      console.log('🔍 Location filter applied, loading all lecturers...');
+      fetchAllLecturers();
     }
-  }, [searchQuery, selectedLocation, page, lecturers.length, totalScholars]);
+  }, [selectedLocation, allLecturersLoaded, fetchAllLecturers]);
 
   const handleLoadMore = () => {
-    // Disable pagination when filters are active (client-side filtering requires all data)
-    if (searchQuery || selectedLocation) {
+    // Disable pagination when filters are active or all data is loaded
+    if (searchQuery || selectedLocation || allLecturersLoaded) {
       return;
     }
 
@@ -262,9 +377,34 @@ export default function LecturersScreen() {
   }, [error, handleRefresh, searchQuery, selectedLocation]);
 
   const renderFooter = () => {
+    // Show loading when fetching all lecturers for filtering
+    if (loading && selectedLocation && !allLecturersLoaded) {
+      return (
+        <View style={tw`py-8 items-center`}>
+          <ActivityIndicator size="large" color={designTokens.colors.brand.primary} />
+          <Text
+            style={[
+              tw`mt-3 text-sm`,
+              { color: designTokens.colors.system.label.secondary },
+            ]}
+          >
+            Loading all scholars for filtering...
+          </Text>
+          <Text
+            style={[
+              tw`mt-1 text-xs`,
+              { color: designTokens.colors.system.label.tertiary },
+            ]}
+          >
+            This may take a moment
+          </Text>
+        </View>
+      );
+    }
+
     if (!loadingMore) {
-      // Don't show "Load More" hint when filters are active (pagination is disabled)
-      if (searchQuery || selectedLocation) {
+      // Don't show "Load More" hint when filters are active or all data loaded
+      if (searchQuery || selectedLocation || allLecturersLoaded) {
         return null;
       }
 
@@ -444,7 +584,7 @@ export default function LecturersScreen() {
                 ? `${filteredLecturers.length} found`
                 : `${lecturers.length} scholars`}
             </Text>
-            {!searchQuery && !selectedLocation && totalScholars > lecturers.length && (
+            {!searchQuery && !selectedLocation && !allLecturersLoaded && totalScholars > lecturers.length && (
               <Text
                 style={[
                   tw`text-xs mt-0.5`,
@@ -454,14 +594,14 @@ export default function LecturersScreen() {
                 Scroll for more
               </Text>
             )}
-            {(searchQuery || selectedLocation) && lecturers.length < totalScholars && (
+            {allLecturersLoaded && (
               <Text
                 style={[
                   tw`text-xs mt-0.5`,
                   { color: designTokens.colors.system.label.tertiary },
                 ]}
               >
-                Clear filters to load more
+                All scholars loaded
               </Text>
             )}
           </View>
