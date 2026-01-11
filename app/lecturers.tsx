@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -32,33 +32,24 @@ export default function LecturersScreen() {
 
   // Filter & Search states
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'name' | 'popular' | 'lectures'>('popular');
 
-  const languages = ['All', 'English', 'Arabic', 'Hausa', 'Yoruba', 'Igbo', 'Pidgin English', 'Nupe', 'Igala', 'Ebira'];
-
-  // Map language names to IDs for API (from /all_lang_api.php)
-  const getLanguageId = (languageName: string | null): number | undefined => {
-    if (!languageName || languageName === 'All') return undefined;
-    const languageMap: Record<string, number> = {
-      'Arabic': 157,
-      'Ebira': 877,
-      'English': 6,
-      'Hausa': 8,
-      'Igala': 50041,
-      'Igbo': 9,
-      'Nupe': 53181,
-      'Pidgin English': 46504,
-      'Yoruba': 7,
-    };
-    return languageMap[languageName];
+  const extractLocationFromName = (name: string): string | null => {
+    // Common pattern: "Full Name (State/City)".
+    // We take the last parentheses group. If none, return null.
+    const match = name.match(/\(([^)]+)\)\s*$/);
+    if (!match?.[1]) return null;
+    const location = match[1].trim();
+    if (!location) return null;
+    return location;
   };
 
   const handleLecturerPress = useCallback((id: string) => {
     router.push(`/lecturer/${id}`);
   }, []);
 
-  const fetchLecturers = useCallback(async (pageNum: number, isRefresh = false, filters?: { language?: string }) => {
+  const fetchLecturers = useCallback(async (pageNum: number, isRefresh = false) => {
     try {
       if (isRefresh) {
         setRefreshing(true);
@@ -69,19 +60,10 @@ export default function LecturersScreen() {
       }
       setError(null);
 
-      const activeLanguage = filters?.language || selectedLanguage;
-      const languageId = getLanguageId(activeLanguage);
-
-
       const requestParams: any = {
         page: pageNum,
         lim: itemsPerPage,
       };
-
-      // Add language filter if selected (API service will convert to 'langid')
-      if (languageId) {
-        requestParams.language = languageId;
-      }
 
       const response = await lecturersApi.getAllLecturers(requestParams);
 
@@ -135,15 +117,7 @@ export default function LecturersScreen() {
   // Initial load
   useEffect(() => {
     fetchLecturers(1);
-  }, []);
-
-  // Refetch when LANGUAGE filter changes (server-side filter)
-  useEffect(() => {
-    // Reset and refetch with new language filter
-    setPage(1);
-    setLecturers([]);
-    fetchLecturers(1, false, { language: selectedLanguage || undefined });
-  }, [selectedLanguage]);
+  }, [fetchLecturers]);
 
   // Apply search and sorting (client-side only)
   useEffect(() => {
@@ -154,6 +128,14 @@ export default function LecturersScreen() {
       result = result.filter(lecturer =>
         lecturer.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
+    }
+
+    // Apply location filter (client-side)
+    if (selectedLocation) {
+      result = result.filter((lecturer) => {
+        const location = extractLocationFromName(lecturer.name);
+        return location === selectedLocation;
+      });
     }
 
     // Apply sorting
@@ -171,7 +153,7 @@ export default function LecturersScreen() {
     });
 
     setFilteredLecturers(result);
-  }, [lecturers, searchQuery, sortBy]);
+  }, [lecturers, searchQuery, sortBy, selectedLocation]);
 
   const handleLoadMore = () => {
     if (!loadingMore && hasMore) {
@@ -205,7 +187,7 @@ export default function LecturersScreen() {
   );
 
   const renderEmptyState = useCallback(() => {
-    const hasActiveFilters = searchQuery.trim() || selectedLanguage;
+    const hasActiveFilters = searchQuery.trim() || selectedLocation;
 
     return (
       <View style={tw`py-20 items-center px-6`}>
@@ -226,7 +208,7 @@ export default function LecturersScreen() {
           <TouchableOpacity
             onPress={() => {
               setSearchQuery('');
-              setSelectedLanguage(null);
+              setSelectedLocation(null);
             }}
             style={[
               tw`mt-4 px-5 py-3 rounded-lg`,
@@ -264,7 +246,7 @@ export default function LecturersScreen() {
         )}
       </View>
     );
-  }, [error, handleRefresh, searchQuery, selectedLanguage]);
+  }, [error, handleRefresh, searchQuery, selectedLocation]);
 
   const renderFooter = () => {
     if (!loadingMore) {
@@ -377,19 +359,31 @@ export default function LecturersScreen() {
         </View>
       </View>
 
-      {/* Language Filter Chips */}
+      {/* Location (State/City) Filter Chips */}
       <View style={tw`pb-3`}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={tw`px-5`}
         >
-          {languages.map((lang) => {
-            const isSelected = selectedLanguage === lang || (lang === 'All' && !selectedLanguage);
+          {(() => {
+            const locations = Array.from(
+              new Set(
+                lecturers
+                  .map((l) => extractLocationFromName(l.name))
+                  .filter(Boolean) as string[]
+              )
+            ).sort((a, b) => a.localeCompare(b));
+
+            const options = ['All', ...locations];
+
+            return options.map((loc) => {
+              const isSelected = selectedLocation === loc || (loc === 'All' && !selectedLocation);
+              const label = loc;
             return (
               <TouchableOpacity
-                key={lang}
-                onPress={() => setSelectedLanguage(lang === 'All' ? null : lang)}
+                key={loc}
+                onPress={() => setSelectedLocation(loc === 'All' ? null : loc)}
                 style={[
                   tw`px-4 py-2 rounded-full mr-2`,
                   {
@@ -409,11 +403,12 @@ export default function LecturersScreen() {
                     },
                   ]}
                 >
-                  {lang}
+                  {label}
                 </Text>
               </TouchableOpacity>
             );
-          })}
+            });
+          })()}
         </ScrollView>
       </View>
 
@@ -427,11 +422,11 @@ export default function LecturersScreen() {
                 { color: designTokens.colors.system.label.primary },
               ]}
             >
-              {searchQuery || selectedLanguage
+              {searchQuery || selectedLocation
                 ? `${filteredLecturers.length} found`
                 : `${lecturers.length} scholars`}
             </Text>
-            {!searchQuery && !selectedLanguage && totalScholars > lecturers.length && (
+            {!searchQuery && !selectedLocation && totalScholars > lecturers.length && (
               <Text
                 style={[
                   tw`text-xs mt-0.5`,
@@ -441,7 +436,7 @@ export default function LecturersScreen() {
                 Scroll for more
               </Text>
             )}
-            {(searchQuery || selectedLanguage) && hasMore && (
+            {(searchQuery || selectedLocation) && hasMore && (
               <Text
                 style={[
                   tw`text-xs mt-0.5`,

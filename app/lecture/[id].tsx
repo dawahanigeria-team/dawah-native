@@ -31,7 +31,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Button, Chip, Text, Touchable } from "../../src/components/atoms";
 import AddToPlaylistModal from "../../src/components/organisms/AddToPlaylistModal";
 import { useLectureDetail } from "../../src/hooks/useLectureDetail";
-import { searchApi } from "../../src/services/api/search.api";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
 import { DownloadStatus } from "../../src/services/downloads/downloadQueue.service";
 import { linkingService } from "../../src/services/linking.service";
