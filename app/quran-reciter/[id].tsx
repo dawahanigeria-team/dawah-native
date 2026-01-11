@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { Stack, useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -29,13 +29,22 @@ const QuranReciterScreen: React.FC = () => {
   const { colors } = useTheme();
   const navigation = useNavigation();
 
+  // Check navigation state once to avoid calling canGoBack inline in render
+  const canGoBack = useMemo(() => {
+    try {
+      return navigation.canGoBack();
+    } catch {
+      return false;
+    }
+  }, [navigation]);
+
   const handleBack = useCallback(() => {
-    if (navigation.canGoBack()) {
+    if (canGoBack) {
       router.back();
     } else {
       router.replace('/');
     }
-  }, [navigation, router]);
+  }, [canGoBack, router]);
   const [album, setAlbum] = useState<QuranAlbum | null>(null);
   const [recitations, setRecitations] = useState<QuranRecitation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -360,10 +369,10 @@ const QuranReciterScreen: React.FC = () => {
             }
           ]}
           accessibilityRole="button"
-          accessibilityLabel={navigation.canGoBack() ? "Go back" : "Go home"}
+          accessibilityLabel={canGoBack ? "Go back" : "Go home"}
         >
           <Icon
-            name={navigation.canGoBack() ? "chevron-back" : "home"}
+            name={canGoBack ? "chevron-back" : "home"}
             size="lg"
             color="label"
           />
