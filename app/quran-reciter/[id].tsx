@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
-import { Stack, useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -29,22 +29,22 @@ const QuranReciterScreen: React.FC = () => {
   const { colors } = useTheme();
   const navigation = useNavigation();
 
-  // Check navigation state once to avoid calling canGoBack inline in render
-  const canGoBack = useMemo(() => {
-    try {
-      return navigation.canGoBack();
-    } catch {
-      return false;
-    }
-  }, [navigation]);
-
   const handleBack = useCallback(() => {
+    // Check navigation state at call time to ensure accuracy
+    // Navigation history can change during component lifecycle
+    let canGoBack = false;
+    try {
+      canGoBack = navigation.canGoBack();
+    } catch {
+      canGoBack = false;
+    }
+
     if (canGoBack) {
       router.back();
     } else {
       router.replace('/');
     }
-  }, [canGoBack, router]);
+  }, [navigation, router]);
   const [album, setAlbum] = useState<QuranAlbum | null>(null);
   const [recitations, setRecitations] = useState<QuranRecitation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -349,6 +349,14 @@ const QuranReciterScreen: React.FC = () => {
         </View>
       </SafeAreaView>
     );
+  }
+
+  // Compute navigation state for UI (checked fresh on each render)
+  let canGoBack = false;
+  try {
+    canGoBack = navigation.canGoBack();
+  } catch {
+    canGoBack = false;
   }
 
   return (

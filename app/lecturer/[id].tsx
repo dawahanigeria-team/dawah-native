@@ -77,7 +77,7 @@ export default function LecturerDetailScreen() {
     };
 
     resolve();
-  }, [lecturerId, lecturerNameHint]);
+  }, [lecturerId, lecturerNameHint, router]);
 
   // States
   const [lecturer, setLecturer] = useState<any>(null);
