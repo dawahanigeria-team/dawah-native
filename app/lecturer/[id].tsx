@@ -24,9 +24,60 @@ type TabType = 'songs' | 'albums' | 'playlists';
 const PAGE_SIZE = 10;
 
 export default function LecturerDetailScreen() {
-  const { id } = useLocalSearchParams();
+  const { id, name } = useLocalSearchParams();
   const lecturerId = id as string;
+  const lecturerNameHint = (name as string) || '';
   const { playEpisode } = usePlayerActions();
+
+  // If we navigated here without a valid lecturer id (e.g., id=0), try resolving by name.
+  useEffect(() => {
+    const normalizeName = (value: string): string =>
+      value
+        .replace(/\[[^\]]*\]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+
+    const resolve = async () => {
+      if (!lecturerNameHint || lecturerNameHint.trim().length < 2) return;
+      if (String(lecturerId) !== '0') return;
+
+      try {
+        const cleanedQuery = lecturerNameHint.replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();
+        const cleaned = normalizeName(cleanedQuery);
+
+        // Prefer resolving via the lecturers (RPs) list to get the canonical ID.
+        // Search can fail depending on backend indexing.
+        try {
+          // Try a couple pages to increase hit rate without over-fetching.
+          for (const page of [1, 2, 3]) {
+            const list = await lecturersApi.getAllLecturers({ page, lim: 200 });
+            const exact = list.data.find((l) => normalizeName(l.name) === cleaned);
+            const best = exact || list.data.find((l) => normalizeName(l.name).includes(cleaned));
+            if (best?.id && String(best.id) !== '0') {
+              router.replace(`/lecturer/${best.id}`);
+              return;
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to resolve lecturer from lecturers list', err);
+        }
+
+        const res = await searchApi.searchLecturers(cleanedQuery, 1);
+        const candidates = res.data || [];
+        const exact = candidates.find((c) => normalizeName(c.name) === cleaned);
+        const best = exact || candidates[0];
+
+        if (best?.id && String(best.id) !== '0') {
+          router.replace(`/lecturer/${best.id}`);
+        }
+      } catch (err) {
+        console.warn('Failed to resolve lecturer by name', err);
+      }
+    };
+
+    resolve();
+  }, [lecturerId, lecturerNameHint]);
 
   // States
   const [lecturer, setLecturer] = useState<any>(null);
@@ -74,7 +125,18 @@ export default function LecturerDetailScreen() {
     try {
       setLoading(true);
       const data = await lecturersApi.getLecturerDetails(lecturerId);
-      setLecturer(data);
+
+      // If we arrived here via name-hint flow (id=0), prefer showing the name hint
+      // even if the underlying fetch returns "Unknown Lecturer".
+      if (String(lecturerId) === '0' && lecturerNameHint.trim().length >= 2) {
+        setLecturer({
+          ...(data || {}),
+          id: lecturerId,
+          name: lecturerNameHint,
+        });
+      } else {
+        setLecturer(data);
+      }
     } catch (err) {
       console.error('Failed to fetch lecturer details:', err);
       setError('Failed to load lecturer details');

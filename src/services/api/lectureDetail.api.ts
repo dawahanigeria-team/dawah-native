@@ -3,9 +3,9 @@
  * Fetches detailed information about a single lecture
  */
 
+import type { LectureDetail, LectureDetailApiItem } from '../../types/api.types';
 import { API_CONFIG } from '../config/api.config';
 import { apiClient, ApiError } from './base.api';
-import type { LectureDetailApiItem, LectureDetail } from '../../types/api.types';
 
 export interface LectureDetailParams {
   lectureId: string | number;
@@ -98,6 +98,16 @@ class LectureDetailApiService {
     const downloads = this.parseNumber(item.downloads);
     const comments = this.parseNumber(item.comment);
 
+    const lecturerIdCandidate = item.rp_id ?? item.lecturer_id ?? item.reciter_id;
+    const lecturerId = (() => {
+      if (lecturerIdCandidate === null || lecturerIdCandidate === undefined) return undefined;
+      const asString = String(lecturerIdCandidate).trim();
+      if (!asString || asString === '0') return undefined;
+      return asString;
+    })();
+
+    const lecturerImage = item.reciter_image || item.lec_img || item.img || '';
+
     const lecture: LectureDetail = {
       id: String(item.nid ?? lectureId),
       title: item.Title ?? 'Untitled Lecture',
@@ -120,7 +130,10 @@ class LectureDetailApiService {
       downloads,
       comments,
       language: item.lang ?? '',
+      lecturerId,
       lecturerName: item.rpname || item.reciter_name || '',
+      lecturerImage,
+      isReciter: item.is_reciter ?? false,
       updatedDate: item.updated_date ?? '',
       postedDate: item.post_date ?? '',
       charts: item.charts ?? {},

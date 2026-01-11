@@ -31,6 +31,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Button, Chip, Text, Touchable } from "../../src/components/atoms";
 import AddToPlaylistModal from "../../src/components/organisms/AddToPlaylistModal";
 import { useLectureDetail } from "../../src/hooks/useLectureDetail";
+import { searchApi } from "../../src/services/api/search.api";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
 import { DownloadStatus } from "../../src/services/downloads/downloadQueue.service";
 import { linkingService } from "../../src/services/linking.service";
@@ -524,10 +525,60 @@ const LectureDetailScreen: React.FC = () => {
               {cleanTitle(lecture.title, lecture.lecturerName)}
             </Text>
             {lecture.lecturerName && (
-              <Touchable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}>
+              <Touchable
+                onPress={async () => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+                  const normalizeId = (value: unknown): string | null => {
+                    if (value === null || value === undefined) return null;
+                    const s = String(value).trim();
+                    if (!s || s === '0') return null;
+                    return s;
+                  };
+
+                  const normalizeName = (value: string): string =>
+                    value
+                      .replace(/\[[^\]]*\]/g, '') // remove bracketed honorifics/notes
+                      .replace(/\s+/g, ' ')
+                      .trim()
+                      .toLowerCase();
+
+                  // Prefer normalized lecturerId, then fall back to known fields
+                  const directId =
+                    normalizeId(lecture.lecturerId) ||
+                    normalizeId(lecture.raw?.rp_id) ||
+                    normalizeId(lecture.raw?.lecturer_id) ||
+                    normalizeId(lecture.reciter?.id);
+
+                  if (directId) {
+                    router.push(`/lecturer/${directId}`);
+                    return;
+                  }
+
+                  // No ID from API (common). Navigate to lecturer screen anyway, passing a name hint
+                  // so the lecturer screen can resolve a real ID (and replace route) if possible.
+                  const lecturerName = lecture.lecturerName?.trim() || '';
+                  const cleanedQuery = lecturerName.replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();
+
+                  router.push({
+                    pathname: '/lecturer/[id]',
+                    params: {
+                      id: '0',
+                      name: cleanedQuery,
+                    },
+                  } as any);
+                }}
+              >
                 <View style={tw`flex-row items-center mt-3`}>
                   <View style={[tw`w-10 h-10 rounded-full items-center justify-center mr-3`, { backgroundColor: designTokens.colors.brand.primary + '20' }]}>
-                    <Ionicons name="person" size={20} color={designTokens.colors.brand.primary} />
+                    {lecture.lecturerImage ? (
+                      <Image
+                        source={{ uri: lecture.lecturerImage }}
+                        style={tw`w-10 h-10 rounded-full`}
+                      />
+                    ) : (
+                        <Ionicons name="person" size={20} color={designTokens.colors.brand.primary} />
+                    )}
                   </View>
                   <View style={tw`flex-1`}>
                     <Text variant="subheadline" color="label" weight="semibold">
