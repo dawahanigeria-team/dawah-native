@@ -24,9 +24,9 @@ type TabType = 'songs' | 'albums' | 'playlists';
 const PAGE_SIZE = 10;
 
 export default function LecturerDetailScreen() {
-  const { id, name } = useLocalSearchParams();
-  const lecturerId = id as string;
-  const lecturerNameHint = (name as string) || '';
+  const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
+  const lecturerId = Array.isArray(id) ? id[0] : id;
+  const lecturerNameHint = Array.isArray(name) ? name[0] : (name || '');
   const { playEpisode } = usePlayerActions();
 
   // If we navigated here without a valid lecturer id (e.g., id=0), try resolving by name.

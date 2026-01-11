@@ -194,30 +194,22 @@ export default function SearchScreen() {
 
   const renderSearchResult = (item: SearchLecture) => {
     const resourcePerson = item.lecturer_name || item.ResourcePerson || "Unknown Scholar";
-    // UX: Show full title + full lecturer name (wrap, no truncation)
     const metaValue = resourcePerson;
     const data = convertToEpisode(item);
 
     return (
-      <View style={tw`mb-2`}>
-        <Card
-          variant="landscape"
-          data={data}
-          onPress={() => handleItemPress(item)}
-          playOnPress={false}
-          showTime={true}
-          showMeta={true}
-          metaValue={metaValue}
-          titleNumberOfLines={0}
-          metaNumberOfLines={0}
-          showBadge={false}
-          style={{
-            padding: designTokens.spacing.md, // Reduced from xl (24px -> 16px)
-            marginBottom: 0, // Handled by parent View
-            minHeight: 96, // May grow with long titles
-          }}
-        />
-      </View>
+      <Card
+        variant="landscape"
+        data={data}
+        onPress={() => handleItemPress(item)}
+        playOnPress={false}
+        showTime={true}
+        showMeta={true}
+        metaValue={metaValue}
+        titleNumberOfLines={2}
+        metaNumberOfLines={1}
+        showBadge={false}
+      />
     );
   };
 
