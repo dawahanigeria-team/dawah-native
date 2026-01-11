@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useState } from "react";
+import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import { TextInput, View, ViewStyle } from "react-native";
 import { BorderRadius, designTokens } from "../../theme/designTokens";
 import { Icon, Touchable } from "../atoms";
@@ -38,9 +38,22 @@ export const SearchBar: React.FC<SearchBarProps> = memo(
     style,
   }) => {
     const [internalValue, setInternalValue] = useState(value || "");
+    const inputRef = useRef<TextInput>(null);
 
     const isControlled = value !== undefined;
     const currentValue = isControlled ? value : internalValue;
+
+    // Keep internal state in sync if parent controls the value or if we switch modes.
+    // Also force-clear the native input when the value becomes empty (helps on iOS when
+    // navigating back/forth and the TextInput retains its previous native text).
+    useEffect(() => {
+      if (isControlled) {
+        setInternalValue(value ?? "");
+        if ((value ?? "") === "") {
+          inputRef.current?.clear();
+        }
+      }
+    }, [isControlled, value]);
 
     // Handle text change without auto-triggering search
     const handleTextChange = useCallback(
@@ -100,6 +113,7 @@ export const SearchBar: React.FC<SearchBarProps> = memo(
         />
 
         <TextInput
+          ref={inputRef}
           style={inputStyle}
           placeholder={placeholder}
           placeholderTextColor={designTokens.colors.system.label.tertiary}

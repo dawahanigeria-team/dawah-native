@@ -35,7 +35,7 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       setSearchValue("");
-    }, [])
+    }, [setSearchValue])
   );
 
   // Fetch popular lectures for the carousel (offline-first with cache)
@@ -136,11 +136,11 @@ export default function HomeScreen() {
 
   const handleCarouselItemPress = useCallback((episode: Episode) => {
     router.push(`/lecture/${episode.id}`);
-  }, [router]);
+  }, []);
 
   const handleAlbumPress = useCallback((album: QuranAlbum) => {
     router.push(`/quran-reciter/${album.id}`);
-  }, [router]);
+  }, []);
 
   const handleSearchSubmit = (query: string) => {
     // Navigate to search page when user submits
@@ -176,7 +176,7 @@ export default function HomeScreen() {
         />
       </View>
     );
-  }, [handleCarouselItemPress, router]);
+  }, [handleCarouselItemPress]);
 
   const renderAlbumItem = useCallback(({ item }: { item: QuranAlbum }) => {
     // Defensive check to prevent crashes from malformed data

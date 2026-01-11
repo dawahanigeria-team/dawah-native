@@ -21,6 +21,12 @@ interface CardProps {
   badgeText?: string;
   showMeta?: boolean;
   metaValue?: string;
+  /**
+   * Optional line limits for title/meta text.
+   * Use 0 to allow unlimited lines (wrap fully).
+   */
+  titleNumberOfLines?: number;
+  metaNumberOfLines?: number;
   borderRadius?: BorderRadius;
   style?: ViewStyle;
   playOnPress?: boolean;
@@ -39,6 +45,8 @@ export const Card: React.FC<CardProps> = memo(
     badgeText = "DN",
     showMeta = false,
     metaValue,
+    titleNumberOfLines,
+    metaNumberOfLines,
     borderRadius = "xl",
     style,
     playOnPress = true,
@@ -165,12 +173,12 @@ export const Card: React.FC<CardProps> = memo(
               )}
             </View>
 
-            <View style={{ marginTop: designTokens.spacing.sm, height: 56 }}>
+            <View style={{ marginTop: designTokens.spacing.sm, flexShrink: 1 }}>
               <Text
                 variant="subheadline"
                 color="label"
                 weight="semibold"
-                numberOfLines={1}
+                numberOfLines={titleNumberOfLines !== undefined ? (titleNumberOfLines <= 0 ? undefined : titleNumberOfLines) : 1}
                 style={{
                   lineHeight:
                     designTokens.typography.fontSize.subheadline *
@@ -184,7 +192,7 @@ export const Card: React.FC<CardProps> = memo(
                   variant="caption1"
                   color="label"
                   weight="regular"
-                  numberOfLines={1}
+                  numberOfLines={metaNumberOfLines !== undefined ? (metaNumberOfLines <= 0 ? undefined : metaNumberOfLines) : 1}
                   style={{ marginTop: designTokens.spacing.xs, opacity: 0.7 }}
                 >
                   {metaValue}
@@ -286,7 +294,7 @@ export const Card: React.FC<CardProps> = memo(
                 variant="body"
                 color="label"
                 weight="semibold"
-                numberOfLines={2}
+                numberOfLines={titleNumberOfLines !== undefined ? (titleNumberOfLines <= 0 ? undefined : titleNumberOfLines) : 2}
                 style={{
                   lineHeight: 22,
                   marginBottom: designTokens.spacing.xs,
@@ -299,7 +307,7 @@ export const Card: React.FC<CardProps> = memo(
                 <Text
                   variant="subheadline"
                   color="secondaryLabel"
-                  numberOfLines={1}
+                  numberOfLines={metaNumberOfLines !== undefined ? (metaNumberOfLines <= 0 ? undefined : metaNumberOfLines) : 1}
                   style={{
                     marginBottom: designTokens.spacing.xs,
                     fontSize: 15, // iOS subheadline size
