@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
-import { router } from "expo-router";
-import { useCallback, useEffect, useMemo } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card, CardSkeleton } from "../../src/components/molecules";
@@ -29,7 +29,14 @@ const Separator = () => <View style={{ width: ITEM_SPACING }} />;
 
 export default function HomeScreen() {
   const { playEpisode } = usePlayerActions();
+  const [searchValue, setSearchValue] = useState("");
 
+  // Clear search field when returning to homepage
+  useFocusEffect(
+    useCallback(() => {
+      setSearchValue("");
+    }, [])
+  );
 
   // Fetch popular lectures for the carousel (offline-first with cache)
   const {
@@ -262,6 +269,8 @@ export default function HomeScreen() {
       <View style={tw`px-4 mb-4`}>
         <SearchBar
           placeholder="Search lectures, scholars..."
+          value={searchValue}
+          onChangeText={setSearchValue}
           onSearch={handleSearchSubmit}
           onMicPress={handleMicPress}
           disabled={false}

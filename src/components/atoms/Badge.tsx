@@ -78,19 +78,17 @@ export const Badge: React.FC<BadgeProps> = memo(({
     }
   };
 
-  const getTextColor = (): 'label' | 'secondaryLabel' | 'tertiaryLabel' | 'quaternaryLabel' | 'systemBlue' | 'systemGreen' | 'systemRed' | 'brand' => {
+  const getTextColor = (): { semanticColor?: 'label'; fixedColor?: string } => {
     switch (variant) {
       case 'primary':
       case 'success':
       case 'warning':
       case 'error':
       case 'info':
-        // For colored backgrounds, use label color (which adapts to light/dark mode)
-        // In practice, this will be white/light on dark backgrounds
-        return 'label';
+        return { fixedColor: '#FFFFFF' };
       case 'secondary':
       default:
-        return 'label';
+        return { semanticColor: 'label' };
     }
   };
 
@@ -115,13 +113,16 @@ export const Badge: React.FC<BadgeProps> = memo(({
     ...style,
   };
 
+  const textColorConfig = getTextColor();
+
   return (
     <View style={combinedStyle}>
-      <Text 
+      <Text
         variant={getTextVariant()}
-        color={getTextColor()}
+        color={textColorConfig.semanticColor}
         weight="semibold"
         align="center"
+        style={textColorConfig.fixedColor ? { color: textColorConfig.fixedColor } : undefined}
       >
         {children}
       </Text>
