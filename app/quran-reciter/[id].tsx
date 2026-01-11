@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -292,6 +292,7 @@ const QuranReciterScreen: React.FC = () => {
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.system.background.primary }]} edges={['top', 'bottom']}>
+        <Stack.Screen options={{ title: 'Quran Reciter' }} />
         <View style={styles.customHeader}>
           <TouchableOpacity
             onPress={handleBack}
@@ -316,6 +317,7 @@ const QuranReciterScreen: React.FC = () => {
   if (error || !album) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.system.background.primary }]} edges={['top', 'bottom']}>
+        <Stack.Screen options={{ title: 'Quran Reciter' }} />
         <View style={styles.customHeader}>
           <TouchableOpacity
             onPress={handleBack}
@@ -342,6 +344,7 @@ const QuranReciterScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.system.background.primary }]} edges={['top', 'bottom']}>
+      <Stack.Screen options={{ title: album.name || 'Quran Reciter' }} />
       <View style={styles.customHeader}>
         <TouchableOpacity
           onPress={handleBack}

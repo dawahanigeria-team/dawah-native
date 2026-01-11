@@ -166,7 +166,10 @@ function RootLayout() {
             {/* Keep the app tree mounted while AsyncStorage hydration happens.
                 This prevents MiniPlayer/provider unmounts which look like "reloads". */}
             {isHydrating && (
-              <View style={StyleSheet.absoluteFill} pointerEvents="auto">
+              <View
+                style={StyleSheet.absoluteFill}
+                onStartShouldSetResponder={() => true}
+              >
                 <Loading fullScreen />
               </View>
             )}
