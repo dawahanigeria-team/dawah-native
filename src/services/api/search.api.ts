@@ -3,6 +3,7 @@
  * Handles all search-related API calls with optimized caching and performance
  */
 
+import { getLanguageId } from '../../utils/languages';
 import { API_CONFIG } from '../config/api.config';
 import { apiClient, ApiError } from './base.api';
 import {
@@ -81,8 +82,9 @@ class SearchApiService {
         requestParams.limit = 10; // Quick search always returns max 10 items
       }
 
-      if (params.language) {
-        requestParams.language = params.language;
+      if (params.language && params.language !== 'All') {
+        const langId = getLanguageId(params.language);
+        requestParams.language = langId || params.language;
       }
 
       if (params.category) {
