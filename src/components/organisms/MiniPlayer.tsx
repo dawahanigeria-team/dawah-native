@@ -296,20 +296,6 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
 
           {/* Controls */}
           <View style={styles.miniControls}>
-            {/* Rewind Button */}
-            <Touchable
-              onPress={() => seekBackward(15)}
-              style={styles.miniControlButton}
-              accessibilityLabel="Rewind 15 seconds"
-              accessibilityRole="button"
-            >
-              <Ionicons
-                name="play-back"
-                size={20}
-                color={designTokens.colors.system.label.secondary}
-              />
-            </Touchable>
-
             {/* Play/Pause Button */}
             {isLoading ? (
               <Loading size="small" />
@@ -327,20 +313,6 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                 />
               </Touchable>
             )}
-
-            {/* Forward Button */}
-            <Touchable
-              onPress={() => seekForward(15)}
-              style={styles.miniControlButton}
-              accessibilityLabel="Forward 15 seconds"
-              accessibilityRole="button"
-            >
-              <Ionicons
-                name="play-forward"
-                size={20}
-                color={designTokens.colors.system.label.secondary}
-              />
-            </Touchable>
           </View>
         </Pressable>
       </View>
@@ -814,15 +786,7 @@ const styles = StyleSheet.create({
   miniControls: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    minWidth: 150,
-  },
-  miniControlButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
     justifyContent: "center",
-    alignItems: "center",
   },
   playButton: {
     width: 44,

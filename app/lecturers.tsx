@@ -155,7 +155,20 @@ export default function LecturersScreen() {
     setFilteredLecturers(result);
   }, [lecturers, searchQuery, sortBy, selectedLocation]);
 
+  // Reset page when filters are cleared to re-enable pagination
+  useEffect(() => {
+    if (!searchQuery && !selectedLocation && page > 1) {
+      // Filters cleared, reset to enable pagination from current point
+      setHasMore(lecturers.length < totalScholars);
+    }
+  }, [searchQuery, selectedLocation, page, lecturers.length, totalScholars]);
+
   const handleLoadMore = () => {
+    // Disable pagination when filters are active (client-side filtering requires all data)
+    if (searchQuery || selectedLocation) {
+      return;
+    }
+
     if (!loadingMore && hasMore) {
       const nextPage = page + 1;
       setPage(nextPage);
@@ -250,6 +263,11 @@ export default function LecturersScreen() {
 
   const renderFooter = () => {
     if (!loadingMore) {
+      // Don't show "Load More" hint when filters are active (pagination is disabled)
+      if (searchQuery || selectedLocation) {
+        return null;
+      }
+
       // Show "Load More" hint if there are more scholars
       if (hasMore && lecturers.length > 0 && lecturers.length < totalScholars) {
         return (
@@ -436,14 +454,14 @@ export default function LecturersScreen() {
                 Scroll for more
               </Text>
             )}
-            {(searchQuery || selectedLocation) && hasMore && (
+            {(searchQuery || selectedLocation) && lecturers.length < totalScholars && (
               <Text
                 style={[
                   tw`text-xs mt-0.5`,
                   { color: designTokens.colors.system.label.tertiary },
                 ]}
               >
-                Scroll to see more results
+                Clear filters to load more
               </Text>
             )}
           </View>
