@@ -104,12 +104,8 @@ export const Card: React.FC<CardProps> = memo(
             accessibilityLabel={getAccessibilityLabel()}
             accessibilityHint="Tap to view details"
             accessibilityRole="button"
-            style={{
-              borderRadius: designTokens.borderRadius[borderRadius],
-              overflow: "hidden",
-            }}
           >
-            <View style={{ position: "relative" }}>
+            <View style={{ position: "relative", width: imageSize, height: imageSize }}>
               {data.coverUrl && !imageError ? (
                 <Image
                   source={{ uri: data.coverUrl }}
@@ -126,7 +122,10 @@ export const Card: React.FC<CardProps> = memo(
                   }}
                 />
               ) : (
-                <View style={getPlaceholderStyle(data.id, imageSize)}>
+                <View style={[
+                  getPlaceholderStyle(data.id, imageSize),
+                  { borderRadius: designTokens.borderRadius[borderRadius] }
+                ]}>
                   <Text
                     style={{
                       fontSize: designTokens.typography.fontSize.title1,
@@ -596,7 +595,7 @@ export const Card: React.FC<CardProps> = memo(
                   variant="body"
                   color="label"
                   weight="semibold"
-                  numberOfLines={2}
+                  numberOfLines={titleNumberOfLines !== undefined ? (titleNumberOfLines <= 0 ? undefined : titleNumberOfLines) : 2}
                   style={{
                     marginBottom: designTokens.spacing.sm,
                     lineHeight: 22,
@@ -610,7 +609,7 @@ export const Card: React.FC<CardProps> = memo(
                   <Text
                     variant="subheadline"
                     color="secondaryLabel"
-                    numberOfLines={1}
+                    numberOfLines={metaNumberOfLines !== undefined ? (metaNumberOfLines <= 0 ? undefined : metaNumberOfLines) : 1}
                     style={{
                       marginBottom: designTokens.spacing.sm,
                       lineHeight: 18,

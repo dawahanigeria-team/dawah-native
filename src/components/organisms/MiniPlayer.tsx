@@ -86,7 +86,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       });
     })();
 
-    const topicsLabel = (lectureDetail?.categories || [])
+    const topicsLabel = (Array.isArray(lectureDetail?.categories) ? lectureDetail.categories : [])
       .map((c) => String(c).trim())
       .filter(Boolean)
       .join(", ");

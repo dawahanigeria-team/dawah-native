@@ -26,6 +26,7 @@ const ITEM_SPACING = 16; // mr-4
 const SNAP_INTERVAL = ITEM_WIDTH + ITEM_SPACING;
 
 const Separator = () => <View style={{ width: ITEM_SPACING }} />;
+const SmallSeparator = () => <View style={{ width: 12 }} />;
 
 export default function HomeScreen() {
   const { playEpisode } = usePlayerActions();
@@ -212,6 +213,7 @@ export default function HomeScreen() {
           playOnPress={false}
           showMeta={!!subtitle}
           metaValue={subtitle}
+          titleNumberOfLines={2}
         />
       </View>
     );
@@ -383,9 +385,8 @@ export default function HomeScreen() {
             data={quranAlbums}
             renderItem={renderAlbumItem}
             keyExtractor={(item) => `quran-${item.id}`}
-            ItemSeparatorComponent={Separator}
-            // Quran albums are smaller, calculate specific snap interval if needed, or rely on default
-            snapInterval={140 + 16}
+            ItemSeparatorComponent={SmallSeparator}
+            snapInterval={140 + 12}
           />
         ) : null}
       </ScrollView>
