@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Dropdown } from "../src/components/atoms/Dropdown";
@@ -194,23 +194,22 @@ export default function SearchScreen() {
 
   const renderSearchResult = (item: SearchLecture) => {
     const resourcePerson = item.lecturer_name || item.ResourcePerson || "Unknown Scholar";
-    const plays = parseInt(item.views || item.Plays || "0").toLocaleString();
-    const metaValue = `${resourcePerson} • ${plays} plays`;
+    const metaValue = resourcePerson;
     const data = convertToEpisode(item);
 
     return (
-      <View style={tw`mb-4`}>
-        <Card
-          variant="landscape"
-          data={data}
-          onPress={() => handleItemPress(item)}
-          playOnPress={false}
-          showTime={true}
-          showMeta={true}
-          metaValue={metaValue}
-          showBadge={false}
-        />
-      </View>
+      <Card
+        variant="landscape"
+        data={data}
+        onPress={() => handleItemPress(item)}
+        playOnPress={false}
+        showTime={true}
+        showMeta={true}
+        metaValue={metaValue}
+        titleNumberOfLines={2}
+        metaNumberOfLines={1}
+        showBadge={false}
+      />
     );
   };
 

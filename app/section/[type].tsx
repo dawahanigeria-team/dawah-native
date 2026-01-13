@@ -298,7 +298,7 @@ export default function SectionScreen() {
             id: album.id,
             title: album.name,
             coverUrl: album.alb_thumbnail || album.img,
-            lecturerName: `${album.lec_no} Recitations`,
+            lecturerName: `${album.lec_no} Surahs`,
             plays: album.views,
             downloads: album.downloads,
             language: album.language,
@@ -306,7 +306,9 @@ export default function SectionScreen() {
           onPress={() => handleQuranAlbumPress(album)}
           showTime={false}
           showMeta={true}
-          metaValue={`${album.lec_no} Recitations • ${album.language}`}
+          metaValue={`${album.lec_no} Surahs • ${album.language}`}
+          titleNumberOfLines={0}
+          metaNumberOfLines={2}
         />
       );
     }

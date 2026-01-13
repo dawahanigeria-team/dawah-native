@@ -98,7 +98,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       const playNext = getPlayNextRef();
 
       // If there's a queue and playNext is available, play next track
-      if (playNext && currentState.queue.length > 0) {
+      // Defensive check: ensure queue is an array before accessing .length
+      const queue = Array.isArray(currentState.queue) ? currentState.queue : [];
+      if (playNext && queue.length > 0) {
         try {
           await playNext();
         } catch (error: any) {

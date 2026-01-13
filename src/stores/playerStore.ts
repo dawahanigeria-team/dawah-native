@@ -250,7 +250,8 @@ const playEpisode = async (episode: Episode) => {
 
 const playNext = async () => {
   const currentState = playerStore.get();
-  const { queue, currentQueueIndex, repeatMode } = currentState;
+  const queue = Array.isArray(currentState.queue) ? currentState.queue : [];
+  const { currentQueueIndex, repeatMode } = currentState;
 
   logger.debug('⏭️ PlayerStore: playNext called, currentIndex:', currentQueueIndex, 'queueLength:', queue.length);
 
@@ -294,7 +295,8 @@ const playNext = async () => {
 
 const playPrevious = async () => {
   const currentState = playerStore.get();
-  const { queue, currentQueueIndex } = currentState;
+  const queue = Array.isArray(currentState.queue) ? currentState.queue : [];
+  const { currentQueueIndex } = currentState;
 
   logger.debug('⏮️ PlayerStore: playPrevious called, currentIndex:', currentQueueIndex);
 
@@ -558,6 +560,7 @@ const closePlayer = () => {
 const addToQueue = (episodes: Episode | Episode[]) => {
   const episodeArray = Array.isArray(episodes) ? episodes : [episodes];
   const currentState = playerStore.get();
+  const existingQueue = Array.isArray(currentState.queue) ? currentState.queue : [];
 
   logger.debug('➕ PlayerStore: Adding', episodeArray.length, 'episodes to queue');
 
@@ -569,13 +572,14 @@ const addToQueue = (episodes: Episode | Episode[]) => {
 
   setAndPersistPlayerState({
     ...currentState,
-    queue: [...currentState.queue, ...episodeArray],
+    queue: [...existingQueue, ...episodeArray],
   });
 };
 
 const removeFromQueue = (index: number) => {
   const currentState = playerStore.get();
-  const newQueue = currentState.queue.filter((_, i) => i !== index);
+  const queue = Array.isArray(currentState.queue) ? currentState.queue : [];
+  const newQueue = queue.filter((_, i) => i !== index);
 
   logger.debug('➖ PlayerStore: Removing episode at index', index);
 
@@ -594,13 +598,14 @@ const removeFromQueue = (index: number) => {
 
 const toggleShuffle = () => {
   const currentState = playerStore.get();
+  const queue = Array.isArray(currentState.queue) ? currentState.queue : [];
   const newShuffleState = !currentState.isShuffled;
 
   logger.debug('🔀 PlayerStore: Toggle shuffle:', newShuffleState);
 
-  if (newShuffleState && currentState.queue.length > 0) {
-    const currentEpisode = currentState.queue[currentState.currentQueueIndex];
-    const remaining = currentState.queue.filter((_, i) => i !== currentState.currentQueueIndex);
+  if (newShuffleState && queue.length > 0) {
+    const currentEpisode = queue[currentState.currentQueueIndex];
+    const remaining = queue.filter((_, i) => i !== currentState.currentQueueIndex);
 
     for (let i = remaining.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -691,6 +696,12 @@ export const usePlayerStore = () => {
 
   if (!state) {
     state = initialState;
+  }
+
+  // Ensure critical properties are always defined (defensive check)
+  // This prevents "Cannot read property 'length' of undefined" errors
+  if (!Array.isArray(state.queue)) {
+    state = { ...state, queue: [] };
   }
 
   // Set playNext reference for use in AudioProvider

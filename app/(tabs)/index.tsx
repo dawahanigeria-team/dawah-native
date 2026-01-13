@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
-import { router } from "expo-router";
-import { useCallback, useEffect, useMemo } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card, CardSkeleton } from "../../src/components/molecules";
@@ -26,10 +26,18 @@ const ITEM_SPACING = 16; // mr-4
 const SNAP_INTERVAL = ITEM_WIDTH + ITEM_SPACING;
 
 const Separator = () => <View style={{ width: ITEM_SPACING }} />;
+const SmallSeparator = () => <View style={{ width: 12 }} />;
 
 export default function HomeScreen() {
   const { playEpisode } = usePlayerActions();
+  const [searchValue, setSearchValue] = useState("");
 
+  // Clear search field when returning to homepage
+  useFocusEffect(
+    useCallback(() => {
+      setSearchValue("");
+    }, [setSearchValue])
+  );
 
   // Fetch popular lectures for the carousel (offline-first with cache)
   const {
@@ -42,7 +50,18 @@ export default function HomeScreen() {
   const { lectures: trendingLectures, loading: trendingLoading, error: trendingError } = useTrending({ limit: 10 });
 
   // Fetch Quran albums for the 'Quran Recitations' section
-  const { albums: quranAlbums, loading: quranLoading, error: quranError } = useQuranAlbums({ limit: 10 });
+  const { albums: quranAlbumsRaw, loading: quranLoading, error: quranError } = useQuranAlbums({ limit: 10 });
+
+  // Deduplicate Quran albums by name (API may return duplicates)
+  const quranAlbums = useMemo(() => {
+    const seen = new Set<string>();
+    return quranAlbumsRaw.filter((album) => {
+      const name = album.name?.toLowerCase().trim();
+      if (!name || seen.has(name)) return false;
+      seen.add(name);
+      return true;
+    });
+  }, [quranAlbumsRaw]);
 
   // Fetch recently played lectures using the custom hook
   const { lectures: recentlyPlayed, loading: recentlyPlayedLoading, error: recentlyPlayedError } = useRecentlyPlayedLectures(10);
@@ -166,13 +185,19 @@ export default function HomeScreen() {
       return null;
     }
 
+    // Build meaningful subtitle: "X Surahs • Language" or just count/language
+    const surahCount = item.lec_no || 0;
+    const subtitle = surahCount > 0
+      ? `${surahCount} ${surahCount === 1 ? 'Surah' : 'Surahs'}`
+      : item.language || '';
+
     return (
       <View style={{ width: 140 }}>
         <Card
           variant="square"
           data={{
             id: item.id,
-            title: item.name || 'Unknown Album',
+            title: item.name || 'Unknown Reciter',
             durationSec: 0,
             coverUrl: item.img || item.alb_thumbnail,
             audioUrl: '',
@@ -186,8 +211,9 @@ export default function HomeScreen() {
           }}
           onPress={() => handleAlbumPress(item)}
           playOnPress={false}
-          showMeta={true}
-          metaValue={item.name || 'Unknown'}
+          showMeta={!!subtitle}
+          metaValue={subtitle}
+          titleNumberOfLines={2}
         />
       </View>
     );
@@ -245,6 +271,8 @@ export default function HomeScreen() {
       <View style={tw`px-4 mb-4`}>
         <SearchBar
           placeholder="Search lectures, scholars..."
+          value={searchValue}
+          onChangeText={setSearchValue}
           onSearch={handleSearchSubmit}
           onMicPress={handleMicPress}
           disabled={false}
@@ -357,9 +385,8 @@ export default function HomeScreen() {
             data={quranAlbums}
             renderItem={renderAlbumItem}
             keyExtractor={(item) => `quran-${item.id}`}
-            ItemSeparatorComponent={Separator}
-            // Quran albums are smaller, calculate specific snap interval if needed, or rely on default
-            snapInterval={140 + 16}
+            ItemSeparatorComponent={SmallSeparator}
+            snapInterval={140 + 12}
           />
         ) : null}
       </ScrollView>

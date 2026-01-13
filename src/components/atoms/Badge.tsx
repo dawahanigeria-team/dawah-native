@@ -78,21 +78,7 @@ export const Badge: React.FC<BadgeProps> = memo(({
     }
   };
 
-  const getTextColor = (): 'label' | 'secondaryLabel' | 'tertiaryLabel' | 'quaternaryLabel' | 'systemBlue' | 'systemGreen' | 'systemRed' | 'brand' => {
-    switch (variant) {
-      case 'primary':
-      case 'success':
-      case 'warning':
-      case 'error':
-      case 'info':
-        // For colored backgrounds, use label color (which adapts to light/dark mode)
-        // In practice, this will be white/light on dark backgrounds
-        return 'label';
-      case 'secondary':
-      default:
-        return 'label';
-    }
-  };
+  const hasColoredBackground = variant !== 'secondary';
 
   const getTextVariant = () => {
     switch (size) {
@@ -117,11 +103,12 @@ export const Badge: React.FC<BadgeProps> = memo(({
 
   return (
     <View style={combinedStyle}>
-      <Text 
+      <Text
         variant={getTextVariant()}
-        color={getTextColor()}
+        color="label"
         weight="semibold"
         align="center"
+        style={hasColoredBackground ? { color: '#FFFFFF' } : undefined}
       >
         {children}
       </Text>

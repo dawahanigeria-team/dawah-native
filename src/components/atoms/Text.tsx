@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text as RNText, TextProps as RNTextProps } from 'react-native';
 import { designTokens, FontWeight } from '../../theme/designTokens';
+import { useThemeColors } from '../../hooks/useTheme';
 
 type IOSTextStyle = 
   | 'largeTitle' 
@@ -46,6 +47,8 @@ export const Text: React.FC<TextProps> = ({
   children,
   ...props
 }) => {
+  const colors = useThemeColors();
+
   const getVariantStyles = () => {
     switch (variant) {
       case 'largeTitle':
@@ -138,23 +141,23 @@ export const Text: React.FC<TextProps> = ({
   const getColorStyle = () => {
     switch (color) {
       case 'label':
-        return { color: designTokens.colors.system.label.primary };
+        return { color: colors.system.label.primary };
       case 'secondaryLabel':
-        return { color: designTokens.colors.system.label.secondary };
+        return { color: colors.system.label.secondary };
       case 'tertiaryLabel':
-        return { color: designTokens.colors.system.label.tertiary };
+        return { color: colors.system.label.tertiary };
       case 'quaternaryLabel':
-        return { color: designTokens.colors.system.label.quaternary };
+        return { color: colors.system.label.quaternary };
       case 'systemBlue':
-        return { color: designTokens.colors.semantic.blue };
+        return { color: colors.semantic.blue };
       case 'systemGreen':
-        return { color: designTokens.colors.semantic.green };
+        return { color: colors.semantic.green };
       case 'systemRed':
-        return { color: designTokens.colors.semantic.red };
+        return { color: colors.semantic.red };
       case 'brand':
-        return { color: designTokens.colors.brand.primary };
+        return { color: colors.brand.primary };
       default:
-        return { color: designTokens.colors.system.label.primary };
+        return { color: colors.system.label.primary };
     }
   };
 

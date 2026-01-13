@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { memo } from 'react';
 import { StyleProp, TextStyle } from 'react-native';
 import { designTokens } from '../../theme/designTokens';
+import { useThemeColors } from '../../hooks/useTheme';
 
 type IconColorVariant = 
   | 'label' 
@@ -29,6 +30,8 @@ export const Icon: React.FC<IconProps> = memo(({
   style,
   accessibilityLabel,
 }) => {
+  const colors = useThemeColors();
+
   const getSizeValue = () => {
     switch (size) {
       case 'xs':
@@ -52,26 +55,26 @@ export const Icon: React.FC<IconProps> = memo(({
     // Handle design token colors
     switch (color) {
       case 'label':
-        return designTokens.colors.system.label.primary;
+        return colors.system.label.primary;
       case 'secondaryLabel':
-        return designTokens.colors.system.label.secondary;
+        return colors.system.label.secondary;
       case 'tertiaryLabel':
-        return designTokens.colors.system.label.tertiary;
+        return colors.system.label.tertiary;
       case 'quaternaryLabel':
-        return designTokens.colors.system.label.quaternary;
+        return colors.system.label.quaternary;
       case 'systemBlue':
-        return designTokens.colors.semantic.blue;
+        return colors.semantic.blue;
       case 'systemGreen':
-        return designTokens.colors.semantic.green;
+        return colors.semantic.green;
       case 'systemRed':
-        return designTokens.colors.semantic.red;
+        return colors.semantic.red;
       case 'brand':
-        return designTokens.colors.brand.primary;
+        return colors.brand.primary;
       case 'muted':
-        return designTokens.colors.system.label.tertiary;
+        return colors.system.label.tertiary;
       default:
         // Use the color as-is (for hex colors, etc.)
-        return color || designTokens.colors.system.label.primary;
+        return color || colors.system.label.primary;
     }
   };
 

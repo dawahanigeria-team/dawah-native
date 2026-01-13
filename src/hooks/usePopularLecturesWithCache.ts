@@ -73,7 +73,7 @@ export const usePopularLecturesWithCache = (): UsePopularLecturesResult => {
 
   useEffect(() => {
     fetchLectures();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const refresh = async () => {

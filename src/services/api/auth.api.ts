@@ -4,8 +4,8 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { apiClient } from './base.api';
 import { API_CONFIG } from '../config/api.config';
+import { apiClient } from './base.api';
 
 export interface User {
   id: string;
@@ -129,6 +129,7 @@ class AuthApiService {
         email: credentials.email,
         password: credentials.password,
         languageId: credentials.languageId || API_CONFIG.DEFAULT_LANGUAGE_ID,
+        is_social: false,
       };
       const response = await apiClient.post<RegisterResponse>('/api/user_auth.php', payload);
 

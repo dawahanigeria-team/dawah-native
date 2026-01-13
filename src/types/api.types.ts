@@ -199,6 +199,9 @@ export interface LectureDetailApiItem {
   downloads?: number | string;
   lang?: string;
   rpname?: string;
+  rp_id?: number | string;
+  lecturer_id?: number | string;
+  rp_image?: string;
   album_name?: string;
   charts?: {
     daily?: number;
@@ -233,7 +236,10 @@ export interface LectureDetail {
   downloads: number;
   comments: number;
   language?: string;
+  lecturerId?: string;
   lecturerName?: string;
+  lecturerImage?: string;
+  isReciter?: boolean;
   updatedDate?: string;
   postedDate?: string;
   charts?: {

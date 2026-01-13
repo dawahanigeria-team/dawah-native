@@ -5,6 +5,7 @@ import { Linking, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { useStorageState } from "../src/hooks/useStorageState";
+import { useTheme } from "../src/hooks/useTheme";
 
 import { ErrorBoundary } from "../src/components/atoms";
 import { Loading } from "../src/components/atoms/Loading";
@@ -31,6 +32,7 @@ function RootLayout() {
   const [isNavigationLoading] = useStorageState(NAVIGATION_PERSISTENCE_KEY);
   const [isPlayerStateLoading] = useStorageState(PLAYER_STATE_KEY);
   const hasInitializedApp = useRef(false);
+  const { isDark } = useTheme();
 
   useEffect(() => {
     if (!__DEV__) return;
@@ -131,7 +133,7 @@ function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <AudioProvider>
-          <StatusBar style="light" />
+          <StatusBar style={isDark ? "light" : "dark"} />
           <View style={{ flex: 1 }}>
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="(tabs)" />
@@ -164,7 +166,10 @@ function RootLayout() {
             {/* Keep the app tree mounted while AsyncStorage hydration happens.
                 This prevents MiniPlayer/provider unmounts which look like "reloads". */}
             {isHydrating && (
-              <View style={StyleSheet.absoluteFill} pointerEvents="auto">
+              <View
+                style={StyleSheet.absoluteFill}
+                onStartShouldSetResponder={() => true}
+              >
                 <Loading fullScreen />
               </View>
             )}

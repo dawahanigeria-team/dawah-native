@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Image, ScrollView, TextInput, TouchableOpacity, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, FlatList, Image, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../../src/components/atoms";
 import { TabView } from "../../src/components/molecules/TabView";
@@ -24,9 +24,60 @@ type TabType = 'songs' | 'albums' | 'playlists';
 const PAGE_SIZE = 10;
 
 export default function LecturerDetailScreen() {
-  const { id } = useLocalSearchParams();
-  const lecturerId = id as string;
+  const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
+  const lecturerId = Array.isArray(id) ? id[0] : id;
+  const lecturerNameHint = Array.isArray(name) ? name[0] : (name || '');
   const { playEpisode } = usePlayerActions();
+
+  // If we navigated here without a valid lecturer id (e.g., id=0), try resolving by name.
+  useEffect(() => {
+    const normalizeName = (value: string): string =>
+      value
+        .replace(/\[[^\]]*\]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+
+    const resolve = async () => {
+      if (!lecturerNameHint || lecturerNameHint.trim().length < 2) return;
+      if (String(lecturerId) !== '0') return;
+
+      try {
+        const cleanedQuery = lecturerNameHint.replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();
+        const cleaned = normalizeName(cleanedQuery);
+
+        // Prefer resolving via the lecturers (RPs) list to get the canonical ID.
+        // Search can fail depending on backend indexing.
+        try {
+          // Try a couple pages to increase hit rate without over-fetching.
+          for (const page of [1, 2, 3]) {
+            const list = await lecturersApi.getAllLecturers({ page, lim: 200 });
+            const exact = list.data.find((l) => normalizeName(l.name) === cleaned);
+            const best = exact || list.data.find((l) => normalizeName(l.name).includes(cleaned));
+            if (best?.id && String(best.id) !== '0') {
+              router.replace(`/lecturer/${best.id}`);
+              return;
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to resolve lecturer from lecturers list', err);
+        }
+
+        const res = await searchApi.searchLecturers(cleanedQuery, 1);
+        const candidates = res.data || [];
+        const exact = candidates.find((c) => normalizeName(c.name) === cleaned);
+        const best = exact || candidates[0];
+
+        if (best?.id && String(best.id) !== '0') {
+          router.replace(`/lecturer/${best.id}`);
+        }
+      } catch (err) {
+        console.warn('Failed to resolve lecturer by name', err);
+      }
+    };
+
+    resolve();
+  }, [lecturerId, lecturerNameHint, router]);
 
   // States
   const [lecturer, setLecturer] = useState<any>(null);
@@ -74,7 +125,18 @@ export default function LecturerDetailScreen() {
     try {
       setLoading(true);
       const data = await lecturersApi.getLecturerDetails(lecturerId);
-      setLecturer(data);
+
+      // If we arrived here via name-hint flow (id=0), prefer showing the name hint
+      // even if the underlying fetch returns "Unknown Lecturer".
+      if (String(lecturerId) === '0' && lecturerNameHint.trim().length >= 2) {
+        setLecturer({
+          ...(data || {}),
+          id: lecturerId,
+          name: lecturerNameHint,
+        });
+      } else {
+        setLecturer(data);
+      }
     } catch (err) {
       console.error('Failed to fetch lecturer details:', err);
       setError('Failed to load lecturer details');

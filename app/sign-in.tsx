@@ -1,22 +1,22 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import { useState } from "react";
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Loading, Text } from "../src/components/atoms";
+import { addSentryBreadcrumb, captureSentryException } from "../src/services/config/sentry.config";
 import { useAuthStore } from "../src/stores";
 import { designTokens } from "../src/theme/designTokens";
 import tw from "../src/theme/twrnc";
-import { captureSentryException, addSentryBreadcrumb } from "../src/services/config/sentry.config";
 
 export default function SignInScreen() {
   const router = useRouter();
@@ -29,13 +29,13 @@ export default function SignInScreen() {
   const [passwordError, setPasswordError] = useState("");
 
   const validateEmail = (text: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!text) {
-      setEmailError("Email or username is required");
+      setEmailError("Email is required");
       return false;
     }
-    // Allow either email or username (min 3 chars)
-    if (text.length < 3) {
-      setEmailError("Must be at least 3 characters");
+    if (!emailRegex.test(text)) {
+      setEmailError("Please enter a valid email");
       return false;
     }
     setEmailError("");
@@ -201,7 +201,7 @@ export default function SignInScreen() {
             </View>
           )}
 
-          {/* Email/Username Input */}
+          {/* Email Input */}
           <View style={tw`mb-4`}>
             <Text
               variant="subheadline"
@@ -209,7 +209,7 @@ export default function SignInScreen() {
               color="label"
               style={{ marginBottom: 8 }}
             >
-              Email or Username
+              Email Address
             </Text>
             <View
               style={[
@@ -225,7 +225,7 @@ export default function SignInScreen() {
               ]}
             >
               <Ionicons
-                name="person-outline"
+                name="mail-outline"
                 size={20}
                 color={designTokens.colors.system.label.tertiary}
                 style={tw`mr-3`}
@@ -238,7 +238,7 @@ export default function SignInScreen() {
                     fontSize: designTokens.typography.fontSize.body,
                   },
                 ]}
-                placeholder="Enter your email or username"
+                placeholder="Enter your email"
                 placeholderTextColor={designTokens.colors.system.label.tertiary}
                 value={email}
                 onChangeText={(text) => {
@@ -246,9 +246,9 @@ export default function SignInScreen() {
                   if (emailError) validateEmail(text);
                 }}
                 onBlur={() => validateEmail(email)}
-                keyboardType="default"
+                keyboardType="email-address"
                 autoCapitalize="none"
-                autoComplete="username"
+                autoComplete="email"
                 autoCorrect={false}
                 editable={!isLoading}
               />

@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -28,40 +28,122 @@ export default function LecturersScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalScholars, setTotalScholars] = useState<number>(0);
+  const [allLecturersLoaded, setAllLecturersLoaded] = useState(false);
   const itemsPerPage = 20; // Optimized for Nigerian internet speeds
 
   // Filter & Search states
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'name' | 'popular' | 'lectures'>('popular');
 
-  const languages = ['All', 'English', 'Arabic', 'Hausa', 'Yoruba', 'Igbo', 'Pidgin English', 'Nupe', 'Igala', 'Ebira'];
-
-  // Map language names to IDs for API (from /all_lang_api.php)
-  const getLanguageId = (languageName: string | null): number | undefined => {
-    if (!languageName || languageName === 'All') return undefined;
-    const languageMap: Record<string, number> = {
-      'Arabic': 157,
-      'Ebira': 877,
-      'English': 6,
-      'Hausa': 8,
-      'Igala': 50041,
-      'Igbo': 9,
-      'Nupe': 53181,
-      'Pidgin English': 46504,
-      'Yoruba': 7,
-    };
-    return languageMap[languageName];
+  const extractLocationFromName = (name: string): string | null => {
+    // Common pattern: "Full Name (State/City)".
+    // We take the last parentheses group. If none, return null.
+    const match = name.match(/\(([^)]+)\)\s*$/);
+    if (!match?.[1]) return null;
+    const location = match[1].trim();
+    if (!location) return null;
+    return location;
   };
 
   const handleLecturerPress = useCallback((id: string) => {
     router.push(`/lecturer/${id}`);
   }, []);
 
-  const fetchLecturers = useCallback(async (pageNum: number, isRefresh = false, filters?: { language?: string }) => {
+  // Load all lecturers for accurate filtering
+  const fetchAllLecturers = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const allData: Lecturer[] = [];
+      let currentPage = 1;
+      let hasMoreData = true;
+      const batchSize = 50; // Larger batches for efficiency
+
+      console.log('📚 Loading all lecturers for filtering...');
+
+      while (hasMoreData) {
+        console.log(`⏳ Fetching page ${currentPage} with batch size ${batchSize}...`);
+
+        const response = await lecturersApi.getAllLecturers({
+          page: currentPage,
+          lim: batchSize,
+        });
+
+        console.log(`📦 Response for page ${currentPage}:`, {
+          dataLength: response.data.length,
+          total: response.total,
+          hasData: response.data.length > 0
+        });
+
+        if (response.data.length > 0) {
+          // Filter out duplicates before adding
+          const existingIds = new Set(allData.map(l => String(l.id)));
+          const newItems = response.data.filter((item: Lecturer) => !existingIds.has(String(item.id)));
+
+          // Log sample names from this batch
+          if (newItems.length > 0) {
+            console.log(`📝 Sample names from page ${currentPage}:`, newItems.slice(0, 3).map(l => l.name));
+          }
+
+          allData.push(...newItems);
+
+          console.log(`📖 Page ${currentPage}: Loaded ${newItems.length} new lecturers (Total: ${allData.length}/${response.total || 'unknown'})`);
+
+          currentPage++;
+          hasMoreData = response.data.length === batchSize;
+
+          console.log(`🔄 Continue loading? ${hasMoreData} (got ${response.data.length}, expected ${batchSize})`);
+        } else {
+          console.log(`🛑 No more data on page ${currentPage}`);
+          hasMoreData = false;
+        }
+
+        // Safety limit to prevent infinite loops
+        if (currentPage > 100) {
+          console.warn('⚠️ Reached safety limit of 100 pages');
+          break;
+        }
+      }
+
+      console.log(`✅ FINAL: Loaded ${allData.length} total lecturers`);
+
+      // Log all unique locations
+      const allLocations = allData
+        .map(l => extractLocationFromName(l.name))
+        .filter(Boolean);
+      const uniqueLocations = Array.from(new Set(allLocations));
+      console.log(`🌍 Unique locations found (${uniqueLocations.length}):`, uniqueLocations.sort());
+
+      // Count lecturers per location
+      const locationCounts: Record<string, number> = {};
+      allData.forEach(l => {
+        const loc = extractLocationFromName(l.name);
+        if (loc) {
+          locationCounts[loc] = (locationCounts[loc] || 0) + 1;
+        }
+      });
+      console.log(`📊 Lecturers per location:`, locationCounts);
+
+      setLecturers(allData);
+      setTotalScholars(allData.length);
+      setAllLecturersLoaded(true);
+      setHasMore(false); // All data is loaded
+
+    } catch (err) {
+      console.error('❌ Failed to fetch all lecturers:', err);
+      setError('Failed to load scholars');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchLecturers = useCallback(async (pageNum: number, isRefresh = false) => {
     try {
       if (isRefresh) {
         setRefreshing(true);
+        setAllLecturersLoaded(false); // Reset on refresh
       } else if (pageNum > 1) {
         setLoadingMore(true);
       } else {
@@ -69,19 +151,10 @@ export default function LecturersScreen() {
       }
       setError(null);
 
-      const activeLanguage = filters?.language || selectedLanguage;
-      const languageId = getLanguageId(activeLanguage);
-
-
       const requestParams: any = {
         page: pageNum,
         lim: itemsPerPage,
       };
-
-      // Add language filter if selected (API service will convert to 'langid')
-      if (languageId) {
-        requestParams.language = languageId;
-      }
 
       const response = await lecturersApi.getAllLecturers(requestParams);
 
@@ -135,25 +208,49 @@ export default function LecturersScreen() {
   // Initial load
   useEffect(() => {
     fetchLecturers(1);
-  }, []);
-
-  // Refetch when LANGUAGE filter changes (server-side filter)
-  useEffect(() => {
-    // Reset and refetch with new language filter
-    setPage(1);
-    setLecturers([]);
-    fetchLecturers(1, false, { language: selectedLanguage || undefined });
-  }, [selectedLanguage]);
+  }, [fetchLecturers]);
 
   // Apply search and sorting (client-side only)
   useEffect(() => {
     let result = [...lecturers];
+
+    console.log('🔍 Filtering with:', {
+      totalLecturers: lecturers.length,
+      searchQuery,
+      selectedLocation,
+      sortBy
+    });
 
     // Apply search filter (client-side)
     if (searchQuery.trim()) {
       result = result.filter(lecturer =>
         lecturer.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
+    }
+
+    // Apply location filter (client-side)
+    if (selectedLocation) {
+      console.log(`📍 Filtering for location: "${selectedLocation}"`);
+
+      // Debug: Log all extracted locations
+      const locationMap = lecturers.map(l => ({
+        name: l.name,
+        extractedLocation: extractLocationFromName(l.name)
+      }));
+      console.log('🗺️ All extracted locations:', locationMap);
+
+      result = result.filter((lecturer) => {
+        const location = extractLocationFromName(lecturer.name);
+        const matches = location === selectedLocation;
+
+        if (matches) {
+          console.log(`✅ Match found: "${lecturer.name}" → "${location}"`);
+        }
+
+        return matches;
+      });
+
+      console.log(`🎯 Filtered to ${result.length} lecturers for location "${selectedLocation}"`);
     }
 
     // Apply sorting
@@ -171,9 +268,22 @@ export default function LecturersScreen() {
     });
 
     setFilteredLecturers(result);
-  }, [lecturers, searchQuery, sortBy]);
+  }, [lecturers, searchQuery, sortBy, selectedLocation]);
+
+  // Load all lecturers when location filter is applied
+  useEffect(() => {
+    if (selectedLocation && !allLecturersLoaded) {
+      console.log('🔍 Location filter applied, loading all lecturers...');
+      fetchAllLecturers();
+    }
+  }, [selectedLocation, allLecturersLoaded, fetchAllLecturers]);
 
   const handleLoadMore = () => {
+    // Disable pagination when filters are active or all data is loaded
+    if (searchQuery || selectedLocation || allLecturersLoaded) {
+      return;
+    }
+
     if (!loadingMore && hasMore) {
       const nextPage = page + 1;
       setPage(nextPage);
@@ -205,7 +315,7 @@ export default function LecturersScreen() {
   );
 
   const renderEmptyState = useCallback(() => {
-    const hasActiveFilters = searchQuery.trim() || selectedLanguage;
+    const hasActiveFilters = searchQuery.trim() || selectedLocation;
 
     return (
       <View style={tw`py-20 items-center px-6`}>
@@ -226,7 +336,7 @@ export default function LecturersScreen() {
           <TouchableOpacity
             onPress={() => {
               setSearchQuery('');
-              setSelectedLanguage(null);
+              setSelectedLocation(null);
             }}
             style={[
               tw`mt-4 px-5 py-3 rounded-lg`,
@@ -264,10 +374,40 @@ export default function LecturersScreen() {
         )}
       </View>
     );
-  }, [error, handleRefresh, searchQuery, selectedLanguage]);
+  }, [error, handleRefresh, searchQuery, selectedLocation]);
 
   const renderFooter = () => {
+    // Show loading when fetching all lecturers for filtering
+    if (loading && selectedLocation && !allLecturersLoaded) {
+      return (
+        <View style={tw`py-8 items-center`}>
+          <ActivityIndicator size="large" color={designTokens.colors.brand.primary} />
+          <Text
+            style={[
+              tw`mt-3 text-sm`,
+              { color: designTokens.colors.system.label.secondary },
+            ]}
+          >
+            Loading all scholars for filtering...
+          </Text>
+          <Text
+            style={[
+              tw`mt-1 text-xs`,
+              { color: designTokens.colors.system.label.tertiary },
+            ]}
+          >
+            This may take a moment
+          </Text>
+        </View>
+      );
+    }
+
     if (!loadingMore) {
+      // Don't show "Load More" hint when filters are active or all data loaded
+      if (searchQuery || selectedLocation || allLecturersLoaded) {
+        return null;
+      }
+
       // Show "Load More" hint if there are more scholars
       if (hasMore && lecturers.length > 0 && lecturers.length < totalScholars) {
         return (
@@ -377,19 +517,31 @@ export default function LecturersScreen() {
         </View>
       </View>
 
-      {/* Language Filter Chips */}
+      {/* Location (State/City) Filter Chips */}
       <View style={tw`pb-3`}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={tw`px-5`}
         >
-          {languages.map((lang) => {
-            const isSelected = selectedLanguage === lang || (lang === 'All' && !selectedLanguage);
+          {(() => {
+            const locations = Array.from(
+              new Set(
+                lecturers
+                  .map((l) => extractLocationFromName(l.name))
+                  .filter(Boolean) as string[]
+              )
+            ).sort((a, b) => a.localeCompare(b));
+
+            const options = ['All', ...locations];
+
+            return options.map((loc) => {
+              const isSelected = selectedLocation === loc || (loc === 'All' && !selectedLocation);
+              const label = loc;
             return (
               <TouchableOpacity
-                key={lang}
-                onPress={() => setSelectedLanguage(lang === 'All' ? null : lang)}
+                key={loc}
+                onPress={() => setSelectedLocation(loc === 'All' ? null : loc)}
                 style={[
                   tw`px-4 py-2 rounded-full mr-2`,
                   {
@@ -409,11 +561,12 @@ export default function LecturersScreen() {
                     },
                   ]}
                 >
-                  {lang}
+                  {label}
                 </Text>
               </TouchableOpacity>
             );
-          })}
+            });
+          })()}
         </ScrollView>
       </View>
 
@@ -427,11 +580,11 @@ export default function LecturersScreen() {
                 { color: designTokens.colors.system.label.primary },
               ]}
             >
-              {searchQuery || selectedLanguage
+              {searchQuery || selectedLocation
                 ? `${filteredLecturers.length} found`
                 : `${lecturers.length} scholars`}
             </Text>
-            {!searchQuery && !selectedLanguage && totalScholars > lecturers.length && (
+            {!searchQuery && !selectedLocation && !allLecturersLoaded && totalScholars > lecturers.length && (
               <Text
                 style={[
                   tw`text-xs mt-0.5`,
@@ -441,14 +594,14 @@ export default function LecturersScreen() {
                 Scroll for more
               </Text>
             )}
-            {(searchQuery || selectedLanguage) && hasMore && (
+            {allLecturersLoaded && (
               <Text
                 style={[
                   tw`text-xs mt-0.5`,
                   { color: designTokens.colors.system.label.tertiary },
                 ]}
               >
-                Scroll to see more results
+                All scholars loaded
               </Text>
             )}
           </View>
