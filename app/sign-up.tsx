@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -13,10 +13,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Loading, Text } from "../src/components/atoms";
+import { addSentryBreadcrumb, captureSentryException } from "../src/services/config/sentry.config";
 import { useAuthStore } from "../src/stores";
 import { designTokens } from "../src/theme/designTokens";
 import tw from "../src/theme/twrnc";
-import { captureSentryException, addSentryBreadcrumb } from "../src/services/config/sentry.config";
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -105,7 +105,8 @@ export default function SignUpScreen() {
         email,
         password,
       });
-      router.back();
+      // User is now authenticated, go directly to home
+      router.replace('/');
     } catch (err: any) {
       // Log to Sentry
       captureSentryException(err, {
