@@ -9,6 +9,9 @@
       "android": {
         "buildType": "apk"
       },
+      "env": {
+        "EXPO_PUBLIC_PUSH_REGISTER_URL": "https://backend.dawahbox.com/api/push/register.php"
+      },
       "channel": "development"
     },
     "preview": {
@@ -16,6 +19,9 @@
       "android": {
         "buildType": "apk",
         "gradleCommand": ":app:assembleRelease"
+      },
+      "env": {
+        "EXPO_PUBLIC_PUSH_REGISTER_URL": "https://backend.dawahbox.com/api/push/register.php"
       },
       "channel": "preview"
     },
@@ -25,6 +31,9 @@
       },
       "ios": {
         "buildConfiguration": "Release"
+      },
+      "env": {
+        "EXPO_PUBLIC_PUSH_REGISTER_URL": "https://backend.dawahbox.com/api/push/register.php"
       },
       "channel": "production"
     },

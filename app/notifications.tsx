@@ -3,43 +3,34 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { Switch, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { Text } from "../src/components/atoms";
+import {
+  defaultNotificationPrefs,
+  disablePushNotificationsAsync,
+  getStoredPushToken,
+  getNotificationPrefs,
+  registerForPushNotificationsAsync,
+  syncNotificationPreferencesAsync,
+  setNotificationPrefs,
+  type NotificationPrefs,
+} from "../src/services/notifications.service";
 import { designTokens } from "../src/theme/designTokens";
 import tw from "../src/theme/twrnc";
 
-type NotificationPrefs = {
-  enabled: boolean;
-  newLectures: boolean;
-  favoritesActivity: boolean;
-  downloadsComplete: boolean;
-  announcements: boolean;
-};
-
-const STORAGE_KEY = "NOTIFICATION_PREFS";
-
-const defaultPrefs: NotificationPrefs = {
-  enabled: true,
-  newLectures: true,
-  favoritesActivity: true,
-  downloadsComplete: true,
-  announcements: false,
-};
-
 const NotificationsScreen = () => {
   const router = useRouter();
-  const [prefs, setPrefs] = useState<NotificationPrefs>(defaultPrefs);
+  const [prefs, setPrefs] = useState<NotificationPrefs>(defaultNotificationPrefs);
   const [loading, setLoading] = useState(true);
+  const [pushTokenStatus, setPushTokenStatus] = useState<"present" | "missing">("missing");
 
   useEffect(() => {
     const loadPrefs = async () => {
       try {
-        const stored = await AsyncStorage.getItem(STORAGE_KEY);
-        if (stored) {
-          const parsed = JSON.parse(stored) as Partial<NotificationPrefs>;
-          setPrefs({ ...defaultPrefs, ...parsed });
-        }
+        const storedPrefs = await getNotificationPrefs();
+        setPrefs(storedPrefs);
+        const storedToken = await getStoredPushToken();
+        setPushTokenStatus(storedToken ? "present" : "missing");
       } catch (e) {
         console.warn("Failed to load notification prefs", e);
       } finally {
@@ -57,13 +48,24 @@ const NotificationsScreen = () => {
     const next = { ...prefs, [key]: value };
     setPrefs(next);
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      await setNotificationPrefs(next);
+      if (key === "enabled") {
+        if (value) {
+          await registerForPushNotificationsAsync();
+        } else {
+          await disablePushNotificationsAsync();
+        }
+        const storedToken = await getStoredPushToken();
+        setPushTokenStatus(storedToken ? "present" : "missing");
+      } else {
+        await syncNotificationPreferencesAsync(next);
+      }
     } catch (e) {
       console.warn("Failed to save notification prefs", e);
     }
   };
 
-  const disabled = !prefs.enabled;
+  const disabled = !prefs.enabled || loading;
 
   return (
     <SafeAreaView
@@ -104,6 +106,14 @@ const NotificationsScreen = () => {
         >
           Control how Dawah Nigeria notifies you about new content and updates.
           You can also turn notifications off entirely.
+        </Text>
+        <Text
+          style={[
+            tw`text-xs mt-2`,
+            { color: designTokens.colors.system.label.tertiary },
+          ]}
+        >
+          Push token: {pushTokenStatus === "present" ? "registered" : "not registered"}
         </Text>
       </View>
 

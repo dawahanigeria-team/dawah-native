@@ -1,3 +1,4 @@
+import * as Notifications from "expo-notifications";
 import { Stack, usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef } from "react";
@@ -11,10 +12,12 @@ import { ErrorBoundary } from "../src/components/atoms";
 import { Loading } from "../src/components/atoms/Loading";
 import { MiniPlayer } from "../src/components/organisms";
 import { AudioProvider } from "../src/components/providers/AudioProvider";
+import { usePushNotifications } from "../src/hooks/usePushNotifications";
 import { offlineFirstApi } from "../src/services/cache/offlineFirst.api";
 import { initSentry, Sentry } from "../src/services/config/sentry.config";
 import { downloadsService } from "../src/services/downloads.service";
 import { linkingService } from "../src/services/linking.service";
+import { getNotificationRouteFromData } from "../src/services/notifications.service";
 import { userService } from "../src/services/user.service";
 import { initializeAuth } from "../src/stores/authStore";
 import { fetchFavorites } from "../src/stores/favoritesStore";
@@ -26,6 +29,36 @@ initSentry();
 const NAVIGATION_PERSISTENCE_KEY = "NAVIGATION_STATE";
 const PLAYER_STATE_KEY = "PLAYER_STATE";
 
+function useNotificationObserver() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const redirect = (notification: Notifications.Notification) => {
+      const data = notification.request.content.data as Record<string, unknown>;
+      const url = getNotificationRouteFromData(data);
+      if (url) {
+        router.push(url as any);
+      }
+    };
+
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response?.notification) {
+        redirect(response.notification);
+      }
+    });
+
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        redirect(response.notification);
+      }
+    );
+
+    return () => {
+      subscription.remove();
+    };
+  }, [router]);
+}
+
 function RootLayout() {
   const pathname = usePathname();
   const router = useRouter();
@@ -33,6 +66,9 @@ function RootLayout() {
   const [isPlayerStateLoading] = useStorageState(PLAYER_STATE_KEY);
   const hasInitializedApp = useRef(false);
   const { isDark } = useTheme();
+
+  usePushNotifications();
+  useNotificationObserver();
 
   useEffect(() => {
     if (!__DEV__) return;
