@@ -8,11 +8,11 @@ import { Text } from "../src/components/atoms";
 import {
   defaultNotificationPrefs,
   disablePushNotificationsAsync,
-  getStoredPushToken,
   getNotificationPrefs,
+  getStoredPushToken,
   registerForPushNotificationsAsync,
-  syncNotificationPreferencesAsync,
   setNotificationPrefs,
+  syncNotificationPreferencesAsync,
   type NotificationPrefs,
 } from "../src/services/notifications.service";
 import { designTokens } from "../src/theme/designTokens";
@@ -59,6 +59,8 @@ const NotificationsScreen = () => {
         setPushTokenStatus(storedToken ? "present" : "missing");
       } else {
         await syncNotificationPreferencesAsync(next);
+        const storedToken = await getStoredPushToken();
+        setPushTokenStatus(storedToken ? "present" : "missing");
       }
     } catch (e) {
       console.warn("Failed to save notification prefs", e);

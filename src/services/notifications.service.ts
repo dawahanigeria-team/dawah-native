@@ -171,7 +171,12 @@ export const syncNotificationPreferencesAsync = async (
   prefs: NotificationPrefs,
 ): Promise<void> => {
   const storedToken = await getStoredPushToken();
-  if (!storedToken) return;
+  if (!storedToken) {
+    if (prefs.enabled) {
+      await registerForPushNotificationsAsync();
+    }
+    return;
+  }
 
   await syncPushTokenAsync(storedToken, prefs);
 };
