@@ -88,7 +88,7 @@ export const getPlayNextRef = () => playNextRef;
 function buildLockScreenInfo(episode: Episode): { title: string; artist: string; artwork: string } {
   return {
     title: episode.title,
-    artist: episode.lecturerName || 'Dawah Nigeria',
+    artist: episode.lecturerName || 'dawahnigeria',
     artwork: episode.coverUrl || '',
   };
 }

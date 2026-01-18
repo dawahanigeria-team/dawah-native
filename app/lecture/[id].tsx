@@ -284,7 +284,7 @@ const LectureDetailScreen: React.FC = () => {
 
     const webLink = linkingService.createLectureLink(lecture.id);
 
-    const baseMessage = `🎧 ${lecture.title}\n👤 ${lecture.lecturerName || 'Dawah Nigeria'}\n\n${webLink}`;
+    const baseMessage = `🎧 ${lecture.title}\n👤 ${lecture.lecturerName || 'dawahnigeria'}\n\n${webLink}`;
     const message = appendShareSignature(baseMessage);
 
     Share.share({

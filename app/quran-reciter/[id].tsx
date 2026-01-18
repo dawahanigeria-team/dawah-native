@@ -209,7 +209,7 @@ const QuranReciterScreen: React.FC = () => {
       const baseMessage = `🕌 Quran Recitations\n\n` +
         `📖 ${album.name}\n\n` +
         `🎙️ ${recitationCount} ${recitationCount === 1 ? 'recitation' : 'recitations'}\n\n` +
-        `Listen on Dawah Nigeria app\n\n` +
+        `Listen on dawahnigeria app\n\n` +
         `${webLink}`;
       const message = appendShareSignature(baseMessage);
 

@@ -243,7 +243,7 @@ const AlbumDetailScreen: React.FC = () => {
       const baseMessage = `🎧 Islamic Lectures Album${languageInfo}\n\n` +
         `📖 ${album.title}${lecturerInfo}\n\n` +
         `🎤 ${lectureCount} ${lectureCount === 1 ? 'lecture' : 'lectures'}\n\n` +
-        `Listen on Dawah Nigeria app\n\n` +
+        `Listen on dawahnigeria app\n\n` +
         `${webLink}`;
       const message = appendShareSignature(baseMessage);
 

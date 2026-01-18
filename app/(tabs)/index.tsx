@@ -235,7 +235,7 @@ export default function HomeScreen() {
               tw`w-8 h-8 rounded-lg items-center justify-center`,
               { backgroundColor: designTokens.colors.brand.primary },
             ]}
-            accessibilityLabel="Dawah Nigeria logo"
+            accessibilityLabel="dawahnigeria logo"
             accessibilityRole="image"
           >
             <Text

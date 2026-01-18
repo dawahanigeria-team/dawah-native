@@ -486,7 +486,7 @@ const ProfileScreen = () => {
                 { color: designTokens.colors.system.label.primary },
               ]}
             >
-              Dawah Nigeria
+              dawahnigeria
             </Text>
 
             <Text
@@ -504,7 +504,7 @@ const ProfileScreen = () => {
                 { color: designTokens.colors.system.label.secondary },
               ]}
             >
-              Islamic content platform for Nigeria
+              Reviving the Ummah byte by byte
             </Text>
           </View>
         </View>

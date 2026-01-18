@@ -24,11 +24,11 @@ export const NOTIFICATION_PREFS_STORAGE_KEY = 'NOTIFICATION_PREFS';
 export const EXPO_PUSH_TOKEN_STORAGE_KEY = 'EXPO_PUSH_TOKEN';
 
 export const defaultNotificationPrefs: NotificationPrefs = {
-  enabled: true,
-  newLectures: true,
-  favoritesActivity: true,
-  downloadsComplete: true,
-  announcements: false,
+  enabled: false,
+  newLectures: false,
+  favoritesActivity: false,
+  downloadsComplete: false,
+  announcements: true,
 };
 
 Notifications.setNotificationHandler({
@@ -45,7 +45,11 @@ export const getNotificationPrefs = async (): Promise<NotificationPrefs> => {
     const stored = await AsyncStorage.getItem(NOTIFICATION_PREFS_STORAGE_KEY);
     if (!stored) return defaultNotificationPrefs;
     const parsed = JSON.parse(stored) as Partial<NotificationPrefs>;
-    return { ...defaultNotificationPrefs, ...parsed };
+    const merged = { ...defaultNotificationPrefs, ...parsed, announcements: true };
+    if (parsed.announcements !== true) {
+      await AsyncStorage.setItem(NOTIFICATION_PREFS_STORAGE_KEY, JSON.stringify(merged));
+    }
+    return merged;
   } catch (error) {
     console.warn('Failed to load notification preferences:', error);
     return defaultNotificationPrefs;

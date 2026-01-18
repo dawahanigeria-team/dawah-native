@@ -173,7 +173,7 @@ export default function SignInScreen() {
                 color="secondaryLabel"
                 style={{ textAlign: "center" }}
               >
-                Sign in to continue to Dawah Nigeria
+                Sign in to continue to dawahnigeria
               </Text>
             </View>
           </View>

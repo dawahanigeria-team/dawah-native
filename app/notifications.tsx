@@ -23,6 +23,7 @@ const NotificationsScreen = () => {
   const [prefs, setPrefs] = useState<NotificationPrefs>(defaultNotificationPrefs);
   const [loading, setLoading] = useState(true);
   const [pushTokenStatus, setPushTokenStatus] = useState<"present" | "missing">("missing");
+  const announcementsForced = true;
 
   useEffect(() => {
     const loadPrefs = async () => {
@@ -45,7 +46,10 @@ const NotificationsScreen = () => {
     key: K,
     value: NotificationPrefs[K]
   ) => {
-    const next = { ...prefs, [key]: value };
+    const next = {
+      ...prefs,
+      [key]: key === "announcements" && announcementsForced ? true : value,
+    };
     setPrefs(next);
     try {
       await setNotificationPrefs(next);
@@ -106,7 +110,7 @@ const NotificationsScreen = () => {
             { color: designTokens.colors.system.label.secondary },
           ]}
         >
-          Control how Dawah Nigeria notifies you about new content and updates.
+          Control how dawahnigeria notifies you about new content and updates.
           You can also turn notifications off entirely.
         </Text>
         <Text
@@ -165,9 +169,9 @@ const NotificationsScreen = () => {
         <NotificationRow
           title="Announcements & tips"
           subtitle="Occasional updates about new features"
-          value={prefs.announcements}
+          value={announcementsForced || prefs.announcements}
           onChange={(v) => updatePref("announcements", v)}
-          disabled={disabled}
+          disabled={disabled || announcementsForced}
         />
       </View>
 
@@ -252,5 +256,3 @@ const NotificationRow: React.FC<NotificationRowProps> = ({
 };
 
 export default NotificationsScreen;
-
-
