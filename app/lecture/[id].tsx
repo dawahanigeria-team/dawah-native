@@ -34,7 +34,7 @@ import { useLectureDetail } from "../../src/hooks/useLectureDetail";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
 import { DownloadStatus } from "../../src/services/downloads/downloadQueue.service";
 import { linkingService } from "../../src/services/linking.service";
-import { useAuthStore, useDownloadsStore, useFavoritesStore, usePlayerStore } from "../../src/stores";
+import { authStore, useDownloadsStore, useFavoritesStore, usePlayerStore } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import type { LectureDetail } from "../../src/types/api.types";
@@ -66,10 +66,19 @@ const createEpisodeFromDetail = (detail: LectureDetail | null): Episode | null =
 
 const LectureDetailScreen: React.FC = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const lectureId = id ?? "";
-  const { lecture, loading, error, refetch } = useLectureDetail(lectureId);
   const router = useRouter();
+  const lectureId = id ?? "";
 
+  // Local State & Animations
+  const [showFullDescription, setShowFullDescription] = useState(false);
+  const [showAddToPlaylistModal, setShowAddToPlaylistModal] = useState(false);
+  const scrollY = useSharedValue(0);
+  const likeScale = useSharedValue(1);
+
+  // Data Hooks
+  const { lecture, loading, error, refetch } = useLectureDetail(lectureId);
+
+  // Store Hooks
   const {
     playEpisode,
     togglePlayPause,
@@ -91,19 +100,8 @@ const LectureDetailScreen: React.FC = () => {
 
   const { isFavorited, toggleFavorite } = useFavoritesStore();
 
-  const { isAuthenticated } = useAuthStore();
-
-  // State management
-  const [showFullDescription, setShowFullDescription] = useState(false);
-  const [showAddToPlaylistModal, setShowAddToPlaylistModal] = useState(false);
-
-  // Check if lecture is liked
+  // Derived State
   const liked = isFavorited(lectureId);
-
-  // Animation values
-  const scrollY = useSharedValue(0);
-  const likeScale = useSharedValue(1);
-
   const episode = useMemo(() => createEpisodeFromDetail(lecture), [lecture]);
   const isCurrentLecture = Boolean(
     lecture && currentEpisode?.id === lecture.id,
@@ -922,7 +920,7 @@ const LectureDetailScreen: React.FC = () => {
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => {
-            if (!isAuthenticated) {
+            if (!authStore.get().isAuthenticated) {
               router.push("/sign-in");
             } else {
               setShowAddToPlaylistModal(true);
