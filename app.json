@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "dawahnigeria",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.dawahnigeria.app",
@@ -103,10 +102,13 @@
         }
       ],
       "expo-notifications",
-      "expo-asset"
+      "expo-asset",
+      "expo-font",
+      "expo-sqlite"
     ],
     "experiments": {
-      "typedRoutes": true
+      "typedRoutes": true,
+      "reactCompiler": true
     },
     "updates": {
       "url": "https://u.expo.dev/f7c0926f-13d1-4a2f-bfb1-3f9c04f2577b"

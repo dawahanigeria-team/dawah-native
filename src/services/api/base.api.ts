@@ -3,7 +3,7 @@
  * Handles all HTTP requests with retry logic, error handling, and caching
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from 'expo-sqlite/kv-store';
 import { API_CONFIG } from '../config/api.config';
 import { captureSentryException, addSentryBreadcrumb } from '../config/sentry.config';
 

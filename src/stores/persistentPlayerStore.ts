@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from "expo-sqlite/kv-store";
 import { playerStore } from "./playerStore";
 import { PlayerState } from "../types/types";
 

@@ -3,7 +3,7 @@
  * Integrates with resumable downloads service.
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from 'expo-sqlite/kv-store';
 import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
 import type { Episode } from '../../types/types';
 import { addSentryBreadcrumb, captureSentryException } from '../config/sentry.config';

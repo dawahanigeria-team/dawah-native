@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from "expo-sqlite/kv-store";
 import { Text } from "../components/atoms";
 import { designTokens } from "../theme/designTokens";
 import tw from "../theme/twrnc";
