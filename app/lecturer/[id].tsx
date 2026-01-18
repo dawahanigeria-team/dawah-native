@@ -704,7 +704,6 @@ export default function LecturerDetailScreen() {
         onEndReachedThreshold={0.5}
         ListHeaderComponent={renderHeaderContent}
         ListFooterComponent={renderPlaylistFooter}
-        scrollEnabled={false}
       />
     );
   };
