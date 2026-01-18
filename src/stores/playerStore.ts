@@ -685,24 +685,20 @@ export const usePlayerActions = () => {
  * Use this when you need both state (like progress) and actions.
  */
 export const usePlayerStore = () => {
-  let state: PlayerState;
+  // Get state from the store. simpler-state's .use() is a React hook
+  // and should not be wrapped in try-catch as that can corrupt React's
+  // internal hook tracking (causing areHookInputsEqual to fail).
+  const rawState = playerStore.use();
 
-  try {
-    state = playerStore.use();
-  } catch (error) {
-    logger.warn('PlayerStore initialization issue, using default state:', error);
-    state = initialState;
-  }
-
-  if (!state) {
-    state = initialState;
-  }
-
-  // Ensure critical properties are always defined (defensive check)
-  // This prevents "Cannot read property 'length' of undefined" errors
-  if (!Array.isArray(state.queue)) {
-    state = { ...state, queue: [] };
-  }
+  // Merge with initialState to ensure all properties are always defined.
+  // This prevents "Cannot read property 'X' of undefined" errors when the
+  // store returns undefined or a partial state.
+  const state: PlayerState = {
+    ...initialState,
+    ...(rawState || {}),
+    // Ensure queue is always an array (extra safety)
+    queue: Array.isArray(rawState?.queue) ? rawState.queue : [],
+  };
 
   // Set playNext reference for use in AudioProvider
   React.useEffect(() => {
