@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { FlatList, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card, CardSkeleton } from "../../src/components/molecules";
 import { SearchBar } from "../../src/components/molecules/SearchBar";
@@ -27,6 +27,8 @@ const SNAP_INTERVAL = ITEM_WIDTH + ITEM_SPACING;
 
 const Separator = () => <View style={{ width: ITEM_SPACING }} />;
 const SmallSeparator = () => <View style={{ width: 12 }} />;
+
+type HomeSection = { key: string; element: JSX.Element };
 
 export default function HomeScreen() {
   const { playEpisode } = usePlayerActions();
@@ -123,7 +125,7 @@ export default function HomeScreen() {
   }, [popularEpisodes]);
 
 
-  const handleEpisodePress = async (episode: Episode) => {
+  const handleEpisodePress = useCallback(async (episode: Episode) => {
     console.log('🎵 Play button pressed for:', episode.title);
     console.log('🔗 Audio URL:', episode.audioUrl);
 
@@ -133,7 +135,7 @@ export default function HomeScreen() {
     } catch (error) {
       console.error('❌ Error playing episode:', error);
     }
-  };
+  }, [playEpisode]);
 
   const handleCarouselItemPress = useCallback((episode: Episode) => {
     router.push(`/lecture/${episode.id}`);
@@ -219,6 +221,186 @@ export default function HomeScreen() {
     );
   }, [handleAlbumPress]);
 
+  const sections = useMemo<HomeSection[]>(() => {
+    const items: HomeSection[] = [];
+
+    if (popularLoading) {
+      items.push({ key: "popular-loading", element: <HeroCarouselSkeleton /> });
+    } else if (popularError) {
+      items.push({
+        key: "popular-error",
+        element: (
+          <View style={tw`h-56 items-center justify-center px-6`}>
+            <Text style={tw`text-white text-center`}>Failed to load popular lectures</Text>
+          </View>
+        ),
+      });
+    } else if (popularEpisodes.length > 0) {
+      items.push({
+        key: "popular",
+        element: (
+          <HeroCarousel
+            items={popularEpisodes}
+            onItemPress={handleCarouselItemPress}
+            onPlayPress={handleEpisodePress}
+          />
+        ),
+      });
+    }
+
+    items.push({ key: "action-grid", element: <ActionGrid /> });
+
+    if (recentlyPlayedLoading) {
+      items.push({
+        key: "recently-played-loading",
+        element: (
+          <Row title="Recently Played" subtitle="Continue where you left off">
+            <View style={tw`flex-row`}>
+              {[...Array(3)].map((_, index) => (
+                <View key={`skeleton-recently-played-${index}`} style={tw`mr-4 w-80`}>
+                  <CardSkeleton variant="landscape" />
+                </View>
+              ))}
+            </View>
+          </Row>
+        ),
+      });
+    } else if (recentlyPlayedError) {
+      items.push({
+        key: "recently-played-error",
+        element: (
+          <View style={tw`h-40 items-center justify-center px-6`}>
+            <Text style={tw`text-white text-center`}>Failed to load recently played</Text>
+          </View>
+        ),
+      });
+    } else if (recentlyPlayed.length > 0) {
+      items.push({
+        key: "recently-played",
+        element: (
+          <Row
+            title="Recently Played"
+            subtitle="Continue where you left off"
+            onSeeAll={() => router.push("/section/recently-played")}
+            data={recentlyPlayed}
+            renderItem={renderLectureItem}
+            keyExtractor={(item) => `recently-played-${item.id}`}
+            ItemSeparatorComponent={Separator}
+            snapInterval={SNAP_INTERVAL}
+          />
+        ),
+      });
+    }
+
+    if (trendingLoading) {
+      items.push({
+        key: "recently-posted-loading",
+        element: (
+          <Row
+            title="Recently Posted"
+            subtitle="Latest content from our scholars"
+          >
+            <View style={tw`flex-row`}>
+              {[...Array(3)].map((_, index) => (
+                <View key={`skeleton-trending-${index}`} style={tw`mr-4 w-80`}>
+                  <CardSkeleton variant="landscape" />
+                </View>
+              ))}
+            </View>
+          </Row>
+        ),
+      });
+    } else if (trendingError) {
+      items.push({
+        key: "recently-posted-error",
+        element: (
+          <View style={tw`h-40 items-center justify-center px-6`}>
+            <Text style={tw`text-white text-center`}>Failed to load recently posted</Text>
+          </View>
+        ),
+      });
+    } else if (trendingLectures.length > 0) {
+      items.push({
+        key: "recently-posted",
+        element: (
+          <Row
+            title="Recently Posted"
+            subtitle="Latest content from our scholars"
+            onSeeAll={() => router.push("/section/recently-posted")}
+            data={trendingLectures}
+            renderItem={renderLectureItem}
+            keyExtractor={(item) => `recent-${item.id}`}
+            ItemSeparatorComponent={Separator}
+            snapInterval={SNAP_INTERVAL}
+          />
+        ),
+      });
+    }
+
+    if (quranLoading) {
+      items.push({
+        key: "quran-loading",
+        element: (
+          <Row title="Quran Recitations">
+            <View style={tw`flex-row`}>
+              {[...Array(3)].map((_, index) => (
+                <View key={`skeleton-quran-${index}`} style={tw`mr-4`}>
+                  <CardSkeleton variant="square" />
+                </View>
+              ))}
+            </View>
+          </Row>
+        ),
+      });
+    } else if (quranError) {
+      items.push({
+        key: "quran-error",
+        element: (
+          <View style={tw`h-40 items-center justify-center px-6`}>
+            <Text style={tw`text-white text-center`}>Failed to load Quran recitations</Text>
+          </View>
+        ),
+      });
+    } else if (quranAlbums.length > 0) {
+      items.push({
+        key: "quran",
+        element: (
+          <Row
+            title="Quran Recitations"
+            onSeeAll={() => router.push("/section/quran-recitations")}
+            data={quranAlbums}
+            renderItem={renderAlbumItem}
+            keyExtractor={(item) => `quran-${item.id}`}
+            ItemSeparatorComponent={SmallSeparator}
+            snapInterval={140 + 12}
+          />
+        ),
+      });
+    }
+
+    return items;
+  }, [
+    popularLoading,
+    popularError,
+    popularEpisodes,
+    handleCarouselItemPress,
+    handleEpisodePress,
+    recentlyPlayedLoading,
+    recentlyPlayedError,
+    recentlyPlayed,
+    trendingLoading,
+    trendingError,
+    trendingLectures,
+    quranLoading,
+    quranError,
+    quranAlbums,
+    renderLectureItem,
+    renderAlbumItem,
+    router,
+  ]);
+
+  const renderSectionItem = useCallback(({ item }: { item: HomeSection }) => item.element, []);
+
   return (
     <SafeAreaView
       style={[
@@ -279,117 +461,18 @@ export default function HomeScreen() {
         />
       </View>
 
-      <ScrollView
-        style={tw`flex-1`}
+      <FlatList
+        data={sections}
+        renderItem={renderSectionItem}
+        keyExtractor={(item) => item.key}
         showsVerticalScrollIndicator={false}
-        // Extra bottom padding so content never sits under the mini-player + tab bar
         contentContainerStyle={tw`pb-40`}
         accessibilityLabel="Home content"
-      >
-        {/* Hero Carousel - Popular Lectures */}
-        {popularLoading ? (
-          <HeroCarouselSkeleton />
-        ) : popularError ? (
-          <View style={tw`h-56 items-center justify-center px-6`}>
-              <Text style={tw`text-white text-center`}>Failed to load popular lectures</Text>
-          </View>
-        ) : popularEpisodes.length > 0 ? (
-          <HeroCarousel
-            items={popularEpisodes}
-            onItemPress={handleCarouselItemPress}
-            onPlayPress={handleEpisodePress}
-          />
-        ) : null}
-
-        {/* Action Grid */}
-        <ActionGrid />
-
-        {/* Recently Played */}
-        {recentlyPlayedLoading ? (
-          <Row title="Recently Played" subtitle="Continue where you left off">
-            <View style={tw`flex-row`}>
-              {[...Array(3)].map((_, index) => (
-                <View key={`skeleton-recently-played-${index}`} style={tw`mr-4 w-80`}>
-                  <CardSkeleton variant="landscape" />
-                </View>
-              ))}
-            </View>
-          </Row>
-        ) : recentlyPlayedError ? (
-          <View style={tw`h-40 items-center justify-center px-6`}>
-            <Text style={tw`text-white text-center`}>Failed to load recently played</Text>
-          </View>
-        ) : recentlyPlayed.length > 0 ? (
-          <Row
-            title="Recently Played"
-            subtitle="Continue where you left off"
-            onSeeAll={() => router.push("/section/recently-played")}
-            data={recentlyPlayed}
-            renderItem={renderLectureItem}
-            keyExtractor={(item) => `recently-played-${item.id}`}
-            ItemSeparatorComponent={Separator}
-            snapInterval={SNAP_INTERVAL}
-          />
-        ) : null}
-
-        {/* Recently Posted */}
-        {trendingLoading ? (
-          <Row
-            title="Recently Posted"
-            subtitle="Latest content from our scholars"
-          >
-            <View style={tw`flex-row`}>
-              {[...Array(3)].map((_, index) => (
-                <View key={`skeleton-trending-${index}`} style={tw`mr-4 w-80`}>
-                  <CardSkeleton variant="landscape" />
-                </View>
-              ))}
-            </View>
-          </Row>
-        ) : trendingError ? (
-          <View style={tw`h-40 items-center justify-center px-6`}>
-            <Text style={tw`text-white text-center`}>Failed to load recently posted</Text>
-          </View>
-        ) : trendingLectures.length > 0 ? (
-          <Row
-            title="Recently Posted"
-            subtitle="Latest content from our scholars"
-            onSeeAll={() => router.push("/section/recently-posted")}
-            data={trendingLectures}
-            renderItem={renderLectureItem}
-            keyExtractor={(item) => `recent-${item.id}`}
-            ItemSeparatorComponent={Separator}
-            snapInterval={SNAP_INTERVAL}
-          />
-        ) : null}
-
-        {/* Quran Recitations */}
-        {quranLoading ? (
-          <Row title="Quran Recitations">
-            <View style={tw`flex-row`}>
-              {[...Array(3)].map((_, index) => (
-                <View key={`skeleton-quran-${index}`} style={tw`mr-4`}>
-                  <CardSkeleton variant="square" />
-                </View>
-              ))}
-            </View>
-          </Row>
-        ) : quranError ? (
-          <View style={tw`h-40 items-center justify-center px-6`}>
-            <Text style={tw`text-white text-center`}>Failed to load Quran recitations</Text>
-          </View>
-        ) : quranAlbums.length > 0 ? (
-          <Row
-            title="Quran Recitations"
-            onSeeAll={() => router.push("/section/quran-recitations")}
-            data={quranAlbums}
-            renderItem={renderAlbumItem}
-            keyExtractor={(item) => `quran-${item.id}`}
-            ItemSeparatorComponent={SmallSeparator}
-            snapInterval={140 + 12}
-          />
-        ) : null}
-      </ScrollView>
+        removeClippedSubviews={true}
+        initialNumToRender={4}
+        windowSize={5}
+        maxToRenderPerBatch={4}
+      />
     </SafeAreaView>
   );
 }

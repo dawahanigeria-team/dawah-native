@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState, useMemo, useEffect } from "react";
-import { ScrollView, Text, TouchableOpacity, View, Alert, ActivityIndicator } from "react-native";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
+import { FlatList, Text, TouchableOpacity, View, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../../src/components/molecules/Card";
 import { usePlayerActions, useDownloadsStore, useFavoritesStore } from "../../src/stores";
@@ -281,10 +281,32 @@ export default function LibraryScreen() {
     </View>
   );
 
-  const renderContent = () => {
-    const data = getTabData();
-    const loading = isTabLoading();
+  const data = getTabData();
+  const loading = isTabLoading();
 
+  const renderListItem = useCallback(({ item }: { item: Episode | Series }) => (
+    <View style={tw`mb-3`}>
+      <Card
+        variant="landscape"
+        data={item}
+        onPress={() => handleItemPress(item)}
+        onLongPress={
+          activeTab === "Downloads" && "durationSec" in item
+            ? () => handleDeleteDownload(item.id, item.title)
+            : undefined
+        }
+        showTime={"durationSec" in item}
+        showMeta={true}
+        metaValue={
+          "lecturerName" in item
+            ? item.lecturerName || "Unknown"
+            : "Sheikh Nasir Kabara"
+        }
+      />
+    </View>
+  ), [activeTab, handleItemPress, handleDeleteDownload]);
+
+  const renderListEmpty = useCallback(() => {
     if (loading) {
       return (
         <View style={tw`flex-1 items-center justify-center py-20`}>
@@ -304,36 +326,8 @@ export default function LibraryScreen() {
       );
     }
 
-    if (data.length === 0) {
-      return renderEmptyState(activeTab);
-    }
-
-    return (
-      <View style={tw`px-4`}>
-        {data.map((item: Episode | Series) => (
-          <View key={item.id} style={tw`mb-3`}>
-            <Card
-              variant="landscape"
-              data={item}
-              onPress={() => handleItemPress(item)}
-              onLongPress={
-                activeTab === "Downloads" && "durationSec" in item
-                  ? () => handleDeleteDownload(item.id, item.title)
-                  : undefined
-              }
-              showTime={"durationSec" in item}
-              showMeta={true}
-              metaValue={
-                "lecturerName" in item
-                  ? item.lecturerName || "Unknown"
-                  : "Sheikh Nasir Kabara"
-              }
-            />
-          </View>
-        ))}
-      </View>
-    );
-  };
+    return renderEmptyState(activeTab);
+  }, [activeTab, loading]);
 
   return (
     <SafeAreaView
@@ -417,15 +411,22 @@ export default function LibraryScreen() {
       </View>
 
       {/* Content */}
-      <ScrollView
-        style={tw`flex-1`}
+      <FlatList
+        data={loading ? [] : data}
+        renderItem={renderListItem}
+        keyExtractor={(item) => String(item.id)}
         showsVerticalScrollIndicator={false}
-        // Extra bottom padding so the last items don’t sit under the mini-player + tab bar
-        contentContainerStyle={tw`pb-40`}
+        contentContainerStyle={[
+          tw`pb-40 px-4`,
+          (loading || data.length === 0) ? { flexGrow: 1 } : null,
+        ]}
+        ListEmptyComponent={renderListEmpty}
         accessibilityLabel="Library content"
-      >
-        {renderContent()}
-      </ScrollView>
+        removeClippedSubviews={true}
+        initialNumToRender={8}
+        windowSize={10}
+        maxToRenderPerBatch={8}
+      />
     </SafeAreaView>
   );
 }
