@@ -4,7 +4,7 @@ import { designTokens } from "../theme/designTokens";
 export const getPlaceholderColor = (id: string | undefined): string => {
   // Fallback if id is undefined or empty
   if (!id || typeof id !== 'string') {
-    return "#4ECDC4"; // Default teal color
+    return designTokens.colors.palette.placeholderDefault;
   }
 
   const hash = id.split("").reduce((a, b) => {
@@ -13,18 +13,7 @@ export const getPlaceholderColor = (id: string | undefined): string => {
   }, 0);
 
   // Use a more sophisticated color palette inspired by iOS
-  const colors = [
-    "#FF6B6B", // Coral
-    "#4ECDC4", // Teal
-    "#45B7D1", // Blue
-    "#96CEB4", // Mint
-    "#FFEAA7", // Yellow
-    "#DDA0DD", // Plum
-    "#98D8C8", // Sea Green
-    "#F7DC6F", // Gold
-    "#BB8FCE", // Lavender
-    "#85C1E9", // Sky Blue
-  ];
+  const colors = designTokens.colors.palette.placeholder;
 
   return colors[Math.abs(hash) % colors.length];
 };

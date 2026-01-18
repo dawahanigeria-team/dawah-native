@@ -11,6 +11,7 @@ import { Platform } from 'react-native';
 
 import { registerPushToken } from './api/notifications.api';
 import { userService } from './user.service';
+import { designTokens } from '../theme/designTokens';
 
 export type NotificationPrefs = {
   enabled: boolean;
@@ -93,7 +94,7 @@ export const ensureNotificationChannelsAsync = async (): Promise<void> => {
     name: 'New lectures',
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250, 250],
-    lightColor: '#FF231F7C',
+    lightColor: designTokens.colors.palette.notificationLight,
   });
 };
 

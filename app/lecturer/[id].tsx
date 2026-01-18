@@ -429,7 +429,12 @@ export default function LecturerDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={tw`flex-1 bg-[#0A0A0F]`}>
+      <SafeAreaView
+        style={[
+          tw`flex-1`,
+          { backgroundColor: designTokens.colors.palette.slate950 },
+        ]}
+      >
         <View style={tw`flex-1 items-center justify-center`}>
           <ActivityIndicator size="large" color={designTokens.colors.brand.primary} />
           <Text style={tw`text-white mt-4`}>Loading lecturer details...</Text>
@@ -440,12 +445,20 @@ export default function LecturerDetailScreen() {
 
   if (error || !lecturer) {
     return (
-      <SafeAreaView style={tw`flex-1 bg-[#0A0A0F]`}>
+      <SafeAreaView
+        style={[
+          tw`flex-1`,
+          { backgroundColor: designTokens.colors.palette.slate950 },
+        ]}
+      >
         <View style={tw`flex-1 items-center justify-center px-6`}>
           <Text style={tw`text-white text-lg mb-4`}>Failed to load lecturer</Text>
           <TouchableOpacity
             onPress={() => router.back()}
-            style={tw`bg-[#1F2937] px-6 py-3 rounded-lg`}
+            style={[
+              tw`px-6 py-3 rounded-lg`,
+              { backgroundColor: designTokens.colors.palette.slate800 },
+            ]}
           >
             <Text style={tw`text-white`}>Go Back</Text>
           </TouchableOpacity>
@@ -493,7 +506,10 @@ export default function LecturerDetailScreen() {
 
     return (
       <TouchableOpacity
-        style={tw`flex-row items-start p-4 bg-[#1A1A1F] rounded-lg mb-3`}
+        style={[
+          tw`flex-row items-start p-4 rounded-lg mb-3`,
+          { backgroundColor: designTokens.colors.palette.neutral900 },
+        ]}
         onPress={handleAlbumPress}
       >
         {item.coverUrl ? (
@@ -503,7 +519,7 @@ export default function LecturerDetailScreen() {
           />
         ) : (
           <View style={tw`w-16 h-16 rounded-lg bg-gray-700 items-center justify-center`}>
-            <Ionicons name="musical-notes" size={24} color="#9CA3AF" />
+            <Ionicons name="musical-notes" size={24} color={designTokens.colors.palette.gray400} />
           </View>
         )}
         <View style={tw`flex-1 ml-4`}>
@@ -515,7 +531,7 @@ export default function LecturerDetailScreen() {
           </Text>
         </View>
         <View style={tw`justify-center ml-2`}>
-          <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+          <Ionicons name="chevron-forward" size={20} color={designTokens.colors.palette.gray400} />
         </View>
       </TouchableOpacity>
     );
@@ -540,7 +556,7 @@ export default function LecturerDetailScreen() {
         />
       ) : (
         <View style={tw`w-12 h-12 rounded bg-gray-700 items-center justify-center`}>
-          <Ionicons name="musical-note" size={20} color="#9CA3AF" />
+          <Ionicons name="musical-note" size={20} color={designTokens.colors.palette.gray400} />
         </View>
       )}
 
@@ -554,14 +570,14 @@ export default function LecturerDetailScreen() {
             {lecture.rpname}
           </Text>
           <View style={tw`flex-row items-center mr-3`}>
-            <Ionicons name="play" size={12} color="#9CA3AF" />
+            <Ionicons name="play" size={12} color={designTokens.colors.palette.gray400} />
             <Text style={tw`text-gray-400 text-xs ml-1`}>
               {formatNumber(lecture.views)}
             </Text>
           </View>
           {lecture.favorites > 0 && (
             <View style={tw`flex-row items-center`}>
-              <Ionicons name="heart" size={12} color="#9CA3AF" />
+              <Ionicons name="heart" size={12} color={designTokens.colors.palette.gray400} />
               <Text style={tw`text-gray-400 text-xs ml-1`}>
                 {formatNumber(lecture.favorites)}
               </Text>
@@ -583,7 +599,7 @@ export default function LecturerDetailScreen() {
           handleLecturePlay(lecture);
         }}
       >
-        <Ionicons name="play-circle" size={28} color="#30D158" />
+        <Ionicons name="play-circle" size={28} color={designTokens.colors.brand.primary} />
       </TouchableOpacity>
     </TouchableOpacity>
   );
@@ -626,7 +642,10 @@ export default function LecturerDetailScreen() {
 
     return (
       <TouchableOpacity
-        style={tw`flex-row items-start p-4 bg-[#1A1A1F] rounded-lg mb-3`}
+        style={[
+          tw`flex-row items-start p-4 rounded-lg mb-3`,
+          { backgroundColor: designTokens.colors.palette.neutral900 },
+        ]}
         onPress={handlePlaylistPress}
       >
         {item.coverUrl ? (
@@ -636,7 +655,7 @@ export default function LecturerDetailScreen() {
           />
         ) : (
           <View style={tw`w-16 h-16 rounded-lg bg-gray-700 items-center justify-center`}>
-            <Ionicons name="list" size={24} color="#9CA3AF" />
+            <Ionicons name="list" size={24} color={designTokens.colors.palette.gray400} />
           </View>
         )}
         <View style={tw`flex-1 ml-4`}>
@@ -648,7 +667,7 @@ export default function LecturerDetailScreen() {
           </Text>
         </View>
         <View style={tw`justify-center ml-2`}>
-          <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+          <Ionicons name="chevron-forward" size={20} color={designTokens.colors.palette.gray400} />
         </View>
       </TouchableOpacity>
     );
@@ -729,19 +748,19 @@ export default function LecturerDetailScreen() {
             {/* Stats */}
             <View style={tw`flex-row items-center mt-2`}>
               <View style={tw`flex-row items-center bg-gray-800 rounded-full px-3 py-1.5 mr-2`}>
-                <Ionicons name="heart" size={14} color="#9CA3AF" />
+                <Ionicons name="heart" size={14} color={designTokens.colors.palette.gray400} />
                 <Text style={tw`text-gray-300 text-xs ml-1.5`}>
                   {formatNumber(favorites)}
                 </Text>
               </View>
               <View style={tw`flex-row items-center bg-gray-800 rounded-full px-3 py-1.5 mr-2`}>
-                <Ionicons name="share-social" size={14} color="#9CA3AF" />
+                <Ionicons name="share-social" size={14} color={designTokens.colors.palette.gray400} />
                 <Text style={tw`text-gray-300 text-xs ml-1.5`}>
                   {shares}
                 </Text>
               </View>
               <View style={tw`flex-row items-center bg-gray-800 rounded-full px-3 py-1.5`}>
-                <Ionicons name="chatbubble" size={14} color="#9CA3AF" />
+                <Ionicons name="chatbubble" size={14} color={designTokens.colors.palette.gray400} />
                 <Text style={tw`text-gray-300 text-xs ml-1.5`}>
                   {comments}
                 </Text>
@@ -761,18 +780,23 @@ export default function LecturerDetailScreen() {
       {/* Search Bar */}
       {activeTab === 'songs' && (
         <View style={tw`px-5 py-4`}>
-          <View style={tw`flex-row items-center bg-[#1A1A1F] rounded-lg px-4 py-3`}>
-            <Ionicons name="search" size={20} color="#9CA3AF" />
+          <View
+            style={[
+              tw`flex-row items-center rounded-lg px-4 py-3`,
+              { backgroundColor: designTokens.colors.palette.neutral900 },
+            ]}
+          >
+            <Ionicons name="search" size={20} color={designTokens.colors.palette.gray400} />
             <TextInput
               style={tw`flex-1 ml-3 text-white`}
               placeholder="Search lectures"
-              placeholderTextColor="#6B7280"
+              placeholderTextColor={designTokens.colors.palette.gray500}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+                <Ionicons name="close-circle" size={20} color={designTokens.colors.palette.gray400} />
               </TouchableOpacity>
             )}
           </View>

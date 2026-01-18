@@ -51,7 +51,7 @@ export const Dropdown: React.FC<DropdownProps> = memo(({
   
   const modalStyle: ViewStyle = {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: designTokens.colors.overlay.darkMedium,
     justifyContent: 'center',
     paddingHorizontal: designTokens.spacing.lg,
   };

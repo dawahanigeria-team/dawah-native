@@ -213,7 +213,7 @@ const NotificationRow: React.FC<NotificationRowProps> = ({
         tw`flex-row items-center px-4 py-3`,
         divider && {
           borderTopWidth: 1,
-          borderTopColor: "rgba(255,255,255,0.06)",
+          borderTopColor: designTokens.colors.overlay.lightThin,
         },
       ]}
     >

@@ -130,7 +130,7 @@ export const Button: React.FC<ButtonProps> = memo(
       switch (variant) {
         case "filled":
         case "destructive":
-          return { fixedColor: "#FFFFFF" };
+          return { fixedColor: designTokens.colors.fixed.white };
         case "tinted":
           return { semanticColor: "brand" };
         case "gray":
@@ -176,7 +176,7 @@ export const Button: React.FC<ButtonProps> = memo(
 
     // Determine loader color based on button variant
     const loaderColor = (variant === 'filled' || variant === 'destructive')
-      ? '#FFFFFF'
+      ? designTokens.colors.fixed.white
       : colors.system.label.primary;
 
     return (

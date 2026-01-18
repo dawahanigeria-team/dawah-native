@@ -556,7 +556,7 @@ export default function LecturersScreen() {
                     tw`text-sm font-medium`,
                     {
                       color: isSelected
-                        ? '#FFFFFF'
+                        ? designTokens.colors.fixed.white
                         : designTokens.colors.system.label.primary,
                     },
                   ]}

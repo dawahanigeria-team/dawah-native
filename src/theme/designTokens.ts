@@ -151,6 +151,48 @@ export const colorsDark = {
     disabled: "rgba(120, 120, 128, 0.22)",
     selected: "#0A84FF",
   },
+  fixed: {
+    white: "#FFFFFF",
+    black: "#000000",
+  },
+  overlay: {
+    darkHeavy: "rgba(0, 0, 0, 0.8)",
+    darkStrong: "rgba(0, 0, 0, 0.7)",
+    darkMedium: "rgba(0, 0, 0, 0.5)",
+    darkSubtle: "rgba(0, 0, 0, 0.05)",
+    lightStrong: "rgba(255, 255, 255, 0.95)",
+    lightSubtle: "rgba(255, 255, 255, 0.1)",
+    lightThin: "rgba(255, 255, 255, 0.06)",
+  },
+  palette: {
+    slate950: "#0A0A0F",
+    slate900: "#111827",
+    slate800: "#1F2937",
+    neutral900: "#1A1A1F",
+    gray500: "#6B7280",
+    gray400: "#9CA3AF",
+    lime400: "#C6FF00",
+    blue500: "#3B82F6",
+    green500: "#22C55E",
+    amber500: "#F59E0B",
+    red500: "#EF4444",
+    emerald500: "#10B981",
+    orange500: "#F97316",
+    notificationLight: "#FF231F7C",
+    placeholderDefault: "#4ECDC4",
+    placeholder: [
+      "#FF6B6B", // Coral
+      "#4ECDC4", // Teal
+      "#45B7D1", // Blue
+      "#96CEB4", // Mint
+      "#FFEAA7", // Yellow
+      "#DDA0DD", // Plum
+      "#98D8C8", // Sea Green
+      "#F7DC6F", // Gold
+      "#BB8FCE", // Lavender
+      "#85C1E9", // Sky Blue
+    ],
+  },
 } as const;
 
 export const colorsLight = {
@@ -202,6 +244,48 @@ export const colorsLight = {
     highlighted: "rgba(120, 120, 128, 0.4)",
     disabled: "rgba(120, 120, 128, 0.12)",
     selected: "#007AFF",
+  },
+  fixed: {
+    white: "#FFFFFF",
+    black: "#000000",
+  },
+  overlay: {
+    darkHeavy: "rgba(0, 0, 0, 0.8)",
+    darkStrong: "rgba(0, 0, 0, 0.7)",
+    darkMedium: "rgba(0, 0, 0, 0.5)",
+    darkSubtle: "rgba(0, 0, 0, 0.05)",
+    lightStrong: "rgba(255, 255, 255, 0.95)",
+    lightSubtle: "rgba(255, 255, 255, 0.1)",
+    lightThin: "rgba(255, 255, 255, 0.06)",
+  },
+  palette: {
+    slate950: "#0A0A0F",
+    slate900: "#111827",
+    slate800: "#1F2937",
+    neutral900: "#1A1A1F",
+    gray500: "#6B7280",
+    gray400: "#9CA3AF",
+    lime400: "#C6FF00",
+    blue500: "#3B82F6",
+    green500: "#22C55E",
+    amber500: "#F59E0B",
+    red500: "#EF4444",
+    emerald500: "#10B981",
+    orange500: "#F97316",
+    notificationLight: "#FF231F7C",
+    placeholderDefault: "#4ECDC4",
+    placeholder: [
+      "#FF6B6B", // Coral
+      "#4ECDC4", // Teal
+      "#45B7D1", // Blue
+      "#96CEB4", // Mint
+      "#FFEAA7", // Yellow
+      "#DDA0DD", // Plum
+      "#98D8C8", // Sea Green
+      "#F7DC6F", // Gold
+      "#BB8FCE", // Lavender
+      "#85C1E9", // Sky Blue
+    ],
   },
 } as const;
 

@@ -501,7 +501,7 @@ const LectureDetailScreen: React.FC = () => {
               </View>
             )}
             <LinearGradient
-              colors={['transparent', 'rgba(0,0,0,0.7)']}
+              colors={['transparent', designTokens.colors.overlay.darkStrong]}
               style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 120 }}
             />
           </Animated.View>
@@ -921,7 +921,10 @@ const LectureDetailScreen: React.FC = () => {
 
           <TouchableOpacity onPress={() => {
             if (!authStore.get().isAuthenticated) {
-              router.push("/sign-in");
+              router.push({
+                pathname: "/sign-in",
+                params: { returnTo: `/lecture/${lecture.id}` },
+              });
             } else {
               setShowAddToPlaylistModal(true);
             }

@@ -32,7 +32,7 @@ const slides: OnboardingSlide[] = [
     title: "Discover Islamic Knowledge",
     description:
       "Access thousands of lectures, Quran recitations, and Islamic content from renowned scholars across Nigeria and beyond",
-    gradient: ["#30D158", "#007AFF"],
+    gradient: [designTokens.colors.brand.primary, designTokens.colors.brand.secondary],
   },
   {
     id: 2,
@@ -40,7 +40,7 @@ const slides: OnboardingSlide[] = [
     title: "Listen Anywhere",
     description:
       "Download lectures for offline listening, create playlists, and enjoy seamless playback with background audio support",
-    gradient: ["#007AFF", "#5856D6"],
+    gradient: [designTokens.colors.brand.secondary, designTokens.colors.semantic.indigo],
   },
   {
     id: 3,
@@ -48,7 +48,7 @@ const slides: OnboardingSlide[] = [
     title: "Learn from the Best",
     description:
       "Follow your favorite scholars, discover trending lectures, and build your personal library of Islamic knowledge",
-    gradient: ["#5856D6", "#AF52DE"],
+    gradient: [designTokens.colors.semantic.indigo, designTokens.colors.semantic.purple],
   },
   {
     id: 4,
@@ -56,7 +56,7 @@ const slides: OnboardingSlide[] = [
     title: "Start Your Journey",
     description:
       "Join thousands of Muslims learning and growing together. Your path to knowledge begins here",
-    gradient: ["#AF52DE", "#30D158"],
+    gradient: [designTokens.colors.semantic.purple, designTokens.colors.brand.primary],
   },
 ];
 

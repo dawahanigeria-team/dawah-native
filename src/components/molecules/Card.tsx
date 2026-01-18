@@ -159,7 +159,7 @@ export const Card: React.FC<CardProps> = memo(
                     position: "absolute",
                     bottom: designTokens.spacing.sm,
                     left: designTokens.spacing.sm,
-                    backgroundColor: "rgba(0, 0, 0, 0.8)",
+                    backgroundColor: designTokens.colors.overlay.darkHeavy,
                     paddingHorizontal: designTokens.spacing.sm,
                     paddingVertical: designTokens.spacing.xs,
                     borderRadius: designTokens.borderRadius.md,
@@ -274,7 +274,7 @@ export const Card: React.FC<CardProps> = memo(
                 right: 0,
                 bottom: 0,
                 borderRadius: designTokens.borderRadius.lg,
-                backgroundColor: "rgba(0,0,0,0.05)",
+                backgroundColor: designTokens.colors.overlay.darkSubtle,
               }}
             />
           </View>
@@ -404,13 +404,13 @@ export const Card: React.FC<CardProps> = memo(
                   elevation: 5,
                   // Subtle inner shadow effect
                   borderWidth: 1,
-                  borderColor: "rgba(255,255,255,0.1)",
+                  borderColor: designTokens.colors.overlay.lightSubtle,
                 }}
               >
                 <Icon
                   name="play"
                   size="md"
-                  color="#000000"
+                  color={designTokens.colors.fixed.black}
                   style={{
                     marginLeft: 2, // Optical alignment for play icon
                   }}
@@ -571,14 +571,14 @@ export const Card: React.FC<CardProps> = memo(
               <View
                 style={{
                   position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  borderRadius: designTokens.borderRadius.xl,
-                  backgroundColor: "rgba(0,0,0,0.05)",
-                }}
-              />
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                borderRadius: designTokens.borderRadius.xl,
+                backgroundColor: designTokens.colors.overlay.darkSubtle,
+              }}
+            />
             </View>
 
             {/* Content - Vertically Layered */}
@@ -677,13 +677,13 @@ export const Card: React.FC<CardProps> = memo(
                   elevation: 4,
                   // Subtle inner shadow effect
                   borderWidth: 1,
-                  borderColor: "rgba(255,255,255,0.1)",
+                  borderColor: designTokens.colors.overlay.lightSubtle,
                 }}
               >
                 <Icon
                   name="play"
                   size="md"
-                  color="#000000"
+                  color={designTokens.colors.fixed.black}
                   accessibilityLabel="Play button"
                   style={{
                     marginLeft: 1, // Optical alignment for play icon
