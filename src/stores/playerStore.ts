@@ -1,5 +1,4 @@
 import AsyncStorage from "expo-sqlite/kv-store";
-import React from "react";
 import { entity } from "simpler-state";
 import type { AudioPlaybackControls } from "../hooks/useAudioPlayback";
 import { addSentryBreadcrumb, captureSentryException } from "../services/config/sentry.config";
@@ -672,6 +671,9 @@ const actions = {
   clearQueue,
 };
 
+// Keep playNextRef available for AudioProvider without relying on a hook.
+setPlayNextRef(actions.playNext);
+
 /**
  * Hook to access player actions without subscribing to state changes.
  * Use this in components that only need to control playback but don't need to render progress.
@@ -699,12 +701,6 @@ export const usePlayerStore = () => {
     // Ensure queue is always an array (extra safety)
     queue: Array.isArray(rawState?.queue) ? rawState.queue : [],
   };
-
-  // Set playNext reference for use in AudioProvider
-  React.useEffect(() => {
-    setPlayNextRef(actions.playNext);
-    return () => setPlayNextRef(null);
-  }, []);
 
   return {
     ...state,
