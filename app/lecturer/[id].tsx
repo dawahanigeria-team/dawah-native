@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Image, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, StyleSheet, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../../src/components/atoms";
 import { TabView } from "../../src/components/molecules/TabView";
@@ -698,6 +698,7 @@ export default function LecturerDetailScreen() {
         data={playlists}
         renderItem={renderPlaylistItem}
         keyExtractor={(item) => item.id.toString()}
+        stickyHeaderIndices={[0]}
         contentContainerStyle={tw`px-5 pb-20`}
         onEndReached={loadMorePlaylists}
         onEndReachedThreshold={0.5}
@@ -709,7 +710,15 @@ export default function LecturerDetailScreen() {
   };
 
   const renderHeaderContent = () => (
-    <>
+    <View
+      style={[
+        styles.stickyHeader,
+        {
+          backgroundColor: designTokens.colors.system.background.primary,
+          borderBottomColor: designTokens.colors.system.separator.primary,
+        },
+      ]}
+    >
       {/* Lecturer Info with Cover Image */}
       <View style={tw`px-5 py-3`}>
         <View style={tw`flex-row`}>
@@ -802,7 +811,7 @@ export default function LecturerDetailScreen() {
           </View>
         </View>
       )}
-    </>
+    </View>
   );
 
   const renderSongsList = () => {
@@ -811,6 +820,7 @@ export default function LecturerDetailScreen() {
         data={filteredLectures}
         renderItem={({ item, index }) => renderLectureItem(item, index)}
         keyExtractor={(item: any, index: number) => item._uniqueId || `${item.nid}-${index}`}
+        stickyHeaderIndices={[0]}
         contentContainerStyle={tw`pb-20`}
         onEndReached={loadMoreLectures}
         onEndReachedThreshold={0.5}
@@ -846,6 +856,7 @@ export default function LecturerDetailScreen() {
             data={albums}
             renderItem={renderAlbumItem}
             keyExtractor={(item) => item.id.toString()}
+            stickyHeaderIndices={[0]}
             contentContainerStyle={tw`pb-20`}
             onEndReached={loadMoreAlbums}
             onEndReachedThreshold={0.5}
@@ -892,3 +903,9 @@ export default function LecturerDetailScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  stickyHeader: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+});
