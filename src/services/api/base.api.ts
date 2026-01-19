@@ -441,8 +441,13 @@ class ApiClient {
         throw error;
       }
 
-      // Handle network errors
-      if (error.message === 'Network request failed' || !navigator.onLine) {
+      // Handle network errors (avoid web-only navigator.onLine on native)
+      const isNavigatorOffline =
+        typeof navigator !== 'undefined' &&
+        'onLine' in navigator &&
+        navigator.onLine === false;
+
+      if (error.message === 'Network request failed' || isNavigatorOffline) {
         const networkError = new ApiError(
           'No internet connection',
           undefined,
