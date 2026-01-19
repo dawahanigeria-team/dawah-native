@@ -4,6 +4,7 @@
  */
 
 import AsyncStorage from 'expo-sqlite/kv-store';
+import NetInfo from '@react-native-community/netinfo';
 import { API_CONFIG } from '../config/api.config';
 import { captureSentryException, addSentryBreadcrumb } from '../config/sentry.config';
 
@@ -447,7 +448,17 @@ class ApiClient {
         'onLine' in navigator &&
         navigator.onLine === false;
 
-      if (error.message === 'Network request failed' || isNavigatorOffline) {
+      let isOffline = isNavigatorOffline;
+      try {
+        const netState = await NetInfo.fetch();
+        if (netState.isConnected === false || netState.isInternetReachable === false) {
+          isOffline = true;
+        }
+      } catch (netInfoError) {
+        console.warn('NetInfo fetch failed:', netInfoError);
+      }
+
+      if (error.message === 'Network request failed' || isOffline) {
         const networkError = new ApiError(
           'No internet connection',
           undefined,

@@ -22,6 +22,7 @@ import {
 import Animated, {
   Extrapolate,
   interpolate,
+  useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -150,9 +151,11 @@ const LectureDetailScreen: React.FC = () => {
   }));
 
   // Event handlers
-  const handleScroll = useCallback((event: any) => {
-    scrollY.value = event.nativeEvent.contentOffset.y;
-  }, [scrollY]);
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
 
   const handlePlayPress = useCallback(() => {
     if (!episode || !canPlay) return;
@@ -483,7 +486,7 @@ const LectureDetailScreen: React.FC = () => {
       <Animated.ScrollView
         contentContainerStyle={tw`pb-32`}
         showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
+        onScroll={scrollHandler}
         scrollEventThrottle={16}
       >
         {/* Hero Section with Parallax */}

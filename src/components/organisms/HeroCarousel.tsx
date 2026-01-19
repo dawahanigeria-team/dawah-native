@@ -234,7 +234,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = memo(
       CARD_SPACING,
     ]);
 
-    const handleScroll = useCallback((event: any) => {
+    const handleMomentumScrollEnd = useCallback((event: any) => {
       const contentOffset = event.nativeEvent.contentOffset.x;
       const index = Math.round(contentOffset / (CARD_WIDTH + CARD_SPACING));
       setCurrentIndex(Math.max(0, Math.min(index, items.length - 1)));
@@ -256,8 +256,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = memo(
           }}
           snapToInterval={CARD_WIDTH + CARD_SPACING}
           decelerationRate="fast"
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
+          onMomentumScrollEnd={handleMomentumScrollEnd}
           bounces={true}
           accessibilityLabel="Featured episodes carousel"
         >

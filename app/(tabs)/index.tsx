@@ -2,9 +2,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FlatList, Text, TouchableOpacity, View } from "react-native";
+import { FlatList, InteractionManager, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Card, CardSkeleton } from "../../src/components/molecules";
+import { Card } from "../../src/components/molecules/Card";
+import { CardSkeleton } from "../../src/components/molecules/Card.skeleton";
 import { SearchBar } from "../../src/components/molecules/SearchBar";
 import { ActionGrid } from "../../src/components/organisms/ActionGrid";
 import { HeroCarousel } from "../../src/components/organisms/HeroCarousel";
@@ -24,6 +25,7 @@ import { Episode } from "../../src/types/types";
 const ITEM_WIDTH = 320; // w-80
 const ITEM_SPACING = 16; // mr-4
 const SNAP_INTERVAL = ITEM_WIDTH + ITEM_SPACING;
+const PREFETCH_LIMIT = 5;
 
 const Separator = () => <View style={{ width: ITEM_SPACING }} />;
 const SmallSeparator = () => <View style={{ width: 12 }} />;
@@ -69,20 +71,21 @@ export default function HomeScreen() {
   const { lectures: recentlyPlayed, loading: recentlyPlayedLoading, error: recentlyPlayedError } = useRecentlyPlayedLectures(10);
 
 
-  // Convert cached popular lectures to Episode shape for the carousel
-  const popularEpisodes: Episode[] = useMemo(() => {
-    const parseDuration = (duration: string | undefined): number => {
-      if (!duration) return 0;
-      const parts = duration.split(":").map(Number);
-      if (parts.length === 3) {
-        return parts[0] * 3600 + parts[1] * 60 + parts[2];
-      } else if (parts.length === 2) {
-        return parts[0] * 60 + parts[1];
-      }
-      return 0;
-    };
+  const [popularEpisodes, setPopularEpisodes] = useState<Episode[]>([]);
 
-    return (popularLectures as SearchLecture[]).map((lecture) => {
+  const parseDuration = useCallback((duration: string | undefined): number => {
+    if (!duration) return 0;
+    const parts = duration.split(":").map(Number);
+    if (parts.length === 3) {
+      return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    } else if (parts.length === 2) {
+      return parts[0] * 60 + parts[1];
+    }
+    return 0;
+  }, []);
+
+  const buildPopularEpisodes = useCallback((lectures: SearchLecture[]): Episode[] => {
+    return lectures.map((lecture) => {
       const id = String(lecture.nid || lecture.id || `lecture-${Date.now()}`);
       const title = lecture.Title || lecture.mp3_title || "Untitled Lecture";
       const duration = lecture.duration || lecture.mp3_duration || lecture.Duration;
@@ -109,19 +112,34 @@ export default function HomeScreen() {
         lecturerName,
       } as Episode;
     });
-  }, [popularLectures]);
+  }, [parseDuration]);
+
+  // Convert cached popular lectures to Episode shape after initial interactions
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => {
+      const lectures = (popularLectures as SearchLecture[]) || [];
+      setPopularEpisodes(buildPopularEpisodes(lectures));
+    });
+
+    return () => task.cancel?.();
+  }, [popularLectures, buildPopularEpisodes]);
 
   // Preload hero images (popular or mock) so the carousel feels instant
   useEffect(() => {
-    const uris = popularEpisodes
-      .map((episode) => episode.coverUrl)
-      .filter(Boolean);
+    const task = InteractionManager.runAfterInteractions(() => {
+      const uris = popularEpisodes
+        .map((episode) => episode.coverUrl)
+        .filter(Boolean);
+      const uniqueUris = Array.from(new Set(uris)).slice(0, PREFETCH_LIMIT);
 
-    uris.forEach((uri) => {
-      ExpoImage.prefetch(uri as string).catch(() => {
-        // Ignore individual prefetch failures
+      uniqueUris.forEach((uri) => {
+        ExpoImage.prefetch(uri as string).catch(() => {
+          // Ignore individual prefetch failures
+        });
       });
     });
+
+    return () => task.cancel?.();
   }, [popularEpisodes]);
 
 
