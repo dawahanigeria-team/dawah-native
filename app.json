@@ -1,13 +1,12 @@
 {
   "expo": {
-    "name": "dawah-nigeria",
+    "name": "dawahnigeria",
     "slug": "dawah-nigeria",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "dawahnigeria",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.dawahnigeria.app",
@@ -23,6 +22,7 @@
     "android": {
       "package": "com.dawahnigeria.app",
       "versionCode": 1,
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -61,7 +61,10 @@
               "pathPrefix": "/dawahcast/rp"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -76,8 +79,8 @@
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
+          "imageWidth": 420,
+          "resizeMode": "cover",
           "backgroundColor": "#ffffff"
         }
       ],
@@ -98,10 +101,14 @@
           "organization": "yusuf-adeyemo"
         }
       ],
-      "expo-asset"
+      "expo-notifications",
+      "expo-asset",
+      "expo-font",
+      "expo-sqlite"
     ],
     "experiments": {
-      "typedRoutes": true
+      "typedRoutes": true,
+      "reactCompiler": true
     },
     "updates": {
       "url": "https://u.expo.dev/f7c0926f-13d1-4a2f-bfb1-3f9c04f2577b"

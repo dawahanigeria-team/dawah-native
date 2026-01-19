@@ -243,7 +243,7 @@ const AlbumDetailScreen: React.FC = () => {
       const baseMessage = `🎧 Islamic Lectures Album${languageInfo}\n\n` +
         `📖 ${album.title}${lecturerInfo}\n\n` +
         `🎤 ${lectureCount} ${lectureCount === 1 ? 'lecture' : 'lectures'}\n\n` +
-        `Listen on Dawah Nigeria app\n\n` +
+        `Listen on dawahnigeria app\n\n` +
         `${webLink}`;
       const message = appendShareSignature(baseMessage);
 
@@ -430,8 +430,8 @@ const AlbumDetailScreen: React.FC = () => {
                 onPress={handlePlayAll}
                 activeOpacity={0.7}
               >
-                <Icon name="play-circle" size="md" color="#FFFFFF" />
-                <Text variant="body" weight="semibold" style={{ color: '#FFFFFF' }}>
+                <Icon name="play-circle" size="md" color={designTokens.colors.fixed.white} />
+                <Text variant="body" weight="semibold" style={{ color: designTokens.colors.fixed.white }}>
                   Play All
                 </Text>
               </TouchableOpacity>
@@ -633,7 +633,7 @@ const styles = StyleSheet.create({
     backgroundColor: designTokens.colors.system.background.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: designTokens.colors.fixed.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -649,7 +649,7 @@ const styles = StyleSheet.create({
     backgroundColor: designTokens.colors.system.background.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: designTokens.colors.fixed.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,

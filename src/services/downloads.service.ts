@@ -3,7 +3,7 @@
  * Uses expo-file-system's DownloadResumable for pausable/resumable downloads.
  */
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from "expo-sqlite/kv-store";
 import { Directory, File, FileHandle, Paths } from "expo-file-system";
 
 import { fetch } from "expo/fetch";

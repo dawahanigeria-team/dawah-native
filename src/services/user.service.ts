@@ -4,7 +4,7 @@
  * Uses device ID for guest users until authentication is implemented
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from 'expo-sqlite/kv-store';
 
 const USER_ID_KEY = 'user_id';
 

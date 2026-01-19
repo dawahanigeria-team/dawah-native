@@ -25,7 +25,7 @@ const favoritesStore = entity(initialState);
  * Fetch favorite lecture IDs (works offline)
  */
 export const fetchFavorites = async (): Promise<void> => {
-  const currentState = favoritesStore.get();
+  const currentState = favoritesStore.get() || initialState;
 
   try {
     favoritesStore.set({ ...currentState, loading: true, error: null });
@@ -72,16 +72,17 @@ export const fetchFavorites = async (): Promise<void> => {
  * Toggle favorite (add/remove)
  */
 export const toggleFavorite = async (lectureId: string): Promise<boolean> => {
-  const currentState = favoritesStore.get();
-  const wasFavorited = currentState.favoriteIds.includes(lectureId);
+  const currentState = favoritesStore.get() || initialState;
+  const favoriteIds = Array.isArray(currentState.favoriteIds) ? currentState.favoriteIds : [];
+  const wasFavorited = favoriteIds.includes(lectureId);
 
   try {
     addSentryBreadcrumb('Toggling favorite', 'user', { lectureId, wasFavorited });
 
     // Optimistic update
     const updatedIds = wasFavorited
-      ? currentState.favoriteIds.filter(id => id !== lectureId)
-      : [...currentState.favoriteIds, lectureId];
+      ? favoriteIds.filter(id => id !== lectureId)
+      : [...favoriteIds, lectureId];
 
     favoritesStore.set({
       ...currentState,
@@ -114,7 +115,8 @@ export const toggleFavorite = async (lectureId: string): Promise<boolean> => {
  * Check if lecture is favorited
  */
 export const isFavorited = (lectureId: string): boolean => {
-  const { favoriteIds } = favoritesStore.get();
+  const state = favoritesStore.get() || initialState;
+  const favoriteIds = Array.isArray(state.favoriteIds) ? state.favoriteIds : [];
   return favoriteIds.includes(lectureId);
 };
 
@@ -130,7 +132,12 @@ export const clearFavorites = async (): Promise<void> => {
  * Hook to use favorites store
  */
 export const useFavoritesStore = () => {
-  const state = favoritesStore.use();
+  const rawState = favoritesStore.use();
+  const state: FavoritesState = {
+    ...initialState,
+    ...(rawState || {}),
+    favoriteIds: Array.isArray(rawState?.favoriteIds) ? rawState.favoriteIds : [],
+  };
 
   return {
     ...state,

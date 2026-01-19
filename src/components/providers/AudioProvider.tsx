@@ -72,7 +72,12 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       }
 
       // Update progress and duration
-      if (status.currentTime !== currentState.progress) {
+      const shouldUpdateProgress =
+        status.isPlaying ||
+        status.isBuffering ||
+        status.currentTime < currentState.progress ||
+        status.currentTime === 0;
+      if (shouldUpdateProgress && status.currentTime !== currentState.progress) {
         updates.progress = status.currentTime;
       }
       if (status.duration !== currentState.duration && status.duration > 0) {

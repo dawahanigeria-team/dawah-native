@@ -92,7 +92,7 @@ const CarouselItem = memo<CarouselItemProps>(({
                 left: 0,
                 right: 0,
                 height: "60%",
-                backgroundColor: "rgba(0, 0, 0, 0.7)",
+                backgroundColor: designTokens.colors.overlay.darkStrong,
                 opacity: 0.8,
               }}
             />
@@ -122,7 +122,7 @@ const CarouselItem = memo<CarouselItemProps>(({
                 color="label"
                 style={{
                   marginLeft: designTokens.spacing.sm,
-                  color: "rgba(235, 235, 245, 0.6)",
+                  color: designTokens.colors.system.label.secondary,
                 }}
               >
                 {formatDuration(item.durationSec)}
@@ -160,13 +160,13 @@ const CarouselItem = memo<CarouselItemProps>(({
                 }
               }}
               style={{
-                backgroundColor: "rgba(255, 255, 255, 0.95)",
+                backgroundColor: designTokens.colors.overlay.lightStrong,
                 borderRadius: designTokens.borderRadius.full,
                 width: 48,
                 height: 48,
                 justifyContent: "center",
                 alignItems: "center",
-                shadowColor: "#000",
+                shadowColor: designTokens.colors.fixed.black,
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.25,
                 shadowRadius: 4,
@@ -298,7 +298,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = memo(
                   backgroundColor:
                     index === currentIndex
                       ? designTokens.colors.brand.primary
-                      : "rgba(235, 235, 245, 0.3)", // 30% opacity
+                      : designTokens.colors.system.label.tertiary, // 30% opacity
                 }}
                 accessibilityLabel={`Page ${index + 1} of ${items.length}`}
               />

@@ -47,18 +47,13 @@ export const initializeAuth = async () => {
 };
 
 export const useAuthStore = () => {
-  let state: AuthState;
-
-  try {
-    state = authStore.use();
-  } catch (error) {
-    console.warn('AuthStore initialization issue, using default state:', error);
-    state = initialState;
-  }
-
-  if (!state) {
-    state = initialState;
-  }
+  // simpler-state's .use() is a React hook and should not be wrapped
+  // in try/catch, which can corrupt hook tracking.
+  const rawState = authStore.use();
+  const state: AuthState = {
+    ...initialState,
+    ...(rawState || {}),
+  };
 
   /**
    * Sign in with email and password

@@ -197,7 +197,7 @@ export default function SignUpScreen() {
                 color="secondaryLabel"
                 style={{ textAlign: "center" }}
               >
-                Join Dawah Nigeria community
+                Join dawahnigeria community
               </Text>
             </View>
           </View>

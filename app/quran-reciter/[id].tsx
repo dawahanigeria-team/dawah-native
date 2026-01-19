@@ -209,7 +209,7 @@ const QuranReciterScreen: React.FC = () => {
       const baseMessage = `🕌 Quran Recitations\n\n` +
         `📖 ${album.name}\n\n` +
         `🎙️ ${recitationCount} ${recitationCount === 1 ? 'recitation' : 'recitations'}\n\n` +
-        `Listen on Dawah Nigeria app\n\n` +
+        `Listen on dawahnigeria app\n\n` +
         `${webLink}`;
       const message = appendShareSignature(baseMessage);
 
@@ -410,8 +410,18 @@ const QuranReciterScreen: React.FC = () => {
         data={recitations}
         keyExtractor={(item, index) => `${item.id}-${index}`}
         renderItem={renderRecitationItem}
+        stickyHeaderIndices={[0]}
         ListHeaderComponent={
-          <View style={styles.headerContainer}>
+          <View
+            style={[
+              styles.headerContainer,
+              styles.stickyHeader,
+              {
+                backgroundColor: colors.system.background.primary,
+                borderBottomColor: colors.system.separator.primary,
+              },
+            ]}
+          >
             <View style={[styles.artworkContainer, { shadowColor: colors.system.label.primary }]}>
               {album.alb_thumbnail || album.img ? (
                 <Image 
@@ -434,7 +444,7 @@ const QuranReciterScreen: React.FC = () => {
             </View>
 
             <View style={styles.infoContainer}>
-              <Text variant="title2" weight="bold" align="center" style={styles.title}>
+              <Text variant="title3" weight="bold" align="center" style={styles.title}>
                 {album.name}
               </Text>
               <Text variant="subheadline" color="secondaryLabel" align="center" style={styles.subtitle}>
@@ -524,18 +534,22 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     alignItems: 'center',
-    paddingTop: designTokens.spacing.md,
+    paddingTop: designTokens.spacing.sm,
     paddingHorizontal: designTokens.spacing.lg,
-    paddingBottom: designTokens.spacing.xl,
+    paddingBottom: designTokens.spacing.lg,
+  },
+  stickyHeader: {
+    width: '100%',
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   artworkContainer: {
-    marginBottom: designTokens.spacing.lg,
+    marginBottom: designTokens.spacing.md,
     ...designTokens.shadows.xl,
     // Shadow color handled dynamically
   },
   artwork: {
-    width: 200,
-    height: 200,
+    width: 120,
+    height: 120,
     borderRadius: designTokens.borderRadius.xl,
   },
   artworkPlaceholder: {
@@ -546,7 +560,7 @@ const styles = StyleSheet.create({
   },
   infoContainer: {
     alignItems: 'center',
-    marginBottom: designTokens.spacing.xl,
+    marginBottom: designTokens.spacing.lg,
     gap: designTokens.spacing.xs,
   },
   title: {

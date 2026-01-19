@@ -29,7 +29,7 @@ export const ChartItem: React.FC<ChartItemProps> = memo(({ item, index, selected
     paddingHorizontal: designTokens.spacing.lg,
     backgroundColor: designTokens.colors.system.background.primary,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: designTokens.colors.system.separator.primary,
   };
 
   const imageStyle: ImageStyle = {

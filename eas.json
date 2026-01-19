@@ -9,6 +9,9 @@
       "android": {
         "buildType": "apk"
       },
+      "env": {
+        "EXPO_PUBLIC_PUSH_REGISTER_URL": "https://backend.dawahbox.com/api/push/register.php"
+      },
       "channel": "development"
     },
     "preview": {
@@ -17,14 +20,21 @@
         "buildType": "apk",
         "gradleCommand": ":app:assembleRelease"
       },
+      "env": {
+        "EXPO_PUBLIC_PUSH_REGISTER_URL": "https://backend.dawahbox.com/api/push/register.php"
+      },
       "channel": "preview"
     },
     "production": {
+      "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
       },
       "ios": {
         "buildConfiguration": "Release"
+      },
+      "env": {
+        "EXPO_PUBLIC_PUSH_REGISTER_URL": "https://backend.dawahbox.com/api/push/register.php"
       },
       "channel": "production"
     },
@@ -39,6 +49,13 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {},
+    "internal": {
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "internal",
+        "releaseStatus": "draft"
+      }
+    }
   }
 }

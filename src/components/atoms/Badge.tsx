@@ -108,7 +108,7 @@ export const Badge: React.FC<BadgeProps> = memo(({
         color="label"
         weight="semibold"
         align="center"
-        style={hasColoredBackground ? { color: '#FFFFFF' } : undefined}
+        style={hasColoredBackground ? { color: designTokens.colors.fixed.white } : undefined}
       >
         {children}
       </Text>

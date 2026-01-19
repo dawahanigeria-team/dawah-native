@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from "expo-sqlite/kv-store";
 import { Redirect } from "expo-router";
 import { useEffect, useState } from "react";
 import OnboardingScreen from "../src/screens/OnboardingScreen";

@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import {
   Alert,
@@ -20,6 +20,8 @@ import tw from "../src/theme/twrnc";
 
 export default function SignInScreen() {
   const router = useRouter();
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
+  const returnToRoute = Array.isArray(returnTo) ? returnTo[0] : returnTo;
   const { login, isLoading, error, clearError } = useAuthStore();
 
   const [email, setEmail] = useState("");
@@ -75,8 +77,12 @@ export default function SignInScreen() {
       };
 
       await login(credentials);
-      // Navigation will be handled by auth state change
-      router.back();
+      if (returnToRoute) {
+        router.replace(returnToRoute as any);
+      } else {
+        // Navigation will be handled by auth state change
+        router.back();
+      }
     } catch (err: any) {
       // Log to Sentry
       captureSentryException(err, {
@@ -173,7 +179,7 @@ export default function SignInScreen() {
                 color="secondaryLabel"
                 style={{ textAlign: "center" }}
               >
-                Sign in to continue to Dawah Nigeria
+                Sign in to continue to dawahnigeria
               </Text>
             </View>
           </View>

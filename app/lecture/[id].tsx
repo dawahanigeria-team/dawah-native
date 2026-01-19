@@ -34,7 +34,7 @@ import { useLectureDetail } from "../../src/hooks/useLectureDetail";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
 import { DownloadStatus } from "../../src/services/downloads/downloadQueue.service";
 import { linkingService } from "../../src/services/linking.service";
-import { useAuthStore, useDownloadsStore, useFavoritesStore, usePlayerStore } from "../../src/stores";
+import { authStore, useDownloadsStore, useFavoritesStore, usePlayerStore } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import type { LectureDetail } from "../../src/types/api.types";
@@ -42,7 +42,7 @@ import type { Episode } from "../../src/types/types";
 import { appendShareSignature } from "../../src/utils/shareMessage";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const HEADER_HEIGHT = 420;
+const HEADER_HEIGHT = 300;
 
 const createEpisodeFromDetail = (detail: LectureDetail | null): Episode | null => {
   if (!detail) return null;
@@ -66,10 +66,19 @@ const createEpisodeFromDetail = (detail: LectureDetail | null): Episode | null =
 
 const LectureDetailScreen: React.FC = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const lectureId = id ?? "";
-  const { lecture, loading, error, refetch } = useLectureDetail(lectureId);
   const router = useRouter();
+  const lectureId = id ?? "";
 
+  // Local State & Animations
+  const [showFullDescription, setShowFullDescription] = useState(false);
+  const [showAddToPlaylistModal, setShowAddToPlaylistModal] = useState(false);
+  const scrollY = useSharedValue(0);
+  const likeScale = useSharedValue(1);
+
+  // Data Hooks
+  const { lecture, loading, error, refetch } = useLectureDetail(lectureId);
+
+  // Store Hooks
   const {
     playEpisode,
     togglePlayPause,
@@ -91,19 +100,8 @@ const LectureDetailScreen: React.FC = () => {
 
   const { isFavorited, toggleFavorite } = useFavoritesStore();
 
-  const { isAuthenticated } = useAuthStore();
-
-  // State management
-  const [showFullDescription, setShowFullDescription] = useState(false);
-  const [showAddToPlaylistModal, setShowAddToPlaylistModal] = useState(false);
-
-  // Check if lecture is liked
+  // Derived State
   const liked = isFavorited(lectureId);
-
-  // Animation values
-  const scrollY = useSharedValue(0);
-  const likeScale = useSharedValue(1);
-
   const episode = useMemo(() => createEpisodeFromDetail(lecture), [lecture]);
   const isCurrentLecture = Boolean(
     lecture && currentEpisode?.id === lecture.id,
@@ -286,7 +284,7 @@ const LectureDetailScreen: React.FC = () => {
 
     const webLink = linkingService.createLectureLink(lecture.id);
 
-    const baseMessage = `🎧 ${lecture.title}\n👤 ${lecture.lecturerName || 'Dawah Nigeria'}\n\n${webLink}`;
+    const baseMessage = `🎧 ${lecture.title}\n👤 ${lecture.lecturerName || 'dawahnigeria'}\n\n${webLink}`;
     const message = appendShareSignature(baseMessage);
 
     Share.share({
@@ -503,8 +501,8 @@ const LectureDetailScreen: React.FC = () => {
               </View>
             )}
             <LinearGradient
-              colors={['transparent', 'rgba(0,0,0,0.7)']}
-              style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 120 }}
+              colors={['transparent', designTokens.colors.overlay.darkStrong]}
+              style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 80 }}
             />
           </Animated.View>
         </View>
@@ -922,8 +920,11 @@ const LectureDetailScreen: React.FC = () => {
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => {
-            if (!isAuthenticated) {
-              router.push("/sign-in");
+            if (!authStore.get().isAuthenticated) {
+              router.push({
+                pathname: "/sign-in",
+                params: { returnTo: `/lecture/${lecture.id}` },
+              });
             } else {
               setShowAddToPlaylistModal(true);
             }

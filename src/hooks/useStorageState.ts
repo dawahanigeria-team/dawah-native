@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from "expo-sqlite/kv-store";
 import * as React from "react";
 
 export function useStorageState(key: string): [boolean, string | null, (value: string | null) => void] {
