@@ -72,6 +72,7 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
   const loadResolveRef = useRef<(() => void) | null>(null);
   const loadRejectRef = useRef<((error?: unknown) => void) | null>(null);
   const isFirstLoad = useRef(true);
+  const isReleasedRef = useRef(true);
 
   // Create audio player instance with current URI (recreates when URI changes)
   // Pass empty string initially, will be updated via state
@@ -99,6 +100,31 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
 
   // Watch for when audio becomes loaded
   useEffect(() => {
+    if (!currentUri) {
+      isReleasedRef.current = true;
+    }
+  }, [currentUri]);
+
+  const safePlayerCall = (label: string, fn: () => unknown) => {
+    if (isReleasedRef.current) {
+      console.warn(`Skip ${label}: audio player released`);
+      return;
+    }
+
+    try {
+      const result = fn();
+      if (result && typeof (result as Promise<unknown>).catch === 'function') {
+        (result as Promise<unknown>).catch((error) => {
+          console.error(`Failed to ${label}:`, error);
+        });
+      }
+    } catch (error) {
+      console.error(`Failed to ${label}:`, error);
+    }
+  };
+
+  // Watch for when audio becomes loaded
+  useEffect(() => {
 
     // Consider audio loaded if either:
     // 1. isLoaded is true, OR
@@ -107,6 +133,7 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
 
     if (isActuallyLoaded && loadResolveRef.current) {
       setIsReady(true);
+      isReleasedRef.current = false;
       loadResolveRef.current();
       loadResolveRef.current = null;
       loadRejectRef.current = null;
@@ -144,10 +171,11 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
   // Load audio from URI
   const loadAudio = async (uri: string): Promise<void> => {
     const normalizedUri = sanitizeAudioUri(uri);
+    isReleasedRef.current = false;
 
     // If same URI already loaded, reset to beginning and resolve immediately
     if (currentUri === normalizedUri && status.isLoaded) {
-      player.seekTo(0);
+      safePlayerCall('seek to start', () => player.seekTo(0));
       setIsReady(true);
       return Promise.resolve();
     }
@@ -207,16 +235,12 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
       return;
     }
 
-    try {
-      // If at the end of audio, reset to beginning (expo-audio best practice)
-      if (status.currentTime >= status.duration && status.duration > 0) {
-        player.seekTo(0);
-      }
-
-      player.play();
-    } catch (error) {
-      console.error('Failed to play audio:', error);
+    // If at the end of audio, reset to beginning (expo-audio best practice)
+    if (status.currentTime >= status.duration && status.duration > 0) {
+      safePlayerCall('seek to start', () => player.seekTo(0));
     }
+
+    safePlayerCall('play audio', () => player.play());
   };
 
   // Pause audio
@@ -226,11 +250,7 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
       return;
     }
 
-    try {
-      player.pause();
-    } catch (error) {
-      console.error('Failed to pause audio:', error);
-    }
+    safePlayerCall('pause audio', () => player.pause());
   };
 
   // Toggle play/pause
@@ -240,7 +260,7 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
     } else {
       // If at the end, reset to beginning before playing
       if (status.currentTime >= status.duration && status.duration > 0) {
-        player.seekTo(0);
+        safePlayerCall('seek to start', () => player.seekTo(0));
       }
       play();
     }
@@ -253,12 +273,8 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
       return;
     }
 
-    try {
-      const clampedSeconds = Math.max(0, Math.min(seconds, status.duration));
-      player.seekTo(clampedSeconds);
-    } catch (error) {
-      console.error('Failed to seek:', error);
-    }
+    const clampedSeconds = Math.max(0, Math.min(seconds, status.duration));
+    safePlayerCall('seek', () => player.seekTo(clampedSeconds));
   };
 
   // Seek forward
@@ -280,21 +296,16 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
       return;
     }
 
-    try {
-      player.setPlaybackRate(rate);
-    } catch (error) {
-      console.error('Failed to set playback rate:', error);
-    }
+    safePlayerCall('set playback rate', () => player.setPlaybackRate(rate));
   };
 
   // Set volume
   const setVolume = (volume: number) => {
-    try {
-      const clampedVolume = Math.max(0, Math.min(volume, 1));
+    const clampedVolume = Math.max(0, Math.min(volume, 1));
+    safePlayerCall('set volume', () => {
       player.volume = clampedVolume;
-    } catch (error) {
-      console.error('Failed to set volume:', error);
-    }
+      return undefined;
+    });
   };
 
   // Stop playback and reset position
@@ -303,20 +314,17 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
       return;
     }
 
-    try {
-      player.pause();
-      player.seekTo(0);
-      loadResolveRef.current = null;
-      loadRejectRef.current = null;
-    } catch (error) {
-      console.error('Failed to stop audio:', error);
-    }
+    safePlayerCall('pause audio', () => player.pause());
+    safePlayerCall('seek to start', () => player.seekTo(0));
+    loadResolveRef.current = null;
+    loadRejectRef.current = null;
   };
 
   // Unload audio
   const unload = () => {
     try {
       stop();
+      isReleasedRef.current = true;
       setCurrentUri(null); // Clear the audio source
       setIsReady(false);
       loadResolveRef.current = null;

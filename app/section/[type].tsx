@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, ScrollView, TouchableOpacity, UIManager, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FlashList } from "@shopify/flash-list";
 import { Chip, Text } from "../../src/components/atoms";
@@ -76,6 +76,8 @@ type LanguageFilter = "all" | "hausa" | "english" | "yoruba" | "arabic";
 
 export default function SectionScreen() {
   const { type } = useLocalSearchParams<{ type: string }>();
+  const canUseFlashList = Boolean(UIManager.getViewManagerConfig?.('AutoLayoutView'));
+  const ListComponent = canUseFlashList ? FlashList : FlatList;
 
   // Fetch trending data if this is the trending or recently-posted section
   const trendingParams = (type === "trending" || type === "recently-posted") ? { page: 1, limit: 20 } : undefined;
@@ -704,7 +706,7 @@ export default function SectionScreen() {
       </View>
 
       {/* Content with Dynamic Spacing */}
-      <FlashList
+      <ListComponent
         data={filteredData}
         renderItem={renderItem}
         keyExtractor={(item, index) => `${item.id}-${index}`}
@@ -712,7 +714,7 @@ export default function SectionScreen() {
         ListFooterComponent={renderFooter}
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
-        estimatedItemSize={160}
+        {...(canUseFlashList ? { estimatedItemSize: 160 } : {})}
         contentContainerStyle={[
           tw`px-6`,
           {

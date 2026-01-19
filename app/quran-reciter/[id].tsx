@@ -3,6 +3,7 @@ import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-rout
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   Share,
@@ -118,7 +119,14 @@ const QuranReciterScreen: React.FC = () => {
       });
 
       // Convert all recitations to episodes
-      const episodes = recitations.map((recitation) => recitationToEpisode(recitation, album));
+      const episodes = recitations
+        .map((recitation) => recitationToEpisode(recitation, album))
+        .filter((episode) => Boolean(episode.audioUrl));
+
+      if (episodes.length === 0) {
+        Alert.alert('Unavailable', 'No playable recitations were found for this reciter.');
+        return;
+      }
 
       // Play queue from start
       await playQueue(episodes, 0, false);
@@ -146,7 +154,14 @@ const QuranReciterScreen: React.FC = () => {
       });
 
       // Convert all recitations to episodes
-      const episodes = recitations.map((recitation) => recitationToEpisode(recitation, album));
+      const episodes = recitations
+        .map((recitation) => recitationToEpisode(recitation, album))
+        .filter((episode) => Boolean(episode.audioUrl));
+
+      if (episodes.length === 0) {
+        Alert.alert('Unavailable', 'No playable recitations were found for this reciter.');
+        return;
+      }
 
       // Play queue shuffled
       await playQueue(episodes, 0, true);

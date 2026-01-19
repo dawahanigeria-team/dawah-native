@@ -169,7 +169,7 @@ class QuranApiService {
         id: String(lecture.id || lecture.nid || `recitation-${index}`),
         title: lecture.title || lecture.lectitle || lecture.Title || 'Untitled Recitation',
         duration: lecture.duration || lecture.Duration || '00:00',
-        audioUrl: lecture.audio || lecture.mp3_url || '',
+        audioUrl: lecture.audio || lecture.mp3_url || lecture.AudioUrl || lecture.mp3 || '',
         trackNumber: index + 1,
         plays: parseInt(String(lecture.views || lecture.plays || lecture.favorites || '0')),
         surahNumber: lecture.surah_number || undefined,
