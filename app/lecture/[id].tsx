@@ -107,6 +107,13 @@ const LectureDetailScreen: React.FC = () => {
   const isCurrentLecture = Boolean(
     lecture && currentEpisode?.id === lecture.id,
   );
+  const isRecitation = Boolean(
+    lecture?.isReciter ||
+      lecture?.reciter?.isReciter ||
+      lecture?.reciter?.id ||
+      lecture?.raw?.reciter_id,
+  );
+  const aboutHeading = isRecitation ? "About this recitation" : "About this lecture";
   const canPlay = Boolean(episode?.audioUrl);
   const isCurrentlyPlaying = isCurrentLecture && isPlaying;
 
@@ -648,7 +655,7 @@ const LectureDetailScreen: React.FC = () => {
           {lecture.description && lecture.description.trim() && (
             <View style={tw`mt-6`}>
               <Text variant="title3" color="label" weight="bold">
-                About this lecture
+                {aboutHeading}
               </Text>
               <Text
                 variant="body"
