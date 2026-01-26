@@ -22,6 +22,7 @@ import {
 import Animated, {
   Extrapolate,
   interpolate,
+  useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -106,6 +107,13 @@ const LectureDetailScreen: React.FC = () => {
   const isCurrentLecture = Boolean(
     lecture && currentEpisode?.id === lecture.id,
   );
+  const isRecitation = Boolean(
+    lecture?.isReciter ||
+      lecture?.reciter?.isReciter ||
+      lecture?.reciter?.id ||
+      lecture?.raw?.reciter_id,
+  );
+  const aboutHeading = isRecitation ? "About this recitation" : "About this lecture";
   const canPlay = Boolean(episode?.audioUrl);
   const isCurrentlyPlaying = isCurrentLecture && isPlaying;
 
@@ -150,9 +158,11 @@ const LectureDetailScreen: React.FC = () => {
   }));
 
   // Event handlers
-  const handleScroll = useCallback((event: any) => {
-    scrollY.value = event.nativeEvent.contentOffset.y;
-  }, [scrollY]);
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
 
   const handlePlayPress = useCallback(() => {
     if (!episode || !canPlay) return;
@@ -483,7 +493,7 @@ const LectureDetailScreen: React.FC = () => {
       <Animated.ScrollView
         contentContainerStyle={tw`pb-32`}
         showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
+        onScroll={scrollHandler}
         scrollEventThrottle={16}
       >
         {/* Hero Section with Parallax */}
@@ -645,7 +655,7 @@ const LectureDetailScreen: React.FC = () => {
           {lecture.description && lecture.description.trim() && (
             <View style={tw`mt-6`}>
               <Text variant="title3" color="label" weight="bold">
-                About this lecture
+                {aboutHeading}
               </Text>
               <Text
                 variant="body"

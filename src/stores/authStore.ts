@@ -43,7 +43,28 @@ export const initializeAuth = async () => {
     authListenerRegistered = true;
   }
 
-  await apiClient.loadAuthToken();
+  const [storedUser, accessToken] = await Promise.all([
+    authApi.getStoredUser(),
+    authApi.getAccessToken(),
+  ]);
+
+  if (accessToken && storedUser?.id) {
+    await userService.setUserId(storedUser.id);
+  }
+
+  if (accessToken) {
+    await apiClient.setAuthToken(accessToken);
+  } else {
+    await apiClient.setAuthToken(null);
+  }
+
+  authStore.set((prev) => ({
+    ...prev,
+    user: accessToken ? storedUser : null,
+    isAuthenticated: !!accessToken,
+    isLoading: false,
+    isInitialized: true,
+  }));
 };
 
 export const useAuthStore = () => {
@@ -68,7 +89,7 @@ export const useAuthStore = () => {
       await userService.setUserId(user.id);
 
       // Set auth token in apiClient and update store
-      await apiClient.setAuthToken(user.token);
+      await apiClient.setAuthToken(user.token ?? null);
 
       authStore.set({
         user,
@@ -100,7 +121,7 @@ export const useAuthStore = () => {
       const user = await authApi.register(credentials);
 
       // Set auth token in apiClient and update store
-      await apiClient.setAuthToken(user.token);
+      await apiClient.setAuthToken(user.token ?? null);
 
       authStore.set({
         user,

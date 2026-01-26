@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, ScrollView, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, ScrollView, TouchableOpacity, UIManager, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { FlashList } from "@shopify/flash-list";
 import { Chip, Text } from "../../src/components/atoms";
 import { Card } from "../../src/components/molecules/Card";
 import { SearchBar } from "../../src/components/molecules/SearchBar";
@@ -75,6 +76,8 @@ type LanguageFilter = "all" | "hausa" | "english" | "yoruba" | "arabic";
 
 export default function SectionScreen() {
   const { type } = useLocalSearchParams<{ type: string }>();
+  const canUseFlashList = Boolean(UIManager.getViewManagerConfig?.('AutoLayoutView'));
+  const ListComponent = canUseFlashList ? FlashList : FlatList;
 
   // Fetch trending data if this is the trending or recently-posted section
   const trendingParams = (type === "trending" || type === "recently-posted") ? { page: 1, limit: 20 } : undefined;
@@ -286,7 +289,7 @@ export default function SectionScreen() {
     }
   }, [type, hasMore, isLoadingMore, loadMore]);
 
-  // Render item for FlatList
+  // Render item for list
   const renderItem = useCallback(({ item }: { item: Episode | Series | QuranAlbum }) => {
     // Handle Quran albums
     if (sectionInfo.variant === "quran" && 'name' in item && 'lec_no' in item) {
@@ -368,7 +371,7 @@ export default function SectionScreen() {
     }
   }, [handleLecturePress, handleQuranAlbumPress, sectionInfo.variant, type]);
 
-  // Render footer (loading indicator) for FlatList
+  // Render footer (loading indicator) for list
   const renderFooter = useCallback(() => {
     console.log(`🦶 renderFooter - isLoadingMore: ${isLoadingMore}, type: ${type}, hasMore: ${hasMore}`);
     if (!isLoadingMore) return null;
@@ -382,7 +385,7 @@ export default function SectionScreen() {
     );
   }, [isLoadingMore, type, hasMore]);
 
-  // Empty component for FlatList
+  // Empty component for list
   const renderEmpty = useCallback(() => {
     if (isLoading) {
       return (
@@ -703,7 +706,7 @@ export default function SectionScreen() {
       </View>
 
       {/* Content with Dynamic Spacing */}
-      <FlatList
+      <ListComponent
         data={filteredData}
         renderItem={renderItem}
         keyExtractor={(item, index) => `${item.id}-${index}`}
@@ -711,6 +714,7 @@ export default function SectionScreen() {
         ListFooterComponent={renderFooter}
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
+        {...(canUseFlashList ? { estimatedItemSize: 160 } : {})}
         contentContainerStyle={[
           tw`px-6`,
           {
