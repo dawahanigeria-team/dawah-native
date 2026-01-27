@@ -372,17 +372,18 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
       // Only set lock screen info if audio is loaded
       // This ensures iOS recognizes the audio session as active
       if (!status.isLoaded) {
-        console.warn('Cannot set lock screen info: audio not loaded yet');
         return;
       }
 
+      // Configure media session with playback controls
+      // IMPORTANT: Call this while audio is playing for Android to show controls
       player.setActiveForLockScreen(true, {
         title: info.title,
         artist: info.artist || '',
         artworkUrl: info.artwork || '',
       });
     } catch (error) {
-      console.error('Failed to set lock screen info:', error);
+      // Silent fail - lock screen controls are a nice-to-have feature
     }
   };
 

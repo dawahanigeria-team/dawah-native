@@ -6,8 +6,10 @@
 
 import { setAudioModeAsync } from 'expo-audio';
 import React, { useEffect, useRef } from 'react';
+import { Platform } from 'react-native';
 import { useAudioPlayback } from '../../hooks/useAudioPlayback';
 import { addSentryBreadcrumb, captureSentryException } from '../../services/config/sentry.config';
+import { initializeMediaSession } from '../../services/mediaSession.service';
 import { getPlayNextRef, playerStore, setAudioControls } from '../../stores/playerStore';
 
 interface AudioProviderProps {
@@ -21,6 +23,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   useEffect(() => {
     const setupAudioMode = async () => {
       try {
+        // Configure audio mode for iOS and Android
         await setAudioModeAsync({
           // Enable playback in silent mode (iOS)
           playsInSilentMode: true,
@@ -34,18 +37,18 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           interruptionMode: 'doNotMix',
           // Android: temporarily duck other audio instead of fully stopping it
           interruptionModeAndroid: 'duckOthers',
-
-          // Do not route audio through the earpiece on Android
-          shouldRouteThroughEarpiece: false,
         });
 
+        // Initialize media session for lock screen controls
+        await initializeMediaSession();
+
         addSentryBreadcrumb('Background audio configured', 'info', {
+          platform: Platform.OS,
           playsInSilentMode: true,
           shouldPlayInBackground: true,
         });
-      } catch (error: any) {
-        console.error('❌ Failed to configure audio mode:', error);
-        captureSentryException(error, {
+      } catch (error) {
+        captureSentryException(error as Error, {
           component: 'AudioProvider',
           action: 'setupAudioMode',
           level: 'error',
@@ -107,8 +110,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       if (playNext && queue.length > 0) {
         try {
           await playNext();
-        } catch (error: any) {
-          console.error('Failed to auto-play next track:', error);
+        } catch (error) {
           captureSentryException(error as Error, {
             component: 'AudioProvider',
             action: 'onPlaybackFinished',
