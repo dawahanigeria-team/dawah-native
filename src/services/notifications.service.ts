@@ -166,6 +166,14 @@ export const registerForPushNotificationsAsync = async (): Promise<string | null
     return null;
   }
 
+  // Validate token format before storing/syncing
+  if (!isValidExpoPushToken(expoPushToken)) {
+    console.warn('Invalid Expo push token format received:', expoPushToken);
+    console.warn('Token will not be registered. This is a known Expo bug.');
+    console.warn('Please try restarting the app or reinstalling.');
+    return null;
+  }
+
   await AsyncStorage.setItem(EXPO_PUSH_TOKEN_STORAGE_KEY, expoPushToken);
   await syncPushTokenAsync(expoPushToken, prefs);
 
@@ -200,8 +208,29 @@ export const disablePushNotificationsAsync = async (): Promise<void> => {
   }
 };
 
+/**
+ * Validate Expo push token format
+ * Valid format: ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]
+ */
+const isValidExpoPushToken = (token: string): boolean => {
+  if (!token || typeof token !== 'string') return false;
+
+  // Valid Expo push tokens start with "ExponentPushToken[" or "ExpoPushToken["
+  // and end with "]"
+  const validPattern = /^Expo(nent)?PushToken\[.+\]$/;
+  return validPattern.test(token);
+};
+
 export const updatePushTokenAsync = async (expoPushToken: string): Promise<void> => {
   if (!expoPushToken) return;
+
+  // Validate token format before storing/syncing
+  if (!isValidExpoPushToken(expoPushToken)) {
+    console.warn('Invalid Expo push token format received:', expoPushToken);
+    console.warn('Token will not be registered. This is a known Expo bug: https://github.com/expo/expo/issues/22903');
+    return;
+  }
+
   await AsyncStorage.setItem(EXPO_PUSH_TOKEN_STORAGE_KEY, expoPushToken);
   await syncPushTokenAsync(expoPushToken);
 };

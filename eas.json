@@ -11,7 +11,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_PUSH_REGISTER_URL": "https://backend.dawahbox.com/api/push/register.php"
+        "EXPO_PUBLIC_PUSH_REGISTER_URL": "https://backend.dawahbox.com/api/register_push_token.php"
       },
       "channel": "development"
     },
@@ -22,7 +22,7 @@
         "gradleCommand": ":app:assembleRelease"
       },
       "env": {
-        "EXPO_PUBLIC_PUSH_REGISTER_URL": "https://backend.dawahbox.com/api/push/register.php"
+        "EXPO_PUBLIC_PUSH_REGISTER_URL": "https://backend.dawahbox.com/api/register_push_token.php"
       },
       "channel": "preview"
     },
@@ -35,7 +35,7 @@
         "buildConfiguration": "Release"
       },
       "env": {
-        "EXPO_PUBLIC_PUSH_REGISTER_URL": "https://backend.dawahbox.com/api/push/register.php"
+        "EXPO_PUBLIC_PUSH_REGISTER_URL": "https://backend.dawahbox.com/api/register_push_token.php"
       },
       "channel": "production"
     },
