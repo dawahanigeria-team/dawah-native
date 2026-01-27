@@ -54,9 +54,16 @@ export const Card: React.FC<CardProps> = memo(
     onMorePress,
     isVideo = false,
   }) => {
-    const isEpisode = "audioUrl" in data;
+    // Type detection: Check isVideo flag first, then check for video-specific properties,
+    // finally check for episode-specific properties
+    const hasVideoProperties = 'youtubeId' in data || 'thumbnailUrl' in data;
+    const hasEpisodeProperties = 'audioUrl' in data && (data as any).audioUrl; // Only if audioUrl has a value
+
+    const isActualVideo = isVideo || hasVideoProperties;
+    const isEpisode = !isActualVideo && hasEpisodeProperties;
+
     const episode = isEpisode ? (data as Episode) : null;
-    const video = isVideo ? (data as Video) : null;
+    const video = isActualVideo ? (data as Video) : null;
     const [imageError, setImageError] = useState(false);
     const { playEpisode } = usePlayerActions();
 

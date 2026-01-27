@@ -341,16 +341,14 @@ export default function SectionScreen() {
             id: video.id,
             title: video.title,
             coverUrl: video.thumbnailUrl,
-            audioUrl: '',
-            seriesId: '',
+            youtubeId: video.youtubeId,
+            thumbnailUrl: video.thumbnailUrl,
             durationSec: video.durationSec,
-            plays: video.views,
-            liked: false,
+            views: video.views,
             language: video.language || '',
-            downloads: 0,
             createdAt: video.createdAt,
             lecturerName: video.lecturerName,
-          } as Episode}
+          } as Video}
           onPress={() => handleVideoPress(video)}
           showTime={true}
           showMeta={true}
