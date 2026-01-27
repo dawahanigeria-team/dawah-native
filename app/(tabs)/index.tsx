@@ -261,11 +261,6 @@ export default function HomeScreen() {
     const cardData = {
       ...item,
       coverUrl: item.thumbnailUrl, // Card expects coverUrl, Video has thumbnailUrl
-      audioUrl: '', // Card requires this for Episode type, empty for videos
-      seriesId: '', // Card requires this for Episode type, empty for videos
-      plays: item.views, // Map views to plays for consistency
-      liked: false,
-      downloads: 0,
     };
 
     return (

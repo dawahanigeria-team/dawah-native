@@ -25,14 +25,10 @@ export const UpdatesProvider: React.FC<UpdatesProviderProps> = ({ children }) =>
 
     const checkForUpdates = async () => {
       try {
-        // Check if updates are enabled
-        if (!Updates.isEnabled) {
-          return;
-        }
-
         addSentryBreadcrumb('Checking for updates', 'info', {
           channel: Updates.channel,
           runtimeVersion: Updates.runtimeVersion,
+          isEnabled: Updates.isEnabled,
         });
 
         // Check if update is available

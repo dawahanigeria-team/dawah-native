@@ -340,17 +340,17 @@ export default function SectionScreen() {
           data={{
             id: video.id,
             title: video.title,
+            youtubeUrl: video.youtubeUrl,
+            youtubeId: video.youtubeId,
+            thumbnailUrl: video.thumbnailUrl,
             coverUrl: video.thumbnailUrl,
-            audioUrl: '',
-            seriesId: '',
             durationSec: video.durationSec,
-            plays: video.views,
-            liked: false,
+            views: video.views,
+            likes: video.likes,
             language: video.language || '',
-            downloads: 0,
             createdAt: video.createdAt,
             lecturerName: video.lecturerName,
-          } as Episode}
+          } as Video}
           onPress={() => handleVideoPress(video)}
           showTime={true}
           showMeta={true}

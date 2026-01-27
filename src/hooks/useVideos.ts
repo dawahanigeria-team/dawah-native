@@ -29,10 +29,13 @@ export const useVideos = (initialParams: VideoListParams = {}): UseVideosResult 
   // Store initialParams in a ref to avoid re-creating fetchVideos on every render
   const paramsRef = useRef(initialParams);
 
-  // Update ref if params change (though in practice they shouldn't)
+  // Serialize params for stable comparison
+  const paramsKey = JSON.stringify(initialParams);
+
+  // Update ref when params actually change (deep comparison via serialization)
   useEffect(() => {
     paramsRef.current = initialParams;
-  }, [initialParams]);
+  }, [paramsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Helper function to parse duration string to seconds
@@ -202,20 +205,20 @@ export const useVideos = (initialParams: VideoListParams = {}): UseVideosResult 
     await fetchVideos(1, false);
   }, [fetchVideos]);
 
-  // Fetch initial data on mount
+  // Fetch initial data on mount and when params change (using serialized key for stable comparison)
   useEffect(() => {
-    console.log('🎯 useVideos mount - initialParams:', paramsRef.current);
+    console.log('🎯 useVideos mount/update - initialParams:', initialParams);
 
-    if (!paramsRef.current || Object.keys(paramsRef.current).length === 0) {
+    if (!initialParams || Object.keys(initialParams).length === 0) {
       console.log('⚠️ useVideos: No params provided, skipping fetch');
       setLoading(false);
       setHasMore(false);
       return;
     }
 
-    console.log('✅ useVideos: Fetching initial data');
+    console.log('✅ useVideos: Fetching data with params:', initialParams);
     fetchVideos(1, false);
-  }, [fetchVideos]); // Only fetch when fetchVideos changes (which it won't due to empty deps)
+  }, [paramsKey, fetchVideos]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     videos,
