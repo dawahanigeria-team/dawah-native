@@ -26,6 +26,14 @@ export const useVideos = (initialParams: VideoListParams = {}): UseVideosResult 
   const [hasMore, setHasMore] = useState(true);
   const isLoadingRef = useRef(false);
 
+  // Store initialParams in a ref to avoid re-creating fetchVideos on every render
+  const paramsRef = useRef(initialParams);
+
+  // Update ref if params change (though in practice they shouldn't)
+  useEffect(() => {
+    paramsRef.current = initialParams;
+  }, [initialParams]);
+
   /**
    * Helper function to parse duration string to seconds
    */
@@ -111,8 +119,9 @@ export const useVideos = (initialParams: VideoListParams = {}): UseVideosResult 
 
   /**
    * Fetch videos from API
+   * Wrapped in useCallback to prevent stale closures
    */
-  const fetchVideos = async (page: number = 1, append: boolean = false) => {
+  const fetchVideos = useCallback(async (page: number = 1, append: boolean = false) => {
     if (isLoadingRef.current) return;
 
     try {
@@ -124,7 +133,7 @@ export const useVideos = (initialParams: VideoListParams = {}): UseVideosResult 
       }
       setError(null);
 
-      const params = { ...initialParams, page, limit: initialParams.limit || 20 };
+      const params = { ...paramsRef.current, page, limit: paramsRef.current.limit || 20 };
       console.log('🎥 Fetching videos with params:', params);
 
       const response = await videoApi.getVideos(params);
@@ -176,7 +185,7 @@ export const useVideos = (initialParams: VideoListParams = {}): UseVideosResult 
       setIsLoadingMore(false);
       isLoadingRef.current = false;
     }
-  };
+  }, []); // Empty deps - uses refs for params
 
   /**
    * Load more function for infinite scroll
@@ -184,20 +193,20 @@ export const useVideos = (initialParams: VideoListParams = {}): UseVideosResult 
   const loadMore = useCallback(async () => {
     if (!hasMore || isLoadingMore || loading) return;
     await fetchVideos(currentPage + 1, true);
-  }, [hasMore, isLoadingMore, loading, currentPage]);
+  }, [hasMore, isLoadingMore, loading, currentPage, fetchVideos]);
 
   /**
    * Refetch function with cache clearing
    */
   const refetch = useCallback(async () => {
     await fetchVideos(1, false);
-  }, []);
+  }, [fetchVideos]);
 
   // Fetch initial data on mount
   useEffect(() => {
-    console.log('🎯 useVideos mount - initialParams:', initialParams);
+    console.log('🎯 useVideos mount - initialParams:', paramsRef.current);
 
-    if (!initialParams || Object.keys(initialParams).length === 0) {
+    if (!paramsRef.current || Object.keys(paramsRef.current).length === 0) {
       console.log('⚠️ useVideos: No params provided, skipping fetch');
       setLoading(false);
       setHasMore(false);
@@ -206,8 +215,7 @@ export const useVideos = (initialParams: VideoListParams = {}): UseVideosResult 
 
     console.log('✅ useVideos: Fetching initial data');
     fetchVideos(1, false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only fetch on mount
+  }, [fetchVideos]); // Only fetch when fetchVideos changes (which it won't due to empty deps)
 
   return {
     videos,

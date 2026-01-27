@@ -69,19 +69,19 @@ export default function InboxScreen() {
   const [userId, setUserId] = useState<string>();
   const [refreshing, setRefreshing] = useState(false);
 
-  // Load user ID
+  // Load user ID for markAsRead callback
   useEffect(() => {
     userService.getUserId().then(setUserId);
   }, []);
 
-  // Fetch announcements using the hook
+  // Fetch announcements using the hook (userId fetched internally)
   const {
     announcements: apiAnnouncements,
     unreadCount: apiUnreadCount,
     loading,
     error,
     refetch,
-  } = useAnnouncements(userId);
+  } = useAnnouncements();
 
   // Transform API announcements to local format
   const announcements: Announcement[] = apiAnnouncements.length > 0
@@ -104,7 +104,9 @@ export default function InboxScreen() {
 
   const markAsRead = useCallback(async (id: string) => {
     try {
-      await announcementsApi.markAsRead(id, userId);
+      // Fetch userId if we don't have it yet
+      const currentUserId = userId || await userService.getUserId();
+      await announcementsApi.markAsRead(id, currentUserId);
       // Refetch to update the list
       await refetch();
     } catch (error) {

@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { announcementsApi, AnnouncementApiResponse } from '../services/api/announcements.api';
+import { userService } from '../services/user.service';
 
 export interface UseAnnouncementsResult {
   announcements: AnnouncementApiResponse[];
@@ -13,13 +14,24 @@ export interface UseAnnouncementsResult {
   refetch: () => Promise<void>;
 }
 
-export const useAnnouncements = (userId?: string): UseAnnouncementsResult => {
+export const useAnnouncements = (userIdParam?: string): UseAnnouncementsResult => {
   const [announcements, setAnnouncements] = useState<AnnouncementApiResponse[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | undefined>(userIdParam);
+
+  // Fetch userId if not provided
+  useEffect(() => {
+    if (!userIdParam) {
+      userService.getUserId().then(setUserId);
+    }
+  }, [userIdParam]);
 
   const fetchAnnouncements = useCallback(async () => {
+    // Don't fetch until we have a userId
+    if (!userId) return;
+
     try {
       setLoading(true);
       setError(null);
@@ -54,11 +66,23 @@ export const useAnnouncements = (userId?: string): UseAnnouncementsResult => {
 
 /**
  * Hook to get only unread count (lighter weight)
+ * Fetches userId internally if not provided
  */
-export const useUnreadAnnouncementsCount = (userId?: string): number => {
+export const useUnreadAnnouncementsCount = (userIdParam?: string): number => {
   const [count, setCount] = useState(0);
+  const [userId, setUserId] = useState<string | undefined>(userIdParam);
+
+  // Fetch userId if not provided
+  useEffect(() => {
+    if (!userIdParam) {
+      userService.getUserId().then(setUserId);
+    }
+  }, [userIdParam]);
 
   useEffect(() => {
+    // Don't fetch until we have a userId
+    if (!userId) return;
+
     const fetchCount = async () => {
       try {
         const unreadCount = await announcementsApi.getUnreadCount(userId);
