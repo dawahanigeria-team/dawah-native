@@ -30,10 +30,13 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
   // Store initialParams in a ref to avoid re-creating fetchTrending on every render
   const paramsRef = useRef(initialParams);
 
-  // Update ref if params change (though in practice they shouldn't)
+  // Serialize params for stable comparison
+  const paramsKey = JSON.stringify(initialParams);
+
+  // Update ref when params actually change (deep comparison via serialization)
   useEffect(() => {
     paramsRef.current = initialParams;
-  }, [initialParams]);
+  }, [paramsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchTrending = useCallback(async (page: number = 1, append: boolean = false) => {
     if (isLoadingRef.current) return;
@@ -147,17 +150,18 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
     return 0;
   }
 
+  // Fetch initial data on mount and when params change (using serialized key for stable comparison)
   useEffect(() => {
-    console.log('🎯 useTrending mount - initialParams:', paramsRef.current, 'keys:', paramsRef.current ? Object.keys(paramsRef.current) : 'undefined');
+    console.log('🎯 useTrending mount/update - initialParams:', initialParams);
 
-    if (!paramsRef.current) {
+    if (!initialParams) {
       console.log('⚠️ useTrending: initialParams is undefined/null, skipping fetch');
       setLoading(false);
       setHasMore(false);
       return;
     }
 
-    const paramKeys = Object.keys(paramsRef.current);
+    const paramKeys = Object.keys(initialParams);
     if (paramKeys.length === 0) {
       console.log('⚠️ useTrending: initialParams is empty object, skipping fetch');
       setLoading(false);
@@ -165,9 +169,9 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
       return;
     }
 
-    console.log('✅ useTrending: Fetching initial data with params:', paramsRef.current);
+    console.log('✅ useTrending: Fetching data with params:', initialParams);
     fetchTrending(1, false);
-  }, [fetchTrending]); // Only fetch when fetchTrending changes (which it won't due to empty deps)
+  }, [paramsKey, fetchTrending]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Refetch function with cache clearing
   const refetch = useCallback(async () => {
