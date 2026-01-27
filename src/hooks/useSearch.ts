@@ -3,18 +3,18 @@
  * Provides optimized search with debouncing, caching, and state management
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ApiError } from '../services/api/base.api';
 import { searchApi } from '../services/api/search.api';
 import {
-  SearchType,
-  SearchResponse,
-  QuickSearchResponse,
-  SearchLecture,
-  SearchLecturer,
-  SearchAlbum,
-  SearchPlaylist,
+    QuickSearchResponse,
+    SearchAlbum,
+    SearchLecture,
+    SearchLecturer,
+    SearchPlaylist,
+    SearchResponse,
+    SearchType,
 } from '../types/api.types';
-import { ApiError } from '../services/api/base.api';
 
 // Hook configuration interface
 interface UseSearchConfig {
@@ -37,7 +37,19 @@ interface SearchState<T> {
 
 // Debounce helper
 function useDebounce<T>(value: T, delay: number): T {
-// ... existing code ...
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
 }
 
 /**
@@ -68,6 +80,10 @@ export function useSearch<T = any>(
   const debouncedQuery = useDebounce(query, debounceDelay);
   const abortControllerRef = useRef<AbortController | null>(null);
   const cacheRef = useRef<Map<string, SearchResponse<T>>>(new Map());
+  const filtersRef = useRef<Record<string, any>>(state.filters);
+  useEffect(() => {
+    filtersRef.current = state.filters;
+  }, [state.filters]);
 
   // Search function
   const performSearch = useCallback(
@@ -190,9 +206,7 @@ export function useSearch<T = any>(
 
     if (filtersChanged) {
       setState(prev => ({ ...prev, filters: newFilters }));
-      if (queryRef.current) {
-        performSearchRef.current(queryRef.current, 1, false, newFilters);
-      }
+      // performSearch will be triggered by the useEffect when state.filters changes
     }
   }, []);
 
@@ -221,6 +235,7 @@ export function useSearch<T = any>(
       query: '',
       hasMore: false,
       page: 1,
+      filters: {},
     });
     cacheRef.current.clear();
   }, []);

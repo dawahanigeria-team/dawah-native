@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Text, TouchableOpacity, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Dropdown } from "../src/components/atoms/Dropdown";
 import { Card } from "../src/components/molecules/Card";
@@ -194,23 +194,22 @@ export default function SearchScreen() {
 
   const renderSearchResult = (item: SearchLecture) => {
     const resourcePerson = item.lecturer_name || item.ResourcePerson || "Unknown Scholar";
-    const plays = parseInt(item.views || item.Plays || "0").toLocaleString();
-    const metaValue = `${resourcePerson} • ${plays} plays`;
+    const metaValue = resourcePerson;
     const data = convertToEpisode(item);
 
     return (
-      <View style={tw`mb-4`}>
-        <Card
-          variant="landscape"
-          data={data}
-          onPress={() => handleItemPress(item)}
-          playOnPress={false}
-          showTime={true}
-          showMeta={true}
-          metaValue={metaValue}
-          showBadge={false}
-        />
-      </View>
+      <Card
+        variant="landscape"
+        data={data}
+        onPress={() => handleItemPress(item)}
+        playOnPress={false}
+        showTime={true}
+        showMeta={true}
+        metaValue={metaValue}
+        titleNumberOfLines={2}
+        metaNumberOfLines={1}
+        showBadge={false}
+      />
     );
   };
 
@@ -219,7 +218,7 @@ export default function SearchScreen() {
       <Ionicons
         name="search"
         size={56}
-        color="#6B7280"
+        color={designTokens.colors.palette.gray500}
         style={tw`mb-6`}
         accessibilityLabel="Search icon"
       />
@@ -234,7 +233,10 @@ export default function SearchScreen() {
             : "Discover Islamic content"}
       </Text>
       <Text
-        style={tw`text-[#9CA3AF] text-center text-base leading-6 max-w-sm`}
+        style={[
+          tw`text-center text-base leading-6 max-w-sm`,
+          { color: designTokens.colors.palette.gray400 },
+        ]}
         accessibilityLabel={
           error
             ? error.message
@@ -276,7 +278,12 @@ export default function SearchScreen() {
   };
 
   return (
-    <SafeAreaView style={tw`flex-1 bg-[#0A0A0F]`}>
+    <SafeAreaView
+      style={[
+        tw`flex-1`,
+        { backgroundColor: designTokens.colors.palette.slate950 },
+      ]}
+    >
       {/* Header */}
       <View style={tw`flex-row items-center justify-between px-5 py-4`}>
         <View style={tw`flex-row items-center flex-1`}>
@@ -288,7 +295,7 @@ export default function SearchScreen() {
             accessibilityRole="button"
             activeOpacity={0.7}
           >
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            <Ionicons name="arrow-back" size={24} color={designTokens.colors.fixed.white} />
           </TouchableOpacity>
 
           {/* Page Title */}
@@ -299,18 +306,29 @@ export default function SearchScreen() {
 
         {/* Filter Button */}
         <TouchableOpacity
-          style={tw`flex-row items-center px-4 py-2.5 bg-[#1F2937] rounded-full min-h-[44px]`}
+          style={[
+            tw`flex-row items-center px-4 py-2.5 rounded-full min-h-[44px]`,
+            { backgroundColor: designTokens.colors.palette.slate800 },
+          ]}
           onPress={toggleFilters}
           accessibilityLabel="Toggle filters"
           accessibilityRole="button"
         >
-          <Ionicons name="options" size={18} color="#FFFFFF" />
+          <Ionicons name="options" size={18} color={designTokens.colors.fixed.white} />
           <Text style={tw`text-white text-sm ml-2 font-medium`}>Filter</Text>
           {getActiveFilterCount() > 0 && (
             <View
-              style={tw`bg-[#C6FF00] w-5 h-5 rounded-full items-center justify-center ml-2`}
+              style={[
+                tw`w-5 h-5 rounded-full items-center justify-center ml-2`,
+                { backgroundColor: designTokens.colors.palette.lime400 },
+              ]}
             >
-              <Text style={tw`text-black text-xs font-bold`}>
+              <Text
+                style={[
+                  tw`text-xs font-bold`,
+                  { color: designTokens.colors.fixed.black },
+                ]}
+              >
                 {getActiveFilterCount()}
               </Text>
             </View>
@@ -368,7 +386,14 @@ export default function SearchScreen() {
         ListHeaderComponent={
           showFilters ? (
             <View
-              style={tw`bg-[#111827] border-t border-[rgba(255,255,255,0.1)] pt-6 pb-4 mb-6 mx-1 rounded-t-xl`}
+              style={[
+                tw`pt-6 pb-4 mb-6 mx-1 rounded-t-xl`,
+                {
+                  backgroundColor: designTokens.colors.palette.slate900,
+                  borderTopWidth: StyleSheet.hairlineWidth,
+                  borderTopColor: designTokens.colors.overlay.lightSubtle,
+                },
+              ]}
             >
               {/* Filter Header */}
               <View style={tw`flex-row items-center justify-between px-5 mb-6`}>
@@ -376,9 +401,17 @@ export default function SearchScreen() {
                 {hasActiveFilters() && (
                   <TouchableOpacity
                     onPress={clearFilters}
-                    style={tw`px-3 py-1 bg-[#1F2937] rounded-lg min-h-[44px] justify-center`}
+                    style={[
+                      tw`px-3 py-1 rounded-lg min-h-[44px] justify-center`,
+                      { backgroundColor: designTokens.colors.palette.slate800 },
+                    ]}
                   >
-                    <Text style={tw`text-[#C6FF00] text-sm font-semibold`}>
+                    <Text
+                      style={[
+                        tw`text-sm font-semibold`,
+                        { color: designTokens.colors.palette.lime400 },
+                      ]}
+                    >
                       Clear All
                     </Text>
                   </TouchableOpacity>
@@ -456,7 +489,12 @@ export default function SearchScreen() {
               {/* Pagination Info */}
               {actualSearchQuery && totalPages > 0 && (
                 <View style={tw`py-4 items-center`}>
-                  <Text style={tw`text-[#9CA3AF] text-sm`}>
+                  <Text
+                    style={[
+                      tw`text-sm`,
+                      { color: designTokens.colors.palette.gray400 },
+                    ]}
+                  >
                     Page {currentPage} of {totalPages} • {filteredAndSortedResults.length} of {totalResults} results
                   </Text>
                 </View>

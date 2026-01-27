@@ -3,7 +3,7 @@
  * Tracks recently played lectures locally (privacy-focused)
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from 'expo-sqlite/kv-store';
 import type { Episode } from '../types/types';
 
 export interface HistoryItem {

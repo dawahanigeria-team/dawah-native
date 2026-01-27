@@ -3,10 +3,15 @@ import * as Haptics from "expo-haptics";
 import { Tabs, usePathname } from "expo-router";
 import { useMemo } from "react";
 import { Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { designTokens } from "../../src/theme/designTokens";
+import { useThemeColors } from "../../src/hooks/useTheme";
+import { getTabBarHeight, getTabBarPaddingBottom } from "../../src/utils";
 
 export default function TabLayout() {
   const pathname = usePathname();
+  const insets = useSafeAreaInsets();
+  const colors = useThemeColors();
 
   const handleTabPress = () => {
     if (Platform.OS === "ios") {
@@ -49,22 +54,38 @@ export default function TabLayout() {
     return !hideOnRoutes.some(route => pathname.startsWith(route));
   }, [pathname]);
 
+  const tabBarPaddingBottom = useMemo(() => {
+    return getTabBarPaddingBottom(insets.bottom);
+  }, [insets.bottom]);
+
+  const tabBarHeight = useMemo(() => {
+    return getTabBarHeight(insets.bottom);
+  }, [insets.bottom]);
+
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: designTokens.colors.brand.primary,
-        tabBarInactiveTintColor: designTokens.colors.system.label.tertiary,
+        tabBarActiveTintColor: colors.brand.primary,
+        tabBarInactiveTintColor: colors.system.label.tertiary,
+        tabBarHideOnKeyboard: true,
         tabBarStyle: tabBarVisible ? {
-          backgroundColor: designTokens.colors.system.background.secondary,
-          borderTopColor: designTokens.colors.system.separator.primary,
+          backgroundColor: colors.system.background.secondary,
+          borderTopColor: colors.system.separator.primary,
           borderTopWidth: 0.5, // iOS standard separator width
-          height: Platform.OS === "ios" ? 83 : 84, // iOS standard tab bar height
-          paddingBottom: Platform.OS === "ios" ? 20 : 16,
+          height: tabBarHeight,
+          paddingBottom: tabBarPaddingBottom,
           paddingTop: 8,
           // Add translucent effect for iOS
           ...(Platform.OS === "ios" && {
-            backgroundColor: "rgba(28, 28, 30, 0.95)", // Semi-transparent
-            backdropFilter: "blur(20px)", // iOS blur effect
+            // We need to use hex with alpha if we want translucency, 
+            // but `colors.system.background.secondary` might be hex or rgba.
+            // If it's hex, we can't easily add alpha without conversion.
+            // However, the previous code hardcoded a specific rgba.
+            // Let's stick to the color token. If it's opaque, it's opaque.
+            // Or we could map it if we really want that glass effect.
+            // For now, let's just use the theme color.
+            backgroundColor: colors.system.background.secondary,
+            // opacity: 0.95? No, that affects content too.
           }),
         } : {
           display: "none", // Hide tab bar completely
@@ -73,10 +94,10 @@ export default function TabLayout() {
           fontSize: designTokens.typography.fontSize.caption1,
           fontWeight: designTokens.typography.fontWeight.medium,
           fontFamily: designTokens.typography.fontFamily.system,
-          marginTop: 2,
+          marginTop: 0,
         },
         tabBarIconStyle: {
-          marginBottom: 2,
+          marginBottom: 0,
         },
         headerShown: false,
       }}

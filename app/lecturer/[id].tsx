@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Image, ScrollView, TextInput, TouchableOpacity, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, FlatList, Image, StyleSheet, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../../src/components/atoms";
 import { TabView } from "../../src/components/molecules/TabView";
@@ -24,9 +24,60 @@ type TabType = 'songs' | 'albums' | 'playlists';
 const PAGE_SIZE = 10;
 
 export default function LecturerDetailScreen() {
-  const { id } = useLocalSearchParams();
-  const lecturerId = id as string;
+  const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
+  const lecturerId = Array.isArray(id) ? id[0] : id;
+  const lecturerNameHint = Array.isArray(name) ? name[0] : (name || '');
   const { playEpisode } = usePlayerActions();
+
+  // If we navigated here without a valid lecturer id (e.g., id=0), try resolving by name.
+  useEffect(() => {
+    const normalizeName = (value: string): string =>
+      value
+        .replace(/\[[^\]]*\]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+
+    const resolve = async () => {
+      if (!lecturerNameHint || lecturerNameHint.trim().length < 2) return;
+      if (String(lecturerId) !== '0') return;
+
+      try {
+        const cleanedQuery = lecturerNameHint.replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();
+        const cleaned = normalizeName(cleanedQuery);
+
+        // Prefer resolving via the lecturers (RPs) list to get the canonical ID.
+        // Search can fail depending on backend indexing.
+        try {
+          // Try a couple pages to increase hit rate without over-fetching.
+          for (const page of [1, 2, 3]) {
+            const list = await lecturersApi.getAllLecturers({ page, lim: 200 });
+            const exact = list.data.find((l) => normalizeName(l.name) === cleaned);
+            const best = exact || list.data.find((l) => normalizeName(l.name).includes(cleaned));
+            if (best?.id && String(best.id) !== '0') {
+              router.replace(`/lecturer/${best.id}`);
+              return;
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to resolve lecturer from lecturers list', err);
+        }
+
+        const res = await searchApi.searchLecturers(cleanedQuery, 1);
+        const candidates = res.data || [];
+        const exact = candidates.find((c) => normalizeName(c.name) === cleaned);
+        const best = exact || candidates[0];
+
+        if (best?.id && String(best.id) !== '0') {
+          router.replace(`/lecturer/${best.id}`);
+        }
+      } catch (err) {
+        console.warn('Failed to resolve lecturer by name', err);
+      }
+    };
+
+    resolve();
+  }, [lecturerId, lecturerNameHint, router]);
 
   // States
   const [lecturer, setLecturer] = useState<any>(null);
@@ -74,7 +125,18 @@ export default function LecturerDetailScreen() {
     try {
       setLoading(true);
       const data = await lecturersApi.getLecturerDetails(lecturerId);
-      setLecturer(data);
+
+      // If we arrived here via name-hint flow (id=0), prefer showing the name hint
+      // even if the underlying fetch returns "Unknown Lecturer".
+      if (String(lecturerId) === '0' && lecturerNameHint.trim().length >= 2) {
+        setLecturer({
+          ...(data || {}),
+          id: lecturerId,
+          name: lecturerNameHint,
+        });
+      } else {
+        setLecturer(data);
+      }
     } catch (err) {
       console.error('Failed to fetch lecturer details:', err);
       setError('Failed to load lecturer details');
@@ -367,7 +429,12 @@ export default function LecturerDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={tw`flex-1 bg-[#0A0A0F]`}>
+      <SafeAreaView
+        style={[
+          tw`flex-1`,
+          { backgroundColor: designTokens.colors.palette.slate950 },
+        ]}
+      >
         <View style={tw`flex-1 items-center justify-center`}>
           <ActivityIndicator size="large" color={designTokens.colors.brand.primary} />
           <Text style={tw`text-white mt-4`}>Loading lecturer details...</Text>
@@ -378,12 +445,20 @@ export default function LecturerDetailScreen() {
 
   if (error || !lecturer) {
     return (
-      <SafeAreaView style={tw`flex-1 bg-[#0A0A0F]`}>
+      <SafeAreaView
+        style={[
+          tw`flex-1`,
+          { backgroundColor: designTokens.colors.palette.slate950 },
+        ]}
+      >
         <View style={tw`flex-1 items-center justify-center px-6`}>
           <Text style={tw`text-white text-lg mb-4`}>Failed to load lecturer</Text>
           <TouchableOpacity
             onPress={() => router.back()}
-            style={tw`bg-[#1F2937] px-6 py-3 rounded-lg`}
+            style={[
+              tw`px-6 py-3 rounded-lg`,
+              { backgroundColor: designTokens.colors.palette.slate800 },
+            ]}
           >
             <Text style={tw`text-white`}>Go Back</Text>
           </TouchableOpacity>
@@ -431,7 +506,10 @@ export default function LecturerDetailScreen() {
 
     return (
       <TouchableOpacity
-        style={tw`flex-row items-start p-4 bg-[#1A1A1F] rounded-lg mb-3`}
+        style={[
+          tw`flex-row items-start p-4 rounded-lg mb-3`,
+          { backgroundColor: designTokens.colors.palette.neutral900 },
+        ]}
         onPress={handleAlbumPress}
       >
         {item.coverUrl ? (
@@ -441,7 +519,7 @@ export default function LecturerDetailScreen() {
           />
         ) : (
           <View style={tw`w-16 h-16 rounded-lg bg-gray-700 items-center justify-center`}>
-            <Ionicons name="musical-notes" size={24} color="#9CA3AF" />
+            <Ionicons name="musical-notes" size={24} color={designTokens.colors.palette.gray400} />
           </View>
         )}
         <View style={tw`flex-1 ml-4`}>
@@ -453,7 +531,7 @@ export default function LecturerDetailScreen() {
           </Text>
         </View>
         <View style={tw`justify-center ml-2`}>
-          <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+          <Ionicons name="chevron-forward" size={20} color={designTokens.colors.palette.gray400} />
         </View>
       </TouchableOpacity>
     );
@@ -478,7 +556,7 @@ export default function LecturerDetailScreen() {
         />
       ) : (
         <View style={tw`w-12 h-12 rounded bg-gray-700 items-center justify-center`}>
-          <Ionicons name="musical-note" size={20} color="#9CA3AF" />
+          <Ionicons name="musical-note" size={20} color={designTokens.colors.palette.gray400} />
         </View>
       )}
 
@@ -492,14 +570,14 @@ export default function LecturerDetailScreen() {
             {lecture.rpname}
           </Text>
           <View style={tw`flex-row items-center mr-3`}>
-            <Ionicons name="play" size={12} color="#9CA3AF" />
+            <Ionicons name="play" size={12} color={designTokens.colors.palette.gray400} />
             <Text style={tw`text-gray-400 text-xs ml-1`}>
               {formatNumber(lecture.views)}
             </Text>
           </View>
           {lecture.favorites > 0 && (
             <View style={tw`flex-row items-center`}>
-              <Ionicons name="heart" size={12} color="#9CA3AF" />
+              <Ionicons name="heart" size={12} color={designTokens.colors.palette.gray400} />
               <Text style={tw`text-gray-400 text-xs ml-1`}>
                 {formatNumber(lecture.favorites)}
               </Text>
@@ -521,7 +599,7 @@ export default function LecturerDetailScreen() {
           handleLecturePlay(lecture);
         }}
       >
-        <Ionicons name="play-circle" size={28} color="#30D158" />
+        <Ionicons name="play-circle" size={28} color={designTokens.colors.brand.primary} />
       </TouchableOpacity>
     </TouchableOpacity>
   );
@@ -564,7 +642,10 @@ export default function LecturerDetailScreen() {
 
     return (
       <TouchableOpacity
-        style={tw`flex-row items-start p-4 bg-[#1A1A1F] rounded-lg mb-3`}
+        style={[
+          tw`flex-row items-start p-4 rounded-lg mb-3`,
+          { backgroundColor: designTokens.colors.palette.neutral900 },
+        ]}
         onPress={handlePlaylistPress}
       >
         {item.coverUrl ? (
@@ -574,7 +655,7 @@ export default function LecturerDetailScreen() {
           />
         ) : (
           <View style={tw`w-16 h-16 rounded-lg bg-gray-700 items-center justify-center`}>
-            <Ionicons name="list" size={24} color="#9CA3AF" />
+            <Ionicons name="list" size={24} color={designTokens.colors.palette.gray400} />
           </View>
         )}
         <View style={tw`flex-1 ml-4`}>
@@ -586,7 +667,7 @@ export default function LecturerDetailScreen() {
           </Text>
         </View>
         <View style={tw`justify-center ml-2`}>
-          <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+          <Ionicons name="chevron-forward" size={20} color={designTokens.colors.palette.gray400} />
         </View>
       </TouchableOpacity>
     );
@@ -617,18 +698,26 @@ export default function LecturerDetailScreen() {
         data={playlists}
         renderItem={renderPlaylistItem}
         keyExtractor={(item) => item.id.toString()}
+        stickyHeaderIndices={[0]}
         contentContainerStyle={tw`px-5 pb-20`}
         onEndReached={loadMorePlaylists}
         onEndReachedThreshold={0.5}
         ListHeaderComponent={renderHeaderContent}
         ListFooterComponent={renderPlaylistFooter}
-        scrollEnabled={false}
       />
     );
   };
 
   const renderHeaderContent = () => (
-    <>
+    <View
+      style={[
+        styles.stickyHeader,
+        {
+          backgroundColor: designTokens.colors.system.background.primary,
+          borderBottomColor: designTokens.colors.system.separator.primary,
+        },
+      ]}
+    >
       {/* Lecturer Info with Cover Image */}
       <View style={tw`px-5 py-3`}>
         <View style={tw`flex-row`}>
@@ -667,19 +756,19 @@ export default function LecturerDetailScreen() {
             {/* Stats */}
             <View style={tw`flex-row items-center mt-2`}>
               <View style={tw`flex-row items-center bg-gray-800 rounded-full px-3 py-1.5 mr-2`}>
-                <Ionicons name="heart" size={14} color="#9CA3AF" />
+                <Ionicons name="heart" size={14} color={designTokens.colors.palette.gray400} />
                 <Text style={tw`text-gray-300 text-xs ml-1.5`}>
                   {formatNumber(favorites)}
                 </Text>
               </View>
               <View style={tw`flex-row items-center bg-gray-800 rounded-full px-3 py-1.5 mr-2`}>
-                <Ionicons name="share-social" size={14} color="#9CA3AF" />
+                <Ionicons name="share-social" size={14} color={designTokens.colors.palette.gray400} />
                 <Text style={tw`text-gray-300 text-xs ml-1.5`}>
                   {shares}
                 </Text>
               </View>
               <View style={tw`flex-row items-center bg-gray-800 rounded-full px-3 py-1.5`}>
-                <Ionicons name="chatbubble" size={14} color="#9CA3AF" />
+                <Ionicons name="chatbubble" size={14} color={designTokens.colors.palette.gray400} />
                 <Text style={tw`text-gray-300 text-xs ml-1.5`}>
                   {comments}
                 </Text>
@@ -699,24 +788,29 @@ export default function LecturerDetailScreen() {
       {/* Search Bar */}
       {activeTab === 'songs' && (
         <View style={tw`px-5 py-4`}>
-          <View style={tw`flex-row items-center bg-[#1A1A1F] rounded-lg px-4 py-3`}>
-            <Ionicons name="search" size={20} color="#9CA3AF" />
+          <View
+            style={[
+              tw`flex-row items-center rounded-lg px-4 py-3`,
+              { backgroundColor: designTokens.colors.palette.neutral900 },
+            ]}
+          >
+            <Ionicons name="search" size={20} color={designTokens.colors.palette.gray400} />
             <TextInput
               style={tw`flex-1 ml-3 text-white`}
               placeholder="Search lectures"
-              placeholderTextColor="#6B7280"
+              placeholderTextColor={designTokens.colors.palette.gray500}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+                <Ionicons name="close-circle" size={20} color={designTokens.colors.palette.gray400} />
               </TouchableOpacity>
             )}
           </View>
         </View>
       )}
-    </>
+    </View>
   );
 
   const renderSongsList = () => {
@@ -725,6 +819,7 @@ export default function LecturerDetailScreen() {
         data={filteredLectures}
         renderItem={({ item, index }) => renderLectureItem(item, index)}
         keyExtractor={(item: any, index: number) => item._uniqueId || `${item.nid}-${index}`}
+        stickyHeaderIndices={[0]}
         contentContainerStyle={tw`pb-20`}
         onEndReached={loadMoreLectures}
         onEndReachedThreshold={0.5}
@@ -760,6 +855,7 @@ export default function LecturerDetailScreen() {
             data={albums}
             renderItem={renderAlbumItem}
             keyExtractor={(item) => item.id.toString()}
+            stickyHeaderIndices={[0]}
             contentContainerStyle={tw`pb-20`}
             onEndReached={loadMoreAlbums}
             onEndReachedThreshold={0.5}
@@ -806,3 +902,9 @@ export default function LecturerDetailScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  stickyHeader: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+});

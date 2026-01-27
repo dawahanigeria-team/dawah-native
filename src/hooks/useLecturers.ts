@@ -3,8 +3,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { lecturersApi } from '../services/api/lecturers.api';
-import { Lecturer } from '../services/api/lecturers.api';
+import { lecturersApi , Lecturer } from '../services/api/lecturers.api';
 
 export interface LecturerCard {
   id: string;

@@ -10,7 +10,7 @@
  * - Smart cache warming
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from 'expo-sqlite/kv-store';
 import { captureSentryException, addSentryBreadcrumb } from '../config/sentry.config';
 
 // Cache configuration

@@ -100,68 +100,197 @@ export const shadows = {
   },
 } as const;
 
-// iOS Semantic Color System - supports both light and dark modes
-export const colors = {
-  // iOS System Colors (adapt to appearance)
+// Theme-specific colors
+export const colorsDark = {
   system: {
     background: {
-      primary: "#000000", // systemBackground (dark)
-      secondary: "#1C1C1E", // secondarySystemBackground (dark)
-      tertiary: "#2C2C2E", // tertiarySystemBackground (dark)
-      grouped: "#000000", // systemGroupedBackground (dark)
+      primary: "#000000",
+      secondary: "#1C1C1E",
+      tertiary: "#2C2C2E",
+      grouped: "#000000",
     },
-
     label: {
-      primary: "#FFFFFF", // label (dark mode)
-      secondary: "rgba(235, 235, 245, 0.6)", // secondaryLabel
-      tertiary: "rgba(235, 235, 245, 0.3)", // tertiaryLabel
-      quaternary: "rgba(235, 235, 245, 0.18)", // quaternaryLabel
+      primary: "#FFFFFF",
+      secondary: "rgba(235, 235, 245, 0.6)",
+      tertiary: "rgba(235, 235, 245, 0.3)",
+      quaternary: "rgba(235, 235, 245, 0.18)",
     },
-
     fill: {
-      primary: "rgba(120, 120, 128, 0.2)", // systemFill
-      secondary: "rgba(120, 120, 128, 0.16)", // secondarySystemFill
-      tertiary: "rgba(118, 118, 128, 0.12)", // tertiarySystemFill
-      quaternary: "rgba(118, 118, 128, 0.08)", // quaternarySystemFill
+      primary: "rgba(120, 120, 128, 0.32)",
+      secondary: "rgba(120, 120, 128, 0.26)",
+      tertiary: "rgba(118, 118, 128, 0.22)",
+      quaternary: "rgba(118, 118, 128, 0.14)",
     },
-
     separator: {
-      primary: "rgba(84, 84, 88, 0.65)", // separator
-      opaque: "#38383A", // opaqueSeparator
+      primary: "rgba(84, 84, 88, 0.65)",
+      opaque: "#38383A",
     },
   },
-
-  // Brand colors - maintaining identity while following iOS patterns
   brand: {
-    primary: "#30D158", // iOS Green (adjusted for accessibility)
-    secondary: "#007AFF", // iOS Blue
-    accent: "#5AC8FA", // iOS Light Blue
+    primary: "#30D158",
+    secondary: "#007AFF",
+    accent: "#5AC8FA",
   },
-
-  // iOS Semantic Colors
   semantic: {
-    red: "#FF3B30", // systemRed
-    orange: "#FF9500", // systemOrange
-    yellow: "#FFCC00", // systemYellow
-    green: "#30D158", // systemGreen
-    mint: "#00C7BE", // systemMint
-    teal: "#30B0C7", // systemTeal
-    cyan: "#32D2DC", // systemCyan
-    blue: "#007AFF", // systemBlue
-    indigo: "#5856D6", // systemIndigo
-    purple: "#AF52DE", // systemPurple
-    pink: "#FF2D92", // systemPink
-    brown: "#A2845E", // systemBrown
+    red: "#FF453A", // systemRed dark
+    orange: "#FF9F0A", // systemOrange dark
+    yellow: "#FFD60A", // systemYellow dark
+    green: "#32D74B", // systemGreen dark
+    mint: "#66D4CF", // systemMint dark
+    teal: "#6AC4DC", // systemTeal dark
+    cyan: "#5AC8F5", // systemCyan dark
+    blue: "#0A84FF", // systemBlue dark
+    indigo: "#5E5CE6", // systemIndigo dark
+    purple: "#BF5AF2", // systemPurple dark
+    pink: "#FF375F", // systemPink dark
+    brown: "#AC8E68", // systemBrown dark
   },
+  control: {
+    normal: "rgba(120, 120, 128, 0.32)",
+    highlighted: "rgba(120, 120, 128, 0.52)",
+    disabled: "rgba(120, 120, 128, 0.22)",
+    selected: "#0A84FF",
+  },
+  fixed: {
+    white: "#FFFFFF",
+    black: "#000000",
+  },
+  overlay: {
+    darkHeavy: "rgba(0, 0, 0, 0.8)",
+    darkStrong: "rgba(0, 0, 0, 0.7)",
+    darkMedium: "rgba(0, 0, 0, 0.5)",
+    darkSubtle: "rgba(0, 0, 0, 0.05)",
+    lightStrong: "rgba(255, 255, 255, 0.95)",
+    lightSubtle: "rgba(255, 255, 255, 0.1)",
+    lightThin: "rgba(255, 255, 255, 0.06)",
+  },
+  palette: {
+    slate950: "#0A0A0F",
+    slate900: "#111827",
+    slate800: "#1F2937",
+    neutral900: "#1A1A1F",
+    gray500: "#6B7280",
+    gray400: "#9CA3AF",
+    lime400: "#C6FF00",
+    blue500: "#3B82F6",
+    green500: "#22C55E",
+    amber500: "#F59E0B",
+    red500: "#EF4444",
+    emerald500: "#10B981",
+    orange500: "#F97316",
+    notificationLight: "#FF231F7C",
+    placeholderDefault: "#4ECDC4",
+    placeholder: [
+      "#FF6B6B", // Coral
+      "#4ECDC4", // Teal
+      "#45B7D1", // Blue
+      "#96CEB4", // Mint
+      "#FFEAA7", // Yellow
+      "#DDA0DD", // Plum
+      "#98D8C8", // Sea Green
+      "#F7DC6F", // Gold
+      "#BB8FCE", // Lavender
+      "#85C1E9", // Sky Blue
+    ],
+  },
+} as const;
 
-  // Control states
+export const colorsLight = {
+  system: {
+    background: {
+      primary: "#FFFFFF",
+      secondary: "#F2F2F7",
+      tertiary: "#FFFFFF",
+      grouped: "#F2F2F7",
+    },
+    label: {
+      primary: "#000000",
+      secondary: "rgba(60, 60, 67, 0.6)",
+      tertiary: "rgba(60, 60, 67, 0.3)",
+      quaternary: "rgba(60, 60, 67, 0.18)",
+    },
+    fill: {
+      primary: "rgba(120, 120, 128, 0.2)",
+      secondary: "rgba(120, 120, 128, 0.16)",
+      tertiary: "rgba(118, 118, 128, 0.12)",
+      quaternary: "rgba(118, 118, 128, 0.08)",
+    },
+    separator: {
+      primary: "rgba(60, 60, 67, 0.29)",
+      opaque: "#C6C6C8",
+    },
+  },
+  brand: {
+    primary: "#34C759", // Slightly darker for light mode contrast
+    secondary: "#007AFF",
+    accent: "#5AC8FA",
+  },
+  semantic: {
+    red: "#FF3B30",
+    orange: "#FF9500",
+    yellow: "#FFCC00",
+    green: "#34C759",
+    mint: "#00C7BE",
+    teal: "#30B0C7",
+    cyan: "#32D2DC",
+    blue: "#007AFF",
+    indigo: "#5856D6",
+    purple: "#AF52DE",
+    pink: "#FF2D92",
+    brown: "#A2845E",
+  },
   control: {
     normal: "rgba(120, 120, 128, 0.2)",
     highlighted: "rgba(120, 120, 128, 0.4)",
     disabled: "rgba(120, 120, 128, 0.12)",
     selected: "#007AFF",
   },
+  fixed: {
+    white: "#FFFFFF",
+    black: "#000000",
+  },
+  overlay: {
+    darkHeavy: "rgba(0, 0, 0, 0.8)",
+    darkStrong: "rgba(0, 0, 0, 0.7)",
+    darkMedium: "rgba(0, 0, 0, 0.5)",
+    darkSubtle: "rgba(0, 0, 0, 0.05)",
+    lightStrong: "rgba(255, 255, 255, 0.95)",
+    lightSubtle: "rgba(255, 255, 255, 0.1)",
+    lightThin: "rgba(255, 255, 255, 0.06)",
+  },
+  palette: {
+    slate950: "#0A0A0F",
+    slate900: "#111827",
+    slate800: "#1F2937",
+    neutral900: "#1A1A1F",
+    gray500: "#6B7280",
+    gray400: "#9CA3AF",
+    lime400: "#C6FF00",
+    blue500: "#3B82F6",
+    green500: "#22C55E",
+    amber500: "#F59E0B",
+    red500: "#EF4444",
+    emerald500: "#10B981",
+    orange500: "#F97316",
+    notificationLight: "#FF231F7C",
+    placeholderDefault: "#4ECDC4",
+    placeholder: [
+      "#FF6B6B", // Coral
+      "#4ECDC4", // Teal
+      "#45B7D1", // Blue
+      "#96CEB4", // Mint
+      "#FFEAA7", // Yellow
+      "#DDA0DD", // Plum
+      "#98D8C8", // Sea Green
+      "#F7DC6F", // Gold
+      "#BB8FCE", // Lavender
+      "#85C1E9", // Sky Blue
+    ],
+  },
 } as const;
+
+// Default to dark mode for backwards compatibility
+export const colors = colorsDark;
 
 // iOS Hit target sizes (44x44 minimum for accessibility)
 export const hitTargets = {
@@ -214,7 +343,9 @@ export const designTokens = {
   typography,
   borderRadius,
   shadows,
-  colors,
+  colors, // Deprecated: Use useTheme hook instead
+  colorsLight,
+  colorsDark,
   hitTargets,
   animations,
   zIndex,

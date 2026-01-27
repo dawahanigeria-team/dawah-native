@@ -27,42 +27,42 @@ const defaultActions: ActionItem[] = [
     id: '1',
     title: 'Chart',
     icon: 'trending-up',
-    color: '#3B82F6', // blue-500
+    color: designTokens.colors.palette.blue500,
     description: 'View trending content'
   },
   {
     id: '2',
     title: 'Lecturers',
     icon: 'people',
-    color: '#22C55E', // green-500
+    color: designTokens.colors.palette.green500,
     description: 'Browse all lecturers'
   },
   {
     id: '3',
     title: 'Playlist',
     icon: 'list',
-    color: '#F59E0B', // amber-500
+    color: designTokens.colors.palette.amber500,
     description: 'Your saved playlists'
   },
   {
     id: '4',
     title: 'Video',
     icon: 'videocam',
-    color: '#EF4444', // red-500
+    color: designTokens.colors.palette.red500,
     description: 'Watch video content'
   },
   {
     id: '5',
     title: 'Quran',
     icon: 'book',
-    color: '#10B981', // emerald-500
+    color: designTokens.colors.palette.emerald500,
     description: 'Quran recitations'
   },
   {
     id: '6',
     title: 'Trending',
     icon: 'flame',
-    color: '#F97316', // orange-500
+    color: designTokens.colors.palette.orange500,
     description: 'Most popular content'
   },
 ];

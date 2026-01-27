@@ -3,6 +3,7 @@
  * Handles fetching lecturers/resource persons data
  */
 
+import { getLanguageId, getLanguageName } from '../../utils/languages';
 import { API_CONFIG } from '../config/api.config';
 import { apiClient, ApiError } from './base.api';
 
@@ -54,18 +55,7 @@ class LecturersApiService {
    * Language IDs from /all_lang_api.php
    */
   private getLanguageFromId(langId?: number): string {
-    const languageMap: Record<number, string> = {
-      157: 'Arabic',
-      877: 'Ebira',
-      6: 'English',
-      8: 'Hausa',
-      50041: 'Igala',
-      9: 'Igbo',
-      53181: 'Nupe',
-      46504: 'Pidgin English',
-      7: 'Yoruba',
-    };
-    return langId ? languageMap[langId] || 'Unknown' : 'Unknown';
+    return getLanguageName(langId);
   }
 
   /**
@@ -91,7 +81,12 @@ class LecturersApiService {
 
       // Add language filter if provided (API expects 'langid' parameter)
       if (params.language) {
-        requestParams.langid = params.language;
+        if (typeof params.language === 'string' && params.language !== 'All') {
+          const langId = getLanguageId(params.language);
+          requestParams.langid = langId || params.language;
+        } else if (typeof params.language === 'number') {
+          requestParams.langid = params.language;
+        }
       }
 
       // Log the API call
@@ -193,16 +188,46 @@ class LecturersApiService {
 
   /**
    * Get lecturer details
+   * Tries to find lecturer in all lecturers list first,
+   * falls back to extracting info from their lectures if not found
    */
   async getLecturerDetails(lecturerId: string | number): Promise<Lecturer | null> {
     try {
-      // This would typically be a separate API endpoint
-      // For now, we'll fetch all and find the specific one
+      console.log('👤 Fetching lecturer details for:', lecturerId);
+
+      // Try to find in all lecturers list first
       const response = await this.getAllLecturers({ lim: 50 });
       const lecturer = response.data.find(l =>
         String(l.id) === String(lecturerId)
       );
-      return lecturer || null;
+
+      if (lecturer) {
+        console.log('✅ Lecturer found in list:', lecturer.name);
+        return lecturer;
+      }
+
+      // Lecturer not in first 50, fetch their lectures to get info
+      console.log('⚠️ Lecturer not in list, fetching from lectures...');
+      const lecturesResponse = await this.getLecturesByLecturer(lecturerId, 1);
+
+      if (lecturesResponse.data.length > 0) {
+        const firstLecture = lecturesResponse.data[0];
+        const constructedLecturer: Lecturer = {
+          id: lecturerId,
+          name: firstLecture.rpname || 'Unknown Lecturer',
+          img: firstLecture.rp_image || '',
+          language: firstLecture.lang || 'Unknown',
+          views: firstLecture.views || 0,
+          favorites: firstLecture.favorites || 0,
+          share: firstLecture.share || 0,
+          comment: firstLecture.comment || 0,
+        };
+        console.log('✅ Lecturer constructed from lectures:', constructedLecturer.name);
+        return constructedLecturer;
+      }
+
+      console.log('❌ No lectures found for lecturer:', lecturerId);
+      return null;
     } catch (error) {
       console.error('Failed to fetch lecturer details:', error);
       return null;

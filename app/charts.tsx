@@ -1,23 +1,27 @@
-import React, { memo, useEffect, useState, useCallback } from 'react';
-import { View, FlatList, ActivityIndicator, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
-import { Text } from '../src/components/atoms/Text';
+import React, { memo, useCallback, useEffect, useState } from 'react';
+import { Alert, FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../src/components/atoms';
+import { Text } from '../src/components/atoms/Text';
 import { ChartItem } from '../src/components/molecules/ChartItem';
 import { ChartItemSkeleton } from '../src/components/molecules/ChartItem.skeleton';
 import {
-  fetchAlbumCharts,
-  fetchLecturerCharts,
-  fetchPlaylistCharts,
-  fetchLectureCharts,
   ChartItem as ChartItemType,
   ChartPeriod,
+  fetchAlbumCharts,
+  fetchLectureCharts,
+  fetchLecturerCharts,
+  fetchPlaylistCharts,
 } from '../src/services/api/charts.api';
+import { addSentryBreadcrumb, captureSentryException } from '../src/services/config/sentry.config';
 import { designTokens } from '../src/theme/designTokens';
-import { captureSentryException, addSentryBreadcrumb } from '../src/services/config/sentry.config';
+import { getTabBarPaddingBottom } from '../src/utils';
 
 type ChartType = 'album' | 'lecturer' | 'playlist' | 'lecture';
+
+// Keep in sync with the MiniPlayer component height so list content isn't obscured.
+const MINI_PLAYER_HEIGHT = 72;
 
 const ChartsScreen: React.FC = memo(() => {
   const [chartData, setChartData] = useState<ChartItemType[]>([]);
@@ -26,7 +30,10 @@ const ChartsScreen: React.FC = memo(() => {
   const [selectedPeriod, setSelectedPeriod] = useState<ChartPeriod>('weekly');
   const [selectedChartType, setSelectedChartType] = useState<ChartType>('album');
 
+  const insets = useSafeAreaInsets();
   const router = useRouter();
+
+  const listPaddingBottom = designTokens.spacing.lg + MINI_PLAYER_HEIGHT + getTabBarPaddingBottom(insets.bottom);
 
   const getChartData = useCallback(async (chartType: ChartType, period: ChartPeriod) => {
     try {
@@ -128,11 +135,77 @@ const ChartsScreen: React.FC = memo(() => {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <Stack.Screen options={{ title: getTitle() }} />
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Icon name="arrow-back" size="lg" color="label" />
         </TouchableOpacity>
+        <View style={styles.content}>
+          <View style={styles.segmentedControlContainer}>
+            <SegmentedControlOption
+              label="Album"
+              isSelected={selectedChartType === 'album'}
+              onPress={() => setSelectedChartType('album')}
+            />
+            <SegmentedControlOption
+              label="Lecturer"
+              isSelected={selectedChartType === 'lecturer'}
+              onPress={() => setSelectedChartType('lecturer')}
+            />
+            <SegmentedControlOption
+              label="Playlist"
+              isSelected={selectedChartType === 'playlist'}
+              onPress={() => setSelectedChartType('playlist')}
+            />
+            <SegmentedControlOption
+              label="Lecture"
+              isSelected={selectedChartType === 'lecture'}
+              onPress={() => setSelectedChartType('lecture')}
+            />
+          </View>
+          <View style={styles.segmentedControlContainer}>
+            <SegmentedControlOption
+              label="Daily"
+              isSelected={selectedPeriod === 'daily'}
+              onPress={() => setSelectedPeriod('daily')}
+            />
+            <SegmentedControlOption
+              label="Weekly"
+              isSelected={selectedPeriod === 'weekly'}
+              onPress={() => setSelectedPeriod('weekly')}
+            />
+            <SegmentedControlOption
+              label="Monthly"
+              isSelected={selectedPeriod === 'monthly'}
+              onPress={() => setSelectedPeriod('monthly')}
+            />
+          </View>
+          <FlatList
+            data={Array.from({ length: 10 })}
+            keyExtractor={(_, index) => `skeleton-${index}`}
+            renderItem={() => <ChartItemSkeleton />}
+            contentContainerStyle={[styles.listContent, { paddingBottom: listPaddingBottom }]}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.centered} edges={['top', 'bottom']}>
+        <Text variant="body" color="systemRed">{error}</Text>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <Stack.Screen options={{ title: getTitle() }} />
+      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <Icon name="arrow-back" size="lg" color="label" />
+      </TouchableOpacity>
+      <View style={styles.content}>
         <View style={styles.segmentedControlContainer}>
           <SegmentedControlOption
             label="Album"
@@ -173,82 +246,20 @@ const ChartsScreen: React.FC = memo(() => {
           />
         </View>
         <FlatList
-          data={Array.from({ length: 10 })}
-          keyExtractor={(_, index) => `skeleton-${index}`}
-          renderItem={() => <ChartItemSkeleton />}
-          contentContainerStyle={styles.listContent}
-        />
-      </SafeAreaView>
-    );
-  }
-
-  if (error) {
-    return (
-      <SafeAreaView style={styles.centered}>
-        <Text variant="body" color="systemRed">{error}</Text>
-      </SafeAreaView>
-    );
-  }
-
-  return (
-    <SafeAreaView style={styles.container}>
-      <Stack.Screen options={{ title: getTitle() }} />
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <Icon name="arrow-back" size="lg" color="label" />
-      </TouchableOpacity>
-      <View style={styles.segmentedControlContainer}>
-        <SegmentedControlOption
-          label="Album"
-          isSelected={selectedChartType === 'album'}
-          onPress={() => setSelectedChartType('album')}
-        />
-        <SegmentedControlOption
-          label="Lecturer"
-          isSelected={selectedChartType === 'lecturer'}
-          onPress={() => setSelectedChartType('lecturer')}
-        />
-        <SegmentedControlOption
-          label="Playlist"
-          isSelected={selectedChartType === 'playlist'}
-          onPress={() => setSelectedChartType('playlist')}
-        />
-        <SegmentedControlOption
-          label="Lecture"
-          isSelected={selectedChartType === 'lecture'}
-          onPress={() => setSelectedChartType('lecture')}
+          data={chartData}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item, index }) => (
+            <ChartItem
+              item={item}
+              index={index}
+              selectedPeriod={selectedPeriod}
+              selectedChartType={selectedChartType}
+              onPress={() => handleChartItemPress(item)}
+            />
+          )}
+          contentContainerStyle={[styles.listContent, { paddingBottom: listPaddingBottom }]}
         />
       </View>
-      <View style={styles.segmentedControlContainer}>
-        <SegmentedControlOption
-          label="Daily"
-          isSelected={selectedPeriod === 'daily'}
-          onPress={() => setSelectedPeriod('daily')}
-        />
-        <SegmentedControlOption
-          label="Weekly"
-          isSelected={selectedPeriod === 'weekly'}
-          onPress={() => setSelectedPeriod('weekly')}
-        />
-        <SegmentedControlOption
-          label="Monthly"
-          isSelected={selectedPeriod === 'monthly'}
-          onPress={() => setSelectedPeriod('monthly')}
-        />
-      </View>
-      <FlatList
-        data={chartData}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item, index }) => (
-          <ChartItem
-            item={item}
-            index={index}
-            selectedPeriod={selectedPeriod}
-            selectedChartType={selectedChartType}
-            onPress={() => handleChartItemPress(item)}
-          />
-        )}
-        contentContainerStyle={styles.listContent}
-      />
     </SafeAreaView>
   );
 });
@@ -285,6 +296,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: designTokens.colors.system.background.primary,
+  },
+  content: {
+    flex: 1,
     paddingTop: designTokens.spacing['4xl'],
   },
   centered: {

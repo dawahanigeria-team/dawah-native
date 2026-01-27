@@ -22,6 +22,7 @@ import {
 import Animated, {
   Extrapolate,
   interpolate,
+  useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -34,7 +35,7 @@ import { useLectureDetail } from "../../src/hooks/useLectureDetail";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
 import { DownloadStatus } from "../../src/services/downloads/downloadQueue.service";
 import { linkingService } from "../../src/services/linking.service";
-import { useAuthStore, useDownloadsStore, useFavoritesStore, usePlayerStore } from "../../src/stores";
+import { authStore, useDownloadsStore, useFavoritesStore, usePlayerStore } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import type { LectureDetail } from "../../src/types/api.types";
@@ -42,7 +43,7 @@ import type { Episode } from "../../src/types/types";
 import { appendShareSignature } from "../../src/utils/shareMessage";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const HEADER_HEIGHT = 420;
+const HEADER_HEIGHT = 300;
 
 const createEpisodeFromDetail = (detail: LectureDetail | null): Episode | null => {
   if (!detail) return null;
@@ -66,10 +67,19 @@ const createEpisodeFromDetail = (detail: LectureDetail | null): Episode | null =
 
 const LectureDetailScreen: React.FC = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const lectureId = id ?? "";
-  const { lecture, loading, error, refetch } = useLectureDetail(lectureId);
   const router = useRouter();
+  const lectureId = id ?? "";
 
+  // Local State & Animations
+  const [showFullDescription, setShowFullDescription] = useState(false);
+  const [showAddToPlaylistModal, setShowAddToPlaylistModal] = useState(false);
+  const scrollY = useSharedValue(0);
+  const likeScale = useSharedValue(1);
+
+  // Data Hooks
+  const { lecture, loading, error, refetch } = useLectureDetail(lectureId);
+
+  // Store Hooks
   const {
     playEpisode,
     togglePlayPause,
@@ -91,23 +101,19 @@ const LectureDetailScreen: React.FC = () => {
 
   const { isFavorited, toggleFavorite } = useFavoritesStore();
 
-  const { isAuthenticated } = useAuthStore();
-
-  // State management
-  const [showFullDescription, setShowFullDescription] = useState(false);
-  const [showAddToPlaylistModal, setShowAddToPlaylistModal] = useState(false);
-
-  // Check if lecture is liked
+  // Derived State
   const liked = isFavorited(lectureId);
-
-  // Animation values
-  const scrollY = useSharedValue(0);
-  const likeScale = useSharedValue(1);
-
   const episode = useMemo(() => createEpisodeFromDetail(lecture), [lecture]);
   const isCurrentLecture = Boolean(
     lecture && currentEpisode?.id === lecture.id,
   );
+  const isRecitation = Boolean(
+    lecture?.isReciter ||
+      lecture?.reciter?.isReciter ||
+      lecture?.reciter?.id ||
+      lecture?.raw?.reciter_id,
+  );
+  const aboutHeading = isRecitation ? "About this recitation" : "About this lecture";
   const canPlay = Boolean(episode?.audioUrl);
   const isCurrentlyPlaying = isCurrentLecture && isPlaying;
 
@@ -152,9 +158,11 @@ const LectureDetailScreen: React.FC = () => {
   }));
 
   // Event handlers
-  const handleScroll = useCallback((event: any) => {
-    scrollY.value = event.nativeEvent.contentOffset.y;
-  }, [scrollY]);
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
 
   const handlePlayPress = useCallback(() => {
     if (!episode || !canPlay) return;
@@ -286,7 +294,7 @@ const LectureDetailScreen: React.FC = () => {
 
     const webLink = linkingService.createLectureLink(lecture.id);
 
-    const baseMessage = `🎧 ${lecture.title}\n👤 ${lecture.lecturerName || 'Dawah Nigeria'}\n\n${webLink}`;
+    const baseMessage = `🎧 ${lecture.title}\n👤 ${lecture.lecturerName || 'dawahnigeria'}\n\n${webLink}`;
     const message = appendShareSignature(baseMessage);
 
     Share.share({
@@ -485,7 +493,7 @@ const LectureDetailScreen: React.FC = () => {
       <Animated.ScrollView
         contentContainerStyle={tw`pb-32`}
         showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
+        onScroll={scrollHandler}
         scrollEventThrottle={16}
       >
         {/* Hero Section with Parallax */}
@@ -503,8 +511,8 @@ const LectureDetailScreen: React.FC = () => {
               </View>
             )}
             <LinearGradient
-              colors={['transparent', 'rgba(0,0,0,0.7)']}
-              style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 120 }}
+              colors={['transparent', designTokens.colors.overlay.darkStrong]}
+              style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 80 }}
             />
           </Animated.View>
         </View>
@@ -524,10 +532,60 @@ const LectureDetailScreen: React.FC = () => {
               {cleanTitle(lecture.title, lecture.lecturerName)}
             </Text>
             {lecture.lecturerName && (
-              <Touchable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}>
+              <Touchable
+                onPress={async () => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+                  const normalizeId = (value: unknown): string | null => {
+                    if (value === null || value === undefined) return null;
+                    const s = String(value).trim();
+                    if (!s || s === '0') return null;
+                    return s;
+                  };
+
+                  const normalizeName = (value: string): string =>
+                    value
+                      .replace(/\[[^\]]*\]/g, '') // remove bracketed honorifics/notes
+                      .replace(/\s+/g, ' ')
+                      .trim()
+                      .toLowerCase();
+
+                  // Prefer normalized lecturerId, then fall back to known fields
+                  const directId =
+                    normalizeId(lecture.lecturerId) ||
+                    normalizeId(lecture.raw?.rp_id) ||
+                    normalizeId(lecture.raw?.lecturer_id) ||
+                    normalizeId(lecture.reciter?.id);
+
+                  if (directId) {
+                    router.push(`/lecturer/${directId}`);
+                    return;
+                  }
+
+                  // No ID from API (common). Navigate to lecturer screen anyway, passing a name hint
+                  // so the lecturer screen can resolve a real ID (and replace route) if possible.
+                  const lecturerName = lecture.lecturerName?.trim() || '';
+                  const cleanedQuery = lecturerName.replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();
+
+                  router.push({
+                    pathname: '/lecturer/[id]',
+                    params: {
+                      id: '0',
+                      name: cleanedQuery,
+                    },
+                  } as any);
+                }}
+              >
                 <View style={tw`flex-row items-center mt-3`}>
                   <View style={[tw`w-10 h-10 rounded-full items-center justify-center mr-3`, { backgroundColor: designTokens.colors.brand.primary + '20' }]}>
-                    <Ionicons name="person" size={20} color={designTokens.colors.brand.primary} />
+                    {lecture.lecturerImage ? (
+                      <Image
+                        source={{ uri: lecture.lecturerImage }}
+                        style={tw`w-10 h-10 rounded-full`}
+                      />
+                    ) : (
+                        <Ionicons name="person" size={20} color={designTokens.colors.brand.primary} />
+                    )}
                   </View>
                   <View style={tw`flex-1`}>
                     <Text variant="subheadline" color="label" weight="semibold">
@@ -597,7 +655,7 @@ const LectureDetailScreen: React.FC = () => {
           {lecture.description && lecture.description.trim() && (
             <View style={tw`mt-6`}>
               <Text variant="title3" color="label" weight="bold">
-                About this lecture
+                {aboutHeading}
               </Text>
               <Text
                 variant="body"
@@ -872,8 +930,11 @@ const LectureDetailScreen: React.FC = () => {
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => {
-            if (!isAuthenticated) {
-              router.push("/sign-in");
+            if (!authStore.get().isAuthenticated) {
+              router.push({
+                pathname: "/sign-in",
+                params: { returnTo: `/lecture/${lecture.id}` },
+              });
             } else {
               setShowAddToPlaylistModal(true);
             }

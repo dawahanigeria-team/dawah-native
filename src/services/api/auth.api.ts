@@ -3,14 +3,15 @@
  * Handles user authentication, registration, and account management
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { apiClient } from './base.api';
+import AsyncStorage from 'expo-sqlite/kv-store';
 import { API_CONFIG } from '../config/api.config';
+import { apiClient } from './base.api';
 
 export interface User {
   id: string;
   username: string;
   email: string;
+  token?: string;
 }
 
 export interface LoginCredentials {
@@ -87,6 +88,7 @@ class AuthApiService {
   private readonly USER_KEY = 'user_data';
   private readonly ACCESS_TOKEN_KEY = 'access_token';
   private readonly REFRESH_TOKEN_KEY = 'refresh_token';
+  private readonly LEGACY_AUTH_TOKEN_KEY = 'auth_token';
 
   /**
    * Sign in with email and password
@@ -104,12 +106,14 @@ class AuthApiService {
         id: response.data.data.user.id.toString(),
         username: response.data.data.user.username,
         email: response.data.data.user.email,
+        token: response.data.data.tokens.access_token,
       };
 
       // Store user data and tokens
       await AsyncStorage.setItem(this.USER_KEY, JSON.stringify(user));
       await AsyncStorage.setItem(this.ACCESS_TOKEN_KEY, response.data.data.tokens.access_token);
       await AsyncStorage.setItem(this.REFRESH_TOKEN_KEY, response.data.data.tokens.refresh_token);
+      await AsyncStorage.setItem(this.LEGACY_AUTH_TOKEN_KEY, response.data.data.tokens.access_token);
 
       return user;
     } catch (error) {
@@ -129,6 +133,7 @@ class AuthApiService {
         email: credentials.email,
         password: credentials.password,
         languageId: credentials.languageId || API_CONFIG.DEFAULT_LANGUAGE_ID,
+        is_social: false,
       };
       const response = await apiClient.post<RegisterResponse>('/api/user_auth.php', payload);
 
@@ -137,12 +142,14 @@ class AuthApiService {
         id: response.data.data.user.id.toString(),
         username: response.data.data.user.username,
         email: response.data.data.user.email,
+        token: response.data.data.tokens.access_token,
       };
 
       // Store user data and tokens
       await AsyncStorage.setItem(this.USER_KEY, JSON.stringify(user));
       await AsyncStorage.setItem(this.ACCESS_TOKEN_KEY, response.data.data.tokens.access_token);
       await AsyncStorage.setItem(this.REFRESH_TOKEN_KEY, response.data.data.tokens.refresh_token);
+      await AsyncStorage.setItem(this.LEGACY_AUTH_TOKEN_KEY, response.data.data.tokens.access_token);
 
       return user;
     } catch (error) {
@@ -160,6 +167,7 @@ class AuthApiService {
         this.USER_KEY,
         this.ACCESS_TOKEN_KEY,
         this.REFRESH_TOKEN_KEY,
+        this.LEGACY_AUTH_TOKEN_KEY,
       ]);
     } catch (error) {
       console.error('Failed to clear user data:', error);
@@ -192,7 +200,11 @@ class AuthApiService {
    */
   async getAccessToken(): Promise<string | null> {
     try {
-      return await AsyncStorage.getItem(this.ACCESS_TOKEN_KEY);
+      const accessToken = await AsyncStorage.getItem(this.ACCESS_TOKEN_KEY);
+      if (accessToken) {
+        return accessToken;
+      }
+      return await AsyncStorage.getItem(this.LEGACY_AUTH_TOKEN_KEY);
     } catch (error) {
       console.error('Failed to get access token:', error);
       return null;
@@ -217,6 +229,7 @@ class AuthApiService {
   async setAccessToken(token: string): Promise<void> {
     try {
       await AsyncStorage.setItem(this.ACCESS_TOKEN_KEY, token);
+      await AsyncStorage.setItem(this.LEGACY_AUTH_TOKEN_KEY, token);
     } catch (error) {
       console.error('Failed to set access token:', error);
     }

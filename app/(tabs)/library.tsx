@@ -1,9 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState, useMemo, useEffect } from "react";
-import { ScrollView, Text, TouchableOpacity, View, Alert, ActivityIndicator } from "react-native";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
+import { FlatList, Text, TouchableOpacity, View, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../../src/components/molecules/Card";
+import { useRouter } from "expo-router";
 import { usePlayerActions, useDownloadsStore, useFavoritesStore } from "../../src/stores";
+import { useAuthStore } from "../../src/stores/authStore";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Episode, Series } from "../../src/types/types";
@@ -11,6 +13,8 @@ import type { DownloadMetadata } from "../../src/services/downloads.service";
 import { captureSentryException, addSentryBreadcrumb } from "../../src/services/config/sentry.config";
 import { historyService } from "../../src/services/history.service";
 import { lectureDetailApi } from "../../src/services/api/lectureDetail.api";
+import { playlistApi } from "../../src/services/api/playlist.api";
+import type { UserPlaylist } from "../../src/types/api.types";
 
 type LibraryTab = "Downloads" | "History" | "Liked" | "Playlists";
 
@@ -32,14 +36,18 @@ const downloadToEpisode = (download: DownloadMetadata): Episode => ({
 });
 
 export default function LibraryScreen() {
+  const router = useRouter();
   const { playEpisode } = usePlayerActions();
   const { downloads, deleteLecture, getTotalStorageUsed, refreshDownloads } = useDownloadsStore();
   const { favoriteIds, fetchFavorites, loading: favoritesLoading } = useFavoritesStore();
+  const { isAuthenticated } = useAuthStore();
   const [activeTab, setActiveTab] = useState<LibraryTab>("Downloads");
   const [historyEpisodes, setHistoryEpisodes] = useState<Episode[]>([]);
   const [likedEpisodes, setLikedEpisodes] = useState<Episode[]>([]);
+  const [playlists, setPlaylists] = useState<UserPlaylist[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [loadingLiked, setLoadingLiked] = useState(false);
+  const [loadingPlaylists, setLoadingPlaylists] = useState(false);
 
   const tabs: LibraryTab[] = ["Downloads", "History", "Liked", "Playlists"];
 
@@ -69,6 +77,13 @@ export default function LibraryScreen() {
       loadFavorites();
     }
   }, [activeTab]);
+
+  // Load playlists when Playlists tab is active
+  useEffect(() => {
+    if (activeTab === 'Playlists') {
+      loadPlaylists();
+    }
+  }, [activeTab, isAuthenticated]);
 
   const loadHistory = async () => {
     try {
@@ -137,6 +152,33 @@ export default function LibraryScreen() {
     }
   };
 
+  const loadPlaylists = async () => {
+    if (!isAuthenticated) {
+      setPlaylists([]);
+      setLoadingPlaylists(false);
+      return;
+    }
+
+    try {
+      setLoadingPlaylists(true);
+      const response = await playlistApi.getUserPlaylists();
+      if (response.success && response.playlists) {
+        setPlaylists(response.playlists);
+      } else {
+        Alert.alert('Error', response.message || 'Failed to fetch playlists.');
+      }
+    } catch (err) {
+      console.error('Failed to load playlists:', err);
+      captureSentryException(err as Error, {
+        component: 'LibraryScreen',
+        action: 'loadPlaylists',
+      });
+      Alert.alert('Error', 'Failed to load playlists. Please try again.');
+    } finally {
+      setLoadingPlaylists(false);
+    }
+  };
+
   // Convert downloads to Episodes
   const downloadedEpisodes = useMemo(() => {
     console.log('📚 Library: Total downloads:', downloads.length);
@@ -145,6 +187,21 @@ export default function LibraryScreen() {
     });
     return downloads.map(downloadToEpisode);
   }, [downloads]);
+
+  const playlistSeries = useMemo<Series[]>(() => {
+    return playlists.map((playlist) => ({
+      id: playlist.id,
+      title: playlist.name,
+      coverUrl: "",
+      language: "",
+      tags: [],
+      lecturerId: "",
+    }));
+  }, [playlists]);
+
+  const playlistCounts = useMemo(() => {
+    return new Map(playlists.map((playlist) => [playlist.id, playlist.count]));
+  }, [playlists]);
 
   const getTabData = () => {
     switch (activeTab) {
@@ -155,8 +212,7 @@ export default function LibraryScreen() {
       case "Liked":
         return likedEpisodes;
       case "Playlists":
-        // TODO: Implement playlists
-        return [];
+        return playlistSeries;
       default:
         return [];
     }
@@ -168,6 +224,8 @@ export default function LibraryScreen() {
         return loadingHistory;
       case "Liked":
         return loadingLiked || favoritesLoading;
+      case "Playlists":
+        return loadingPlaylists;
       default:
         return false;
     }
@@ -198,7 +256,11 @@ export default function LibraryScreen() {
       playEpisode(item);
     } else {
       // It's a series/playlist
-      console.log("Series/Playlist pressed:", item.title);
+      if (activeTab === "Playlists") {
+        router.push(`/playlist/${item.id}` as any);
+      } else {
+        console.log("Series/Playlist pressed:", item.title);
+      }
     }
   };
 
@@ -281,10 +343,34 @@ export default function LibraryScreen() {
     </View>
   );
 
-  const renderContent = () => {
-    const data = getTabData();
-    const loading = isTabLoading();
+  const data = getTabData();
+  const loading = isTabLoading();
 
+  const renderListItem = useCallback(({ item }: { item: Episode | Series }) => (
+    <View style={tw`mb-3`}>
+      <Card
+        variant="landscape"
+        data={item}
+        onPress={() => handleItemPress(item)}
+        onLongPress={
+          activeTab === "Downloads" && "durationSec" in item
+            ? () => handleDeleteDownload(item.id, item.title)
+            : undefined
+        }
+        showTime={"durationSec" in item}
+        showMeta={true}
+        metaValue={
+          "lecturerName" in item
+            ? item.lecturerName || "Unknown"
+            : activeTab === "Playlists"
+              ? `${playlistCounts.get(item.id) ?? 0} tracks`
+              : "Sheikh Nasir Kabara"
+        }
+      />
+    </View>
+  ), [activeTab, handleItemPress, handleDeleteDownload, playlistCounts]);
+
+  const renderListEmpty = useCallback(() => {
     if (loading) {
       return (
         <View style={tw`flex-1 items-center justify-center py-20`}>
@@ -304,36 +390,8 @@ export default function LibraryScreen() {
       );
     }
 
-    if (data.length === 0) {
-      return renderEmptyState(activeTab);
-    }
-
-    return (
-      <View style={tw`px-4`}>
-        {data.map((item: Episode | Series) => (
-          <View key={item.id} style={tw`mb-3`}>
-            <Card
-              variant="landscape"
-              data={item}
-              onPress={() => handleItemPress(item)}
-              onLongPress={
-                activeTab === "Downloads" && "durationSec" in item
-                  ? () => handleDeleteDownload(item.id, item.title)
-                  : undefined
-              }
-              showTime={"durationSec" in item}
-              showMeta={true}
-              metaValue={
-                "lecturerName" in item
-                  ? item.lecturerName || "Unknown"
-                  : "Sheikh Nasir Kabara"
-              }
-            />
-          </View>
-        ))}
-      </View>
-    );
-  };
+    return renderEmptyState(activeTab);
+  }, [activeTab, loading]);
 
   return (
     <SafeAreaView
@@ -417,15 +475,22 @@ export default function LibraryScreen() {
       </View>
 
       {/* Content */}
-      <ScrollView
-        style={tw`flex-1`}
+      <FlatList
+        data={loading ? [] : data}
+        renderItem={renderListItem}
+        keyExtractor={(item) => String(item.id)}
         showsVerticalScrollIndicator={false}
-        // Extra bottom padding so the last items don’t sit under the mini-player + tab bar
-        contentContainerStyle={tw`pb-40`}
+        contentContainerStyle={[
+          tw`pb-40 px-4`,
+          (loading || data.length === 0) ? { flexGrow: 1 } : null,
+        ]}
+        ListEmptyComponent={renderListEmpty}
         accessibilityLabel="Library content"
-      >
-        {renderContent()}
-      </ScrollView>
+        removeClippedSubviews={true}
+        initialNumToRender={8}
+        windowSize={10}
+        maxToRenderPerBatch={8}
+      />
     </SafeAreaView>
   );
 }

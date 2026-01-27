@@ -13,10 +13,15 @@ config.transformer = {
   ...config.transformer,
   getTransformOptions: async () => ({
     transform: {
-      experimentalImportSupport: false,
       inlineRequires: true,
     },
   }),
+};
+
+// Add wasm to asset extensions for expo-sqlite web support
+config.resolver = {
+  ...config.resolver,
+  assetExts: [...(config.resolver?.assetExts || []), 'wasm'],
 };
 
 module.exports = config;

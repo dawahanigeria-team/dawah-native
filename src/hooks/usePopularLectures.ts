@@ -2,7 +2,7 @@
  * Custom hook for fetching popular lectures
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { popularApi } from '../services/api/popular.api';
 import { SearchLecture } from '../types/api.types';
 import { Episode } from '../types/types';

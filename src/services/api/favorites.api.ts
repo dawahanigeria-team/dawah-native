@@ -3,7 +3,7 @@
  * Handles user favorites (liked lectures)
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from 'expo-sqlite/kv-store';
 import { apiClient, ApiError } from './base.api';
 import { API_CONFIG } from '../config/api.config';
 import { addSentryBreadcrumb, captureSentryException } from '../config/sentry.config';

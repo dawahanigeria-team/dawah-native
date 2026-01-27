@@ -3,38 +3,39 @@ import { Image } from "expo-image";
 import { usePathname } from "expo-router";
 import React, { memo, useEffect, useMemo, useState } from "react";
 import {
-    Dimensions,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    View,
+  Dimensions,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
 } from "react-native";
 import {
-    Gesture,
-    GestureDetector,
-    GestureHandlerRootView,
-    PanGestureHandler,
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
+  PanGestureHandler,
 } from "react-native-gesture-handler";
 import Animated, {
-    Extrapolate,
-    interpolate,
-    runOnJS,
-    useAnimatedStyle,
-    useSharedValue,
-    withSpring,
-    withTiming,
+  Extrapolate,
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useDerivedValue,
+  useSharedValue,
+  withSpring,
+  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLectureDetail } from "../../hooks/useLectureDetail";
 import { usePlayerStore } from "../../stores/playerStore";
 import { designTokens } from "../../theme/designTokens";
+import { getTabBarHeight } from "../../utils";
 import { getInitials, getPlaceholderStyle } from "../../utils/colorPlaceholder";
 import { Loading, Text, Touchable } from "../atoms";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 const MINI_PLAYER_HEIGHT = 72;
-const TAB_BAR_HEIGHT = 83; // iOS standard tab bar height
 
 interface MiniPlayerProps {
   onExpand?: () => void;
@@ -85,7 +86,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       });
     })();
 
-    const topicsLabel = (lectureDetail?.categories || [])
+    const topicsLabel = (Array.isArray(lectureDetail?.categories) ? lectureDetail.categories : [])
       .map((c) => String(c).trim())
       .filter(Boolean)
       .join(", ");
@@ -105,15 +106,30 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       pathname === "/library" ||
       pathname === "/profile";
 
-    // Calculate expanded height based on whether we're on a tab screen
-    // Use full screen height with only top safe area
-    const EXPANDED_PLAYER_HEIGHT = isTabScreen
-      ? screenHeight - TAB_BAR_HEIGHT - insets.top
-      : screenHeight - insets.top;
+    const tabBarHeight = useMemo(() => getTabBarHeight(insets.bottom), [insets.bottom]);
+
+    // Use shared values for reactive animation updates
+    const insetsTopShared = useSharedValue(insets.top);
+    const tabBarHeightShared = useSharedValue(tabBarHeight);
+    const isTabScreenShared = useSharedValue(isTabScreen ? 1 : 0);
+
+    // Update shared values when dependencies change
+    useEffect(() => {
+      insetsTopShared.value = insets.top;
+      tabBarHeightShared.value = tabBarHeight;
+      isTabScreenShared.value = isTabScreen ? 1 : 0;
+    }, [insets.top, tabBarHeight, isTabScreen]);
+
+    // Calculate expanded height reactively using derived value
+    const expandedPlayerHeight = useDerivedValue(() => {
+      return isTabScreenShared.value === 1
+        ? screenHeight - tabBarHeightShared.value - insetsTopShared.value
+        : screenHeight - insetsTopShared.value;
+    });
 
     useEffect(() => {
       isExpandedShared.value = isExpanded ? 1 : 0;
-    }, [isExpanded, isExpandedShared]);
+    }, [isExpanded]);
 
     // Gesture handler for drag-to-minimize using Reanimated 4+ Gesture API
     const expandedPanGesture = useMemo(
@@ -146,34 +162,20 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
 
     // Animation styles
     const animatedStyle = useAnimatedStyle(() => {
+      const currentExpandedHeight = expandedPlayerHeight.value;
       const height = interpolate(
         dragY.value,
         [0, 200],
-        [EXPANDED_PLAYER_HEIGHT, MINI_PLAYER_HEIGHT],
+        [currentExpandedHeight, MINI_PLAYER_HEIGHT],
         Extrapolate.CLAMP
       );
 
       return {
-        height: withSpring(isExpanded ? height : MINI_PLAYER_HEIGHT),
+        height: withSpring(isExpandedShared.value === 1 ? height : MINI_PLAYER_HEIGHT),
         transform: [{ translateY: withSpring(translateY.value) }],
         opacity: opacity.value,
       };
     });
-
-    // Simulate audio progress (in real implementation, this comes from expo-audio via AudioProvider)
-    useEffect(() => {
-      if (!currentEpisode) return;
-
-      let interval: ReturnType<typeof setInterval>;
-      if (isPlaying && !isLoading) {
-        interval = setInterval(() => {
-          setProgress(Math.min(progress + 1, duration));
-        }, 1000);
-      }
-      return () => {
-        if (interval) clearInterval(interval);
-      };
-    }, [isPlaying, isLoading, progress, duration, setProgress, currentEpisode]);
 
     // Don't render if no episode is playing
     if (!currentEpisode) {
@@ -294,20 +296,6 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
 
           {/* Controls */}
           <View style={styles.miniControls}>
-            {/* Rewind Button */}
-            <Touchable
-              onPress={() => seekBackward(15)}
-              style={styles.miniControlButton}
-              accessibilityLabel="Rewind 15 seconds"
-              accessibilityRole="button"
-            >
-              <Ionicons
-                name="play-back"
-                size={20}
-                color={designTokens.colors.system.label.secondary}
-              />
-            </Touchable>
-
             {/* Play/Pause Button */}
             {isLoading ? (
               <Loading size="small" />
@@ -325,20 +313,6 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                 />
               </Touchable>
             )}
-
-            {/* Forward Button */}
-            <Touchable
-              onPress={() => seekForward(15)}
-              style={styles.miniControlButton}
-              accessibilityLabel="Forward 15 seconds"
-              accessibilityRole="button"
-            >
-              <Ionicons
-                name="play-forward"
-                size={20}
-                color={designTokens.colors.system.label.secondary}
-              />
-            </Touchable>
           </View>
         </Pressable>
       </View>
@@ -725,7 +699,9 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
           styles.container,
           {
             // Dynamically position based on whether we're on a tab screen
-            bottom: isTabScreen ? TAB_BAR_HEIGHT + insets.bottom : insets.bottom,
+            // When tabs are visible, sit directly above the tab bar.
+            // Avoid double-counting bottom insets (tabBarHeight already accounts for them).
+            bottom: isTabScreen ? tabBarHeight : insets.bottom,
           },
         ]}
       >
@@ -810,15 +786,7 @@ const styles = StyleSheet.create({
   miniControls: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    minWidth: 150,
-  },
-  miniControlButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
     justifyContent: "center",
-    alignItems: "center",
   },
   playButton: {
     width: 44,

@@ -7,6 +7,7 @@ import {
   ViewStyle,
 } from "react-native";
 import { BorderRadius, designTokens } from "../../theme/designTokens";
+import { useThemeColors } from "../../hooks/useTheme";
 import { Text } from "./Text";
 
 interface ButtonProps extends Omit<TouchableOpacityProps, "style"> {
@@ -38,6 +39,8 @@ export const Button: React.FC<ButtonProps> = memo(
     accessibilityHint,
     ...props
   }) => {
+    const colors = useThemeColors();
+
     const handlePress = (event: any) => {
       if (!disabled && !loading) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -52,22 +55,22 @@ export const Button: React.FC<ButtonProps> = memo(
         case "filled":
           return {
             backgroundColor: isDisabled
-              ? designTokens.colors.control.disabled
-              : designTokens.colors.brand.primary,
+              ? colors.control.disabled
+              : colors.brand.primary,
             borderWidth: 0,
           };
         case "tinted":
           return {
             backgroundColor: isDisabled
-              ? designTokens.colors.control.disabled
-              : designTokens.colors.system.fill.secondary,
+              ? colors.control.disabled
+              : colors.system.fill.secondary,
             borderWidth: 0,
           };
         case "gray":
           return {
             backgroundColor: isDisabled
-              ? designTokens.colors.control.disabled
-              : designTokens.colors.system.fill.primary,
+              ? colors.control.disabled
+              : colors.system.fill.primary,
             borderWidth: 0,
           };
         case "plain":
@@ -78,13 +81,13 @@ export const Button: React.FC<ButtonProps> = memo(
         case "destructive":
           return {
             backgroundColor: isDisabled
-              ? designTokens.colors.control.disabled
-              : designTokens.colors.semantic.red,
+              ? colors.control.disabled
+              : colors.semantic.red,
             borderWidth: 0,
           };
         default:
           return {
-            backgroundColor: designTokens.colors.brand.primary,
+            backgroundColor: colors.brand.primary,
             borderWidth: 0,
           };
       }
@@ -119,23 +122,22 @@ export const Button: React.FC<ButtonProps> = memo(
       }
     };
 
-    const getTextColor = () => {
-      const isDisabled = disabled || loading;
-
-      if (isDisabled) {
-        return "quaternary";
+    const getTextColor = (): { semanticColor?: string; fixedColor?: string } => {
+      if (disabled || loading) {
+        return { semanticColor: "quaternaryLabel" };
       }
 
       switch (variant) {
         case "filled":
         case "destructive":
-          return "primary"; // White on colored background
+          return { fixedColor: designTokens.colors.fixed.white };
         case "tinted":
+          return { semanticColor: "brand" };
         case "gray":
-          return "primary";
+          return { semanticColor: "label" };
         case "plain":
         default:
-          return "secondary";
+          return { semanticColor: "brand" };
       }
     };
 
@@ -170,6 +172,13 @@ export const Button: React.FC<ButtonProps> = memo(
     const finalAccessibilityLabel =
       accessibilityLabel || defaultAccessibilityLabel;
 
+    const textColorConfig = getTextColor();
+
+    // Determine loader color based on button variant
+    const loaderColor = (variant === 'filled' || variant === 'destructive')
+      ? designTokens.colors.fixed.white
+      : colors.system.label.primary;
+
     return (
       <TouchableOpacity
         style={combinedStyle}
@@ -185,22 +194,16 @@ export const Button: React.FC<ButtonProps> = memo(
         {leftIcon && !loading && leftIcon}
 
         {loading ? (
-          <ActivityIndicator
-            size="small"
-            color={
-              getTextColor() === "primary"
-                ? "#FFFFFF"
-                : designTokens.colors.system.label.primary
-            }
-          />
+          <ActivityIndicator size="small" color={loaderColor} />
         ) : (
           <Text
             variant={getTextVariant()}
-            color={getTextColor()}
+            color={textColorConfig.semanticColor as any}
             weight={variant === "plain" ? "regular" : "semibold"}
             style={{
               marginLeft: leftIcon ? designTokens.spacing.sm : 0,
               marginRight: rightIcon ? designTokens.spacing.sm : 0,
+              ...(textColorConfig.fixedColor && { color: textColorConfig.fixedColor })
             }}
           >
             {children}

@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { View, ViewStyle } from 'react-native';
-import { designTokens, BorderRadius } from '../../theme/designTokens';
+import { BorderRadius, designTokens } from '../../theme/designTokens';
 import { Text } from './Text';
 
 interface BadgeProps {
@@ -78,30 +78,18 @@ export const Badge: React.FC<BadgeProps> = memo(({
     }
   };
 
-  const getTextColor = () => {
-    switch (variant) {
-      case 'primary':
-      case 'success':
-      case 'warning':
-      case 'error':
-      case 'info':
-        return 'inverse';
-      case 'secondary':
-      default:
-        return 'primary';
-    }
-  };
+  const hasColoredBackground = variant !== 'secondary';
 
   const getTextVariant = () => {
     switch (size) {
       case 'small':
-        return 'caption';
+        return 'caption1';
       case 'medium':
-        return 'bodySmall';
+        return 'caption1';
       case 'large':
         return 'body';
       default:
-        return 'bodySmall';
+        return 'caption1';
     }
   };
 
@@ -115,11 +103,12 @@ export const Badge: React.FC<BadgeProps> = memo(({
 
   return (
     <View style={combinedStyle}>
-      <Text 
-        variant={getTextVariant()} 
-        color={getTextColor()}
+      <Text
+        variant={getTextVariant()}
+        color="label"
         weight="semibold"
         align="center"
+        style={hasColoredBackground ? { color: designTokens.colors.fixed.white } : undefined}
       >
         {children}
       </Text>

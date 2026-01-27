@@ -29,16 +29,15 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           shouldPlayInBackground: true,
 
           // Handle interruptions (phone calls, other apps)
-          // iOS: mix with others so system sounds can play over us
-          interruptionMode: 'mixWithOthers',
+          // iOS: Request exclusive audio focus to prevent background interruption
+          // Using 'doNotMix' ensures iOS gives our audio priority and doesn't stop it
+          interruptionMode: 'doNotMix',
           // Android: temporarily duck other audio instead of fully stopping it
           interruptionModeAndroid: 'duckOthers',
 
           // Do not route audio through the earpiece on Android
           shouldRouteThroughEarpiece: false,
         });
-        console.log('✅ Audio mode configured for background playback');
-        console.log('🎵 Background audio: ENABLED');
 
         addSentryBreadcrumb('Background audio configured', 'info', {
           playsInSilentMode: true,
@@ -73,7 +72,11 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       }
 
       // Update progress and duration
-      if (status.currentTime !== currentState.progress) {
+      const shouldUpdateProgress =
+        status.isPlaying ||
+        status.currentTime < currentState.progress ||
+        status.currentTime === 0;
+      if (shouldUpdateProgress && status.currentTime !== currentState.progress) {
         updates.progress = status.currentTime;
       }
       if (status.duration !== currentState.duration && status.duration > 0) {
@@ -94,15 +97,15 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       }
     },
     onPlaybackFinished: async () => {
-      console.log('🎵 Playback finished');
 
       const currentState = playerStore.get();
       const playNext = getPlayNextRef();
 
       // If there's a queue and playNext is available, play next track
-      if (playNext && currentState.queue.length > 0) {
+      // Defensive check: ensure queue is an array before accessing .length
+      const queue = Array.isArray(currentState.queue) ? currentState.queue : [];
+      if (playNext && queue.length > 0) {
         try {
-          console.log('▶️ Auto-playing next track in queue...');
           await playNext();
         } catch (error: any) {
           console.error('Failed to auto-play next track:', error);
@@ -125,7 +128,6 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           isPlaying: false,
           progress: 0,
         });
-        console.log('⏹️ No queue, playback stopped');
       }
     },
   });
@@ -133,7 +135,6 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   // Update audio controls reference whenever it changes
   useEffect(() => {
     if (!isInitializedRef.current) {
-      console.log('🎵 AudioProvider: Initializing audio controls');
       isInitializedRef.current = true;
     }
 
@@ -144,7 +145,6 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   // Cleanup only on unmount
   useEffect(() => {
     return () => {
-      console.log('🎵 AudioProvider: Cleaning up audio controls');
       setAudioControls(null);
       isInitializedRef.current = false;
     };

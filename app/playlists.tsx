@@ -143,7 +143,14 @@ export default function PlaylistsScreen() {
           setModalVisible(!modalVisible);
         }}
       >
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <View
+          style={{
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: designTokens.colors.overlay.darkMedium,
+          }}
+        >
           <View style={{ width: '80%', backgroundColor: designTokens.colors.system.background.secondary, padding: designTokens.spacing.xl, borderRadius: designTokens.borderRadius.lg }}>
             <Text style={{ fontSize: designTokens.typography.fontSize.title3, fontWeight: 'bold', color: designTokens.colors.system.label.primary }}>New Playlist</Text>
             <TextInput

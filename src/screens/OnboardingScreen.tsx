@@ -9,8 +9,8 @@ import {
   ScrollView,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "expo-sqlite/kv-store";
 import { Text } from "../components/atoms";
 import { designTokens } from "../theme/designTokens";
 import tw from "../theme/twrnc";
@@ -32,7 +32,7 @@ const slides: OnboardingSlide[] = [
     title: "Discover Islamic Knowledge",
     description:
       "Access thousands of lectures, Quran recitations, and Islamic content from renowned scholars across Nigeria and beyond",
-    gradient: ["#30D158", "#007AFF"],
+    gradient: [designTokens.colors.brand.primary, designTokens.colors.brand.secondary],
   },
   {
     id: 2,
@@ -40,7 +40,7 @@ const slides: OnboardingSlide[] = [
     title: "Listen Anywhere",
     description:
       "Download lectures for offline listening, create playlists, and enjoy seamless playback with background audio support",
-    gradient: ["#007AFF", "#5856D6"],
+    gradient: [designTokens.colors.brand.secondary, designTokens.colors.semantic.indigo],
   },
   {
     id: 3,
@@ -48,7 +48,7 @@ const slides: OnboardingSlide[] = [
     title: "Learn from the Best",
     description:
       "Follow your favorite scholars, discover trending lectures, and build your personal library of Islamic knowledge",
-    gradient: ["#5856D6", "#AF52DE"],
+    gradient: [designTokens.colors.semantic.indigo, designTokens.colors.semantic.purple],
   },
   {
     id: 4,
@@ -56,7 +56,7 @@ const slides: OnboardingSlide[] = [
     title: "Start Your Journey",
     description:
       "Join thousands of Muslims learning and growing together. Your path to knowledge begins here",
-    gradient: ["#AF52DE", "#30D158"],
+    gradient: [designTokens.colors.semantic.purple, designTokens.colors.brand.primary],
   },
 ];
 
@@ -169,6 +169,7 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
+  const insets = useSafeAreaInsets();
 
   const handleScroll = (event: any) => {
     const slideIndex = Math.round(
@@ -210,9 +211,15 @@ export default function OnboardingScreen() {
         tw`flex-1`,
         { backgroundColor: designTokens.colors.system.background.primary },
       ]}
+      edges={['top', 'bottom']}
     >
       {!isLastSlide && (
-        <View style={tw`absolute top-4 right-6 z-10`}>
+        <View 
+          style={[
+            tw`absolute right-6 z-10`,
+            { top: Math.max(insets.top, 16) }
+          ]}
+        >
           <Pressable
             onPress={handleSkip}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}

@@ -1,5 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import React from "react";
+import AsyncStorage from "expo-sqlite/kv-store";
 import { entity } from "simpler-state";
 import type { AudioPlaybackControls } from "../hooks/useAudioPlayback";
 import { addSentryBreadcrumb, captureSentryException } from "../services/config/sentry.config";
@@ -83,6 +82,17 @@ export const setPlayNextRef = (fn: (() => Promise<void>) | null) => {
  */
 export const getPlayNextRef = () => playNextRef;
 
+/**
+ * Build lock screen info from an episode
+ */
+function buildLockScreenInfo(episode: Episode): { title: string; artist: string; artwork: string } {
+  return {
+    title: episode.title,
+    artist: episode.lecturerName || 'dawahnigeria',
+    artwork: episode.coverUrl || '',
+  };
+}
+
 // ----------------------------------------------------------------------
 // ACTION IMPLEMENTATIONS
 // These functions operate on the store but do NOT cause subscriptions
@@ -121,10 +131,11 @@ const playEpisode = async (episode: Episode) => {
       if (!currentState.isPlaying) {
         logger.debug('▶️ PlayerStore: Resuming playback...');
         audioControls.play();
+        audioControls.setLockScreenInfo(buildLockScreenInfo(episode));
         setAndPersistPlayerState({
           ...currentState,
           isPlaying: true,
-          isExpanded: false,  // Show mini player
+          isExpanded: false,
         });
       } else {
         logger.debug('⏸️ PlayerStore: Already playing this episode');
@@ -173,6 +184,9 @@ const playEpisode = async (episode: Episode) => {
 
       logger.debug('▶️ PlayerStore: Starting playback...');
       audioControls.play();
+
+      // Set lock screen controls after playback starts (iOS requires active playback)
+      audioControls.setLockScreenInfo(buildLockScreenInfo(episode));
 
       // Add to history
       try {
@@ -235,7 +249,8 @@ const playEpisode = async (episode: Episode) => {
 
 const playNext = async () => {
   const currentState = playerStore.get();
-  const { queue, currentQueueIndex, repeatMode } = currentState;
+  const queue = Array.isArray(currentState.queue) ? currentState.queue : [];
+  const { currentQueueIndex, repeatMode } = currentState;
 
   logger.debug('⏭️ PlayerStore: playNext called, currentIndex:', currentQueueIndex, 'queueLength:', queue.length);
 
@@ -279,7 +294,8 @@ const playNext = async () => {
 
 const playPrevious = async () => {
   const currentState = playerStore.get();
-  const { queue, currentQueueIndex } = currentState;
+  const queue = Array.isArray(currentState.queue) ? currentState.queue : [];
+  const { currentQueueIndex } = currentState;
 
   logger.debug('⏮️ PlayerStore: playPrevious called, currentIndex:', currentQueueIndex);
 
@@ -543,6 +559,7 @@ const closePlayer = () => {
 const addToQueue = (episodes: Episode | Episode[]) => {
   const episodeArray = Array.isArray(episodes) ? episodes : [episodes];
   const currentState = playerStore.get();
+  const existingQueue = Array.isArray(currentState.queue) ? currentState.queue : [];
 
   logger.debug('➕ PlayerStore: Adding', episodeArray.length, 'episodes to queue');
 
@@ -554,13 +571,14 @@ const addToQueue = (episodes: Episode | Episode[]) => {
 
   setAndPersistPlayerState({
     ...currentState,
-    queue: [...currentState.queue, ...episodeArray],
+    queue: [...existingQueue, ...episodeArray],
   });
 };
 
 const removeFromQueue = (index: number) => {
   const currentState = playerStore.get();
-  const newQueue = currentState.queue.filter((_, i) => i !== index);
+  const queue = Array.isArray(currentState.queue) ? currentState.queue : [];
+  const newQueue = queue.filter((_, i) => i !== index);
 
   logger.debug('➖ PlayerStore: Removing episode at index', index);
 
@@ -579,13 +597,14 @@ const removeFromQueue = (index: number) => {
 
 const toggleShuffle = () => {
   const currentState = playerStore.get();
+  const queue = Array.isArray(currentState.queue) ? currentState.queue : [];
   const newShuffleState = !currentState.isShuffled;
 
   logger.debug('🔀 PlayerStore: Toggle shuffle:', newShuffleState);
 
-  if (newShuffleState && currentState.queue.length > 0) {
-    const currentEpisode = currentState.queue[currentState.currentQueueIndex];
-    const remaining = currentState.queue.filter((_, i) => i !== currentState.currentQueueIndex);
+  if (newShuffleState && queue.length > 0) {
+    const currentEpisode = queue[currentState.currentQueueIndex];
+    const remaining = queue.filter((_, i) => i !== currentState.currentQueueIndex);
 
     for (let i = remaining.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -652,6 +671,9 @@ const actions = {
   clearQueue,
 };
 
+// Keep playNextRef available for AudioProvider without relying on a hook.
+setPlayNextRef(actions.playNext);
+
 /**
  * Hook to access player actions without subscribing to state changes.
  * Use this in components that only need to control playback but don't need to render progress.
@@ -665,24 +687,20 @@ export const usePlayerActions = () => {
  * Use this when you need both state (like progress) and actions.
  */
 export const usePlayerStore = () => {
-  let state: PlayerState;
+  // Get state from the store. simpler-state's .use() is a React hook
+  // and should not be wrapped in try-catch as that can corrupt React's
+  // internal hook tracking (causing areHookInputsEqual to fail).
+  const rawState = playerStore.use();
 
-  try {
-    state = playerStore.use();
-  } catch (error) {
-    logger.warn('PlayerStore initialization issue, using default state:', error);
-    state = initialState;
-  }
-
-  if (!state) {
-    state = initialState;
-  }
-
-  // Set playNext reference for use in AudioProvider
-  React.useEffect(() => {
-    setPlayNextRef(actions.playNext);
-    return () => setPlayNextRef(null);
-  }, []);
+  // Merge with initialState to ensure all properties are always defined.
+  // This prevents "Cannot read property 'X' of undefined" errors when the
+  // store returns undefined or a partial state.
+  const state: PlayerState = {
+    ...initialState,
+    ...(rawState || {}),
+    // Ensure queue is always an array (extra safety)
+    queue: Array.isArray(rawState?.queue) ? rawState.queue : [],
+  };
 
   return {
     ...state,

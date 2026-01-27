@@ -56,8 +56,10 @@ export interface AudioPlaybackControls {
   setVolume: (volume: number) => void;
   stop: () => void;
   unload: () => void;
+  setLockScreenInfo: (info: { title: string; artist?: string; artwork?: string }) => void;
   status: AudioPlaybackStatus;
   isReady: boolean;
+  player: any; // Expose player instance for advanced use cases
 }
 
 /**
@@ -70,20 +72,40 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
   const loadResolveRef = useRef<(() => void) | null>(null);
   const loadRejectRef = useRef<((error?: unknown) => void) | null>(null);
   const isFirstLoad = useRef(true);
+  const isReleasedRef = useRef(true);
+  const desiredVolumeRef = useRef(1);
+  const desiredMutedRef = useRef(false);
 
   // Create audio player instance with current URI (recreates when URI changes)
   // Pass empty string initially, will be updated via state
-  const player = useAudioPlayer(currentUri || '');
+  // Configure with keepAudioSessionActive to prevent iOS from stopping playback
+  const player = useAudioPlayer(currentUri || '', {
+    keepAudioSessionActive: true, // Prevent audio session deactivation on iOS
+  });
 
   // Get real-time playback status
   const playerStatus = useAudioPlayerStatus(player);
 
   // Build normalized status object
+  // IMPORTANT: Use timeControlStatus to detect actual playback vs buffering stalls
+  // On iOS, playing=true can coexist with timeControlStatus="waiting" when buffering mid-stream
+  // timeControlStatus values: "playing" | "paused" | "waiting"
+  const timeControlStatus = (playerStatus as any).timeControlStatus as string | undefined;
+
+  const isActuallyPlaying =
+    playerStatus.playing &&
+    timeControlStatus !== 'waiting';
+
+  // Detect buffering: either explicit isBuffering flag OR timeControlStatus indicates waiting
+  const isBufferingOrStalled =
+    playerStatus.isBuffering ||
+    (timeControlStatus === 'waiting' && playerStatus.playing);
+
   const status: AudioPlaybackStatus = {
     isLoaded: playerStatus.isLoaded || false,
-    isPlaying: playerStatus.playing || false,
+    isPlaying: isActuallyPlaying,
     isPaused: !playerStatus.playing && playerStatus.currentTime > 0,
-    isBuffering: playerStatus.isBuffering || false,
+    isBuffering: isBufferingOrStalled,
     currentTime: playerStatus.currentTime || 0,
     duration: playerStatus.duration || 0,
     volume: player.volume || 1,
@@ -94,7 +116,31 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
 
   // Watch for when audio becomes loaded
   useEffect(() => {
-    console.log('📊 Audio status update - isLoaded:', playerStatus.isLoaded, 'duration:', playerStatus.duration, 'isBuffering:', playerStatus.isBuffering);
+    if (!currentUri) {
+      isReleasedRef.current = true;
+    }
+  }, [currentUri]);
+
+  const safePlayerCall = (label: string, fn: () => unknown) => {
+    if (isReleasedRef.current) {
+      console.warn(`Skip ${label}: audio player released`);
+      return;
+    }
+
+    try {
+      const result = fn();
+      if (result && typeof (result as Promise<unknown>).catch === 'function') {
+        (result as Promise<unknown>).catch((error) => {
+          console.error(`Failed to ${label}:`, error);
+        });
+      }
+    } catch (error) {
+      console.error(`Failed to ${label}:`, error);
+    }
+  };
+
+  // Watch for when audio becomes loaded
+  useEffect(() => {
 
     // Consider audio loaded if either:
     // 1. isLoaded is true, OR
@@ -102,8 +148,13 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
     const isActuallyLoaded = playerStatus.isLoaded || (playerStatus.duration > 0);
 
     if (isActuallyLoaded && loadResolveRef.current) {
-      console.log('✅ Audio loaded successfully (isLoaded:', playerStatus.isLoaded, 'duration:', playerStatus.duration, ')');
       setIsReady(true);
+      isReleasedRef.current = false;
+      safePlayerCall('apply volume', () => {
+        player.volume = desiredVolumeRef.current;
+        player.muted = desiredMutedRef.current;
+        return undefined;
+      });
       loadResolveRef.current();
       loadResolveRef.current = null;
       loadRejectRef.current = null;
@@ -115,15 +166,16 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
     const prev = previousStatusRef.current;
 
     // Check if playback just finished
+    // IMPORTANT: Don't trigger if we're just buffering mid-stream
     if (
       prev &&
       prev.isPlaying &&
       !status.isPlaying &&
+      !status.isBuffering && // Not a buffering stall
       status.currentTime > 0 &&
       status.duration > 0 &&
       Math.abs(status.currentTime - status.duration) < 1 // Within 1 second of end
     ) {
-      console.log('🎵 Audio playback finished');
       config?.onPlaybackFinished?.();
     }
 
@@ -142,23 +194,17 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
   // Load audio from URI
   const loadAudio = async (uri: string): Promise<void> => {
     const normalizedUri = sanitizeAudioUri(uri);
-
-    console.log('🎵 Loading audio:', uri);
-    if (normalizedUri !== uri) {
-      console.log('🔧 Normalized audio URL for playback:', normalizedUri);
-    }
+    isReleasedRef.current = true;
 
     // If same URI already loaded, reset to beginning and resolve immediately
     if (currentUri === normalizedUri && status.isLoaded) {
-      console.log('🔄 Same URI already loaded, seeking to start');
-      player.seekTo(0);
       setIsReady(true);
+      isReleasedRef.current = false;
       return Promise.resolve();
     }
 
     // Reject any pending load promise before starting a new one
     if (loadRejectRef.current) {
-      console.log('⚠️ Cancelling previous load request');
       loadRejectRef.current(new Error('Superseded by a new load request'));
       loadRejectRef.current = null;
       loadResolveRef.current = null;
@@ -171,11 +217,9 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
         setIsReady(false);
 
         // Update URI state - this will cause React to recreate the player
-        console.log('📥 Setting new audio source:', normalizedUri.substring(0, 80) + '...');
         setCurrentUri(normalizedUri);
 
         // The useEffect watching playerStatus.isLoaded will resolve the promise
-        console.log('⏳ Waiting for audio to load (timeout: 30s)...');
 
         // Set a timeout to reject if loading takes too long
         const timeout = setTimeout(() => {
@@ -214,18 +258,18 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
       return;
     }
 
-    try {
-      // If at the end of audio, reset to beginning (expo-audio best practice)
-      if (status.currentTime >= status.duration && status.duration > 0) {
-        console.log('🔄 Audio finished, seeking to start');
-        player.seekTo(0);
-      }
-
-      console.log('▶️ Playing audio');
-      player.play();
-    } catch (error) {
-      console.error('Failed to play audio:', error);
+    const isAtEnd =
+      status.duration > 0 &&
+      status.currentTime >= Math.max(0, status.duration - 0.25);
+    if (isAtEnd) {
+      safePlayerCall('seek', () => player.seekTo(0));
     }
+
+    safePlayerCall('unmute', () => {
+      player.muted = false;
+      return undefined;
+    });
+    safePlayerCall('play audio', () => player.play());
   };
 
   // Pause audio
@@ -235,12 +279,7 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
       return;
     }
 
-    try {
-      console.log('⏸️ Pausing audio');
-      player.pause();
-    } catch (error) {
-      console.error('Failed to pause audio:', error);
-    }
+    safePlayerCall('pause audio', () => player.pause());
   };
 
   // Toggle play/pause
@@ -248,9 +287,11 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
     if (status.isPlaying) {
       pause();
     } else {
-      // If at the end, reset to beginning before playing
-      if (status.currentTime >= status.duration && status.duration > 0) {
-        player.seekTo(0);
+      const isAtEnd =
+        status.duration > 0 &&
+        status.currentTime >= Math.max(0, status.duration - 0.25);
+      if (isAtEnd) {
+        safePlayerCall('seek', () => player.seekTo(0));
       }
       play();
     }
@@ -263,13 +304,8 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
       return;
     }
 
-    try {
-      const clampedSeconds = Math.max(0, Math.min(seconds, status.duration));
-      console.log('⏩ Seeking to:', clampedSeconds);
-      player.seekTo(clampedSeconds);
-    } catch (error) {
-      console.error('Failed to seek:', error);
-    }
+    const clampedSeconds = Math.max(0, Math.min(seconds, status.duration));
+    safePlayerCall('seek', () => player.seekTo(clampedSeconds));
   };
 
   // Seek forward
@@ -291,22 +327,17 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
       return;
     }
 
-    try {
-      console.log('🎚️ Setting playback rate to:', rate);
-      player.setPlaybackRate(rate);
-    } catch (error) {
-      console.error('Failed to set playback rate:', error);
-    }
+    safePlayerCall('set playback rate', () => player.setPlaybackRate(rate));
   };
 
   // Set volume
   const setVolume = (volume: number) => {
-    try {
-      const clampedVolume = Math.max(0, Math.min(volume, 1));
+    const clampedVolume = Math.max(0, Math.min(volume, 1));
+    desiredVolumeRef.current = clampedVolume;
+    safePlayerCall('set volume', () => {
       player.volume = clampedVolume;
-    } catch (error) {
-      console.error('Failed to set volume:', error);
-    }
+      return undefined;
+    });
   };
 
   // Stop playback and reset position
@@ -315,28 +346,43 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
       return;
     }
 
-    try {
-      console.log('⏹️ Stopping audio');
-      player.pause();
-      player.seekTo(0);
-      loadResolveRef.current = null;
-      loadRejectRef.current = null;
-    } catch (error) {
-      console.error('Failed to stop audio:', error);
-    }
+    safePlayerCall('pause audio', () => player.pause());
+    loadResolveRef.current = null;
+    loadRejectRef.current = null;
   };
 
   // Unload audio
   const unload = () => {
     try {
-      console.log('🗑️ Unloading audio');
       stop();
+      isReleasedRef.current = true;
       setCurrentUri(null); // Clear the audio source
       setIsReady(false);
       loadResolveRef.current = null;
       loadRejectRef.current = null;
     } catch (error) {
       console.error('Failed to unload audio:', error);
+    }
+  };
+
+  // Set lock screen information to maintain background playback
+  // iOS requires audio to be loaded and preferably playing for lock screen controls to appear
+  const setLockScreenInfo = (info: { title: string; artist?: string; artwork?: string }) => {
+    try {
+      // Only set lock screen info if audio is loaded
+      // This ensures iOS recognizes the audio session as active
+      if (!status.isLoaded) {
+        console.warn('Cannot set lock screen info: audio not loaded yet');
+        return;
+      }
+
+      player.setActiveForLockScreen(true, {
+        title: info.title,
+        artist: info.artist || '',
+        artworkUrl: info.artwork || '',
+      });
+    } catch (error) {
+      console.error('Failed to set lock screen info:', error);
     }
   };
 
@@ -352,7 +398,9 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
     setVolume,
     stop,
     unload,
+    setLockScreenInfo,
     status,
     isReady,
+    player, // Expose player instance
   };
 }
