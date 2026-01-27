@@ -698,7 +698,7 @@ export const Card: React.FC<CardProps> = memo(
               </View>
 
               {/* Bottom Content */}
-              {showTime && episode && (
+              {showTime && (episode || video) && (
                 <View
                   style={{
                     flexDirection: "row",
@@ -723,7 +723,7 @@ export const Card: React.FC<CardProps> = memo(
                       fontWeight: "500",
                     }}
                   >
-                    {formatDuration(episode.durationSec)}
+                    {video ? formatDuration(video.durationSec) : (episode ? formatDuration(episode.durationSec) : '')}
                   </Text>
                 </View>
               )}
