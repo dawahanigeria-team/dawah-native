@@ -543,6 +543,14 @@ const closePlayer = () => {
 
   try {
     audioControls.stop();
+
+    // Clear lock screen notification
+    try {
+      audioControls.player.setActiveForLockScreen(false);
+    } catch (err) {
+      // Silent fail - clearing lock screen is optional
+    }
+
     audioControls.unload();
 
     setAndPersistPlayerState({

@@ -32,6 +32,7 @@
         "INTERNET",
         "WAKE_LOCK",
         "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_MEDIA_PLAYBACK",
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
@@ -111,6 +112,9 @@
       "reactCompiler": true
     },
     "updates": {
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0,
       "url": "https://u.expo.dev/f7c0926f-13d1-4a2f-bfb1-3f9c04f2577b"
     },
     "extra": {

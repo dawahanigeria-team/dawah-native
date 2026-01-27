@@ -27,7 +27,15 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
   const [hasMore, setHasMore] = useState(true);
   const isLoadingRef = useRef(false);
 
-  const fetchTrending = async (page: number = 1, append: boolean = false) => {
+  // Store initialParams in a ref to avoid re-creating fetchTrending on every render
+  const paramsRef = useRef(initialParams);
+
+  // Update ref if params change (though in practice they shouldn't)
+  useEffect(() => {
+    paramsRef.current = initialParams;
+  }, [initialParams]);
+
+  const fetchTrending = useCallback(async (page: number = 1, append: boolean = false) => {
     if (isLoadingRef.current) return;
 
     try {
@@ -39,7 +47,7 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
       }
       setError(null);
 
-      const params = { ...initialParams, page, limit: initialParams.limit || 20 };
+      const params = { ...paramsRef.current, page, limit: paramsRef.current.limit || 20 };
       console.log('🔥 Fetching trending lectures with params:', params);
       const response = await trendingApi.getTrendingLectures(params);
 
@@ -115,13 +123,13 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
       setIsLoadingMore(false);
       isLoadingRef.current = false;
     }
-  };
+  }, []); // Empty deps - uses refs for params
 
   // Load more function for infinite scroll
   const loadMore = useCallback(async () => {
     if (!hasMore || isLoadingMore || loading) return;
     await fetchTrending(currentPage + 1, true);
-  }, [hasMore, isLoadingMore, loading, currentPage]);
+  }, [hasMore, isLoadingMore, loading, currentPage, fetchTrending]);
 
   // Helper function to parse duration string to seconds
   function parseDuration(duration: string): number {
@@ -140,16 +148,16 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
   }
 
   useEffect(() => {
-    console.log('🎯 useTrending mount - initialParams:', initialParams, 'keys:', initialParams ? Object.keys(initialParams) : 'undefined');
+    console.log('🎯 useTrending mount - initialParams:', paramsRef.current, 'keys:', paramsRef.current ? Object.keys(paramsRef.current) : 'undefined');
 
-    if (!initialParams) {
+    if (!paramsRef.current) {
       console.log('⚠️ useTrending: initialParams is undefined/null, skipping fetch');
       setLoading(false);
       setHasMore(false);
       return;
     }
 
-    const paramKeys = Object.keys(initialParams);
+    const paramKeys = Object.keys(paramsRef.current);
     if (paramKeys.length === 0) {
       console.log('⚠️ useTrending: initialParams is empty object, skipping fetch');
       setLoading(false);
@@ -157,16 +165,15 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
       return;
     }
 
-    console.log('✅ useTrending: Fetching initial data with params:', initialParams);
+    console.log('✅ useTrending: Fetching initial data with params:', paramsRef.current);
     fetchTrending(1, false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only fetch on mount
+  }, [fetchTrending]); // Only fetch when fetchTrending changes (which it won't due to empty deps)
 
   // Refetch function with cache clearing
   const refetch = useCallback(async () => {
     trendingApi.clearCache(); // Clear cache to force fresh data
     await fetchTrending(1, false);
-  }, []);
+  }, [fetchTrending]);
 
   return {
     lectures,

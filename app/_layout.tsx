@@ -12,6 +12,7 @@ import { ErrorBoundary } from "../src/components/atoms";
 import { Loading } from "../src/components/atoms/Loading";
 import { MiniPlayer } from "../src/components/organisms";
 import { AudioProvider } from "../src/components/providers/AudioProvider";
+import { UpdatesProvider } from "../src/components/providers/UpdatesProvider";
 import { usePushNotifications } from "../src/hooks/usePushNotifications";
 import { offlineFirstApi } from "../src/services/cache/offlineFirst.api";
 import { initSentry, Sentry } from "../src/services/config/sentry.config";
@@ -168,9 +169,10 @@ function RootLayout() {
   return (
     <SafeAreaProvider>
       <ErrorBoundary>
-        <AudioProvider>
-          <StatusBar style={isDark ? "light" : "dark"} />
-          <View style={{ flex: 1 }}>
+        <UpdatesProvider>
+          <AudioProvider>
+            <StatusBar style={isDark ? "light" : "dark"} />
+            <View style={{ flex: 1 }}>
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="(tabs)" />
               <Stack.Screen
@@ -210,7 +212,8 @@ function RootLayout() {
               </View>
             )}
           </View>
-        </AudioProvider>
+          </AudioProvider>
+        </UpdatesProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
   );

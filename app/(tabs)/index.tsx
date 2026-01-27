@@ -15,12 +15,14 @@ import { usePopularLecturesWithCache } from "../../src/hooks/usePopularLecturesW
 import { useQuranAlbums } from "../../src/hooks/useQuranAlbums";
 import { useRecentlyPlayedLectures } from "../../src/hooks/useRecentlyPlayedLectures";
 import { useTrending } from "../../src/hooks/useTrending";
+import { useVideos } from "../../src/hooks/useVideos";
+import { useUnreadAnnouncementsCount } from "../../src/hooks/useAnnouncements";
 import { QuranAlbum } from "../../src/services/api/quran.api";
 import { usePlayerActions } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { SearchLecture } from "../../src/types/api.types";
-import { Episode } from "../../src/types/types";
+import { Episode, Video } from "../../src/types/types";
 
 const ITEM_WIDTH = 320; // w-80
 const ITEM_SPACING = 16; // mr-4
@@ -35,6 +37,9 @@ type HomeSection = { key: string; element: JSX.Element };
 export default function HomeScreen() {
   const { playEpisode } = usePlayerActions();
   const [searchValue, setSearchValue] = useState("");
+
+  // Get unread announcements count for badge
+  const unreadCount = useUnreadAnnouncementsCount();
 
   // Clear search field when returning to homepage
   useFocusEffect(
@@ -69,6 +74,9 @@ export default function HomeScreen() {
 
   // Fetch recently played lectures using the custom hook
   const { lectures: recentlyPlayed, loading: recentlyPlayedLoading, error: recentlyPlayedError } = useRecentlyPlayedLectures(10);
+
+  // Fetch videos for the 'Featured Videos' section
+  const { videos, loading: videosLoading, error: videosError } = useVideos({ limit: 10 });
 
 
   const [popularEpisodes, setPopularEpisodes] = useState<Episode[]>([]);
@@ -163,6 +171,10 @@ export default function HomeScreen() {
     router.push(`/quran-reciter/${album.id}`);
   }, [router]);
 
+  const handleVideoPress = useCallback((videoId: string) => {
+    router.push(`/video/${videoId}`);
+  }, [router]);
+
   const handleSearchSubmit = (query: string) => {
     // Navigate to search page when user submits
     if (query.trim()) {
@@ -238,6 +250,39 @@ export default function HomeScreen() {
       </View>
     );
   }, [handleAlbumPress]);
+
+  const renderVideoItem = useCallback(({ item }: { item: Video }) => {
+    // Defensive check to prevent crashes from malformed data
+    if (!item?.id) {
+      return null;
+    }
+
+    // Transform Video to match Card's expected structure
+    const cardData = {
+      ...item,
+      coverUrl: item.thumbnailUrl, // Card expects coverUrl, Video has thumbnailUrl
+      audioUrl: '', // Card requires this for Episode type, empty for videos
+      seriesId: '', // Card requires this for Episode type, empty for videos
+      plays: item.views, // Map views to plays for consistency
+      liked: false,
+      downloads: 0,
+    };
+
+    return (
+      <View style={{ width: ITEM_WIDTH }}>
+        <Card
+          variant="landscape"
+          data={cardData}
+          onPress={() => handleVideoPress(item.id)}
+          playOnPress={false}
+          showTime={true}
+          showMeta={true}
+          metaValue={item.lecturerName || "Unknown"}
+          isVideo={true}
+        />
+      </View>
+    );
+  }, [handleVideoPress]);
 
   const sections = useMemo<HomeSection[]>(() => {
     const items: HomeSection[] = [];
@@ -355,6 +400,51 @@ export default function HomeScreen() {
       });
     }
 
+    if (videosLoading) {
+      items.push({
+        key: "videos-loading",
+        element: (
+          <Row
+            title="Featured Videos"
+            subtitle="Watch inspiring content from our scholars"
+          >
+            <View style={tw`flex-row`}>
+              {[...Array(3)].map((_, index) => (
+                <View key={`skeleton-videos-${index}`} style={tw`mr-4 w-80`}>
+                  <CardSkeleton variant="landscape" />
+                </View>
+              ))}
+            </View>
+          </Row>
+        ),
+      });
+    } else if (videosError) {
+      items.push({
+        key: "videos-error",
+        element: (
+          <View style={tw`h-40 items-center justify-center px-6`}>
+            <Text style={tw`text-white text-center`}>Failed to load videos</Text>
+          </View>
+        ),
+      });
+    } else if (videos.length > 0) {
+      items.push({
+        key: "videos",
+        element: (
+          <Row
+            title="Featured Videos"
+            subtitle="Watch inspiring content from our scholars"
+            onSeeAll={() => router.push("/section/videos")}
+            data={videos}
+            renderItem={renderVideoItem}
+            keyExtractor={(item) => `video-${item.id}`}
+            ItemSeparatorComponent={Separator}
+            snapInterval={SNAP_INTERVAL}
+          />
+        ),
+      });
+    }
+
     if (quranLoading) {
       items.push({
         key: "quran-loading",
@@ -409,11 +499,15 @@ export default function HomeScreen() {
     trendingLoading,
     trendingError,
     trendingLectures,
+    videosLoading,
+    videosError,
+    videos,
     quranLoading,
     quranError,
     quranAlbums,
     renderLectureItem,
     renderAlbumItem,
+    renderVideoItem,
     router,
   ]);
 
@@ -449,11 +543,12 @@ export default function HomeScreen() {
           </View>
 
           {/* Right side - Notifications */}
-          <View style={tw`w-8`}>
+          <View style={tw`w-8 relative`}>
             <TouchableOpacity
               style={tw`items-center justify-center`}
-              accessibilityLabel="Notifications"
-              accessibilityHint="Tap to view notifications"
+              onPress={() => router.push("/inbox")}
+              accessibilityLabel={`Notifications${unreadCount > 0 ? ` - ${unreadCount} unread` : ''}`}
+              accessibilityHint="Tap to view notifications and announcements"
               accessibilityRole="button"
               activeOpacity={0.8}
             >
@@ -462,6 +557,35 @@ export default function HomeScreen() {
                 size={24}
                 color={designTokens.colors.system.label.primary}
               />
+              {/* Unread badge */}
+              {unreadCount > 0 && (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: -2,
+                    right: -2,
+                    backgroundColor: designTokens.colors.system.red,
+                    borderRadius: 10,
+                    minWidth: 18,
+                    height: 18,
+                    paddingHorizontal: 4,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 2,
+                    borderColor: designTokens.colors.system.background.primary,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: designTokens.colors.fixed.white,
+                      fontSize: 10,
+                      fontWeight: designTokens.typography.fontWeight.bold,
+                    }}
+                  >
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
         </View>

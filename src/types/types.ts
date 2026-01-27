@@ -45,6 +45,22 @@ export interface Playlist {
   itemCount: number;
 }
 
+export interface Video {
+  id: string;
+  title: string;
+  youtubeUrl: string; // Full YouTube URL
+  youtubeId: string; // Extracted YouTube video ID for player
+  thumbnailUrl: string;
+  description?: string;
+  duration?: string; // Duration in "HH:MM:SS" format
+  durationSec: number; // Duration in seconds for consistency with Episode
+  views: number;
+  likes: number;
+  createdAt: string; // ISO date string
+  lecturerName?: string;
+  language?: string;
+}
+
 export interface PlayerState {
   currentEpisode: Episode | null;
   isPlaying: boolean;
