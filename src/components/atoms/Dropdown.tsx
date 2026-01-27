@@ -1,5 +1,5 @@
 import React, { memo, useState } from 'react';
-import { FlatList, Modal, TouchableOpacity, ViewStyle } from 'react-native';
+import { FlatList, Modal, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
 import { designTokens } from '../../theme/designTokens';
 import { Icon } from './Icon';
 import { Text } from './Text';

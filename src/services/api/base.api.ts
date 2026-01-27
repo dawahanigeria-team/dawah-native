@@ -232,7 +232,13 @@ class ApiClient {
       this.abortControllers.delete(requestId);
 
       if (error.name === 'AbortError') {
-        throw new ApiError('Request timeout', undefined, undefined, false, true);
+        throw new ApiError(
+          'The request is taking longer than usual. Please check your internet connection and try again.',
+          undefined,
+          undefined,
+          false,
+          true
+        );
       }
       throw error;
     }
@@ -460,7 +466,7 @@ class ApiClient {
 
       if (error.message === 'Network request failed' || isOffline) {
         const networkError = new ApiError(
-          'No internet connection',
+          'No internet connection. Please check your network and try again.',
           undefined,
           undefined,
           true,

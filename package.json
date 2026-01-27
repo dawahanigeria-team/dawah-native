@@ -9,6 +9,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
+    "lint:fix": "expo lint --fix",
     "build:android": "expo run:android --variant release",
     "build:android:apk": "cd android && ./gradlew assembleRelease && cd ..",
     "build:android:aab": "cd android && ./gradlew bundleRelease && cd ..",
@@ -64,9 +65,12 @@
   "devDependencies": {
     "@sentry/cli": "^3.1.0",
     "@types/react": "~19.1.10",
+    "@typescript-eslint/eslint-plugin": "^8.54.0",
+    "@typescript-eslint/parser": "^8.54.0",
     "babel-preset-expo": "~54.0.10",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "eslint-plugin-react-native": "^5.0.0",
     "typescript": "~5.9.2"
   },
   "private": true
