@@ -1,5 +1,5 @@
 import React, { memo, useState } from 'react';
-import { FlatList, Modal, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
+import { FlatList, Modal, TouchableOpacity, ViewStyle } from 'react-native';
 import { designTokens } from '../../theme/designTokens';
 import { Icon } from './Icon';
 import { Text } from './Text';
@@ -126,7 +126,7 @@ export const Dropdown: React.FC<DropdownProps> = memo(({
                 <Touchable
                   style={
                     item.value === selectedValue
-                      ? StyleSheet.flatten([optionStyle, selectedOptionStyle])
+                      ? [optionStyle, selectedOptionStyle]
                       : optionStyle
                   }
                   onPress={() => handleSelect(item.value)}

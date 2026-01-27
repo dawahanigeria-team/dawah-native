@@ -16,6 +16,7 @@ import { useQuranAlbums } from "../../src/hooks/useQuranAlbums";
 import { useRecentlyPlayedLectures } from "../../src/hooks/useRecentlyPlayedLectures";
 import { useTrending } from "../../src/hooks/useTrending";
 import { useVideos } from "../../src/hooks/useVideos";
+import { useUnreadAnnouncementsCount } from "../../src/hooks/useAnnouncements";
 import { QuranAlbum } from "../../src/services/api/quran.api";
 import { usePlayerActions } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
@@ -36,6 +37,9 @@ type HomeSection = { key: string; element: JSX.Element };
 export default function HomeScreen() {
   const { playEpisode } = usePlayerActions();
   const [searchValue, setSearchValue] = useState("");
+
+  // Get unread announcements count for badge
+  const unreadCount = useUnreadAnnouncementsCount();
 
   // Clear search field when returning to homepage
   useFocusEffect(
@@ -539,11 +543,12 @@ export default function HomeScreen() {
           </View>
 
           {/* Right side - Notifications */}
-          <View style={tw`w-8`}>
+          <View style={tw`w-8 relative`}>
             <TouchableOpacity
               style={tw`items-center justify-center`}
-              accessibilityLabel="Notifications"
-              accessibilityHint="Tap to view notifications"
+              onPress={() => router.push("/inbox")}
+              accessibilityLabel={`Notifications${unreadCount > 0 ? ` - ${unreadCount} unread` : ''}`}
+              accessibilityHint="Tap to view notifications and announcements"
               accessibilityRole="button"
               activeOpacity={0.8}
             >
@@ -552,6 +557,35 @@ export default function HomeScreen() {
                 size={24}
                 color={designTokens.colors.system.label.primary}
               />
+              {/* Unread badge */}
+              {unreadCount > 0 && (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: -2,
+                    right: -2,
+                    backgroundColor: designTokens.colors.system.red,
+                    borderRadius: 10,
+                    minWidth: 18,
+                    height: 18,
+                    paddingHorizontal: 4,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 2,
+                    borderColor: designTokens.colors.system.background.primary,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: designTokens.colors.fixed.white,
+                      fontSize: 10,
+                      fontWeight: designTokens.typography.fontWeight.bold,
+                    }}
+                  >
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
         </View>
