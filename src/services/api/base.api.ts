@@ -338,6 +338,9 @@ class ApiClient {
         }
       }
 
+      // Check if body is FormData to handle it specially
+      const isFormData = config.body instanceof FormData;
+
       // Prepare request config
       const requestConfig: RequestConfig = {
         ...config,
@@ -348,11 +351,22 @@ class ApiClient {
         },
       };
 
+      // Don't set Content-Type for FormData - fetch will set it automatically with boundary
+      if (isFormData && requestConfig.headers) {
+        delete requestConfig.headers['Content-Type'];
+      }
+
       // Add body for non-GET requests
       if (config.body && method !== 'GET') {
-        requestConfig.body = typeof config.body === 'string'
-          ? config.body
-          : JSON.stringify(config.body);
+        if (isFormData) {
+          // Pass FormData as-is - don't stringify it
+          requestConfig.body = config.body as any;
+        } else {
+          // For non-FormData, use existing logic
+          requestConfig.body = typeof config.body === 'string'
+            ? config.body
+            : JSON.stringify(config.body);
+        }
       }
 
       // Log the actual HTTP request being made
@@ -361,7 +375,13 @@ class ApiClient {
         url,
         headers: requestConfig.headers,
         hasBody: !!requestConfig.body,
-        body: requestConfig.body ? (typeof requestConfig.body === 'string' ? requestConfig.body : JSON.stringify(requestConfig.body)) : null,
+        body: requestConfig.body
+          ? isFormData
+            ? '[FormData]'
+            : typeof requestConfig.body === 'string'
+              ? requestConfig.body
+              : JSON.stringify(requestConfig.body)
+          : null,
       });
 
       // Add breadcrumb for Sentry tracking
@@ -372,6 +392,7 @@ class ApiClient {
           method,
           url,
           hasBody: !!requestConfig.body,
+          bodyType: isFormData ? 'FormData' : 'JSON',
         }
       );
 

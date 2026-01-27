@@ -62,15 +62,14 @@ export const UpdatesProvider: React.FC<UpdatesProviderProps> = ({ children }) =>
     };
 
     // Check for updates on initial app launch
+    let timeout: NodeJS.Timeout | null = null;
     if (!hasCheckedOnLaunch.current) {
       hasCheckedOnLaunch.current = true;
 
       // Add small delay to not block app startup
-      const timeout = setTimeout(() => {
+      timeout = setTimeout(() => {
         checkForUpdates();
       }, 2000); // 2 second delay
-
-      return () => clearTimeout(timeout);
     }
 
     // Also check when app comes to foreground
@@ -82,7 +81,11 @@ export const UpdatesProvider: React.FC<UpdatesProviderProps> = ({ children }) =>
       appState.current = nextAppState;
     });
 
+    // Cleanup both timeout and subscription
     return () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
       subscription.remove();
     };
   }, []);
