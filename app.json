@@ -112,6 +112,9 @@
       "reactCompiler": true
     },
     "updates": {
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0,
       "url": "https://u.expo.dev/f7c0926f-13d1-4a2f-bfb1-3f9c04f2577b"
     },
     "extra": {
