@@ -1,5 +1,6 @@
 export { useAccessibility } from "./useAccessibility";
 export { useLectureDetail } from "./useLectureDetail";
+export { useVideos } from "./useVideos";
 
 // Search hooks
 export {

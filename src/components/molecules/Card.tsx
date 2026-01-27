@@ -3,14 +3,14 @@ import React, { memo, useState } from "react";
 import { View, ViewStyle } from "react-native";
 import { usePlayerActions } from "../../stores";
 import { BorderRadius, designTokens } from "../../theme/designTokens";
-import { Episode, Series } from "../../types/types";
+import { Episode, Series, Video } from "../../types/types";
 import { getInitials, getPlaceholderStyle } from "../../utils/colorPlaceholder";
 import { formatDuration } from "../../utils/formatTime";
 import { Badge, Icon, Text, Touchable } from "../atoms";
 
 interface CardProps {
   variant: "square" | "landscape" | "list" | "section";
-  data: Episode | Series;
+  data: Episode | Series | Video;
   onPress?: () => void;
   onLongPress?: () => void;
   onPlayPress?: (episode: Episode) => void;
@@ -30,6 +30,7 @@ interface CardProps {
   borderRadius?: BorderRadius;
   style?: ViewStyle;
   playOnPress?: boolean;
+  isVideo?: boolean; // Indicates if this card is for a video
 }
 
 export const Card: React.FC<CardProps> = memo(
@@ -51,16 +52,22 @@ export const Card: React.FC<CardProps> = memo(
     style,
     playOnPress = true,
     onMorePress,
+    isVideo = false,
   }) => {
-    const isEpisode = "durationSec" in data;
+    const isEpisode = "audioUrl" in data;
     const episode = isEpisode ? (data as Episode) : null;
+    const video = isVideo ? (data as Video) : null;
     const [imageError, setImageError] = useState(false);
     const { playEpisode } = usePlayerActions();
 
     const getAccessibilityLabel = () => {
       let label = `${data.title}`;
-      if (isEpisode && episode && showTime) {
-        label += `, duration ${formatDuration(episode.durationSec)}`;
+      if (isVideo) {
+        label += `, video`;
+      }
+      if ((isEpisode && episode && showTime) || (isVideo && video && showTime)) {
+        const durationSec = isVideo && video ? video.durationSec : (episode?.durationSec || 0);
+        label += `, duration ${formatDuration(durationSec)}`;
       }
       if (showMeta && metaValue) {
         label += `, ${metaValue}`;
@@ -69,6 +76,13 @@ export const Card: React.FC<CardProps> = memo(
     };
 
     const handlePress = () => {
+      // For videos, always just call onPress without playing audio
+      if (isVideo) {
+        onPress?.();
+        return;
+      }
+
+      // For episodes, play if playOnPress is true
       if (isEpisode && episode && playOnPress) {
         playEpisode(episode);
       }
@@ -79,6 +93,13 @@ export const Card: React.FC<CardProps> = memo(
     const handlePlayButtonPress = (event: any) => {
       event?.stopPropagation?.();
 
+      // For videos, navigate to video player (same as card press)
+      if (isVideo) {
+        onPress?.();
+        return;
+      }
+
+      // For episodes, play audio
       if (!isEpisode || !episode) return;
 
       if (onPlayPress) {
@@ -153,7 +174,31 @@ export const Card: React.FC<CardProps> = memo(
                 </View>
               )}
 
-              {showTime && (episode || time) && (
+              {/* Video Badge - show on top-right corner if this is a video */}
+              {isVideo && (
+                <View
+                  style={{
+                    position: "absolute",
+                    top: designTokens.spacing.sm,
+                    right: designTokens.spacing.sm,
+                    backgroundColor: designTokens.colors.system.red,
+                    borderRadius: 6,
+                    paddingHorizontal: 6,
+                    paddingVertical: 3,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 3,
+                  }}
+                >
+                  <Icon
+                    name="videocam"
+                    size="sm"
+                    color={designTokens.colors.fixed.white}
+                  />
+                </View>
+              )}
+
+              {showTime && (episode || video || time) && (
                 <View
                   style={{
                     position: "absolute",
@@ -166,7 +211,7 @@ export const Card: React.FC<CardProps> = memo(
                   }}
                 >
                   <Text variant="caption1" color="brand">
-                    {time || (episode ? formatDuration(episode.durationSec) : '')}
+                    {time || (video ? formatDuration(video.durationSec) : (episode ? formatDuration(episode.durationSec) : ''))}
                   </Text>
                 </View>
               )}
@@ -277,6 +322,30 @@ export const Card: React.FC<CardProps> = memo(
                 backgroundColor: designTokens.colors.overlay.darkSubtle,
               }}
             />
+
+            {/* Video Badge - show on top-right corner if this is a video */}
+            {isVideo && (
+              <View
+                style={{
+                  position: "absolute",
+                  top: 4,
+                  right: 4,
+                  backgroundColor: designTokens.colors.system.red,
+                  borderRadius: 4,
+                  paddingHorizontal: 4,
+                  paddingVertical: 2,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 2,
+                }}
+              >
+                <Icon
+                  name="videocam"
+                  size="sm"
+                  color={designTokens.colors.fixed.white}
+                />
+              </View>
+            )}
           </View>
 
           {/* Content Area */}
@@ -318,7 +387,7 @@ export const Card: React.FC<CardProps> = memo(
             </View>
 
             {/* Bottom Content */}
-            {showTime && episode && (
+            {showTime && (episode || video) && (
               <View
                 style={{
                   flexDirection: "row",
@@ -350,7 +419,7 @@ export const Card: React.FC<CardProps> = memo(
                       fontWeight: "500",
                     }}
                   >
-                    {formatDuration(episode.durationSec)}
+                    {video ? formatDuration(video.durationSec) : (episode ? formatDuration(episode.durationSec) : '')}
                   </Text>
                 </View>
               </View>
@@ -383,7 +452,7 @@ export const Card: React.FC<CardProps> = memo(
                 alignItems: "center",
               }}
               onPress={handlePlayButtonPress}
-              accessibilityLabel="Play lecture"
+              accessibilityLabel={isVideo ? "Play video" : "Play lecture"}
               accessibilityRole="button"
               hapticFeedback
               minHitTarget

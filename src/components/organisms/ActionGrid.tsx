@@ -85,6 +85,8 @@ export const ActionGrid: React.FC<ActionGridProps> = memo(({
       router.push('/lecturers');
     } else if (item.id === '3' && item.title === 'Playlist') {
       router.push('/playlists');
+    } else if (item.id === '4' && item.title === 'Video') {
+      router.push('/section/videos');
     } else if (item.id === '5' && item.title === 'Quran') {
       router.push('/section/quran-recitations');
     } else if (item.id === '6' && item.title === 'Trending') {

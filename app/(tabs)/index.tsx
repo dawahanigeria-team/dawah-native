@@ -15,12 +15,13 @@ import { usePopularLecturesWithCache } from "../../src/hooks/usePopularLecturesW
 import { useQuranAlbums } from "../../src/hooks/useQuranAlbums";
 import { useRecentlyPlayedLectures } from "../../src/hooks/useRecentlyPlayedLectures";
 import { useTrending } from "../../src/hooks/useTrending";
+import { useVideos } from "../../src/hooks/useVideos";
 import { QuranAlbum } from "../../src/services/api/quran.api";
 import { usePlayerActions } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { SearchLecture } from "../../src/types/api.types";
-import { Episode } from "../../src/types/types";
+import { Episode, Video } from "../../src/types/types";
 
 const ITEM_WIDTH = 320; // w-80
 const ITEM_SPACING = 16; // mr-4
@@ -69,6 +70,9 @@ export default function HomeScreen() {
 
   // Fetch recently played lectures using the custom hook
   const { lectures: recentlyPlayed, loading: recentlyPlayedLoading, error: recentlyPlayedError } = useRecentlyPlayedLectures(10);
+
+  // Fetch videos for the 'Featured Videos' section
+  const { videos, loading: videosLoading, error: videosError } = useVideos({ limit: 10 });
 
 
   const [popularEpisodes, setPopularEpisodes] = useState<Episode[]>([]);
@@ -163,6 +167,10 @@ export default function HomeScreen() {
     router.push(`/quran-reciter/${album.id}`);
   }, [router]);
 
+  const handleVideoPress = useCallback((videoId: string) => {
+    router.push(`/video/${videoId}`);
+  }, [router]);
+
   const handleSearchSubmit = (query: string) => {
     // Navigate to search page when user submits
     if (query.trim()) {
@@ -238,6 +246,39 @@ export default function HomeScreen() {
       </View>
     );
   }, [handleAlbumPress]);
+
+  const renderVideoItem = useCallback(({ item }: { item: Video }) => {
+    // Defensive check to prevent crashes from malformed data
+    if (!item?.id) {
+      return null;
+    }
+
+    // Transform Video to match Card's expected structure
+    const cardData = {
+      ...item,
+      coverUrl: item.thumbnailUrl, // Card expects coverUrl, Video has thumbnailUrl
+      audioUrl: '', // Card requires this for Episode type, empty for videos
+      seriesId: '', // Card requires this for Episode type, empty for videos
+      plays: item.views, // Map views to plays for consistency
+      liked: false,
+      downloads: 0,
+    };
+
+    return (
+      <View style={{ width: ITEM_WIDTH }}>
+        <Card
+          variant="landscape"
+          data={cardData}
+          onPress={() => handleVideoPress(item.id)}
+          playOnPress={false}
+          showTime={true}
+          showMeta={true}
+          metaValue={item.lecturerName || "Unknown"}
+          isVideo={true}
+        />
+      </View>
+    );
+  }, [handleVideoPress]);
 
   const sections = useMemo<HomeSection[]>(() => {
     const items: HomeSection[] = [];
@@ -355,6 +396,51 @@ export default function HomeScreen() {
       });
     }
 
+    if (videosLoading) {
+      items.push({
+        key: "videos-loading",
+        element: (
+          <Row
+            title="Featured Videos"
+            subtitle="Watch inspiring content from our scholars"
+          >
+            <View style={tw`flex-row`}>
+              {[...Array(3)].map((_, index) => (
+                <View key={`skeleton-videos-${index}`} style={tw`mr-4 w-80`}>
+                  <CardSkeleton variant="landscape" />
+                </View>
+              ))}
+            </View>
+          </Row>
+        ),
+      });
+    } else if (videosError) {
+      items.push({
+        key: "videos-error",
+        element: (
+          <View style={tw`h-40 items-center justify-center px-6`}>
+            <Text style={tw`text-white text-center`}>Failed to load videos</Text>
+          </View>
+        ),
+      });
+    } else if (videos.length > 0) {
+      items.push({
+        key: "videos",
+        element: (
+          <Row
+            title="Featured Videos"
+            subtitle="Watch inspiring content from our scholars"
+            onSeeAll={() => router.push("/section/videos")}
+            data={videos}
+            renderItem={renderVideoItem}
+            keyExtractor={(item) => `video-${item.id}`}
+            ItemSeparatorComponent={Separator}
+            snapInterval={SNAP_INTERVAL}
+          />
+        ),
+      });
+    }
+
     if (quranLoading) {
       items.push({
         key: "quran-loading",
@@ -409,11 +495,15 @@ export default function HomeScreen() {
     trendingLoading,
     trendingError,
     trendingLectures,
+    videosLoading,
+    videosError,
+    videos,
     quranLoading,
     quranError,
     quranAlbums,
     renderLectureItem,
     renderAlbumItem,
+    renderVideoItem,
     router,
   ]);
 

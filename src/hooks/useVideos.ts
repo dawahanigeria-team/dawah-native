@@ -1,0 +1,212 @@
+/**
+ * Custom hook for fetching videos with pagination support
+ */
+
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { videoApi, VideoListParams, VideoApiResponse } from '../services/api/video.api';
+import { Video } from '../types/types';
+
+export interface UseVideosResult {
+  videos: Video[];
+  loading: boolean;
+  error: string | null;
+  refetch: () => Promise<void>;
+  loadMore: () => Promise<void>;
+  hasMore: boolean;
+  isLoadingMore: boolean;
+  currentPage: number;
+}
+
+export const useVideos = (initialParams: VideoListParams = {}): UseVideosResult => {
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(initialParams.page || 1);
+  const [hasMore, setHasMore] = useState(true);
+  const isLoadingRef = useRef(false);
+
+  /**
+   * Helper function to parse duration string to seconds
+   */
+  const parseDuration = (duration: string | undefined): number => {
+    if (!duration) return 0;
+
+    const parts = duration.split(':').map(Number);
+    if (parts.length === 3) {
+      return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    } else if (parts.length === 2) {
+      return parts[0] * 60 + parts[1];
+    }
+
+    return 0;
+  };
+
+  /**
+   * Transform API response to Video type
+   */
+  const transformVideo = (apiVideo: VideoApiResponse): Video | null => {
+    // Extract required fields with fallbacks
+    const id = apiVideo.id || apiVideo.nid?.toString();
+    const title = apiVideo.title || apiVideo.Title;
+    const youtubeUrl = apiVideo.youtube_url;
+    const thumbnail = apiVideo.thumbnail || apiVideo.img;
+
+    // Validate required fields
+    if (!id || !title || !youtubeUrl) {
+      console.warn('⚠️ Skipping invalid video:', {
+        id,
+        title,
+        youtubeUrl,
+      });
+      return null;
+    }
+
+    // Extract YouTube ID from URL
+    const youtubeId = videoApi.extractYouTubeId(youtubeUrl);
+    if (!youtubeId) {
+      console.warn('⚠️ Could not extract YouTube ID from URL:', youtubeUrl);
+      return null;
+    }
+
+    // Parse duration
+    const duration = apiVideo.duration || apiVideo.Duration || '0:00';
+    const durationSec = parseDuration(duration);
+
+    // Parse numeric fields
+    const views = typeof apiVideo.views === 'number'
+      ? apiVideo.views
+      : parseInt(String(apiVideo.views || apiVideo.Plays || '0')) || 0;
+
+    const likes = typeof apiVideo.likes === 'number'
+      ? apiVideo.likes
+      : parseInt(String(apiVideo.likes || '0')) || 0;
+
+    return {
+      id,
+      title,
+      youtubeUrl,
+      youtubeId,
+      thumbnailUrl: thumbnail || `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`,
+      description: apiVideo.description,
+      duration,
+      durationSec,
+      views,
+      likes,
+      createdAt: apiVideo.created_at || apiVideo.CreatedAt || apiVideo.post_date || '',
+      lecturerName: apiVideo.lecturer_name || apiVideo.rpname,
+      language: apiVideo.language || apiVideo.lang,
+    };
+  };
+
+  /**
+   * Fetch videos from API
+   */
+  const fetchVideos = async (page: number = 1, append: boolean = false) => {
+    if (isLoadingRef.current) return;
+
+    try {
+      isLoadingRef.current = true;
+      if (append) {
+        setIsLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+
+      const params = { ...initialParams, page, limit: initialParams.limit || 20 };
+      console.log('🎥 Fetching videos with params:', params);
+
+      const response = await videoApi.getVideos(params);
+
+      console.log('✅ Videos fetched successfully:', {
+        count: response.data.length,
+        page: response.page,
+        total: response.total,
+      });
+
+      // Transform and filter valid videos
+      const transformedVideos: Video[] = response.data
+        .map(transformVideo)
+        .filter((video): video is Video => video !== null);
+
+      console.log(`📊 Transformed ${response.data.length} API videos into ${transformedVideos.length} valid videos`);
+
+      // Append or replace videos based on pagination
+      if (append) {
+        setVideos(prev => {
+          const existingIds = new Set(prev.map(v => v.id));
+          const newVideos = transformedVideos.filter(v => !existingIds.has(v.id));
+
+          if (newVideos.length === 0 && transformedVideos.length > 0) {
+            console.warn('⚠️ All items were duplicates');
+          }
+
+          console.log(`📊 Loading more: Got ${transformedVideos.length} items, ${newVideos.length} are new, total now: ${prev.length + newVideos.length}`);
+          return [...prev, ...newVideos];
+        });
+      } else {
+        console.log(`📊 Initial load: Got ${transformedVideos.length} items`);
+        setVideos(transformedVideos);
+      }
+
+      // Check if there are more pages
+      const totalPages = response.total_pages;
+      const hasMorePages = page < totalPages;
+
+      console.log(`📊 Pagination status: Page ${page}/${totalPages}, Has more: ${hasMorePages}`);
+
+      setHasMore(hasMorePages);
+      setCurrentPage(page);
+    } catch (err: any) {
+      console.error('❌ Error fetching videos:', err);
+      setError(err.message || 'Failed to fetch videos');
+    } finally {
+      setLoading(false);
+      setIsLoadingMore(false);
+      isLoadingRef.current = false;
+    }
+  };
+
+  /**
+   * Load more function for infinite scroll
+   */
+  const loadMore = useCallback(async () => {
+    if (!hasMore || isLoadingMore || loading) return;
+    await fetchVideos(currentPage + 1, true);
+  }, [hasMore, isLoadingMore, loading, currentPage]);
+
+  /**
+   * Refetch function with cache clearing
+   */
+  const refetch = useCallback(async () => {
+    await fetchVideos(1, false);
+  }, []);
+
+  // Fetch initial data on mount
+  useEffect(() => {
+    console.log('🎯 useVideos mount - initialParams:', initialParams);
+
+    if (!initialParams || Object.keys(initialParams).length === 0) {
+      console.log('⚠️ useVideos: No params provided, skipping fetch');
+      setLoading(false);
+      setHasMore(false);
+      return;
+    }
+
+    console.log('✅ useVideos: Fetching initial data');
+    fetchVideos(1, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only fetch on mount
+
+  return {
+    videos,
+    loading,
+    error,
+    refetch,
+    loadMore,
+    hasMore,
+    isLoadingMore,
+    currentPage,
+  };
+};

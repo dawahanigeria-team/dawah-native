@@ -10,11 +10,12 @@ import { SearchBar } from "../../src/components/molecules/SearchBar";
 import { useQuranAlbums } from "../../src/hooks/useQuranAlbums";
 import { useRecentlyPlayedLectures } from "../../src/hooks/useRecentlyPlayedLectures";
 import { useTrending } from "../../src/hooks/useTrending";
+import { useVideos } from "../../src/hooks/useVideos";
 import { QuranAlbum } from "../../src/services/api/quran.api";
 
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
-import { Episode, Series } from "../../src/types/types";
+import { Episode, Series, Video } from "../../src/types/types";
 
 const getSectionInfo = (type: string) => {
   switch (type) {
@@ -57,8 +58,16 @@ const getSectionInfo = (type: string) => {
         title: "Quran Reciters",
         description: "Discover renowned Quran reciters and their beautiful recitations",
         count: 0,
-        data: [], 
+        data: [],
         variant: "quran" as const,
+      };
+    case "videos":
+      return {
+        title: "Featured Videos",
+        description: "Watch inspiring video content from our scholars",
+        count: 0,
+        data: [],
+        variant: "videos" as const,
       };
     default:
       return {
@@ -119,6 +128,21 @@ export default function SectionScreen() {
 
   console.log(`📖 useQuranAlbums values - albums: ${quranAlbums.length}, loading: ${quranLoading}, hasMore: ${hasMoreQuran}, isLoadingMore: ${isLoadingMoreQuran}`);
 
+  // Fetch videos if this is the videos section
+  const videosParams = type === "videos" ? { page: 1, limit: 20 } : undefined;
+
+  const {
+    videos,
+    loading: videosLoading,
+    error: videosError,
+    refetch: refetchVideos,
+    loadMore: loadMoreVideos,
+    hasMore: hasMoreVideos,
+    isLoadingMore: isLoadingMoreVideos,
+  } = useVideos(videosParams);
+
+  console.log(`🎥 useVideos values - videos: ${videos.length}, loading: ${videosLoading}, hasMore: ${hasMoreVideos}, isLoadingMore: ${isLoadingMoreVideos}`);
+
   const sectionInfo = getSectionInfo(type || "");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLanguage, setSelectedLanguage] =
@@ -134,6 +158,7 @@ export default function SectionScreen() {
     type === "recently-posted" ? trendingLectures :
     type === "recently-played" ? recentlyPlayedLectures :
     type === "quran-recitations" ? quranAlbums :
+    type === "videos" ? videos :
     sectionInfo.data;
 
   const isLoading =
@@ -141,6 +166,7 @@ export default function SectionScreen() {
     type === "recently-posted" ? trendingLoading :
     type === "recently-played" ? recentlyPlayedLoading :
     type === "quran-recitations" ? quranLoading :
+    type === "videos" ? videosLoading :
     false;
 
   const hasError =
@@ -148,30 +174,35 @@ export default function SectionScreen() {
     type === "recently-posted" ? trendingError :
     type === "recently-played" ? recentlyPlayedError :
     type === "quran-recitations" ? quranError :
+    type === "videos" ? videosError :
     null;
 
   const refetch = useMemo(() => {
     if (type === "trending" || type === "recently-posted") return refetchTrending;
     if (type === "quran-recitations") return refetchQuran;
+    if (type === "videos") return refetchVideos;
     return () => Promise.resolve();
-  }, [type, refetchTrending, refetchQuran]);
+  }, [type, refetchTrending, refetchQuran, refetchVideos]);
 
   const loadMore = useMemo(() => {
     if (type === "trending" || type === "recently-posted") return loadMoreTrending;
     if (type === "quran-recitations") return loadMoreQuran;
+    if (type === "videos") return loadMoreVideos;
     return () => Promise.resolve();
-  }, [type, loadMoreTrending, loadMoreQuran]);
+  }, [type, loadMoreTrending, loadMoreQuran, loadMoreVideos]);
 
   const hasMore =
     type === "trending" ? hasMoreTrending :
     type === "recently-posted" ? hasMoreTrending :
     type === "quran-recitations" ? hasMoreQuran :
+    type === "videos" ? hasMoreVideos :
     false;
 
   const isLoadingMore =
     type === "trending" ? isLoadingMoreTrending :
     type === "recently-posted" ? isLoadingMoreTrending :
     type === "quran-recitations" ? isLoadingMoreQuran :
+    type === "videos" ? isLoadingMoreVideos :
     false;
 
   // Filter and sort data based on search query, language, and sort option
@@ -276,6 +307,15 @@ export default function SectionScreen() {
     []
   );
 
+  const handleVideoPress = useCallback(
+    (video: Video) => {
+      if (!video?.id) return;
+      // Navigate to video player page
+      router.push(`/video/${video.id}`);
+    },
+    []
+  );
+
   const handleSearch = (query: string) => {
     setSearchQuery(query);
   };
@@ -283,14 +323,45 @@ export default function SectionScreen() {
   // Handle infinite scroll load more
   const handleLoadMore = useCallback(() => {
     console.log(`🔄 onEndReached triggered - type: ${type}, hasMore: ${hasMore}, isLoadingMore: ${isLoadingMore}`);
-    if ((type === "trending" || type === "recently-posted" || type === "quran-recitations") && hasMore && !isLoadingMore) {
+    if ((type === "trending" || type === "recently-posted" || type === "quran-recitations" || type === "videos") && hasMore && !isLoadingMore) {
       console.log('✅ Triggering loadMore()');
       loadMore();
     }
   }, [type, hasMore, isLoadingMore, loadMore]);
 
   // Render item for list
-  const renderItem = useCallback(({ item }: { item: Episode | Series | QuranAlbum }) => {
+  const renderItem = useCallback(({ item }: { item: Episode | Series | QuranAlbum | Video }) => {
+    // Handle Videos
+    if (sectionInfo.variant === "videos" && 'youtubeId' in item && 'thumbnailUrl' in item) {
+      const video = item as Video;
+      return (
+        <Card
+          variant="section"
+          data={{
+            id: video.id,
+            title: video.title,
+            coverUrl: video.thumbnailUrl,
+            audioUrl: '',
+            seriesId: '',
+            durationSec: video.durationSec,
+            plays: video.views,
+            liked: false,
+            language: video.language || '',
+            downloads: 0,
+            createdAt: video.createdAt,
+            lecturerName: video.lecturerName,
+          } as Episode}
+          onPress={() => handleVideoPress(video)}
+          showTime={true}
+          showMeta={true}
+          metaValue={video.lecturerName || "Unknown"}
+          titleNumberOfLines={0}
+          metaNumberOfLines={2}
+          isVideo={true}
+        />
+      );
+    }
+
     // Handle Quran albums
     if (sectionInfo.variant === "quran" && 'name' in item && 'lec_no' in item) {
       const album = item as QuranAlbum;
