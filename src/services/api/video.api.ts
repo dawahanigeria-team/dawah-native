@@ -42,23 +42,38 @@ export interface VideoApiResponse {
   nid?: string;
   title?: string;
   Title?: string;
+  // YouTube URL/ID fields
   youtube_url?: string;
   youtube_id?: string;
+  youtubekey?: string; // Actual field from API
+  // Thumbnail fields
   thumbnail?: string;
   img?: string;
+  images?: string; // Actual field from API
+  // Description
   description?: string;
+  // Duration
   duration?: string;
   Duration?: string;
+  // Stats
   views?: number | string;
   Plays?: number | string;
   likes?: number | string;
+  favorites?: number | string; // Actual field from API
+  share?: number | string;
+  // Dates
   created_at?: string;
   CreatedAt?: string;
   post_date?: string;
+  // Author/Lecturer
+  author?: string; // Actual field from API
   lecturer_name?: string;
   rpname?: string;
+  // Language
   language?: string;
   lang?: string;
+  // Hash
+  hash?: string;
   [key: string]: any;
 }
 

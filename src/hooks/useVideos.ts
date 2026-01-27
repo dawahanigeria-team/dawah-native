@@ -49,21 +49,31 @@ export const useVideos = (initialParams: VideoListParams = {}): UseVideosResult 
     // Extract required fields with fallbacks
     const id = apiVideo.id || apiVideo.nid?.toString();
     const title = apiVideo.title || apiVideo.Title;
-    const youtubeUrl = apiVideo.youtube_url;
-    const thumbnail = apiVideo.thumbnail || apiVideo.img;
 
-    // Validate required fields
-    if (!id || !title || !youtubeUrl) {
+    // API can return either youtube_url or youtubekey
+    const youtubeKey = apiVideo.youtubekey || apiVideo.youtube_id;
+    const youtubeUrl = apiVideo.youtube_url || (youtubeKey ? `https://www.youtube.com/watch?v=${youtubeKey}` : undefined);
+
+    // API returns 'images' field for thumbnail
+    const thumbnail = apiVideo.images || apiVideo.thumbnail || apiVideo.img;
+
+    // Validate required fields - we need either youtubeUrl or youtubeKey
+    if (!id || !title || (!youtubeUrl && !youtubeKey)) {
       console.warn('⚠️ Skipping invalid video:', {
         id,
         title,
         youtubeUrl,
+        youtubeKey,
       });
       return null;
     }
 
-    // Extract YouTube ID from URL
-    const youtubeId = videoApi.extractYouTubeId(youtubeUrl);
+    // Extract YouTube ID - if we have youtubeKey directly, use it
+    let youtubeId = youtubeKey;
+    if (!youtubeId && youtubeUrl) {
+      youtubeId = videoApi.extractYouTubeId(youtubeUrl);
+    }
+
     if (!youtubeId) {
       console.warn('⚠️ Could not extract YouTube ID from URL:', youtubeUrl);
       return null;
@@ -80,12 +90,12 @@ export const useVideos = (initialParams: VideoListParams = {}): UseVideosResult 
 
     const likes = typeof apiVideo.likes === 'number'
       ? apiVideo.likes
-      : parseInt(String(apiVideo.likes || '0')) || 0;
+      : parseInt(String(apiVideo.likes || apiVideo.favorites || '0')) || 0;
 
     return {
       id,
       title,
-      youtubeUrl,
+      youtubeUrl: youtubeUrl || `https://www.youtube.com/watch?v=${youtubeId}`,
       youtubeId,
       thumbnailUrl: thumbnail || `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`,
       description: apiVideo.description,
@@ -94,7 +104,7 @@ export const useVideos = (initialParams: VideoListParams = {}): UseVideosResult 
       views,
       likes,
       createdAt: apiVideo.created_at || apiVideo.CreatedAt || apiVideo.post_date || '',
-      lecturerName: apiVideo.lecturer_name || apiVideo.rpname,
+      lecturerName: apiVideo.author || apiVideo.lecturer_name || apiVideo.rpname,
       language: apiVideo.language || apiVideo.lang,
     };
   };

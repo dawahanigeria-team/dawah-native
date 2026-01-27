@@ -440,7 +440,7 @@ export default function SectionScreen() {
         </View>
       );
     }
-  }, [handleLecturePress, handleQuranAlbumPress, sectionInfo.variant, type]);
+  }, [handleLecturePress, handleQuranAlbumPress, handleVideoPress, sectionInfo.variant, type]);
 
   // Render footer (loading indicator) for list
   const renderFooter = useCallback(() => {

@@ -51,11 +51,19 @@ export default function VideoPlayerScreen() {
 
       // Transform API response to Video type
       const apiVideo = response.data;
-      const youtubeUrl = apiVideo.youtube_url;
-      const youtubeId = youtubeUrl ? videoApi.extractYouTubeId(youtubeUrl) : null;
+
+      // API can return either youtube_url or youtubekey
+      const youtubeKey = apiVideo.youtubekey || apiVideo.youtube_id;
+      const youtubeUrl = apiVideo.youtube_url || (youtubeKey ? `https://www.youtube.com/watch?v=${youtubeKey}` : undefined);
+
+      // Extract YouTube ID - if we have youtubeKey directly, use it
+      let youtubeId = youtubeKey;
+      if (!youtubeId && youtubeUrl) {
+        youtubeId = videoApi.extractYouTubeId(youtubeUrl);
+      }
 
       if (!youtubeId) {
-        throw new Error("Invalid YouTube URL");
+        throw new Error("Invalid YouTube URL or ID");
       }
 
       // Parse duration
@@ -73,9 +81,10 @@ export default function VideoPlayerScreen() {
       const transformedVideo: Video = {
         id: apiVideo.id || apiVideo.nid?.toString() || id,
         title: apiVideo.title || apiVideo.Title || "Untitled Video",
-        youtubeUrl,
+        youtubeUrl: youtubeUrl || `https://www.youtube.com/watch?v=${youtubeId}`,
         youtubeId,
         thumbnailUrl:
+          apiVideo.images ||
           apiVideo.thumbnail ||
           apiVideo.img ||
           `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`,
@@ -89,9 +98,9 @@ export default function VideoPlayerScreen() {
         likes:
           typeof apiVideo.likes === "number"
             ? apiVideo.likes
-            : parseInt(String(apiVideo.likes || "0")) || 0,
+            : parseInt(String(apiVideo.likes || apiVideo.favorites || "0")) || 0,
         createdAt: apiVideo.created_at || apiVideo.CreatedAt || apiVideo.post_date || "",
-        lecturerName: apiVideo.lecturer_name || apiVideo.rpname,
+        lecturerName: apiVideo.author || apiVideo.lecturer_name || apiVideo.rpname,
         language: apiVideo.language || apiVideo.lang,
       };
 
