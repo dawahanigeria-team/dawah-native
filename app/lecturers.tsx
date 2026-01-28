@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -32,10 +32,20 @@ export default function LecturersScreen() {
 
   // Filter & Search states
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'name' | 'popular' | 'lectures'>('popular');
   const [availableStates, setAvailableStates] = useState<string[]>([]);
   const [statesLoading, setStatesLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+
+  const normalizedState = useMemo(() => {
+    if (!selectedLocation) return null;
+    const match = availableStates.find(
+      (state) => state.toLowerCase() === selectedLocation.toLowerCase()
+    );
+    return match || selectedLocation;
+  }, [availableStates, selectedLocation]);
 
   const handleLecturerPress = useCallback((id: string) => {
     router.push(`/lecturer/${id}`);
@@ -70,8 +80,8 @@ export default function LecturersScreen() {
         lim: itemsPerPage,
       };
 
-      if (selectedLocation) {
-        requestParams.state = selectedLocation;
+      if (normalizedState) {
+        requestParams.state = normalizedState;
       }
 
       const response = await lecturersApi.getAllLecturers(requestParams);
@@ -121,19 +131,59 @@ export default function LecturersScreen() {
       setLoadingMore(false);
       setRefreshing(false);
     }
-  }, [itemsPerPage, selectedLocation]);
+  }, [itemsPerPage, normalizedState]);
 
-  // Initial load + refetch when state filter changes
+  // Debounce search input
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const fetchSearchResults = useCallback(async (query: string, state?: string | null) => {
+    try {
+      setLoading(true);
+      setSearchLoading(true);
+      setError(null);
+      setPage(1);
+      setHasMore(false);
+      setLecturers([]);
+      const results = await lecturersApi.searchLecturers(query, state || undefined);
+      setLecturers(results);
+      setTotalScholars(results.length);
+    } catch (err) {
+      console.error('Failed to search lecturers:', err);
+      setError('Failed to search scholars');
+    } finally {
+      setSearchLoading(false);
+      setLoading(false);
+    }
+  }, []);
+
+  // Initial load + refetch when state filter changes (only when not searching)
+  useEffect(() => {
+    if (debouncedQuery.length >= 2) {
+      return;
+    }
     setPage(1);
     setHasMore(true);
     setLecturers([]);
     fetchLecturers(1);
-  }, [fetchLecturers]);
+  }, [fetchLecturers, debouncedQuery]);
 
   useEffect(() => {
     fetchStates();
   }, [fetchStates]);
+
+  // Server-side search
+  useEffect(() => {
+    if (debouncedQuery.length >= 2) {
+      fetchSearchResults(debouncedQuery, normalizedState);
+    } else if (debouncedQuery.length === 0) {
+      setSearchLoading(false);
+    }
+  }, [debouncedQuery, normalizedState, fetchSearchResults]);
 
   // Apply search and sorting (client-side only)
   useEffect(() => {
@@ -145,8 +195,8 @@ export default function LecturersScreen() {
       sortBy
     });
 
-    // Apply search filter (client-side)
-    if (searchQuery.trim()) {
+    // Apply search filter (client-side only for short inputs)
+    if (searchQuery.trim() && debouncedQuery.length < 2) {
       result = result.filter(lecturer =>
         lecturer.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
@@ -167,15 +217,15 @@ export default function LecturersScreen() {
     });
 
     setFilteredLecturers(result);
-  }, [lecturers, searchQuery, sortBy]);
+  }, [lecturers, searchQuery, sortBy, debouncedQuery]);
 
   const handleLoadMore = () => {
     // Disable pagination when search is active
-    if (searchQuery) {
+    if (searchQuery || debouncedQuery.length >= 2) {
       return;
     }
 
-    if (!loadingMore && hasMore) {
+    if (!loading && !loadingMore && hasMore) {
       const nextPage = page + 1;
       setPage(nextPage);
       fetchLecturers(nextPage);
@@ -183,8 +233,12 @@ export default function LecturersScreen() {
   };
 
   const handleRefresh = useCallback(() => {
+    if (debouncedQuery.length >= 2) {
+      fetchSearchResults(debouncedQuery, normalizedState);
+      return;
+    }
     fetchLecturers(1, true);
-  }, [fetchLecturers]);
+  }, [fetchLecturers, fetchSearchResults, debouncedQuery, normalizedState]);
 
   const renderLecturer = useCallback(
     ({ item }: { item: Lecturer }) => (
@@ -524,7 +578,7 @@ export default function LecturersScreen() {
           onEndReachedThreshold={0.5}
           refreshControl={
             <RefreshControl
-              refreshing={refreshing}
+              refreshing={refreshing || searchLoading}
               onRefresh={handleRefresh}
               tintColor={designTokens.colors.brand.primary}
             />

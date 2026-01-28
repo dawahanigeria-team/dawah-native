@@ -165,6 +165,58 @@ class LecturersApiService {
   }
 
   /**
+   * Search lecturers by name
+   */
+  async searchLecturers(value: string, state?: string): Promise<Lecturer[]> {
+    try {
+      const requestParams: Record<string, any> = {
+        type: 'lecturers',
+        value,
+      };
+
+      if (state && state !== 'All') {
+        requestParams.state = state;
+      }
+
+      const response = await apiClient.get<any>(
+        '/api/searchApi.php',
+        requestParams,
+        {
+          timeout: API_CONFIG.TIMEOUTS.DEFAULT,
+          useCache: false,
+        }
+      );
+
+      const data = response.data;
+      if (data && data.success === false) {
+        throw new ApiError(data.message || 'Failed to search lecturers', data.statusCode);
+      }
+
+      let lecturers: any[] = [];
+      if (Array.isArray(data)) {
+        lecturers = data;
+      } else if (Array.isArray(data?.data)) {
+        lecturers = data.data;
+      } else if (Array.isArray(data?.results)) {
+        lecturers = data.results;
+      } else if (Array.isArray(data?.items)) {
+        lecturers = data.items;
+      } else if (Array.isArray(data?.lecturers)) {
+        lecturers = data.lecturers;
+      }
+
+      return lecturers.map((lecturer: any) => ({
+        ...lecturer,
+        language: this.getLanguageFromId(lecturer.lang_id),
+        followers: lecturer.views || 0,
+      }));
+    } catch (error) {
+      console.error('Failed to search lecturers:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Normalize API response
    */
   private normalizeResponse(
