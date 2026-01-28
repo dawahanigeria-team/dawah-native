@@ -163,7 +163,7 @@ export default function LecturersScreen() {
 
   // Initial load + refetch when state filter changes (only when not searching)
   useEffect(() => {
-    if (debouncedQuery.length >= 2) {
+    if (debouncedQuery.length > 0) {
       return;
     }
     setPage(1);
