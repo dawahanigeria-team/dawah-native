@@ -5,6 +5,7 @@
  */
 
 import * as Updates from 'expo-updates';
+import NetInfo from '@react-native-community/netinfo';
 import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { addSentryBreadcrumb, captureSentryException } from '../../services/config/sentry.config';
@@ -25,6 +26,23 @@ export const UpdatesProvider: React.FC<UpdatesProviderProps> = ({ children }) =>
 
     const checkForUpdates = async () => {
       try {
+        if (!Updates.isEnabled) {
+          addSentryBreadcrumb('Expo updates disabled, skipping check', 'info', {
+            channel: Updates.channel,
+            runtimeVersion: Updates.runtimeVersion,
+          });
+          return;
+        }
+
+        const netState = await NetInfo.fetch();
+        if (!netState.isConnected) {
+          addSentryBreadcrumb('Offline, skipping update check', 'info', {
+            isConnected: netState.isConnected,
+            isInternetReachable: netState.isInternetReachable,
+          });
+          return;
+        }
+
         addSentryBreadcrumb('Checking for updates', 'info', {
           channel: Updates.channel,
           runtimeVersion: Updates.runtimeVersion,
@@ -48,11 +66,21 @@ export const UpdatesProvider: React.FC<UpdatesProviderProps> = ({ children }) =>
           addSentryBreadcrumb('No updates available', 'info');
         }
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const isExpectedFailure =
+          message.includes('Failed to check for update') ||
+          message.includes('checkForUpdateAsync') ||
+          message.includes('disabled');
+
+        if (isExpectedFailure) {
+          addSentryBreadcrumb('Update check failed', 'info', { message });
+          return;
+        }
+
         // Don't crash the app if update check fails
         captureSentryException(error as Error, {
           component: 'UpdatesProvider',
           action: 'checkForUpdates',
-          level: 'warning', // Warning, not error - updates are non-critical
         });
       }
     };
