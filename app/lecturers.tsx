@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -38,6 +38,8 @@ export default function LecturersScreen() {
   const [availableStates, setAvailableStates] = useState<string[]>([]);
   const [statesLoading, setStatesLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
+  const prevDebouncedQuery = useRef<string | null>(null);
+  const prevNormalizedState = useRef<string | null>(null);
 
   const normalizedState = useMemo(() => {
     if (!selectedLocation) return null;
@@ -161,16 +163,27 @@ export default function LecturersScreen() {
     }
   }, []);
 
-  // Initial load + refetch when state filter changes (only when not searching)
+  // Fetch when state changes (0-1 chars) or when search is cleared
   useEffect(() => {
-    if (debouncedQuery.length > 0) {
+    const prevQuery = prevDebouncedQuery.current;
+    const prevState = prevNormalizedState.current;
+    const stateChanged = prevState !== normalizedState;
+    const queryChanged = prevQuery !== debouncedQuery;
+
+    prevDebouncedQuery.current = debouncedQuery;
+    prevNormalizedState.current = normalizedState;
+
+    if (debouncedQuery.length >= 2) {
       return;
     }
-    setPage(1);
-    setHasMore(true);
-    setLecturers([]);
-    fetchLecturers(1);
-  }, [fetchLecturers, debouncedQuery]);
+
+    if (stateChanged || (queryChanged && debouncedQuery.length === 0)) {
+      setPage(1);
+      setHasMore(true);
+      setLecturers([]);
+      fetchLecturers(1);
+    }
+  }, [fetchLecturers, normalizedState, debouncedQuery]);
 
   useEffect(() => {
     fetchStates();

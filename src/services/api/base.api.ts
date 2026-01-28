@@ -407,9 +407,20 @@ class ApiClient {
         ok: response.ok,
       });
 
+      const responseText = await response.text();
+      const tryParseJson = (text: string) => {
+        if (!text) return { parsed: null, isJson: false };
+        try {
+          return { parsed: JSON.parse(text), isJson: true };
+        } catch {
+          return { parsed: null, isJson: false };
+        }
+      };
+      const { parsed: parsedBody, isJson } = tryParseJson(responseText);
+
       // Check response status
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = isJson ? parsedBody : { message: responseText };
         console.error('❌ API Error:', {
           status: response.status,
           statusText: response.statusText,
@@ -417,7 +428,7 @@ class ApiClient {
         });
 
         const apiError = new ApiError(
-          errorData.message || `HTTP ${response.status}: ${response.statusText}`,
+          (errorData && errorData.message) || `HTTP ${response.status}: ${response.statusText}`,
           response.status,
           errorData,
         );
@@ -435,7 +446,22 @@ class ApiClient {
       }
 
       // Parse response
-      const data = await response.json();
+      if (!isJson) {
+        const apiError = new ApiError(
+          'Invalid JSON response',
+          response.status,
+          { raw: responseText },
+        );
+        captureSentryException(apiError, {
+          endpoint,
+          method,
+          url,
+          statusCode: response.status,
+          errorData: { raw: responseText },
+        });
+        throw apiError;
+      }
+      const data = parsedBody;
 
       // Log parsed response data
       console.log('📦 Parsed Response Data:', {
