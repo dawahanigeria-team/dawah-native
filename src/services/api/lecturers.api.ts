@@ -38,6 +38,7 @@ export interface LecturersParams {
   offset?: number;
   lim?: number;
   language?: string | number; // Can be language ID (number) or name (string)
+  state?: string;
 }
 
 export interface LecturersResponse {
@@ -89,6 +90,10 @@ class LecturersApiService {
         }
       }
 
+      if (params.state && params.state !== 'All') {
+        requestParams.state = params.state;
+      }
+
       // Log the API call
       console.log('👨‍🏫 Lecturers API Call:', {
         endpoint: '/api/all_rps_api.php',
@@ -123,6 +128,39 @@ class LecturersApiService {
         throw error;
       }
       throw new ApiError('Failed to fetch lecturers', undefined, error);
+    }
+  }
+
+  /**
+   * Fetch available states for filtering
+   */
+  async getStates(): Promise<string[]> {
+    try {
+      const response = await apiClient.get<any>(
+        '/api/all_states_api.php',
+        {},
+        {
+          timeout: API_CONFIG.TIMEOUTS.DEFAULT,
+          useCache: true,
+          cacheTTL: 60 * 60 * 24, // Cache for 24 hours
+        }
+      );
+
+      const data = response.data;
+      const rawStates = Array.isArray(data?.states)
+        ? data.states
+        : Array.isArray(data)
+          ? data
+          : Array.isArray(data?.data?.states)
+            ? data.data.states
+            : [];
+
+      return rawStates
+        .map((state: any) => String(state || '').trim())
+        .filter(Boolean);
+    } catch (error) {
+      console.error('Failed to fetch states:', error);
+      return [];
     }
   }
 
