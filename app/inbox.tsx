@@ -5,7 +5,7 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -16,8 +16,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../src/components/atoms";
 import { useAnnouncements } from "../src/hooks/useAnnouncements";
-import { announcementsApi } from "../src/services/api/announcements.api";
-import { userService } from "../src/services/user.service";
 import { useTheme } from "../src/hooks/useTheme";
 import { designTokens } from "../src/theme/designTokens";
 import tw from "../src/theme/twrnc";
@@ -68,21 +66,14 @@ const mockAnnouncements: Announcement[] = [
 
 export default function InboxScreen() {
   const { colors } = useTheme();
-  const [userId, setUserId] = useState<string>();
   const [refreshing, setRefreshing] = useState(false);
 
-  // Load user ID for markAsRead callback
-  useEffect(() => {
-    userService.getUserId().then(setUserId);
-  }, []);
-
-  // Fetch announcements using the hook (userId fetched internally)
+  // Fetch announcements using the hook - handles both authenticated and guest users
   const {
     announcements: apiAnnouncements,
-    unreadCount: apiUnreadCount,
     loading,
-    error,
     refetch,
+    markAsRead: markAnnouncementAsRead,
   } = useAnnouncements();
 
   // Transform API announcements to local format
@@ -104,17 +95,10 @@ export default function InboxScreen() {
     setRefreshing(false);
   }, [refetch]);
 
-  const markAsRead = useCallback(async (id: string) => {
-    try {
-      // Fetch userId if we don't have it yet
-      const currentUserId = userId || await userService.getUserId();
-      await announcementsApi.markAsRead(id, currentUserId);
-      // Refetch to update the list
-      await refetch();
-    } catch (error) {
-      console.error('Failed to mark as read:', error);
-    }
-  }, [userId, refetch]);
+  // Use the hook's markAsRead which handles both authenticated and guest users
+  const handleMarkAsRead = useCallback(async (id: string) => {
+    await markAnnouncementAsRead(id);
+  }, [markAnnouncementAsRead]);
 
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
@@ -158,7 +142,7 @@ export default function InboxScreen() {
           borderBottomColor: colors.system.separator.primary,
         },
       ]}
-      onPress={() => markAsRead(item.id)}
+      onPress={() => handleMarkAsRead(item.id)}
       activeOpacity={0.7}
     >
       <View style={tw`flex-row`}>
@@ -352,7 +336,7 @@ export default function InboxScreen() {
               },
             ]}
           >
-            We'll notify you when there's something new
+            We&apos;ll notify you when there&apos;s something new
           </Text>
         </View>
       ) : (
