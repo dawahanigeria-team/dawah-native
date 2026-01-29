@@ -47,10 +47,10 @@ const defaultActions: ActionItem[] = [
   },
   {
     id: '4',
-    title: 'Video',
-    icon: 'videocam',
-    color: designTokens.colorsDark.palette.red500,
-    description: 'Watch video content'
+    title: 'Ramadan',
+    icon: 'moon',
+    color: designTokens.colorsDark.semantic.purple,
+    description: 'Ramadan Tafsir collections'
   },
   {
     id: '5',
@@ -71,8 +71,8 @@ const defaultActions: ActionItem[] = [
 export const ActionGrid: React.FC<ActionGridProps> = memo(({
   items = defaultActions,
   columns = 3,
-  itemSpacing = 'md',
-  contentPadding = 'lg',
+  itemSpacing: _itemSpacing = 'md',
+  contentPadding: _contentPadding = 'lg',
   borderRadius = 'xl',
   onItemPress,
   style,
@@ -87,8 +87,8 @@ export const ActionGrid: React.FC<ActionGridProps> = memo(({
       router.push('/lecturers');
     } else if (item.id === '3' && item.title === 'Playlist') {
       router.push('/playlists');
-    } else if (item.id === '4' && item.title === 'Video') {
-      router.push('/section/videos');
+    } else if (item.id === '4' && item.title === 'Ramadan') {
+      router.push('/ramadan-tafsir');
     } else if (item.id === '5' && item.title === 'Quran') {
       router.push('/section/quran-recitations');
     } else if (item.id === '6' && item.title === 'Trending') {
@@ -98,7 +98,7 @@ export const ActionGrid: React.FC<ActionGridProps> = memo(({
     }
   };
 
-  const renderItem = ({ item, index }: { item: ActionItem; index: number }) => {
+  const renderItem = ({ item, index: _index }: { item: ActionItem; index: number }) => {
     const itemWidth = (
       100 - (columns - 1) * 2
     ) / columns;
