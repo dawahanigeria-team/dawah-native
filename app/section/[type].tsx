@@ -1,18 +1,25 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, ScrollView, TouchableOpacity, UIManager, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { FlashList } from "@shopify/flash-list";
+import { router, useLocalSearchParams } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  ScrollView,
+  TouchableOpacity,
+  UIManager,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Chip, Text } from "../../src/components/atoms";
 import { Card } from "../../src/components/molecules/Card";
 import { SearchBar } from "../../src/components/molecules/SearchBar";
 import { useQuranAlbums } from "../../src/hooks/useQuranAlbums";
 import { useRecentlyPlayedLectures } from "../../src/hooks/useRecentlyPlayedLectures";
+import { useTheme } from "../../src/hooks/useTheme";
 import { useTrending } from "../../src/hooks/useTrending";
 import { useVideos } from "../../src/hooks/useVideos";
 import { QuranAlbum } from "../../src/services/api/quran.api";
-import { useTheme } from "../../src/hooks/useTheme";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Episode, Series, Video } from "../../src/types/types";
@@ -56,7 +63,8 @@ const getSectionInfo = (type: string) => {
     case "quran-recitations":
       return {
         title: "Quran Reciters",
-        description: "Discover renowned Quran reciters and their beautiful recitations",
+        description:
+          "Discover renowned Quran reciters and their beautiful recitations",
         count: 0,
         data: [],
         variant: "quran" as const,
@@ -86,12 +94,16 @@ type LanguageFilter = "all" | "hausa" | "english" | "yoruba" | "arabic";
 export default function SectionScreen() {
   const { colors } = useTheme();
   const { type } = useLocalSearchParams<{ type: string }>();
-  const canUseFlashList = Boolean(UIManager.getViewManagerConfig?.('AutoLayoutView'));
+  const canUseFlashList = Boolean(
+    UIManager.getViewManagerConfig?.("AutoLayoutView"),
+  );
   const ListComponent = canUseFlashList ? FlashList : FlatList;
 
   // Fetch trending data if this is the trending or recently-posted section
-  const trendingParams = (type === "trending" || type === "recently-posted") ? { page: 1, limit: 20 } : undefined;
-  console.log(`📱 SectionScreen render - type: ${type}, trendingParams:`, trendingParams);
+  const trendingParams =
+    type === "trending" || type === "recently-posted"
+      ? { page: 1, limit: 20 }
+      : undefined;
 
   const {
     lectures: trendingLectures,
@@ -103,8 +115,6 @@ export default function SectionScreen() {
     isLoadingMore: isLoadingMoreTrending,
   } = useTrending(trendingParams);
 
-  console.log(`📊 useTrending values - lectures: ${trendingLectures.length}, loading: ${trendingLoading}, hasMore: ${hasMoreTrending}, isLoadingMore: ${isLoadingMoreTrending}`);
-
   // Fetch recently played lectures if this is the recently-played section
   const {
     lectures: recentlyPlayedLectures,
@@ -112,10 +122,9 @@ export default function SectionScreen() {
     error: recentlyPlayedError,
   } = useRecentlyPlayedLectures(type === "recently-played" ? 50 : 0);
 
-  console.log(`🕐 useRecentlyPlayed values - lectures: ${recentlyPlayedLectures.length}, loading: ${recentlyPlayedLoading}`);
-
   // Fetch Quran albums if this is the quran-recitations section
-  const quranParams = type === "quran-recitations" ? { page: 1, limit: 20 } : undefined;
+  const quranParams =
+    type === "quran-recitations" ? { page: 1, limit: 20 } : undefined;
 
   const {
     albums: quranAlbums,
@@ -126,8 +135,6 @@ export default function SectionScreen() {
     hasMore: hasMoreQuran,
     isLoadingMore: isLoadingMoreQuran,
   } = useQuranAlbums(quranParams);
-
-  console.log(`📖 useQuranAlbums values - albums: ${quranAlbums.length}, loading: ${quranLoading}, hasMore: ${hasMoreQuran}, isLoadingMore: ${isLoadingMoreQuran}`);
 
   // Fetch videos if this is the videos section
   const videosParams = type === "videos" ? { page: 1, limit: 20 } : undefined;
@@ -142,8 +149,6 @@ export default function SectionScreen() {
     isLoadingMore: isLoadingMoreVideos,
   } = useVideos(videosParams);
 
-  console.log(`🎥 useVideos values - videos: ${videos.length}, loading: ${videosLoading}, hasMore: ${hasMoreVideos}, isLoadingMore: ${isLoadingMoreVideos}`);
-
   const sectionInfo = getSectionInfo(type || "");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLanguage, setSelectedLanguage] =
@@ -155,56 +160,81 @@ export default function SectionScreen() {
 
   // Determine which data source to use based on section type
   const rawData =
-    type === "trending" ? trendingLectures :
-    type === "recently-posted" ? trendingLectures :
-    type === "recently-played" ? recentlyPlayedLectures :
-    type === "quran-recitations" ? quranAlbums :
-    type === "videos" ? videos :
-    sectionInfo.data;
+    type === "trending"
+      ? trendingLectures
+      : type === "recently-posted"
+        ? trendingLectures
+        : type === "recently-played"
+          ? recentlyPlayedLectures
+          : type === "quran-recitations"
+            ? quranAlbums
+            : type === "videos"
+              ? videos
+              : sectionInfo.data;
 
   const isLoading =
-    type === "trending" ? trendingLoading :
-    type === "recently-posted" ? trendingLoading :
-    type === "recently-played" ? recentlyPlayedLoading :
-    type === "quran-recitations" ? quranLoading :
-    type === "videos" ? videosLoading :
-    false;
+    type === "trending"
+      ? trendingLoading
+      : type === "recently-posted"
+        ? trendingLoading
+        : type === "recently-played"
+          ? recentlyPlayedLoading
+          : type === "quran-recitations"
+            ? quranLoading
+            : type === "videos"
+              ? videosLoading
+              : false;
 
   const hasError =
-    type === "trending" ? trendingError :
-    type === "recently-posted" ? trendingError :
-    type === "recently-played" ? recentlyPlayedError :
-    type === "quran-recitations" ? quranError :
-    type === "videos" ? videosError :
-    null;
+    type === "trending"
+      ? trendingError
+      : type === "recently-posted"
+        ? trendingError
+        : type === "recently-played"
+          ? recentlyPlayedError
+          : type === "quran-recitations"
+            ? quranError
+            : type === "videos"
+              ? videosError
+              : null;
 
   const refetch = useMemo(() => {
-    if (type === "trending" || type === "recently-posted") return refetchTrending;
+    if (type === "trending" || type === "recently-posted")
+      return refetchTrending;
     if (type === "quran-recitations") return refetchQuran;
     if (type === "videos") return refetchVideos;
     return () => Promise.resolve();
   }, [type, refetchTrending, refetchQuran, refetchVideos]);
 
   const loadMore = useMemo(() => {
-    if (type === "trending" || type === "recently-posted") return loadMoreTrending;
+    if (type === "trending" || type === "recently-posted")
+      return loadMoreTrending;
     if (type === "quran-recitations") return loadMoreQuran;
     if (type === "videos") return loadMoreVideos;
     return () => Promise.resolve();
   }, [type, loadMoreTrending, loadMoreQuran, loadMoreVideos]);
 
   const hasMore =
-    type === "trending" ? hasMoreTrending :
-    type === "recently-posted" ? hasMoreTrending :
-    type === "quran-recitations" ? hasMoreQuran :
-    type === "videos" ? hasMoreVideos :
-    false;
+    type === "trending"
+      ? hasMoreTrending
+      : type === "recently-posted"
+        ? hasMoreTrending
+        : type === "quran-recitations"
+          ? hasMoreQuran
+          : type === "videos"
+            ? hasMoreVideos
+            : false;
 
   const isLoadingMore =
-    type === "trending" ? isLoadingMoreTrending :
-    type === "recently-posted" ? isLoadingMoreTrending :
-    type === "quran-recitations" ? isLoadingMoreQuran :
-    type === "videos" ? isLoadingMoreVideos :
-    false;
+    type === "trending"
+      ? isLoadingMoreTrending
+      : type === "recently-posted"
+        ? isLoadingMoreTrending
+        : type === "quran-recitations"
+          ? isLoadingMoreQuran
+          : type === "videos"
+            ? isLoadingMoreVideos
+            : false;
 
   // Filter and sort data based on search query, language, and sort option
   const filteredData = useMemo(() => {
@@ -215,15 +245,17 @@ export default function SectionScreen() {
       const query = searchQuery.toLowerCase();
       data = data.filter((item) => {
         // Handle QuranAlbum type
-        if ('name' in item && 'lec_no' in item) {
+        if ("name" in item && "lec_no" in item) {
           const album = item as QuranAlbum;
-          return album.name.toLowerCase().includes(query) ||
-            album.language.toLowerCase().includes(query);
+          return (
+            album.name.toLowerCase().includes(query) ||
+            album.language.toLowerCase().includes(query)
+          );
         }
 
         // Handle Episode type
-        const title = (item as Episode).title?.toLowerCase() || '';
-        const metaValue = (item as Episode).lecturerName?.toLowerCase() || '';
+        const title = (item as Episode).title?.toLowerCase() || "";
+        const metaValue = (item as Episode).lecturerName?.toLowerCase() || "";
 
         // Search in title, author, and tags if available
         const titleMatch = title.includes(query);
@@ -277,7 +309,7 @@ export default function SectionScreen() {
         default:
           episodes.sort(
             (a, b) =>
-              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
           );
           break;
       }
@@ -287,35 +319,26 @@ export default function SectionScreen() {
     return data;
   }, [rawData, searchQuery, selectedLanguage, sortBy, showFilters]);
 
-  const handleSeriesPress = (series: Series) => {
-    console.log("Series pressed:", series.title);
+  const handleSeriesPress = (_series: Series) => {
+    // Series press handler - implement navigation if needed
   };
 
-  const handleLecturePress = useCallback(
-    (episode: Episode) => {
-      if (!episode?.id) return;
-      router.push(`/lecture/${episode.id}`);
-    },
-    []
-  );
+  const handleLecturePress = useCallback((episode: Episode) => {
+    if (!episode?.id) return;
+    router.push(`/lecture/${episode.id}`);
+  }, []);
 
-  const handleQuranAlbumPress = useCallback(
-    (album: QuranAlbum) => {
-      if (!album?.id) return;
-      // Navigate to reciter detail page
-      router.push(`/quran-reciter/${album.id}`);
-    },
-    []
-  );
+  const handleQuranAlbumPress = useCallback((album: QuranAlbum) => {
+    if (!album?.id) return;
+    // Navigate to reciter detail page
+    router.push(`/quran-reciter/${album.id}`);
+  }, []);
 
-  const handleVideoPress = useCallback(
-    (video: Video) => {
-      if (!video?.id) return;
-      // Navigate to video player page
-      router.push(`/video/${video.id}`);
-    },
-    []
-  );
+  const handleVideoPress = useCallback((video: Video) => {
+    if (!video?.id) return;
+    // Navigate to video player page
+    router.push(`/video/${video.id}`);
+  }, []);
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -323,129 +346,155 @@ export default function SectionScreen() {
 
   // Handle infinite scroll load more
   const handleLoadMore = useCallback(() => {
-    console.log(`🔄 onEndReached triggered - type: ${type}, hasMore: ${hasMore}, isLoadingMore: ${isLoadingMore}`);
-    if ((type === "trending" || type === "recently-posted" || type === "quran-recitations" || type === "videos") && hasMore && !isLoadingMore) {
-      console.log('✅ Triggering loadMore()');
+    if (
+      (type === "trending" ||
+        type === "recently-posted" ||
+        type === "quran-recitations" ||
+        type === "videos") &&
+      hasMore &&
+      !isLoadingMore
+    ) {
       loadMore();
     }
   }, [type, hasMore, isLoadingMore, loadMore]);
 
   // Render item for list
-  const renderItem = useCallback(({ item }: { item: Episode | Series | QuranAlbum | Video }) => {
-    // Handle Videos
-    if (sectionInfo.variant === "videos" && 'youtubeId' in item && 'thumbnailUrl' in item) {
-      const video = item as Video;
-      return (
-        <Card
-          variant="section"
-          data={{
-            id: video.id,
-            title: video.title,
-            youtubeUrl: video.youtubeUrl,
-            youtubeId: video.youtubeId,
-            thumbnailUrl: video.thumbnailUrl,
-            coverUrl: video.thumbnailUrl,
-            durationSec: video.durationSec,
-            views: video.views,
-            likes: video.likes,
-            language: video.language || '',
-            createdAt: video.createdAt,
-            lecturerName: video.lecturerName,
-          } as Video}
-          onPress={() => handleVideoPress(video)}
-          showTime={true}
-          showMeta={true}
-          metaValue={video.lecturerName || "Unknown"}
-          titleNumberOfLines={0}
-          metaNumberOfLines={2}
-          isVideo={true}
-        />
-      );
-    }
-
-    // Handle Quran albums
-    if (sectionInfo.variant === "quran" && 'name' in item && 'lec_no' in item) {
-      const album = item as QuranAlbum;
-      return (
-        <Card
-          variant="section"
-          data={{
-            id: album.id,
-            title: album.name,
-            coverUrl: album.alb_thumbnail || album.img,
-            lecturerName: `${album.lec_no} Surahs`,
-            plays: album.views,
-            downloads: album.downloads,
-            language: album.language,
-          } as Episode}
-          onPress={() => handleQuranAlbumPress(album)}
-          showTime={false}
-          showMeta={true}
-          metaValue={`${album.lec_no} Surahs • ${album.language}`}
-          titleNumberOfLines={0}
-          metaNumberOfLines={2}
-        />
-      );
-    }
-
-    // Handle Episodes
-    if (sectionInfo.variant === "section") {
-      const shouldNavigate = type === "trending" || type === "recently-posted" || type === "recently-played";
-
-      return (
-        <Card
-          variant="section"
-          data={item as Episode}
-          onPress={
-            shouldNavigate
-              ? () => handleLecturePress(item as Episode)
-              : undefined
-          }
-          playOnPress={false}
-          showTime={true}
-          showMeta={true}
-          metaValue={(item as Episode).lecturerName || "Unknown"}
-        />
-      );
-    } else {
-      return (
-        <View style={tw`items-center mb-6`}>
-          <View
-            style={[
-              tw`p-4 rounded-xl`,
+  const renderItem = useCallback(
+    ({ item }: { item: Episode | Series | QuranAlbum | Video }) => {
+      // Handle Videos
+      if (
+        sectionInfo.variant === "videos" &&
+        "youtubeId" in item &&
+        "thumbnailUrl" in item
+      ) {
+        const video = item as Video;
+        return (
+          <Card
+            variant="section"
+            data={
               {
-                backgroundColor: colors.system.background.secondary,
-                shadowColor: colors.system.label.primary,
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: 0.04,
-                shadowRadius: 4,
-                elevation: 1,
-              },
-            ]}
-          >
-            <Card
-              variant="square"
-              data={item as unknown as Series}
-              onPress={() => handleSeriesPress(item as unknown as Series)}
-              showBadge={false}
-            />
-            <Text
-              variant="caption1"
-              color="secondaryLabel"
-              style={tw`mt-2 text-center`}
-              numberOfLines={2}
+                id: video.id,
+                title: video.title,
+                youtubeUrl: video.youtubeUrl,
+                youtubeId: video.youtubeId,
+                thumbnailUrl: video.thumbnailUrl,
+                coverUrl: video.thumbnailUrl,
+                durationSec: video.durationSec,
+                views: video.views,
+                likes: video.likes,
+                language: video.language || "",
+                createdAt: video.createdAt,
+                lecturerName: video.lecturerName,
+              } as Video
+            }
+            onPress={() => handleVideoPress(video)}
+            showTime={true}
+            showMeta={true}
+            metaValue={video.lecturerName || "Unknown"}
+            titleNumberOfLines={0}
+            metaNumberOfLines={2}
+            isVideo={true}
+          />
+        );
+      }
+
+      // Handle Quran albums
+      if (
+        sectionInfo.variant === "quran" &&
+        "name" in item &&
+        "lec_no" in item
+      ) {
+        const album = item as QuranAlbum;
+        return (
+          <Card
+            variant="section"
+            data={
+              {
+                id: album.id,
+                title: album.name,
+                coverUrl: album.alb_thumbnail || album.img,
+                lecturerName: `${album.lec_no} Surahs`,
+                plays: album.views,
+                downloads: album.downloads,
+                language: album.language,
+              } as Episode
+            }
+            onPress={() => handleQuranAlbumPress(album)}
+            showTime={false}
+            showMeta={true}
+            metaValue={`${album.lec_no} Surahs • ${album.language}`}
+            titleNumberOfLines={0}
+            metaNumberOfLines={2}
+          />
+        );
+      }
+
+      // Handle Episodes
+      if (sectionInfo.variant === "section") {
+        const shouldNavigate =
+          type === "trending" ||
+          type === "recently-posted" ||
+          type === "recently-played";
+
+        return (
+          <Card
+            variant="section"
+            data={item as Episode}
+            onPress={
+              shouldNavigate
+                ? () => handleLecturePress(item as Episode)
+                : undefined
+            }
+            playOnPress={false}
+            showTime={true}
+            showMeta={true}
+            metaValue={(item as Episode).lecturerName || "Unknown"}
+          />
+        );
+      } else {
+        return (
+          <View style={tw`items-center mb-6`}>
+            <View
+              style={[
+                tw`p-4 rounded-xl shadow-sm`,
+                {
+                  backgroundColor: colors.system.background.secondary,
+                  shadowColor: colors.system.label.primary,
+                  shadowOffset: { width: 0, height: 1 },
+                },
+              ]}
             >
-              {(item as Series).title}
-            </Text>
+              <Card
+                variant="square"
+                data={item as unknown as Series}
+                onPress={() => handleSeriesPress(item as unknown as Series)}
+                showBadge={false}
+              />
+              <Text
+                variant="caption1"
+                color="secondaryLabel"
+                style={tw`mt-2 text-center`}
+                numberOfLines={2}
+              >
+                {(item as Series).title}
+              </Text>
+            </View>
           </View>
-        </View>
-      );
-    }
-  }, [handleLecturePress, handleQuranAlbumPress, handleVideoPress, sectionInfo.variant, type, colors]);
+        );
+      }
+    },
+    [
+      handleLecturePress,
+      handleQuranAlbumPress,
+      handleVideoPress,
+      sectionInfo.variant,
+      type,
+      colors,
+    ],
+  );
 
   // Render footer (loading indicator) for list
   const renderFooter = useCallback(() => {
-    console.log(`🦶 renderFooter - isLoadingMore: ${isLoadingMore}, type: ${type}, hasMore: ${hasMore}`);
     if (!isLoadingMore) return null;
     return (
       <View style={tw`py-4 items-center`}>
@@ -455,7 +504,7 @@ export default function SectionScreen() {
         </Text>
       </View>
     );
-  }, [isLoadingMore, type, hasMore, colors]);
+  }, [isLoadingMore, colors]);
 
   // Empty component for list
   const renderEmpty = useCallback(() => {
@@ -463,7 +512,9 @@ export default function SectionScreen() {
       return (
         <View style={tw`flex-1 items-center justify-center py-20`}>
           <ActivityIndicator size="large" color={colors.brand.primary} />
-          <Text style={[tw`mt-2`, { color: colors.system.label.primary }]}>Loading {sectionInfo.title.toLowerCase()}...</Text>
+          <Text style={[tw`mt-2`, { color: colors.system.label.primary }]}>
+            Loading {sectionInfo.title.toLowerCase()}...
+          </Text>
         </View>
       );
     }
@@ -483,10 +534,18 @@ export default function SectionScreen() {
               color={colors.system.label.tertiary}
             />
           </View>
-          <Text variant="title3" color="label" style={tw`font-semibold text-center mb-2`}>
+          <Text
+            variant="title3"
+            color="label"
+            style={tw`font-semibold text-center mb-2`}
+          >
             Failed to load {sectionInfo.title.toLowerCase()}
           </Text>
-          <Text variant="subheadline" color="secondaryLabel" style={tw`text-center mb-4`}>
+          <Text
+            variant="subheadline"
+            color="secondaryLabel"
+            style={tw`text-center mb-4`}
+          >
             Check your connection and try again
           </Text>
           <TouchableOpacity
@@ -527,10 +586,18 @@ export default function SectionScreen() {
             color={colors.system.label.tertiary}
           />
         </View>
-        <Text variant="title2" color="label" style={tw`font-semibold mb-2 text-center`}>
+        <Text
+          variant="title2"
+          color="label"
+          style={tw`font-semibold mb-2 text-center`}
+        >
           {searchQuery.trim() ? "No results found" : "No content available"}
         </Text>
-        <Text variant="subheadline" color="secondaryLabel" style={tw`text-center px-8`}>
+        <Text
+          variant="subheadline"
+          color="secondaryLabel"
+          style={tw`text-center px-8`}
+        >
           {searchQuery.trim()
             ? "Try adjusting your search terms or browse all available content"
             : "This section is currently empty"}
@@ -609,8 +676,7 @@ export default function SectionScreen() {
                     ? `${recentlyPlayedLectures.length > 0 ? recentlyPlayedLectures.length : sectionInfo.count} lectures`
                     : type === "quran-recitations"
                       ? `${quranAlbums.length > 0 ? quranAlbums.length : sectionInfo.count} reciters`
-                      : `${sectionInfo.count} lectures`
-              }
+                      : `${sectionInfo.count} lectures`}
             </Text>
           </View>
         </View>
@@ -619,10 +685,9 @@ export default function SectionScreen() {
       {/* Search Bar and Filters */}
       <View
         style={[
-          tw`pb-4`,
+          tw`pb-4 border-b`,
           {
             backgroundColor: colors.system.background.primary,
-            borderBottomWidth: 1,
             borderBottomColor: colors.system.separator.primary,
           },
         ]}
@@ -648,7 +713,11 @@ export default function SectionScreen() {
                   accessibilityLabel="Clear search"
                   accessibilityRole="button"
                 >
-                  <Text variant="caption1" color="brand" style={tw`font-medium`}>
+                  <Text
+                    variant="caption1"
+                    color="brand"
+                    style={tw`font-medium`}
+                  >
                     Clear
                   </Text>
                 </TouchableOpacity>
@@ -788,12 +857,11 @@ export default function SectionScreen() {
         onEndReachedThreshold={0.5}
         {...(canUseFlashList ? { estimatedItemSize: 160 } : {})}
         contentContainerStyle={[
-          tw`px-6`,
+          tw`px-6 pb-20`,
           {
             paddingTop: showFilters
               ? designTokens.spacing.md
               : designTokens.spacing.lg,
-            paddingBottom: 80, // Add extra padding for mini player
           },
         ]}
         showsVerticalScrollIndicator={false}
