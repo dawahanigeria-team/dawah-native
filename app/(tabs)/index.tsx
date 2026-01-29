@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FlatList,
   InteractionManager,
+  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -21,11 +22,11 @@ import { useUnreadAnnouncementsCount } from "../../src/hooks/useAnnouncements";
 import { usePopularLecturesWithCache } from "../../src/hooks/usePopularLecturesWithCache";
 import { useQuranAlbums } from "../../src/hooks/useQuranAlbums";
 import { useRecentlyPlayedLectures } from "../../src/hooks/useRecentlyPlayedLectures";
+import { useTheme } from "../../src/hooks/useTheme";
 import { useTrending } from "../../src/hooks/useTrending";
 import { useVideos } from "../../src/hooks/useVideos";
 import { QuranAlbum } from "../../src/services/api/quran.api";
 import { usePlayerActions } from "../../src/stores";
-import { useTheme } from "../../src/hooks/useTheme";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { SearchLecture } from "../../src/types/api.types";
@@ -36,8 +37,8 @@ const ITEM_SPACING = 16; // mr-4
 const SNAP_INTERVAL = ITEM_WIDTH + ITEM_SPACING;
 const PREFETCH_LIMIT = 5;
 
-const Separator = () => <View style={{ width: ITEM_SPACING }} />;
-const SmallSeparator = () => <View style={{ width: 12 }} />;
+const Separator = () => <View style={styles.separator} />;
+const SmallSeparator = () => <View style={styles.smallSeparator} />;
 
 type HomeSection = { key: string; element: React.JSX.Element };
 
@@ -194,14 +195,10 @@ export default function HomeScreen() {
 
   const handleEpisodePress = useCallback(
     async (episode: Episode) => {
-      console.log("🎵 Play button pressed for:", episode.title);
-      console.log("🔗 Audio URL:", episode.audioUrl);
-
       try {
         await playEpisode(episode);
-        console.log("✅ Episode playing successfully");
       } catch (error) {
-        console.error("❌ Error playing episode:", error);
+        console.error("Error playing episode:", error);
       }
     },
     [playEpisode],
@@ -282,7 +279,7 @@ export default function HomeScreen() {
           : item.language || "";
 
       return (
-        <View style={{ width: 140 }}>
+        <View style={styles.albumCardWrapper}>
           <Card
             variant="square"
             data={{
@@ -624,11 +621,7 @@ export default function HomeScreen() {
             onSearch={handleSearchSubmit}
             onMicPress={handleMicPress}
             disabled={false}
-            style={{
-              minHeight: 36,
-              paddingVertical: 0,
-              paddingHorizontal: 8,
-            }}
+            style={styles.searchBarContainer}
           />
         </View>
 
@@ -650,27 +643,19 @@ export default function HomeScreen() {
             {/* Unread badge */}
             {unreadCount > 0 && (
               <View
-                style={{
-                  position: "absolute",
-                  top: -2,
-                  right: -2,
-                  backgroundColor: colors.semantic.red,
-                  borderRadius: 10,
-                  minWidth: 18,
-                  height: 18,
-                  paddingHorizontal: 4,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderWidth: 2,
-                  borderColor: colors.system.background.primary,
-                }}
+                style={[
+                  styles.notificationBadge,
+                  {
+                    backgroundColor: colors.semantic.red,
+                    borderColor: colors.system.background.primary,
+                  },
+                ]}
               >
                 <Text
-                  style={{
-                    color: colors.fixed.white,
-                    fontSize: 10,
-                    fontWeight: designTokens.typography.fontWeight.bold,
-                  }}
+                  style={[
+                    styles.notificationBadgeText,
+                    { color: colors.fixed.white },
+                  ]}
                 >
                   {unreadCount > 99 ? "99+" : unreadCount}
                 </Text>
@@ -695,3 +680,36 @@ export default function HomeScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  separator: {
+    width: ITEM_SPACING,
+  },
+  smallSeparator: {
+    width: 12,
+  },
+  albumCardWrapper: {
+    width: 140,
+  },
+  searchBarContainer: {
+    minHeight: 36,
+    paddingVertical: 0,
+    paddingHorizontal: 8,
+  },
+  notificationBadge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+  },
+  notificationBadgeText: {
+    fontSize: 10,
+    fontWeight: designTokens.typography.fontWeight.bold,
+  },
+});

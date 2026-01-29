@@ -1,10 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Switch, View } from "react-native";
+import { StyleSheet, Switch, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Text } from "../src/components/atoms";
+import { useTheme } from "../src/hooks/useTheme";
 import {
   defaultNotificationPrefs,
   disablePushNotificationsAsync,
@@ -15,15 +16,18 @@ import {
   syncNotificationPreferencesAsync,
   type NotificationPrefs,
 } from "../src/services/notifications.service";
-import { useTheme } from "../src/hooks/useTheme";
 import tw from "../src/theme/twrnc";
 
 const NotificationsScreen = () => {
   const router = useRouter();
   const { colors } = useTheme();
-  const [prefs, setPrefs] = useState<NotificationPrefs>(defaultNotificationPrefs);
+  const [prefs, setPrefs] = useState<NotificationPrefs>(
+    defaultNotificationPrefs,
+  );
   const [loading, setLoading] = useState(true);
-  const [pushTokenStatus, setPushTokenStatus] = useState<"present" | "missing">("missing");
+  const [pushTokenStatus, setPushTokenStatus] = useState<"present" | "missing">(
+    "missing",
+  );
   const announcementsForced = true;
 
   useEffect(() => {
@@ -45,7 +49,7 @@ const NotificationsScreen = () => {
 
   const updatePref = async <K extends keyof NotificationPrefs>(
     key: K,
-    value: NotificationPrefs[K]
+    value: NotificationPrefs[K],
   ) => {
     const next = {
       ...prefs,
@@ -102,25 +106,16 @@ const NotificationsScreen = () => {
         </Text>
       </View>
 
-      <View
-        style={tw`px-4 pb-4`}
-      >
-        <Text
-          style={[
-            tw`text-sm`,
-            { color: colors.system.label.secondary },
-          ]}
-        >
+      <View style={tw`px-4 pb-4`}>
+        <Text style={[tw`text-sm`, { color: colors.system.label.secondary }]}>
           Control how dawahnigeria notifies you about new content and updates.
           You can also turn notifications off entirely.
         </Text>
         <Text
-          style={[
-            tw`text-xs mt-2`,
-            { color: colors.system.label.tertiary },
-          ]}
+          style={[tw`text-xs mt-2`, { color: colors.system.label.tertiary }]}
         >
-          Push token: {pushTokenStatus === "present" ? "registered" : "not registered"}
+          Push token:{" "}
+          {pushTokenStatus === "present" ? "registered" : "not registered"}
         </Text>
       </View>
 
@@ -177,12 +172,7 @@ const NotificationsScreen = () => {
       </View>
 
       <View style={tw`px-4 mt-auto mb-6`}>
-        <Text
-          style={[
-            tw`text-xs`,
-            { color: colors.system.label.tertiary },
-          ]}
-        >
+        <Text style={[tw`text-xs`, { color: colors.system.label.tertiary }]}>
           To fully disable notifications, you may also need to turn them off in
           your device settings.
         </Text>
@@ -209,15 +199,15 @@ const NotificationRow: React.FC<NotificationRowProps> = ({
   divider,
 }) => {
   const { colors } = useTheme();
-  
+
   return (
     <View
       style={[
         tw`flex-row items-center px-4 py-3`,
-        divider && {
-          borderTopWidth: 1,
-          borderTopColor: colors.system.separator.primary,
-        },
+        divider && [
+          styles.rowDivider,
+          { borderTopColor: colors.system.separator.primary },
+        ],
       ]}
     >
       <View style={tw`flex-1 mr-3`}>
@@ -231,10 +221,7 @@ const NotificationRow: React.FC<NotificationRowProps> = ({
         </Text>
         {subtitle ? (
           <Text
-            style={[
-              tw`text-xs mt-1`,
-              { color: colors.system.label.secondary },
-            ]}
+            style={[tw`text-xs mt-1`, { color: colors.system.label.secondary }]}
           >
             {subtitle}
           </Text>
@@ -259,3 +246,9 @@ const NotificationRow: React.FC<NotificationRowProps> = ({
 };
 
 export default NotificationsScreen;
+
+const styles = StyleSheet.create({
+  rowDivider: {
+    borderTopWidth: 1,
+  },
+});
