@@ -12,14 +12,16 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { Loading, Text } from "../src/components/atoms";
+import { useTheme } from "../src/hooks/useTheme";
 import { addSentryBreadcrumb, captureSentryException } from "../src/services/config/sentry.config";
 import { useAuthStore } from "../src/stores";
-import { designTokens } from "../src/theme/designTokens";
 import tw from "../src/theme/twrnc";
 
 export default function SignInScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const returnToRoute = Array.isArray(returnTo) ? returnTo[0] : returnTo;
   const { login, isLoading, error, clearError } = useAuthStore();
@@ -29,6 +31,8 @@ export default function SignInScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
 
   const validateEmail = (text: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -58,10 +62,8 @@ export default function SignInScreen() {
   };
 
   const handleSignIn = async () => {
-    // Clear previous errors
     clearError();
 
-    // Validate inputs
     const isEmailValid = validateEmail(email);
     const isPasswordValid = validatePassword(password);
 
@@ -70,36 +72,34 @@ export default function SignInScreen() {
     }
 
     try {
-      // Use the login credentials provided
       const credentials = {
-        email: email, // This will be the {{loginIdentifier}} value
+        email: email,
         password: password
       };
 
       await login(credentials);
       if (returnToRoute) {
-        router.replace(returnToRoute as any);
+        router.replace(returnToRoute as `/${string}`);
       } else {
-        // Navigation will be handled by auth state change
         router.back();
       }
-    } catch (err: any) {
-      // Log to Sentry
-      captureSentryException(err, {
+    } catch (err: unknown) {
+      const error = err as Error;
+      captureSentryException(error, {
         component: 'SignInScreen',
         action: 'handleSignIn',
-        email: email, // Don't log password!
+        email: email,
         level: 'warning',
       });
 
       addSentryBreadcrumb('Sign in failed', 'error', {
-        error: err.message,
+        error: error.message,
         email: email,
       });
 
       Alert.alert(
         "Sign In Failed",
-        err.message || "Unable to sign in. Please check your credentials and try again.",
+        error.message || "Unable to sign in. Please check your credentials and try again.",
         [{ text: "OK" }]
       );
     }
@@ -117,11 +117,17 @@ export default function SignInScreen() {
     router.push("/sign-up");
   };
 
+  const getInputBorderColor = (hasError: boolean, isFocused: boolean) => {
+    if (hasError) return colors.semantic.red;
+    if (isFocused) return colors.brand.primary;
+    return "transparent";
+  };
+
   return (
     <SafeAreaView
       style={[
         tw`flex-1`,
-        { backgroundColor: designTokens.colors.system.background.primary },
+        { backgroundColor: colors.system.background.primary },
       ]}
     >
       <KeyboardAvoidingView
@@ -130,128 +136,147 @@ export default function SignInScreen() {
       >
         <ScrollView
           style={tw`flex-1`}
-          contentContainerStyle={tw`px-6 py-8 pb-32`}
+          contentContainerStyle={tw`px-6 py-6 pb-32`}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Header */}
-          <View style={tw`mb-8`}>
+          {/* Back Button */}
+          <Animated.View entering={FadeIn.duration(300)}>
             <Pressable
               onPress={() => router.back()}
-              style={tw`mb-6 self-start`}
+              style={[
+                tw`mb-6 self-start p-2 -ml-2 rounded-full`,
+                { backgroundColor: colors.system.fill.tertiary },
+              ]}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <Ionicons
                 name="chevron-back"
-                size={28}
-                color={designTokens.colors.system.label.primary}
+                size={24}
+                color={colors.system.label.primary}
               />
             </Pressable>
+          </Animated.View>
 
-            {/* Logo/Brand */}
-            <View style={tw`items-center mb-8`}>
-              <View
-                style={[
-                  tw`w-20 h-20 rounded-3xl items-center justify-center mb-4`,
-                  { backgroundColor: designTokens.colors.brand.primary },
-                ]}
-              >
-                <Text
-                  style={{
-                    fontSize: designTokens.typography.fontSize.largeTitle,
-                    fontWeight: designTokens.typography.fontWeight.bold,
-                    color: designTokens.colors.system.background.primary,
-                  }}
-                >
-                  DN
-                </Text>
-              </View>
+          {/* Logo/Brand */}
+          <Animated.View
+            entering={FadeInDown.delay(100).duration(400)}
+            style={tw`items-center mb-8`}
+          >
+            <View
+              style={[
+                tw`w-16 h-16 rounded-2xl items-center justify-center mb-4`,
+                { 
+                  backgroundColor: colors.brand.primary,
+                  shadowColor: colors.brand.primary,
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 4,
+                },
+              ]}
+            >
               <Text
-                variant="largeTitle"
-                weight="bold"
-                color="label"
-                style={{ textAlign: "center", marginBottom: 8 }}
+                style={{
+                  fontSize: 24,
+                  fontWeight: '700',
+                  color: colors.fixed.black,
+                }}
               >
-                Welcome Back
-              </Text>
-              <Text
-                variant="body"
-                color="secondaryLabel"
-                style={{ textAlign: "center" }}
-              >
-                Sign in to continue to dawahnigeria
+                DN
               </Text>
             </View>
-          </View>
+            <Text
+              variant="title1"
+              weight="bold"
+              color="label"
+              style={{ textAlign: "center", marginBottom: 6 }}
+            >
+              Marhaban!
+            </Text>
+            <Text
+              variant="subheadline"
+              color="secondaryLabel"
+              style={{ textAlign: "center" }}
+            >
+              Sign in to continue to dawahnigeria
+            </Text>
+          </Animated.View>
 
           {/* Error Alert */}
           {error && (
-            <View
+            <Animated.View
+              entering={FadeIn.duration(200)}
               style={[
-                tw`rounded-2xl p-4 mb-6 flex-row items-start`,
-                { backgroundColor: designTokens.colors.system.fill.quaternary },
+                tw`rounded-xl p-3 mb-5 flex-row items-center`,
+                { backgroundColor: `${colors.semantic.red}15` },
               ]}
             >
               <Ionicons
                 name="alert-circle"
-                size={20}
-                color={designTokens.colors.semantic.red}
-                style={tw`mr-3 mt-0.5`}
+                size={18}
+                color={colors.semantic.red}
+                style={tw`mr-2`}
               />
               <Text
                 variant="subheadline"
-                style={{ color: designTokens.colors.semantic.red, flex: 1 }}
+                style={{ color: colors.semantic.red, flex: 1 }}
               >
                 {error}
               </Text>
-            </View>
+            </Animated.View>
           )}
 
           {/* Email Input */}
-          <View style={tw`mb-4`}>
+          <Animated.View
+            entering={FadeInDown.delay(200).duration(400)}
+            style={tw`mb-4`}
+          >
             <Text
               variant="subheadline"
-              weight="semibold"
+              weight="medium"
               color="label"
-              style={{ marginBottom: 8 }}
+              style={{ marginBottom: 6 }}
             >
               Email Address
             </Text>
             <View
               style={[
-                tw`rounded-2xl px-4 py-4 flex-row items-center`,
+                tw`rounded-xl px-4 py-3 flex-row items-center`,
                 {
-                  backgroundColor:
-                    designTokens.colors.system.background.secondary,
-                  borderWidth: 2,
-                  borderColor: emailError
-                    ? designTokens.colors.semantic.red
-                    : "transparent",
+                  backgroundColor: colors.system.background.secondary,
+                  borderWidth: 1.5,
+                  borderColor: getInputBorderColor(!!emailError, emailFocused),
                 },
               ]}
             >
               <Ionicons
                 name="mail-outline"
-                size={20}
-                color={designTokens.colors.system.label.tertiary}
+                size={18}
+                color={emailFocused ? colors.brand.primary : colors.system.label.tertiary}
                 style={tw`mr-3`}
               />
               <TextInput
                 style={[
                   tw`flex-1`,
                   {
-                    color: designTokens.colors.system.label.primary,
-                    fontSize: designTokens.typography.fontSize.body,
+                    color: colors.system.label.primary,
+                    fontSize: 16,
+                    paddingVertical: 0,
                   },
                 ]}
                 placeholder="Enter your email"
-                placeholderTextColor={designTokens.colors.system.label.tertiary}
+                placeholderTextColor={colors.system.label.tertiary}
                 value={email}
                 onChangeText={(text) => {
                   setEmail(text);
                   if (emailError) validateEmail(text);
                 }}
-                onBlur={() => validateEmail(email)}
+                onFocus={() => setEmailFocused(true)}
+                onBlur={() => {
+                  setEmailFocused(false);
+                  validateEmail(email);
+                }}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoComplete="email"
@@ -262,8 +287,8 @@ export default function SignInScreen() {
                 <Pressable onPress={() => setEmail("")} hitSlop={8}>
                   <Ionicons
                     name="close-circle"
-                    size={20}
-                    color={designTokens.colors.system.label.tertiary}
+                    size={18}
+                    color={colors.system.label.tertiary}
                   />
                 </Pressable>
               )}
@@ -271,58 +296,63 @@ export default function SignInScreen() {
             {emailError && (
               <Text
                 variant="caption1"
-                style={{ color: designTokens.colors.semantic.red, marginTop: 6 }}
+                style={{ color: colors.semantic.red, marginTop: 4 }}
               >
                 {emailError}
               </Text>
             )}
-          </View>
+          </Animated.View>
 
           {/* Password Input */}
-          <View style={tw`mb-2`}>
+          <Animated.View
+            entering={FadeInDown.delay(300).duration(400)}
+            style={tw`mb-2`}
+          >
             <Text
               variant="subheadline"
-              weight="semibold"
+              weight="medium"
               color="label"
-              style={{ marginBottom: 8 }}
+              style={{ marginBottom: 6 }}
             >
               Password
             </Text>
             <View
               style={[
-                tw`rounded-2xl px-4 py-4 flex-row items-center`,
+                tw`rounded-xl px-4 py-3 flex-row items-center`,
                 {
-                  backgroundColor:
-                    designTokens.colors.system.background.secondary,
-                  borderWidth: 2,
-                  borderColor: passwordError
-                    ? designTokens.colors.semantic.red
-                    : "transparent",
+                  backgroundColor: colors.system.background.secondary,
+                  borderWidth: 1.5,
+                  borderColor: getInputBorderColor(!!passwordError, passwordFocused),
                 },
               ]}
             >
               <Ionicons
                 name="lock-closed-outline"
-                size={20}
-                color={designTokens.colors.system.label.tertiary}
+                size={18}
+                color={passwordFocused ? colors.brand.primary : colors.system.label.tertiary}
                 style={tw`mr-3`}
               />
               <TextInput
                 style={[
                   tw`flex-1`,
                   {
-                    color: designTokens.colors.system.label.primary,
-                    fontSize: designTokens.typography.fontSize.body,
+                    color: colors.system.label.primary,
+                    fontSize: 16,
+                    paddingVertical: 0,
                   },
                 ]}
                 placeholder="Enter your password"
-                placeholderTextColor={designTokens.colors.system.label.tertiary}
+                placeholderTextColor={colors.system.label.tertiary}
                 value={password}
                 onChangeText={(text) => {
                   setPassword(text);
                   if (passwordError) validatePassword(text);
                 }}
-                onBlur={() => validatePassword(password)}
+                onFocus={() => setPasswordFocused(true)}
+                onBlur={() => {
+                  setPasswordFocused(false);
+                  validatePassword(password);
+                }}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 autoComplete="password"
@@ -335,83 +365,98 @@ export default function SignInScreen() {
               >
                 <Ionicons
                   name={showPassword ? "eye-off-outline" : "eye-outline"}
-                  size={20}
-                  color={designTokens.colors.system.label.tertiary}
+                  size={18}
+                  color={colors.system.label.tertiary}
                 />
               </Pressable>
             </View>
             {passwordError && (
               <Text
                 variant="caption1"
-                style={{ color: designTokens.colors.semantic.red, marginTop: 6 }}
+                style={{ color: colors.semantic.red, marginTop: 4 }}
               >
                 {passwordError}
               </Text>
             )}
-          </View>
+          </Animated.View>
 
           {/* Forgot Password */}
-          <Pressable onPress={handleForgotPassword} style={tw`mb-8 self-end`}>
-            <Text
-              variant="subheadline"
-              weight="semibold"
-              style={{ color: designTokens.colors.brand.primary }}
-            >
-              Forgot Password?
-            </Text>
-          </Pressable>
+          <Animated.View entering={FadeInDown.delay(350).duration(400)}>
+            <Pressable onPress={handleForgotPassword} style={tw`mb-6 self-end py-1`}>
+              <Text
+                variant="subheadline"
+                weight="semibold"
+                style={{ color: colors.brand.primary }}
+              >
+                Forgot Password?
+              </Text>
+            </Pressable>
+          </Animated.View>
 
           {/* Sign In Button */}
-          <TouchableOpacity
-            onPress={handleSignIn}
-            disabled={isLoading}
-            activeOpacity={0.8}
-            style={[
-              tw`rounded-full py-4 items-center justify-center mb-4`,
-              {
-                backgroundColor: designTokens.colors.brand.primary,
-                opacity: isLoading ? 0.6 : 1,
-              },
-            ]}
-          >
-            {isLoading ? (
-              <Loading size="small" color={designTokens.colors.system.background.primary} />
-            ) : (
-              <Text
-                variant="headline"
-                weight="semibold"
-                style={{ color: designTokens.colors.system.background.primary }}
-              >
-                Sign In
-              </Text>
-            )}
-          </TouchableOpacity>
+          <Animated.View entering={FadeInDown.delay(400).duration(400)}>
+            <TouchableOpacity
+              onPress={handleSignIn}
+              disabled={isLoading}
+              activeOpacity={0.8}
+              style={[
+                tw`rounded-xl py-4 items-center justify-center mb-5`,
+                {
+                  backgroundColor: colors.brand.primary,
+                  opacity: isLoading ? 0.7 : 1,
+                  shadowColor: colors.brand.primary,
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 4,
+                },
+              ]}
+            >
+              {isLoading ? (
+                <Loading size="small" color={colors.fixed.black} />
+              ) : (
+                <Text
+                  variant="body"
+                  weight="semibold"
+                  style={{ color: colors.fixed.black, fontSize: 16 }}
+                >
+                  Sign In
+                </Text>
+              )}
+            </TouchableOpacity>
+          </Animated.View>
 
           {/* Divider */}
-          <View style={tw`flex-row items-center my-6`}>
+          <Animated.View
+            entering={FadeInDown.delay(450).duration(400)}
+            style={tw`flex-row items-center my-5`}
+          >
             <View
               style={[
                 tw`flex-1 h-px`,
-                { backgroundColor: designTokens.colors.system.separator.primary },
+                { backgroundColor: colors.system.separator.primary },
               ]}
             />
             <Text
-              variant="subheadline"
-              color="secondaryLabel"
-              style={{ marginHorizontal: 16 }}
+              variant="caption1"
+              color="tertiaryLabel"
+              style={{ marginHorizontal: 12 }}
             >
               or continue with
             </Text>
             <View
               style={[
                 tw`flex-1 h-px`,
-                { backgroundColor: designTokens.colors.system.separator.primary },
+                { backgroundColor: colors.system.separator.primary },
               ]}
             />
-          </View>
+          </Animated.View>
 
           {/* Social Sign In Buttons */}
-          <View style={tw`flex-row gap-4 mb-6`}>
+          <Animated.View
+            entering={FadeInDown.delay(500).duration(400)}
+            style={tw`flex-row gap-3 mb-6`}
+          >
             {/* Google Sign In */}
             <TouchableOpacity
               onPress={() =>
@@ -422,21 +467,20 @@ export default function SignInScreen() {
                 )
               }
               style={[
-                tw`flex-1 py-3 rounded-2xl flex-row items-center justify-center`,
+                tw`flex-1 py-3 rounded-xl flex-row items-center justify-center`,
                 {
-                  backgroundColor:
-                    designTokens.colors.system.background.secondary,
+                  backgroundColor: colors.system.background.secondary,
                   borderWidth: 1,
-                  borderColor: designTokens.colors.system.separator.primary,
+                  borderColor: colors.system.separator.primary,
                 },
               ]}
               activeOpacity={0.7}
             >
               <Ionicons
                 name="logo-google"
-                size={20}
-                color={designTokens.colors.system.label.primary}
-                style={{ marginRight: 8 }}
+                size={18}
+                color={colors.system.label.primary}
+                style={{ marginRight: 6 }}
               />
               <Text variant="subheadline" weight="semibold" color="label">
                 Google
@@ -453,67 +497,72 @@ export default function SignInScreen() {
                 )
               }
               style={[
-                tw`flex-1 py-3 rounded-2xl flex-row items-center justify-center`,
+                tw`flex-1 py-3 rounded-xl flex-row items-center justify-center`,
                 {
-                  backgroundColor:
-                    designTokens.colors.system.background.secondary,
+                  backgroundColor: colors.system.background.secondary,
                   borderWidth: 1,
-                  borderColor: designTokens.colors.system.separator.primary,
+                  borderColor: colors.system.separator.primary,
                 },
               ]}
               activeOpacity={0.7}
             >
               <Ionicons
                 name="logo-apple"
-                size={20}
-                color={designTokens.colors.system.label.primary}
-                style={{ marginRight: 8 }}
+                size={18}
+                color={colors.system.label.primary}
+                style={{ marginRight: 6 }}
               />
               <Text variant="subheadline" weight="semibold" color="label">
                 Apple
               </Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
 
           {/* Sign Up Link */}
-          <View style={tw`flex-row items-center justify-center`}>
-            <Text variant="body" color="secondaryLabel">
+          <Animated.View
+            entering={FadeInDown.delay(550).duration(400)}
+            style={tw`flex-row items-center justify-center`}
+          >
+            <Text variant="subheadline" color="secondaryLabel">
               Don&apos;t have an account?{" "}
             </Text>
             <Pressable onPress={handleSignUp}>
               <Text
-                variant="body"
+                variant="subheadline"
                 weight="semibold"
-                style={{ color: designTokens.colors.brand.primary }}
+                style={{ color: colors.brand.primary }}
               >
                 Sign Up
               </Text>
             </Pressable>
-          </View>
+          </Animated.View>
 
           {/* Terms & Privacy */}
-          <View style={tw`mt-8 items-center`}>
+          <Animated.View
+            entering={FadeInDown.delay(600).duration(400)}
+            style={tw`mt-8 items-center`}
+          >
             <Text
               variant="caption2"
               color="tertiaryLabel"
-              style={{ textAlign: "center", lineHeight: 18 }}
+              style={{ textAlign: "center", lineHeight: 16 }}
             >
               By signing in, you agree to our{" "}
               <Text
                 variant="caption2"
-                style={{ color: designTokens.colors.brand.primary }}
+                style={{ color: colors.brand.primary }}
               >
                 Terms of Service
               </Text>{" "}
               and{" "}
               <Text
                 variant="caption2"
-                style={{ color: designTokens.colors.brand.primary }}
+                style={{ color: colors.brand.primary }}
               >
                 Privacy Policy
               </Text>
             </Text>
-          </View>
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

@@ -41,13 +41,12 @@ const CARD_SPACING = 12;
 const HERO_HEIGHT = 200;
 const PREFETCH_LIMIT = 5;
 
-// Get greeting based on time of day
+// Get greeting based on time of day (Arabic greetings)
 const getGreeting = (): string => {
   const hour = new Date().getHours();
-  if (hour < 12) return "Good Morning";
-  if (hour < 17) return "Good Afternoon";
-  if (hour < 21) return "Good Evening";
-  return "Assalamu Alaikum";
+  if (hour < 12) return "Sabah al-Khayr"; // Good Morning
+  if (hour < 17) return "Masa al-Khayr"; // Good Afternoon/Evening
+  return "Assalamu Alaikum"; // Peace be upon you
 };
 
 // Quick action items for the grid
@@ -507,7 +506,7 @@ export default function HomeScreen() {
                   {greeting}
                 </Text>
                 <Text variant="headline" color="label" weight="semibold">
-                  {user?.username || "Welcome back"}
+                  {user?.username || "Marhaban"}
                 </Text>
               </View>
             </View>
