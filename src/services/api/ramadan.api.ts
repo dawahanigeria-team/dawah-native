@@ -83,6 +83,19 @@ interface RamadanApiDocument {
   };
 }
 
+interface RamadanKeywordAlbum {
+  nid: number;
+  title: string;
+  img: string;
+  alb_thumbnail: string;
+  lec_no: number;
+  lang: string;
+  categories: string;
+  key_id: string;
+  keyword: string;
+  comment: string;
+}
+
 interface RamadanApiYearGroup {
   key_id: string;
   name: string;
@@ -251,27 +264,70 @@ class RamadanApiService {
   }
 
   /**
-   * Get Ramadan albums for a specific year
+   * Get Ramadan albums for a specific year using keywords API
    */
-  async getRamadanAlbumsByYear(year: number): Promise<RamadanAlbumsResponse> {
+  async getRamadanAlbumsByYear(
+    year: number,
+    page: number = 1
+  ): Promise<RamadanAlbumsResponse & { lectures: number; languages: string[] }> {
     try {
-      const grouped = await this.getRamadanAlbumsGrouped();
-      const yearGroup = grouped.yearGroups.find(g => g.year === year);
+      const keyword = `Ramadan Tafseer ${year}`;
+      
+      const response = await apiClient.get<{
+        data: RamadanKeywordAlbum[];
+        total: number;
+        success: boolean;
+      }>(
+        '/api/albumlisting_keywords_api.php',
+        {
+          key: keyword,
+          page,
+        },
+        {
+          timeout: API_CONFIG.TIMEOUTS.DEFAULT,
+          useCache: true,
+          cacheTTL: 600,
+        }
+      );
 
-      if (!yearGroup) {
+      const apiData = response.data;
+      const rawAlbums = apiData?.data || [];
+      const total = apiData?.total || 0;
+
+      // Calculate total lectures and unique languages
+      let totalLectures = 0;
+      const languagesSet = new Set<string>();
+
+      const albums: RamadanAlbum[] = rawAlbums.map((item: RamadanKeywordAlbum) => {
+        totalLectures += item.lec_no || 0;
+        if (item.lang) {
+          languagesSet.add(item.lang);
+        }
+
         return {
-          albums: [],
-          total: 0,
-          page: 1,
-          hasMore: false,
+          id: String(item.nid || item.key_id),
+          name: item.title || 'Unknown',
+          img: item.img || '',
+          alb_thumbnail: item.alb_thumbnail || item.img || '',
+          lec_no: item.lec_no || 0,
+          language: item.lang || 'Hausa',
+          views: 0,
+          downloads: 0,
+          categories: item.categories || 'Quran & Tafsir',
+          post_date: '',
+          year,
+          key_id: item.key_id || '',
+          charts: { daily: 0, monthly: 0, weekly: 0 },
         };
-      }
+      });
 
       return {
-        albums: yearGroup.albums,
-        total: yearGroup.totalCount,
-        page: 1,
-        hasMore: false,
+        albums,
+        total,
+        page,
+        hasMore: albums.length > 0 && page * 20 < total,
+        lectures: totalLectures,
+        languages: Array.from(languagesSet),
       };
     } catch (error) {
       console.error('Failed to fetch Ramadan albums by year:', error);
