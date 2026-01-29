@@ -96,6 +96,15 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       .filter(Boolean)
       .join(", ");
 
+    const isRecitation = Boolean(
+      lectureDetail?.isReciter ||
+      lectureDetail?.reciter?.isReciter ||
+      lectureDetail?.reciter?.id ||
+      lectureDetail?.raw?.reciter_id
+    );
+
+    const contentTypeLabel = isRecitation ? "Quran Recitation" : "Islamic Lecture";
+
     const [imageError, setImageError] = useState(false);
     const translateY = useSharedValue(0);
     const opacity = useSharedValue(1);
@@ -449,7 +458,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                 color="tertiaryLabel"
                 style={{ textAlign: "center" }}
               >
-                {`Islamic Lecture${languageLabel ? ` • ${languageLabel}` : ""}`}
+                {`${contentTypeLabel}${languageLabel ? ` • ${languageLabel}` : ""}`}
               </Text>
             </View>
 
