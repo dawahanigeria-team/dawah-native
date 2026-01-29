@@ -3,6 +3,7 @@ import React, { memo, useState } from "react";
 import { View, ViewStyle } from "react-native";
 import { usePlayerActions } from "../../stores";
 import { BorderRadius, designTokens } from "../../theme/designTokens";
+import { useTheme } from "../../hooks/useTheme";
 import { Episode, Series, Video } from "../../types/types";
 import { getInitials, getPlaceholderStyle } from "../../utils/colorPlaceholder";
 import { formatDuration } from "../../utils/formatTime";
@@ -66,6 +67,10 @@ export const Card: React.FC<CardProps> = memo(
     const video = isActualVideo ? (data as Video) : null;
     const [imageError, setImageError] = useState(false);
     const { playEpisode } = usePlayerActions();
+    const { colors } = useTheme();
+
+    // Safe access to coverUrl or thumbnailUrl
+    const coverUrl = (data as any).coverUrl || (data as any).thumbnailUrl;
 
     const getAccessibilityLabel = () => {
       let label = `${data.title}`;
@@ -134,9 +139,9 @@ export const Card: React.FC<CardProps> = memo(
             accessibilityRole="button"
           >
             <View style={{ position: "relative", width: imageSize, height: imageSize }}>
-              {data.coverUrl && !imageError ? (
+              {coverUrl && !imageError ? (
                 <Image
-                  source={{ uri: data.coverUrl }}
+                  source={{ uri: coverUrl }}
                   style={{
                     width: imageSize,
                     height: imageSize,
@@ -158,7 +163,7 @@ export const Card: React.FC<CardProps> = memo(
                     style={{
                       fontSize: designTokens.typography.fontSize.title1,
                       fontWeight: designTokens.typography.fontWeight.bold,
-                      color: designTokens.colors.system.label.primary,
+                      color: colors.system.label.primary,
                     }}
                   >
                     {getInitials(data.title)}
@@ -188,7 +193,7 @@ export const Card: React.FC<CardProps> = memo(
                     position: "absolute",
                     top: designTokens.spacing.sm,
                     right: designTokens.spacing.sm,
-                    backgroundColor: designTokens.colors.system.red,
+                    backgroundColor: colors.semantic.red,
                     borderRadius: 6,
                     paddingHorizontal: 6,
                     paddingVertical: 3,
@@ -200,7 +205,7 @@ export const Card: React.FC<CardProps> = memo(
                   <Icon
                     name="videocam"
                     size="sm"
-                    color={designTokens.colors.fixed.white}
+                    color={colors.fixed.white}
                   />
                 </View>
               )}
@@ -211,7 +216,7 @@ export const Card: React.FC<CardProps> = memo(
                     position: "absolute",
                     bottom: designTokens.spacing.sm,
                     left: designTokens.spacing.sm,
-                    backgroundColor: designTokens.colors.overlay.darkHeavy,
+                    backgroundColor: colors.overlay.darkHeavy,
                     paddingHorizontal: designTokens.spacing.sm,
                     paddingVertical: designTokens.spacing.xs,
                     borderRadius: designTokens.borderRadius.md,
@@ -258,13 +263,13 @@ export const Card: React.FC<CardProps> = memo(
     const renderLandscapeVariant = () => {
       const containerStyle: ViewStyle = {
         flexDirection: "row",
-        backgroundColor: designTokens.colors.system.background.secondary,
+        backgroundColor: colors.system.background.secondary,
         borderRadius: designTokens.borderRadius.xl, // Slightly less rounded for space efficiency
         padding: designTokens.spacing.md, // Reduced padding for compactness (16px)
         marginBottom: designTokens.spacing.md,
         minHeight: 88, // Optimized height to fit 4+ items on screen
         // Apple-style subtle shadow
-        shadowColor: designTokens.colors.system.label.primary,
+        shadowColor: colors.system.label.primary,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.06,
         shadowRadius: 12,
@@ -289,9 +294,9 @@ export const Card: React.FC<CardProps> = memo(
               marginRight: designTokens.spacing.md,
             }}
           >
-            {data.coverUrl && !imageError ? (
+            {coverUrl && !imageError ? (
               <Image
-                source={{ uri: data.coverUrl }}
+                source={{ uri: coverUrl }}
                 style={{
                   width: 60, // Compact size for better space efficiency
                   height: 60,
@@ -309,7 +314,7 @@ export const Card: React.FC<CardProps> = memo(
                   style={{
                     fontSize: designTokens.typography.fontSize.body,
                     fontWeight: designTokens.typography.fontWeight.bold,
-                    color: designTokens.colors.system.label.primary,
+                    color: colors.system.label.primary,
                   }}
                 >
                   {getInitials(data.title)}
@@ -326,7 +331,7 @@ export const Card: React.FC<CardProps> = memo(
                 right: 0,
                 bottom: 0,
                 borderRadius: designTokens.borderRadius.lg,
-                backgroundColor: designTokens.colors.overlay.darkSubtle,
+                backgroundColor: colors.overlay.darkSubtle,
               }}
             />
 
@@ -337,7 +342,7 @@ export const Card: React.FC<CardProps> = memo(
                   position: "absolute",
                   top: 4,
                   right: 4,
-                  backgroundColor: designTokens.colors.system.red,
+                  backgroundColor: colors.semantic.red,
                   borderRadius: 4,
                   paddingHorizontal: 4,
                   paddingVertical: 2,
@@ -349,7 +354,7 @@ export const Card: React.FC<CardProps> = memo(
                 <Icon
                   name="videocam"
                   size="sm"
-                  color={designTokens.colors.fixed.white}
+                  color={colors.fixed.white}
                 />
               </View>
             )}
@@ -414,7 +419,7 @@ export const Card: React.FC<CardProps> = memo(
                       height: 3,
                       borderRadius: 1.5,
                       backgroundColor:
-                        designTokens.colors.system.label.tertiary,
+                        colors.system.label.tertiary,
                       marginRight: 6,
                     }}
                   />
@@ -447,7 +452,7 @@ export const Card: React.FC<CardProps> = memo(
                 <Icon
                   name="ellipsis-horizontal"
                   size="md"
-                  color={designTokens.colors.system.label.secondary}
+                  color={colors.system.label.secondary}
                 />
               </Touchable>
             )}
@@ -469,24 +474,24 @@ export const Card: React.FC<CardProps> = memo(
                   width: 44, // Compact but still meets 44pt touch target
                   height: 44,
                   borderRadius: 22,
-                  backgroundColor: designTokens.colors.brand.primary,
+                  backgroundColor: colors.brand.primary,
                   alignItems: "center",
                   justifyContent: "center",
                   // Apple-style play button shadow
-                  shadowColor: designTokens.colors.brand.primary,
+                  shadowColor: colors.brand.primary,
                   shadowOffset: { width: 0, height: 3 },
                   shadowOpacity: 0.3,
                   shadowRadius: 6,
                   elevation: 5,
                   // Subtle inner shadow effect
                   borderWidth: 1,
-                  borderColor: designTokens.colors.overlay.lightSubtle,
+                  borderColor: colors.overlay.lightSubtle,
                 }}
               >
                 <Icon
                   name="play"
                   size="md"
-                  color={designTokens.colors.fixed.black}
+                  color={colors.fixed.black}
                   style={{
                     marginLeft: 2, // Optical alignment for play icon
                   }}
@@ -504,7 +509,7 @@ export const Card: React.FC<CardProps> = memo(
         alignItems: "center",
         paddingVertical: designTokens.spacing.md,
         borderBottomWidth: 1,
-        borderBottomColor: designTokens.colors.system.separator.primary,
+        borderBottomColor: colors.system.separator.primary,
         minHeight: designTokens.hitTargets.large,
         ...style,
       };
@@ -517,9 +522,9 @@ export const Card: React.FC<CardProps> = memo(
           accessibilityHint="Tap to view details"
           accessibilityRole="button"
         >
-          {data.coverUrl && !imageError ? (
+          {coverUrl && !imageError ? (
             <Image
-              source={{ uri: data.coverUrl }}
+              source={{ uri: coverUrl }}
               style={{
                 width: designTokens.spacing["5xl"],
                 height: designTokens.spacing["5xl"],
@@ -539,7 +544,7 @@ export const Card: React.FC<CardProps> = memo(
                 style={{
                   fontSize: designTokens.typography.fontSize.footnote,
                   fontWeight: designTokens.typography.fontWeight.bold,
-                  color: designTokens.colors.system.label.primary,
+                  color: colors.system.label.primary,
                 }}
               >
                 {getInitials(data.title)}
@@ -583,11 +588,11 @@ export const Card: React.FC<CardProps> = memo(
         minHeight: 120, // Optimized height for better space efficiency
         paddingVertical: designTokens.spacing.lg, // Reduced padding for compactness
         paddingHorizontal: designTokens.spacing.xl,
-        backgroundColor: designTokens.colors.system.background.secondary,
+        backgroundColor: colors.system.background.secondary,
         borderRadius: designTokens.borderRadius["2xl"], // More rounded for modern look
         marginBottom: designTokens.spacing.md, // Reduced margin for tighter spacing
         // Apple-style subtle shadow
-        shadowColor: designTokens.colors.system.label.primary,
+        shadowColor: colors.system.label.primary,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.06,
         shadowRadius: 12,
@@ -615,9 +620,9 @@ export const Card: React.FC<CardProps> = memo(
                 marginRight: designTokens.spacing.lg,
               }}
             >
-              {data.coverUrl && !imageError ? (
+              {coverUrl && !imageError ? (
                 <Image
-                  source={{ uri: data.coverUrl }}
+                  source={{ uri: coverUrl }}
                   style={{
                     width: imageSize,
                     height: imageSize,
@@ -635,7 +640,7 @@ export const Card: React.FC<CardProps> = memo(
                     style={{
                       fontSize: designTokens.typography.fontSize.title3,
                       fontWeight: designTokens.typography.fontWeight.bold,
-                      color: designTokens.colors.system.label.primary,
+                      color: colors.system.label.primary,
                     }}
                   >
                     {getInitials(data.title)}
@@ -647,14 +652,14 @@ export const Card: React.FC<CardProps> = memo(
               <View
                 style={{
                   position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                borderRadius: designTokens.borderRadius.xl,
-                backgroundColor: designTokens.colors.overlay.darkSubtle,
-              }}
-            />
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  borderRadius: designTokens.borderRadius.xl,
+                  backgroundColor: colors.overlay.darkSubtle,
+                }}
+              />
             </View>
 
             {/* Content - Vertically Layered */}
@@ -711,7 +716,7 @@ export const Card: React.FC<CardProps> = memo(
                       height: 4,
                       borderRadius: 2,
                       backgroundColor:
-                        designTokens.colors.system.label.tertiary,
+                        colors.system.label.tertiary,
                       marginRight: designTokens.spacing.xs,
                     }}
                   />
@@ -742,24 +747,24 @@ export const Card: React.FC<CardProps> = memo(
                   width: 48,
                   height: 48,
                   borderRadius: 24,
-                  backgroundColor: designTokens.colors.brand.primary,
+                  backgroundColor: colors.brand.primary,
                   alignItems: "center",
                   justifyContent: "center",
                   // Apple-style play button shadow
-                  shadowColor: designTokens.colors.brand.primary,
+                  shadowColor: colors.brand.primary,
                   shadowOffset: { width: 0, height: 2 },
                   shadowOpacity: 0.25,
                   shadowRadius: 6,
                   elevation: 4,
                   // Subtle inner shadow effect
                   borderWidth: 1,
-                  borderColor: designTokens.colors.overlay.lightSubtle,
+                  borderColor: colors.overlay.lightSubtle,
                 }}
               >
                 <Icon
                   name="play"
                   size="md"
-                  color={designTokens.colors.fixed.black}
+                  color={colors.fixed.black}
                   accessibilityLabel="Play button"
                   style={{
                     marginLeft: 1, // Optical alignment for play icon

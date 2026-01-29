@@ -11,6 +11,7 @@ import { LecturerLecture, lecturersApi } from "../../src/services/api/lecturers.
 import { searchApi } from "../../src/services/api/search.api";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
 import { usePlayerActions } from "../../src/stores";
+import { useTheme } from "../../src/hooks/useTheme";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { SearchPlaylist } from "../../src/types/api.types";
@@ -28,6 +29,7 @@ export default function LecturerDetailScreen() {
   const lecturerId = Array.isArray(id) ? id[0] : id;
   const lecturerNameHint = Array.isArray(name) ? name[0] : (name || '');
   const { playEpisode } = usePlayerActions();
+  const { colors } = useTheme();
 
   // If we navigated here without a valid lecturer id (e.g., id=0), try resolving by name.
   useEffect(() => {
@@ -432,12 +434,12 @@ export default function LecturerDetailScreen() {
       <SafeAreaView
         style={[
           tw`flex-1`,
-          { backgroundColor: designTokens.colors.palette.slate950 },
+          { backgroundColor: colors.system.background.primary },
         ]}
       >
         <View style={tw`flex-1 items-center justify-center`}>
-          <ActivityIndicator size="large" color={designTokens.colors.brand.primary} />
-          <Text style={tw`text-white mt-4`}>Loading lecturer details...</Text>
+          <ActivityIndicator size="large" color={colors.brand.primary} />
+          <Text style={[tw`mt-4`, { color: colors.system.label.primary }]}>Loading lecturer details...</Text>
         </View>
       </SafeAreaView>
     );
@@ -448,19 +450,19 @@ export default function LecturerDetailScreen() {
       <SafeAreaView
         style={[
           tw`flex-1`,
-          { backgroundColor: designTokens.colors.palette.slate950 },
+          { backgroundColor: colors.system.background.primary },
         ]}
       >
         <View style={tw`flex-1 items-center justify-center px-6`}>
-          <Text style={tw`text-white text-lg mb-4`}>Failed to load lecturer</Text>
+          <Text style={[tw`text-lg mb-4`, { color: colors.system.label.primary }]}>Failed to load lecturer</Text>
           <TouchableOpacity
             onPress={() => router.back()}
             style={[
               tw`px-6 py-3 rounded-lg`,
-              { backgroundColor: designTokens.colors.palette.slate800 },
+              { backgroundColor: colors.system.fill.tertiary },
             ]}
           >
-            <Text style={tw`text-white`}>Go Back</Text>
+            <Text style={{ color: colors.system.label.primary }}>Go Back</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -508,7 +510,7 @@ export default function LecturerDetailScreen() {
       <TouchableOpacity
         style={[
           tw`flex-row items-start p-4 rounded-lg mb-3`,
-          { backgroundColor: designTokens.colors.palette.neutral900 },
+          { backgroundColor: colors.system.background.secondary },
         ]}
         onPress={handleAlbumPress}
       >
@@ -518,20 +520,20 @@ export default function LecturerDetailScreen() {
             style={tw`w-16 h-16 rounded-lg`}
           />
         ) : (
-          <View style={tw`w-16 h-16 rounded-lg bg-gray-700 items-center justify-center`}>
-            <Ionicons name="musical-notes" size={24} color={designTokens.colors.palette.gray400} />
+          <View style={[tw`w-16 h-16 rounded-lg items-center justify-center`, { backgroundColor: colors.system.fill.secondary }]}>
+            <Ionicons name="musical-notes" size={24} color={colors.system.label.tertiary} />
           </View>
         )}
         <View style={tw`flex-1 ml-4`}>
-          <Text style={tw`text-white font-semibold mb-1`} numberOfLines={2}>
+          <Text style={[tw`font-semibold mb-1`, { color: colors.system.label.primary }]} numberOfLines={2}>
             {item.title}
           </Text>
-          <Text style={tw`text-gray-400 text-sm`}>
+          <Text style={[tw`text-sm`, { color: colors.system.label.secondary }]}>
             {item.trackCount || 0} lectures{item.language ? ` • ${item.language}` : ''}
           </Text>
         </View>
         <View style={tw`justify-center ml-2`}>
-          <Ionicons name="chevron-forward" size={20} color={designTokens.colors.palette.gray400} />
+          <Ionicons name="chevron-forward" size={20} color={colors.system.label.tertiary} />
         </View>
       </TouchableOpacity>
     );
@@ -540,11 +542,11 @@ export default function LecturerDetailScreen() {
   const renderLectureItem = (lecture: LecturerLecture, index: number) => (
     <TouchableOpacity
       key={lecture.nid || index}
-      style={tw`flex-row items-center py-3 border-b border-gray-800`}
+      style={[tw`flex-row items-center py-3 border-b`, { borderColor: colors.system.separator.primary }]}
       onPress={() => handleLectureCardPress(lecture)}
     >
       {/* Track Number */}
-      <Text style={tw`text-gray-400 w-8 text-center mr-2`}>
+      <Text style={[tw`w-8 text-center mr-2`, { color: colors.system.label.tertiary }]}>
         {index + 1}
       </Text>
 
@@ -555,30 +557,30 @@ export default function LecturerDetailScreen() {
           style={tw`w-12 h-12 rounded`}
         />
       ) : (
-        <View style={tw`w-12 h-12 rounded bg-gray-700 items-center justify-center`}>
-          <Ionicons name="musical-note" size={20} color={designTokens.colors.palette.gray400} />
+        <View style={[tw`w-12 h-12 rounded items-center justify-center`, { backgroundColor: colors.system.fill.secondary }]}>
+          <Ionicons name="musical-note" size={20} color={colors.system.label.tertiary} />
         </View>
       )}
 
       {/* Title and Info */}
       <View style={tw`flex-1 ml-3`}>
-        <Text style={tw`text-white font-medium mb-1`} numberOfLines={2}>
+        <Text style={[tw`font-medium mb-1`, { color: colors.system.label.primary }]} numberOfLines={2}>
           {lecture.title || 'Untitled'}
         </Text>
         <View style={tw`flex-row items-center`}>
-          <Text style={tw`text-gray-400 text-xs mr-3`} numberOfLines={1}>
+          <Text style={[tw`text-xs mr-3`, { color: colors.system.label.secondary }]} numberOfLines={1}>
             {lecture.rpname}
           </Text>
           <View style={tw`flex-row items-center mr-3`}>
-            <Ionicons name="play" size={12} color={designTokens.colors.palette.gray400} />
-            <Text style={tw`text-gray-400 text-xs ml-1`}>
+            <Ionicons name="play" size={12} color={colors.system.label.tertiary} />
+            <Text style={[tw`text-xs ml-1`, { color: colors.system.label.secondary }]}>
               {formatNumber(lecture.views)}
             </Text>
           </View>
           {lecture.favorites > 0 && (
             <View style={tw`flex-row items-center`}>
-              <Ionicons name="heart" size={12} color={designTokens.colors.palette.gray400} />
-              <Text style={tw`text-gray-400 text-xs ml-1`}>
+              <Ionicons name="heart" size={12} color={colors.system.label.tertiary} />
+              <Text style={[tw`text-xs ml-1`, { color: colors.system.label.secondary }]}>
                 {formatNumber(lecture.favorites)}
               </Text>
             </View>
@@ -587,7 +589,7 @@ export default function LecturerDetailScreen() {
       </View>
 
       {/* Duration */}
-      <Text style={tw`text-gray-400 text-sm mr-3`}>
+      <Text style={[tw`text-sm mr-3`, { color: colors.system.label.secondary }]}>
         {lecture.duration || '00:00'}
       </Text>
 
@@ -599,7 +601,7 @@ export default function LecturerDetailScreen() {
           handleLecturePlay(lecture);
         }}
       >
-        <Ionicons name="play-circle" size={28} color={designTokens.colors.brand.primary} />
+        <Ionicons name="play-circle" size={28} color={colors.brand.primary} />
       </TouchableOpacity>
     </TouchableOpacity>
   );
@@ -608,8 +610,8 @@ export default function LecturerDetailScreen() {
     if (!loadingMore) return null;
     return (
       <View style={tw`py-4 items-center`}>
-        <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
-        <Text style={tw`text-gray-400 mt-2 text-xs`}>Loading more...</Text>
+        <ActivityIndicator size="small" color={colors.brand.primary} />
+        <Text style={[tw`mt-2 text-xs`, { color: colors.system.label.secondary }]}>Loading more...</Text>
       </View>
     );
   };
@@ -618,8 +620,8 @@ export default function LecturerDetailScreen() {
     if (!loadingMoreAlbums) return null;
     return (
       <View style={tw`py-4 items-center`}>
-        <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
-        <Text style={tw`text-gray-400 mt-2 text-xs`}>Loading more albums...</Text>
+        <ActivityIndicator size="small" color={colors.brand.primary} />
+        <Text style={[tw`mt-2 text-xs`, { color: colors.system.label.secondary }]}>Loading more albums...</Text>
       </View>
     );
   };
@@ -628,8 +630,8 @@ export default function LecturerDetailScreen() {
     if (!loadingMorePlaylists) return null;
     return (
       <View style={tw`py-4 items-center`}>
-        <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
-        <Text style={tw`text-gray-400 mt-2 text-xs`}>Loading more playlists...</Text>
+        <ActivityIndicator size="small" color={colors.brand.primary} />
+        <Text style={[tw`mt-2 text-xs`, { color: colors.system.label.secondary }]}>Loading more playlists...</Text>
       </View>
     );
   };
@@ -644,7 +646,7 @@ export default function LecturerDetailScreen() {
       <TouchableOpacity
         style={[
           tw`flex-row items-start p-4 rounded-lg mb-3`,
-          { backgroundColor: designTokens.colors.palette.neutral900 },
+          { backgroundColor: colors.system.background.secondary },
         ]}
         onPress={handlePlaylistPress}
       >
@@ -654,20 +656,20 @@ export default function LecturerDetailScreen() {
             style={tw`w-16 h-16 rounded-lg`}
           />
         ) : (
-          <View style={tw`w-16 h-16 rounded-lg bg-gray-700 items-center justify-center`}>
-            <Ionicons name="list" size={24} color={designTokens.colors.palette.gray400} />
+          <View style={[tw`w-16 h-16 rounded-lg items-center justify-center`, { backgroundColor: colors.system.fill.secondary }]}>
+            <Ionicons name="list" size={24} color={colors.system.label.tertiary} />
           </View>
         )}
         <View style={tw`flex-1 ml-4`}>
-          <Text style={tw`text-white font-semibold mb-1`} numberOfLines={2}>
+          <Text style={[tw`font-semibold mb-1`, { color: colors.system.label.primary }]} numberOfLines={2}>
             {item.title}
           </Text>
-          <Text style={tw`text-gray-400 text-sm`}>
+          <Text style={[tw`text-sm`, { color: colors.system.label.secondary }]}>
             {item.itemCount || 0} items{item.userName ? ` • by ${item.userName}` : ''}
           </Text>
         </View>
         <View style={tw`justify-center ml-2`}>
-          <Ionicons name="chevron-forward" size={20} color={designTokens.colors.palette.gray400} />
+          <Ionicons name="chevron-forward" size={20} color={colors.system.label.tertiary} />
         </View>
       </TouchableOpacity>
     );
@@ -677,8 +679,8 @@ export default function LecturerDetailScreen() {
     if (playlistsLoading) {
         return (
           <View style={tw`py-10 items-center`}>
-            <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
-            <Text style={tw`text-gray-400 mt-2`}>Loading playlists...</Text>
+            <ActivityIndicator size="small" color={colors.brand.primary} />
+            <Text style={[tw`mt-2`, { color: colors.system.label.secondary }]}>Loading playlists...</Text>
           </View>
         );
     }
@@ -686,7 +688,7 @@ export default function LecturerDetailScreen() {
     if (playlists.length === 0) {
        return (
           <View style={tw`py-10 items-center`}>
-            <Text style={tw`text-gray-400 text-center`}>
+            <Text style={[tw`text-center`, { color: colors.system.label.secondary }]}>
               No playlists found for this scholar
             </Text>
           </View>
@@ -713,8 +715,8 @@ export default function LecturerDetailScreen() {
       style={[
         styles.stickyHeader,
         {
-          backgroundColor: designTokens.colors.system.background.primary,
-          borderBottomColor: designTokens.colors.system.separator.primary,
+          backgroundColor: colors.system.background.primary,
+          borderBottomColor: colors.system.separator.primary,
         },
       ]}
     >
@@ -734,7 +736,7 @@ export default function LecturerDetailScreen() {
                 { backgroundColor: getPlaceholderColor(lecturerId) }
               ]}
             >
-              <Text style={tw`text-white text-3xl font-bold`}>
+              <Text style={{ color: colors.fixed.white, fontSize: 30, fontWeight: 'bold' }}>
                 {getInitials(lecturerName)}
               </Text>
             </View>
@@ -743,11 +745,11 @@ export default function LecturerDetailScreen() {
           {/* Info */}
           <View style={tw`flex-1 ml-4 justify-between`}>
             <View>
-              <Text style={tw`text-white text-xl font-bold mb-1`}>
+              <Text style={[tw`text-xl font-bold mb-1`, { color: colors.system.label.primary }]}>
                 {lecturerName}
               </Text>
               {lecturer.bio && (
-                <Text style={tw`text-gray-300 text-sm`} numberOfLines={2}>
+                <Text style={[tw`text-sm`, { color: colors.system.label.secondary }]} numberOfLines={2}>
                   {lecturer.bio}
                 </Text>
               )}
@@ -755,21 +757,21 @@ export default function LecturerDetailScreen() {
 
             {/* Stats */}
             <View style={tw`flex-row items-center mt-2`}>
-              <View style={tw`flex-row items-center bg-gray-800 rounded-full px-3 py-1.5 mr-2`}>
-                <Ionicons name="heart" size={14} color={designTokens.colors.palette.gray400} />
-                <Text style={tw`text-gray-300 text-xs ml-1.5`}>
+              <View style={[tw`flex-row items-center rounded-full px-3 py-1.5 mr-2`, { backgroundColor: colors.system.fill.tertiary }]}>
+                <Ionicons name="heart" size={14} color={colors.system.label.tertiary} />
+                <Text style={[tw`text-xs ml-1.5`, { color: colors.system.label.secondary }]}>
                   {formatNumber(favorites)}
                 </Text>
               </View>
-              <View style={tw`flex-row items-center bg-gray-800 rounded-full px-3 py-1.5 mr-2`}>
-                <Ionicons name="share-social" size={14} color={designTokens.colors.palette.gray400} />
-                <Text style={tw`text-gray-300 text-xs ml-1.5`}>
+              <View style={[tw`flex-row items-center rounded-full px-3 py-1.5 mr-2`, { backgroundColor: colors.system.fill.tertiary }]}>
+                <Ionicons name="share-social" size={14} color={colors.system.label.tertiary} />
+                <Text style={[tw`text-xs ml-1.5`, { color: colors.system.label.secondary }]}>
                   {shares}
                 </Text>
               </View>
-              <View style={tw`flex-row items-center bg-gray-800 rounded-full px-3 py-1.5`}>
-                <Ionicons name="chatbubble" size={14} color={designTokens.colors.palette.gray400} />
-                <Text style={tw`text-gray-300 text-xs ml-1.5`}>
+              <View style={[tw`flex-row items-center rounded-full px-3 py-1.5`, { backgroundColor: colors.system.fill.tertiary }]}>
+                <Ionicons name="chatbubble" size={14} color={colors.system.label.tertiary} />
+                <Text style={[tw`text-xs ml-1.5`, { color: colors.system.label.secondary }]}>
                   {comments}
                 </Text>
               </View>
@@ -791,20 +793,20 @@ export default function LecturerDetailScreen() {
           <View
             style={[
               tw`flex-row items-center rounded-lg px-4 py-3`,
-              { backgroundColor: designTokens.colors.palette.neutral900 },
+              { backgroundColor: colors.system.background.secondary },
             ]}
           >
-            <Ionicons name="search" size={20} color={designTokens.colors.palette.gray400} />
+            <Ionicons name="search" size={20} color={colors.system.label.tertiary} />
             <TextInput
-              style={tw`flex-1 ml-3 text-white`}
+              style={[tw`flex-1 ml-3`, { color: colors.system.label.primary }]}
               placeholder="Search lectures"
-              placeholderTextColor={designTokens.colors.palette.gray500}
+              placeholderTextColor={colors.system.label.tertiary}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Ionicons name="close-circle" size={20} color={designTokens.colors.palette.gray400} />
+                <Ionicons name="close-circle" size={20} color={colors.system.label.tertiary} />
               </TouchableOpacity>
             )}
           </View>
@@ -829,14 +831,14 @@ export default function LecturerDetailScreen() {
           if (lecturesLoading) {
             return (
               <View style={tw`px-5 py-10 items-center`}>
-                <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
-                <Text style={tw`text-gray-400 mt-2`}>Loading lectures...</Text>
+                <ActivityIndicator size="small" color={colors.brand.primary} />
+                <Text style={[tw`mt-2`, { color: colors.system.label.secondary }]}>Loading lectures...</Text>
               </View>
             );
           }
           return (
             <View style={tw`px-5 py-10 items-center`}>
-              <Text style={tw`text-gray-400 text-center`}>
+              <Text style={[tw`text-center`, { color: colors.system.label.secondary }]}>
                 {searchQuery ? 'No lectures found matching your search' : 'No lectures found for this scholar'}
               </Text>
             </View>
@@ -865,14 +867,14 @@ export default function LecturerDetailScreen() {
               if (albumsLoading) {
                 return (
                   <View style={tw`py-10 items-center`}>
-                    <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
-                    <Text style={tw`text-gray-400 mt-2`}>Loading albums...</Text>
+                    <ActivityIndicator size="small" color={colors.brand.primary} />
+                    <Text style={[tw`mt-2`, { color: colors.system.label.secondary }]}>Loading albums...</Text>
                   </View>
                 );
               }
               return (
                 <View style={tw`py-10 items-center`}>
-                  <Text style={tw`text-gray-400 text-center`}>
+                  <Text style={[tw`text-center`, { color: colors.system.label.secondary }]}>
                     No albums found for this scholar
                   </Text>
                 </View>
@@ -883,14 +885,14 @@ export default function LecturerDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={[tw`flex-1`, { backgroundColor: designTokens.colors.system.background.primary }]}>
+    <SafeAreaView style={[tw`flex-1`, { backgroundColor: colors.system.background.primary }]}>
       {/* Header */}
       <View style={tw`flex-row items-center justify-between px-5 py-4`}>
         <TouchableOpacity
           onPress={() => router.back()}
-          style={tw`w-10 h-10 items-center justify-center rounded-full`}
+          style={[tw`w-10 h-10 items-center justify-center rounded-full`, { backgroundColor: colors.system.background.secondary }]}
         >
-          <Ionicons name="arrow-back" size={24} color={designTokens.colors.system.label.primary} />
+          <Ionicons name="arrow-back" size={24} color={colors.system.label.primary} />
         </TouchableOpacity>
 
         <Text variant="title3" weight="bold" color="label" style={tw`flex-1 text-center mr-10`}>

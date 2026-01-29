@@ -2,6 +2,7 @@ import React, { memo } from 'react';
 import { View, ViewStyle, FlatList } from 'react-native';
 import { useRouter } from 'expo-router';
 import { designTokens, BorderRadius } from '../../theme/designTokens';
+import { useTheme } from '../../hooks/useTheme';
 import { Touchable, Text, Icon } from '../atoms';
 
 interface ActionItem {
@@ -27,42 +28,42 @@ const defaultActions: ActionItem[] = [
     id: '1',
     title: 'Chart',
     icon: 'trending-up',
-    color: designTokens.colors.palette.blue500,
+    color: designTokens.colorsDark.palette.blue500,
     description: 'View trending content'
   },
   {
     id: '2',
     title: 'Lecturers',
     icon: 'people',
-    color: designTokens.colors.palette.green500,
+    color: designTokens.colorsDark.palette.green500,
     description: 'Browse all lecturers'
   },
   {
     id: '3',
     title: 'Playlist',
     icon: 'list',
-    color: designTokens.colors.palette.amber500,
+    color: designTokens.colorsDark.palette.amber500,
     description: 'Your saved playlists'
   },
   {
     id: '4',
     title: 'Video',
     icon: 'videocam',
-    color: designTokens.colors.palette.red500,
+    color: designTokens.colorsDark.palette.red500,
     description: 'Watch video content'
   },
   {
     id: '5',
     title: 'Quran',
     icon: 'book',
-    color: designTokens.colors.palette.emerald500,
+    color: designTokens.colorsDark.palette.emerald500,
     description: 'Quran recitations'
   },
   {
     id: '6',
     title: 'Trending',
     icon: 'flame',
-    color: designTokens.colors.palette.orange500,
+    color: designTokens.colorsDark.palette.orange500,
     description: 'Most popular content'
   },
 ];
@@ -77,6 +78,7 @@ export const ActionGrid: React.FC<ActionGridProps> = memo(({
   style,
 }) => {
   const router = useRouter();
+  const { colors } = useTheme();
 
   const handleItemPress = (item: ActionItem) => {
     if (item.id === '1' && item.title === 'Chart') {
@@ -107,7 +109,7 @@ export const ActionGrid: React.FC<ActionGridProps> = memo(({
     };
 
     const cardStyle: ViewStyle = {
-      backgroundColor: designTokens.colors.system.background.secondary,
+      backgroundColor: colors.system.background.secondary,
       borderRadius: designTokens.borderRadius[borderRadius],
       padding: designTokens.spacing.lg,
       alignItems: 'center',

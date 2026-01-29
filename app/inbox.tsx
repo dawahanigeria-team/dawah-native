@@ -18,6 +18,7 @@ import { Text } from "../src/components/atoms";
 import { useAnnouncements } from "../src/hooks/useAnnouncements";
 import { announcementsApi } from "../src/services/api/announcements.api";
 import { userService } from "../src/services/user.service";
+import { useTheme } from "../src/hooks/useTheme";
 import { designTokens } from "../src/theme/designTokens";
 import tw from "../src/theme/twrnc";
 
@@ -66,6 +67,7 @@ const mockAnnouncements: Announcement[] = [
 ];
 
 export default function InboxScreen() {
+  const { colors } = useTheme();
   const [userId, setUserId] = useState<string>();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -136,11 +138,11 @@ export default function InboxScreen() {
   const getIconColor = (type: Announcement["type"]): string => {
     switch (type) {
       case "alert":
-        return designTokens.colors.system.red;
+        return colors.semantic.red;
       case "update":
-        return designTokens.colors.brand.primary;
+        return colors.brand.primary;
       default:
-        return designTokens.colors.palette.blue500;
+        return colors.palette.blue500;
     }
   };
 
@@ -150,10 +152,10 @@ export default function InboxScreen() {
         tw`px-4 py-4`,
         {
           backgroundColor: item.read
-            ? designTokens.colors.system.background.primary
-            : designTokens.colors.system.background.secondary,
+            ? colors.system.background.primary
+            : colors.system.background.secondary,
           borderBottomWidth: 1,
-          borderBottomColor: designTokens.colors.system.separator.primary,
+          borderBottomColor: colors.system.separator.primary,
         },
       ]}
       onPress={() => markAsRead(item.id)}
@@ -187,7 +189,7 @@ export default function InboxScreen() {
                   fontWeight: item.read
                     ? designTokens.typography.fontWeight.medium
                     : designTokens.typography.fontWeight.bold,
-                  color: designTokens.colors.system.label.primary,
+                  color: colors.system.label.primary,
                 },
               ]}
               numberOfLines={1}
@@ -197,7 +199,7 @@ export default function InboxScreen() {
             <Text
               style={{
                 fontSize: designTokens.typography.fontSize.caption1,
-                color: designTokens.colors.system.label.tertiary,
+                color: colors.system.label.tertiary,
               }}
             >
               {formatDate(item.createdAt)}
@@ -207,7 +209,7 @@ export default function InboxScreen() {
           <Text
             style={{
               fontSize: designTokens.typography.fontSize.footnote,
-              color: designTokens.colors.system.label.secondary,
+              color: colors.system.label.secondary,
               lineHeight: designTokens.typography.fontSize.footnote * 1.4,
             }}
             numberOfLines={2}
@@ -221,13 +223,13 @@ export default function InboxScreen() {
               <View
                 style={[
                   tw`w-2 h-2 rounded-full mr-2`,
-                  { backgroundColor: designTokens.colors.brand.primary },
+                  { backgroundColor: colors.brand.primary },
                 ]}
               />
               <Text
                 style={{
                   fontSize: designTokens.typography.fontSize.caption2,
-                  color: designTokens.colors.brand.primary,
+                  color: colors.brand.primary,
                   fontWeight: designTokens.typography.fontWeight.semibold,
                 }}
               >
@@ -246,7 +248,7 @@ export default function InboxScreen() {
     <SafeAreaView
       style={[
         tw`flex-1`,
-        { backgroundColor: designTokens.colors.system.background.primary },
+        { backgroundColor: colors.system.background.primary },
       ]}
     >
       {/* Header */}
@@ -261,7 +263,7 @@ export default function InboxScreen() {
             <Ionicons
               name="arrow-back"
               size={24}
-              color={designTokens.colors.system.label.primary}
+              color={colors.system.label.primary}
             />
           </TouchableOpacity>
           <View>
@@ -269,7 +271,7 @@ export default function InboxScreen() {
               style={{
                 fontSize: designTokens.typography.fontSize.title2,
                 fontWeight: designTokens.typography.fontWeight.bold,
-                color: designTokens.colors.system.label.primary,
+                color: colors.system.label.primary,
               }}
             >
               Inbox
@@ -278,7 +280,7 @@ export default function InboxScreen() {
               <Text
                 style={{
                   fontSize: designTokens.typography.fontSize.caption1,
-                  color: designTokens.colors.system.label.secondary,
+                  color: colors.system.label.secondary,
                   marginTop: 2,
                 }}
               >
@@ -298,7 +300,7 @@ export default function InboxScreen() {
           <Ionicons
             name="settings-outline"
             size={22}
-            color={designTokens.colors.system.label.primary}
+            color={colors.system.label.primary}
           />
         </TouchableOpacity>
       </View>
@@ -308,13 +310,13 @@ export default function InboxScreen() {
         <View style={tw`flex-1 items-center justify-center`}>
           <ActivityIndicator
             size="large"
-            color={designTokens.colors.brand.primary}
+            color={colors.brand.primary}
           />
           <Text
             style={[
               tw`mt-4`,
               {
-                color: designTokens.colors.system.label.secondary,
+                color: colors.system.label.secondary,
                 fontSize: designTokens.typography.fontSize.body,
               },
             ]}
@@ -327,7 +329,7 @@ export default function InboxScreen() {
           <Ionicons
             name="mail-open-outline"
             size={64}
-            color={designTokens.colors.system.label.tertiary}
+            color={colors.system.label.tertiary}
           />
           <Text
             style={[
@@ -335,7 +337,7 @@ export default function InboxScreen() {
               {
                 fontSize: designTokens.typography.fontSize.title3,
                 fontWeight: designTokens.typography.fontWeight.semibold,
-                color: designTokens.colors.system.label.primary,
+                color: colors.system.label.primary,
               },
             ]}
           >
@@ -346,7 +348,7 @@ export default function InboxScreen() {
               tw`mt-2 text-center`,
               {
                 fontSize: designTokens.typography.fontSize.body,
-                color: designTokens.colors.system.label.secondary,
+                color: colors.system.label.secondary,
               },
             ]}
           >
@@ -362,7 +364,7 @@ export default function InboxScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={designTokens.colors.brand.primary}
+              tintColor={colors.brand.primary}
             />
           }
           contentContainerStyle={{ paddingBottom: 20 }}

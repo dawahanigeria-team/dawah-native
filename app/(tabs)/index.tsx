@@ -25,6 +25,7 @@ import { useTrending } from "../../src/hooks/useTrending";
 import { useVideos } from "../../src/hooks/useVideos";
 import { QuranAlbum } from "../../src/services/api/quran.api";
 import { usePlayerActions } from "../../src/stores";
+import { useTheme } from "../../src/hooks/useTheme";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { SearchLecture } from "../../src/types/api.types";
@@ -42,6 +43,7 @@ type HomeSection = { key: string; element: React.JSX.Element };
 
 export default function HomeScreen() {
   const { playEpisode } = usePlayerActions();
+  const { colors } = useTheme();
   const [searchValue, setSearchValue] = useState("");
 
   // Get unread announcements count for badge
@@ -589,7 +591,7 @@ export default function HomeScreen() {
     <SafeAreaView
       style={[
         tw`flex-1`,
-        { backgroundColor: designTokens.colors.system.background.primary },
+        { backgroundColor: colors.system.background.primary },
       ]}
     >
       {/* Header */}
@@ -598,7 +600,7 @@ export default function HomeScreen() {
         <View
           style={[
             tw`w-8 h-8 rounded-lg items-center justify-center`,
-            { backgroundColor: designTokens.colors.brand.primary },
+            { backgroundColor: colors.brand.primary },
           ]}
           accessibilityLabel="dawahnigeria logo"
           accessibilityRole="image"
@@ -606,7 +608,7 @@ export default function HomeScreen() {
           <Text
             style={[
               tw`font-bold text-lg`,
-              { color: designTokens.colors.system.background.primary },
+              { color: colors.system.background.primary },
             ]}
           >
             DN
@@ -643,7 +645,7 @@ export default function HomeScreen() {
             <Ionicons
               name="notifications-outline"
               size={24}
-              color={designTokens.colors.system.label.primary}
+              color={colors.system.label.primary}
             />
             {/* Unread badge */}
             {unreadCount > 0 && (
@@ -652,7 +654,7 @@ export default function HomeScreen() {
                   position: "absolute",
                   top: -2,
                   right: -2,
-                  backgroundColor: designTokens.colors.semantic.red,
+                  backgroundColor: colors.semantic.red,
                   borderRadius: 10,
                   minWidth: 18,
                   height: 18,
@@ -660,12 +662,12 @@ export default function HomeScreen() {
                   alignItems: "center",
                   justifyContent: "center",
                   borderWidth: 2,
-                  borderColor: designTokens.colors.system.background.primary,
+                  borderColor: colors.system.background.primary,
                 }}
               >
                 <Text
                   style={{
-                    color: designTokens.colors.fixed.white,
+                    color: colors.fixed.white,
                     fontSize: 10,
                     fontWeight: designTokens.typography.fontWeight.bold,
                   }}

@@ -27,6 +27,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLectureDetail } from "../../hooks/useLectureDetail";
+import { useTheme } from "../../hooks/useTheme";
 import { usePlayerStore } from "../../stores/playerStore";
 import { designTokens } from "../../theme/designTokens";
 import { getTabBarHeight } from "../../utils";
@@ -66,6 +67,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       playbackSpeed,
       setPlaybackSpeed,
     } = usePlayerStore();
+    const { colors } = useTheme();
 
     // Fetch richer lecture metadata only when the player is expanded.
     const { lecture: lectureDetail } = useLectureDetail(
@@ -229,7 +231,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                   styles.progressFill,
                   {
                     width: `${progressPercentage}%`,
-                    backgroundColor: designTokens.colors.brand.primary,
+                    backgroundColor: colors.brand.primary,
                   },
                 ]}
               />
@@ -239,7 +241,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                   styles.miniProgressThumb,
                   {
                     left: `${progressPercentage}%`,
-                    backgroundColor: designTokens.colors.brand.primary,
+                    backgroundColor: colors.brand.primary,
                   },
                 ]}
               />
@@ -269,7 +271,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                   style={{
                     fontSize: designTokens.typography.fontSize.caption1,
                     fontWeight: designTokens.typography.fontWeight.bold,
-                    color: designTokens.colors.system.label.primary,
+                    color: colors.system.label.primary,
                   }}
                 >
                   {getInitials(currentEpisode.title)}
@@ -309,7 +311,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                 <Ionicons
                   name={isPlaying ? "pause" : "play"}
                   size={24}
-                  color={designTokens.colors.system.label.primary}
+                  color={colors.system.label.primary}
                 />
               </Touchable>
             )}
@@ -337,7 +339,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
               <Ionicons
                 name="chevron-down"
                 size={24}
-                color={designTokens.colors.system.label.primary}
+                color={colors.system.label.primary}
               />
             </Touchable>
 
@@ -360,7 +362,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
               <Ionicons
                 name="close"
                 size={24}
-                color={designTokens.colors.system.label.primary}
+                color={colors.system.label.primary}
               />
             </Touchable>
           </View>
@@ -391,7 +393,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                     style={{
                       fontSize: designTokens.typography.fontSize.title1,
                       fontWeight: designTokens.typography.fontWeight.bold,
-                      color: designTokens.colors.system.label.primary,
+                      color: colors.system.label.primary,
                     }}
                   >
                     {getInitials(currentEpisode.title)}
@@ -449,7 +451,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                         styles.progressSliderFill,
                         {
                           width: `${progressPercentage}%`,
-                          backgroundColor: designTokens.colors.brand.primary,
+                          backgroundColor: colors.brand.primary,
                         },
                       ]}
                     />
@@ -457,7 +459,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                       style={{
                         ...styles.progressThumb,
                         left: `${progressPercentage}%`,
-                        backgroundColor: designTokens.colors.brand.primary,
+                        backgroundColor: colors.brand.primary,
                       }}
                     />
                   </View>
@@ -484,7 +486,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                 <Ionicons
                   name="play-back"
                   size={32}
-                  color={designTokens.colors.system.label.primary}
+                  color={colors.system.label.primary}
                 />
               </Touchable>
 
@@ -502,7 +504,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                   <Ionicons
                     name={isPlaying ? "pause" : "play"}
                     size={40}
-                    color={designTokens.colors.system.label.primary}
+                    color={colors.system.label.primary}
                   />
                 </Touchable>
               )}
@@ -516,7 +518,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                 <Ionicons
                   name="play-forward"
                   size={32}
-                  color={designTokens.colors.system.label.primary}
+                  color={colors.system.label.primary}
                 />
               </Touchable>
             </View>
@@ -547,7 +549,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                 <Ionicons
                   name="share-outline"
                   size={24}
-                  color={designTokens.colors.system.label.secondary}
+                  color={colors.system.label.secondary}
                 />
               </Touchable>
 
@@ -574,7 +576,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                   <Ionicons
                     name="download-outline"
                     size={24}
-                    color={designTokens.colors.system.label.secondary}
+                    color={colors.system.label.secondary}
                   />
                 )}
               </Touchable>
@@ -588,7 +590,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                     <Ionicons
                       name="calendar-outline"
                       size={16}
-                      color={designTokens.colors.system.label.tertiary}
+                      color={colors.system.label.tertiary}
                     />
                     <Text
                       variant="caption1"
@@ -614,7 +616,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                     <Ionicons
                       name="language-outline"
                       size={16}
-                      color={designTokens.colors.system.label.tertiary}
+                      color={colors.system.label.tertiary}
                     />
                     <Text
                       variant="caption1"
@@ -640,7 +642,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                     <Ionicons
                       name="albums-outline"
                       size={16}
-                      color={designTokens.colors.system.label.tertiary}
+                      color={colors.system.label.tertiary}
                     />
                     <Text
                       variant="caption1"
@@ -666,7 +668,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                     <Ionicons
                       name="pricetag-outline"
                       size={16}
-                      color={designTokens.colors.system.label.tertiary}
+                      color={colors.system.label.tertiary}
                     />
                     <Text
                       variant="caption1"
@@ -725,10 +727,10 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   player: {
-    backgroundColor: designTokens.colors.system.background.secondary,
+    backgroundColor: designTokens.colorsDark.system.background.secondary,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: designTokens.colors.system.separator.primary,
-    shadowColor: designTokens.colors.system.label.primary,
+    borderTopColor: designTokens.colorsDark.system.separator.primary,
+    shadowColor: designTokens.colorsDark.system.label.primary,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -744,7 +746,7 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     height: 2,
-    backgroundColor: designTokens.colors.system.fill.quaternary,
+    backgroundColor: designTokens.colorsDark.system.fill.quaternary,
   },
   progressFill: {
     height: 2,
@@ -756,7 +758,7 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     transform: [{ translateX: -5 }], // Center the thumb on the progress line
-    shadowColor: designTokens.colors.system.label.primary,
+    shadowColor: designTokens.colorsDark.system.label.primary,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.3,
     shadowRadius: 2,
@@ -794,7 +796,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: designTokens.colors.system.fill.secondary,
+    backgroundColor: designTokens.colorsDark.system.fill.secondary,
   },
   // Expanded Player Styles
   expandedPlayerContainer: {
@@ -842,7 +844,7 @@ const styles = StyleSheet.create({
   },
   progressSliderTrack: {
     height: 4,
-    backgroundColor: designTokens.colors.system.fill.quaternary,
+    backgroundColor: designTokens.colorsDark.system.fill.quaternary,
     borderRadius: 2,
     position: "relative",
   },
@@ -882,7 +884,7 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: designTokens.colors.system.fill.secondary,
+    backgroundColor: designTokens.colorsDark.system.fill.secondary,
   },
   secondaryControls: {
     flexDirection: "row",
@@ -906,7 +908,7 @@ const styles = StyleSheet.create({
     marginTop: designTokens.spacing.xl,
     paddingTop: designTokens.spacing.xl,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: designTokens.colors.system.separator.primary,
+    borderTopColor: designTokens.colorsDark.system.separator.primary,
   },
   metadataRow: {
     marginBottom: designTokens.spacing.md,
@@ -926,7 +928,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: designTokens.colors.system.fill.quaternary,
+    backgroundColor: designTokens.colorsDark.system.fill.quaternary,
   },
   // ScrollView Styles
   expandedContentScroll: {

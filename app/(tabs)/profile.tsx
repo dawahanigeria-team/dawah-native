@@ -7,7 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
 import { userService } from "../../src/services/user.service";
 import { useAuthStore } from "../../src/stores";
-import { useThemeStore } from "../../src/stores/themeStore";
+import { useTheme } from "../../src/hooks/useTheme";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 
@@ -21,7 +21,7 @@ interface SettingItem {
 
 const ProfileScreen = () => {
   const router = useRouter();
-  const { isDark, toggleTheme, setTheme } = useThemeStore();
+  const { colors, isDark, setTheme } = useTheme();
   const { user, isAuthenticated, logout } = useAuthStore();
 
   const handleAppearancePress = () => {
@@ -167,15 +167,11 @@ const ProfileScreen = () => {
     );
   };
 
-  const handleThemeToggle = () => {
-    toggleTheme();
-  };
-
   return (
     <SafeAreaView
       style={[
         tw`flex-1`,
-        { backgroundColor: designTokens.colors.system.background.primary },
+        { backgroundColor: colors.system.background.primary },
       ]}
     >
       {/* Header */}
@@ -183,7 +179,7 @@ const ProfileScreen = () => {
         <Text
           style={[
             tw`text-white text-2xl font-bold`,
-            { color: designTokens.colors.system.label.primary },
+            { color: colors.system.label.primary },
           ]}
           accessibilityRole="header"
         >
@@ -205,20 +201,20 @@ const ProfileScreen = () => {
               tw`rounded-3xl p-6 items-center`,
               {
                 backgroundColor:
-                  designTokens.colors.system.background.secondary,
+                  colors.system.background.secondary,
               },
             ]}
           >
             <View
               style={[
                 tw`w-20 h-20 rounded-full items-center justify-center mb-4`,
-                { backgroundColor: designTokens.colors.brand.primary },
+                { backgroundColor: colors.brand.primary },
               ]}
             >
               <Ionicons
                 name="person"
                 size={40}
-                color={designTokens.colors.system.background.primary}
+                color={colors.system.background.primary}
                 accessibilityLabel="Profile avatar"
               />
             </View>
@@ -226,7 +222,7 @@ const ProfileScreen = () => {
             <Text
               style={[
                 tw`text-white text-xl font-bold mb-2`,
-                { color: designTokens.colors.system.label.primary },
+                { color: colors.system.label.primary },
               ]}
               accessibilityRole="header"
             >
@@ -237,7 +233,7 @@ const ProfileScreen = () => {
               <Text
                 style={[
                   tw`text-center mb-4`,
-                  { color: designTokens.colors.system.label.secondary },
+                  { color: colors.system.label.secondary },
                 ]}
               >
                 {user.email}
@@ -248,7 +244,7 @@ const ProfileScreen = () => {
               <Text
                 style={[
                   tw`text-center mb-4`,
-                  { color: designTokens.colors.system.label.secondary },
+                  { color: colors.system.label.secondary },
                 ]}
               >
                 Sign in to sync your library and preferences across devices
@@ -259,8 +255,8 @@ const ProfileScreen = () => {
               style={[
                 tw`px-6 py-3 rounded-full`,
                 { backgroundColor: isAuthenticated
-                  ? designTokens.colors.system.fill.secondary
-                  : designTokens.colors.brand.primary
+                  ? colors.system.fill.secondary
+                  : colors.brand.primary
                 },
               ]}
               onPress={isAuthenticated ? handleSignOut : handleSignIn}
@@ -273,8 +269,8 @@ const ProfileScreen = () => {
                 style={[
                   tw`font-semibold text-base`,
                   { color: isAuthenticated
-                    ? designTokens.colors.semantic.red
-                    : designTokens.colors.system.background.primary
+                    ? colors.semantic.red
+                    : colors.system.background.primary
                   },
                 ]}
               >
@@ -289,7 +285,7 @@ const ProfileScreen = () => {
           <Text
             style={[
               tw`text-white text-lg font-semibold mb-4`,
-              { color: designTokens.colors.system.label.primary },
+              { color: colors.system.label.primary },
             ]}
             accessibilityRole="header"
           >
@@ -301,7 +297,7 @@ const ProfileScreen = () => {
               tw`rounded-2xl overflow-hidden`,
               {
                 backgroundColor:
-                  designTokens.colors.system.background.secondary,
+                  colors.system.background.secondary,
               },
             ]}
           >
@@ -313,7 +309,7 @@ const ProfileScreen = () => {
                   index < settingsItems.length - 1 && {
                     borderBottomWidth: 1,
                     borderBottomColor:
-                      designTokens.colors.system.separator.primary,
+                      colors.system.separator.primary,
                   },
                 ]}
                 onPress={item.onPress}
@@ -327,14 +323,14 @@ const ProfileScreen = () => {
                     tw`w-10 h-10 rounded-full items-center justify-center mr-4`,
                     {
                       backgroundColor:
-                        designTokens.colors.system.background.tertiary,
+                        colors.system.background.tertiary,
                     },
                   ]}
                 >
                   <Ionicons
                     name={item.icon as any}
                     size={20}
-                    color={designTokens.colors.system.label.secondary}
+                    color={colors.system.label.secondary}
                   />
                 </View>
 
@@ -342,7 +338,7 @@ const ProfileScreen = () => {
                   <Text
                     style={[
                       tw`text-base font-medium`,
-                      { color: designTokens.colors.system.label.primary },
+                      { color: colors.system.label.primary },
                     ]}
                   >
                     {item.title}
@@ -351,7 +347,7 @@ const ProfileScreen = () => {
                     <Text
                       style={[
                         tw`text-sm mt-1`,
-                        { color: designTokens.colors.system.label.secondary },
+                        { color: colors.system.label.secondary },
                       ]}
                     >
                       {item.subtitle}
@@ -362,94 +358,10 @@ const ProfileScreen = () => {
                 <Ionicons
                   name="chevron-forward"
                   size={20}
-                  color={designTokens.colors.system.label.secondary}
+                  color={colors.system.label.secondary}
                 />
               </TouchableOpacity>
             ))}
-          </View>
-        </View>
-
-        {/* Theme Toggle */}
-        <View style={tw`px-4 mt-6`}>
-          <View
-            style={[
-              tw`rounded-2xl p-4`,
-              {
-                backgroundColor:
-                  designTokens.colors.system.background.secondary,
-              },
-            ]}
-          >
-            <View style={tw`flex-row items-center justify-between`}>
-              <View style={tw`flex-row items-center`}>
-                <View
-                  style={[
-                    tw`w-10 h-10 rounded-full items-center justify-center mr-4`,
-                    {
-                      backgroundColor:
-                        designTokens.colors.system.background.tertiary,
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name={isDark ? "moon" : "sunny"}
-                    size={20}
-                    color={designTokens.colors.system.label.secondary}
-                    accessibilityLabel={
-                      isDark ? "Dark mode icon" : "Light mode icon"
-                    }
-                  />
-                </View>
-
-                <View>
-                  <Text
-                    style={[
-                      tw`text-base font-medium`,
-                      { color: designTokens.colors.system.label.primary },
-                    ]}
-                  >
-                    {isDark ? "Dark Mode" : "Light Mode"}
-                  </Text>
-                  <Text
-                    style={[
-                      tw`text-sm mt-1`,
-                      { color: designTokens.colors.system.label.secondary },
-                    ]}
-                  >
-                    {isDark
-                      ? "Currently using dark theme"
-                      : "Currently using light theme"}
-                  </Text>
-                </View>
-              </View>
-
-              <TouchableOpacity
-                style={[
-                  tw`w-12 h-6 rounded-full p-0.5`,
-                  isDark
-                    ? { backgroundColor: designTokens.colors.brand.primary }
-                    : {
-                        backgroundColor:
-                          designTokens.colors.system.fill.quaternary,
-                      },
-                ]}
-                onPress={handleThemeToggle}
-                activeOpacity={0.8}
-                accessibilityLabel={`Switch to ${
-                  isDark ? "light" : "dark"
-                } mode`}
-                accessibilityHint="Tap to toggle theme"
-                accessibilityRole="switch"
-                accessibilityState={{ checked: isDark }}
-              >
-                <View
-                  style={[
-                    tw`w-5 h-5 bg-white rounded-full`,
-                    isDark && tw`ml-6`,
-                  ]}
-                />
-              </TouchableOpacity>
-            </View>
           </View>
         </View>
 
@@ -460,20 +372,20 @@ const ProfileScreen = () => {
               tw`rounded-2xl p-4 items-center`,
               {
                 backgroundColor:
-                  designTokens.colors.system.background.secondary,
+                  colors.system.background.secondary,
               },
             ]}
           >
             <View
               style={[
                 tw`w-12 h-12 rounded-xl items-center justify-center mb-3`,
-                { backgroundColor: designTokens.colors.brand.primary },
+                { backgroundColor: colors.brand.primary },
               ]}
             >
               <Text
                 style={[
                   tw`font-bold text-lg`,
-                  { color: designTokens.colors.system.background.primary },
+                  { color: colors.system.background.primary },
                 ]}
               >
                 DN
@@ -483,7 +395,7 @@ const ProfileScreen = () => {
             <Text
               style={[
                 tw`text-lg font-bold mb-1`,
-                { color: designTokens.colors.system.label.primary },
+                { color: colors.system.label.primary },
               ]}
             >
               dawahnigeria
@@ -492,7 +404,7 @@ const ProfileScreen = () => {
             <Text
               style={[
                 tw`text-sm`,
-                { color: designTokens.colors.system.label.secondary },
+                { color: colors.system.label.secondary },
               ]}
             >
               Version 1.0.0
@@ -501,7 +413,7 @@ const ProfileScreen = () => {
             <Text
               style={[
                 tw`text-xs text-center mt-2`,
-                { color: designTokens.colors.system.label.secondary },
+                { color: colors.system.label.secondary },
               ]}
             >
               Reviving the Ummah byte by byte
@@ -514,7 +426,7 @@ const ProfileScreen = () => {
           <Text
             style={[
               tw`text-white text-lg font-semibold mb-4`,
-              { color: designTokens.colors.system.label.primary },
+              { color: colors.system.label.primary },
             ]}
             accessibilityRole="header"
           >
@@ -526,7 +438,7 @@ const ProfileScreen = () => {
               tw`rounded-2xl overflow-hidden`,
               {
                 backgroundColor:
-                  designTokens.colors.system.background.secondary,
+                  colors.system.background.secondary,
               },
             ]}
           >
@@ -538,7 +450,7 @@ const ProfileScreen = () => {
                   index < debugItems.length - 1 && {
                     borderBottomWidth: 1,
                     borderBottomColor:
-                      designTokens.colors.system.separator.primary,
+                      colors.system.separator.primary,
                   },
                 ]}
                 onPress={item.onPress}
@@ -552,14 +464,14 @@ const ProfileScreen = () => {
                     tw`w-10 h-10 rounded-full items-center justify-center mr-4`,
                     {
                       backgroundColor:
-                        designTokens.colors.system.background.tertiary,
+                        colors.system.background.tertiary,
                     },
                   ]}
                 >
                   <Ionicons
                     name={item.icon as any}
                     size={20}
-                    color={designTokens.colors.system.label.secondary}
+                    color={colors.system.label.secondary}
                   />
                 </View>
 
@@ -567,7 +479,7 @@ const ProfileScreen = () => {
                   <Text
                     style={[
                       tw`text-base font-medium`,
-                      { color: designTokens.colors.system.label.primary },
+                      { color: colors.system.label.primary },
                     ]}
                   >
                     {item.title}
@@ -576,7 +488,7 @@ const ProfileScreen = () => {
                     <Text
                       style={[
                         tw`text-sm mt-1`,
-                        { color: designTokens.colors.system.label.secondary },
+                        { color: colors.system.label.secondary },
                       ]}
                     >
                       {item.subtitle}
@@ -587,7 +499,7 @@ const ProfileScreen = () => {
                 <Ionicons
                   name="chevron-forward"
                   size={20}
-                  color={designTokens.colors.system.label.secondary}
+                  color={colors.system.label.secondary}
                 />
               </TouchableOpacity>
             ))}

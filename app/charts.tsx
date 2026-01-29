@@ -15,7 +15,7 @@ import {
   fetchPlaylistCharts,
 } from '../src/services/api/charts.api';
 import { addSentryBreadcrumb, captureSentryException } from '../src/services/config/sentry.config';
-import { designTokens } from '../src/theme/designTokens';
+import { useTheme } from '../src/hooks/useTheme';
 import { getTabBarPaddingBottom } from '../src/utils';
 
 type ChartType = 'album' | 'lecturer' | 'playlist' | 'lecture';
@@ -24,6 +24,7 @@ type ChartType = 'album' | 'lecturer' | 'playlist' | 'lecture';
 const MINI_PLAYER_HEIGHT = 72;
 
 const ChartsScreen: React.FC = memo(() => {
+  const { colors, spacing, borderRadius } = useTheme();
   const [chartData, setChartData] = useState<ChartItemType[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +34,7 @@ const ChartsScreen: React.FC = memo(() => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const listPaddingBottom = designTokens.spacing.lg + MINI_PLAYER_HEIGHT + getTabBarPaddingBottom(insets.bottom);
+  const listPaddingBottom = spacing.lg + MINI_PLAYER_HEIGHT + getTabBarPaddingBottom(insets.bottom);
 
   const getChartData = useCallback(async (chartType: ChartType, period: ChartPeriod) => {
     try {
@@ -133,53 +134,68 @@ const ChartsScreen: React.FC = memo(() => {
     return `${periodTitle} ${chartTypeTitle} Charts`;
   };
 
+  const renderHeader = () => (
+    <>
+      <Stack.Screen options={{ title: getTitle() }} />
+      <TouchableOpacity 
+        onPress={() => router.back()} 
+        style={[styles.backButton, { top: spacing.lg, left: spacing.lg, padding: spacing.sm }]}
+      >
+        <Icon name="arrow-back" size="lg" color="label" />
+      </TouchableOpacity>
+    </>
+  );
+
+  const renderFilters = () => (
+    <>
+      <View style={[styles.segmentedControlContainer, { backgroundColor: colors.system.fill.secondary, borderRadius: borderRadius.lg, marginHorizontal: spacing.lg, marginVertical: spacing.md, padding: spacing.xs }]}>
+        <SegmentedControlOption
+          label="Album"
+          isSelected={selectedChartType === 'album'}
+          onPress={() => setSelectedChartType('album')}
+        />
+        <SegmentedControlOption
+          label="Lecturer"
+          isSelected={selectedChartType === 'lecturer'}
+          onPress={() => setSelectedChartType('lecturer')}
+        />
+        <SegmentedControlOption
+          label="Playlist"
+          isSelected={selectedChartType === 'playlist'}
+          onPress={() => setSelectedChartType('playlist')}
+        />
+        <SegmentedControlOption
+          label="Lecture"
+          isSelected={selectedChartType === 'lecture'}
+          onPress={() => setSelectedChartType('lecture')}
+        />
+      </View>
+      <View style={[styles.segmentedControlContainer, { backgroundColor: colors.system.fill.secondary, borderRadius: borderRadius.lg, marginHorizontal: spacing.lg, marginVertical: spacing.md, padding: spacing.xs }]}>
+        <SegmentedControlOption
+          label="Daily"
+          isSelected={selectedPeriod === 'daily'}
+          onPress={() => setSelectedPeriod('daily')}
+        />
+        <SegmentedControlOption
+          label="Weekly"
+          isSelected={selectedPeriod === 'weekly'}
+          onPress={() => setSelectedPeriod('weekly')}
+        />
+        <SegmentedControlOption
+          label="Monthly"
+          isSelected={selectedPeriod === 'monthly'}
+          onPress={() => setSelectedPeriod('monthly')}
+        />
+      </View>
+    </>
+  );
+
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        <Stack.Screen options={{ title: getTitle() }} />
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Icon name="arrow-back" size="lg" color="label" />
-        </TouchableOpacity>
-        <View style={styles.content}>
-          <View style={styles.segmentedControlContainer}>
-            <SegmentedControlOption
-              label="Album"
-              isSelected={selectedChartType === 'album'}
-              onPress={() => setSelectedChartType('album')}
-            />
-            <SegmentedControlOption
-              label="Lecturer"
-              isSelected={selectedChartType === 'lecturer'}
-              onPress={() => setSelectedChartType('lecturer')}
-            />
-            <SegmentedControlOption
-              label="Playlist"
-              isSelected={selectedChartType === 'playlist'}
-              onPress={() => setSelectedChartType('playlist')}
-            />
-            <SegmentedControlOption
-              label="Lecture"
-              isSelected={selectedChartType === 'lecture'}
-              onPress={() => setSelectedChartType('lecture')}
-            />
-          </View>
-          <View style={styles.segmentedControlContainer}>
-            <SegmentedControlOption
-              label="Daily"
-              isSelected={selectedPeriod === 'daily'}
-              onPress={() => setSelectedPeriod('daily')}
-            />
-            <SegmentedControlOption
-              label="Weekly"
-              isSelected={selectedPeriod === 'weekly'}
-              onPress={() => setSelectedPeriod('weekly')}
-            />
-            <SegmentedControlOption
-              label="Monthly"
-              isSelected={selectedPeriod === 'monthly'}
-              onPress={() => setSelectedPeriod('monthly')}
-            />
-          </View>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.system.background.primary }]} edges={['top', 'bottom']}>
+        {renderHeader()}
+        <View style={[styles.content, { paddingTop: spacing['4xl'] }]}>
+          {renderFilters()}
           <FlatList
             data={Array.from({ length: 10 })}
             keyExtractor={(_, index) => `skeleton-${index}`}
@@ -193,58 +209,17 @@ const ChartsScreen: React.FC = memo(() => {
 
   if (error) {
     return (
-      <SafeAreaView style={styles.centered} edges={['top', 'bottom']}>
+      <SafeAreaView style={[styles.centered, { backgroundColor: colors.system.background.primary }]} edges={['top', 'bottom']}>
         <Text variant="body" color="systemRed">{error}</Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <Stack.Screen options={{ title: getTitle() }} />
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <Icon name="arrow-back" size="lg" color="label" />
-      </TouchableOpacity>
-      <View style={styles.content}>
-        <View style={styles.segmentedControlContainer}>
-          <SegmentedControlOption
-            label="Album"
-            isSelected={selectedChartType === 'album'}
-            onPress={() => setSelectedChartType('album')}
-          />
-          <SegmentedControlOption
-            label="Lecturer"
-            isSelected={selectedChartType === 'lecturer'}
-            onPress={() => setSelectedChartType('lecturer')}
-          />
-          <SegmentedControlOption
-            label="Playlist"
-            isSelected={selectedChartType === 'playlist'}
-            onPress={() => setSelectedChartType('playlist')}
-          />
-          <SegmentedControlOption
-            label="Lecture"
-            isSelected={selectedChartType === 'lecture'}
-            onPress={() => setSelectedChartType('lecture')}
-          />
-        </View>
-        <View style={styles.segmentedControlContainer}>
-          <SegmentedControlOption
-            label="Daily"
-            isSelected={selectedPeriod === 'daily'}
-            onPress={() => setSelectedPeriod('daily')}
-          />
-          <SegmentedControlOption
-            label="Weekly"
-            isSelected={selectedPeriod === 'weekly'}
-            onPress={() => setSelectedPeriod('weekly')}
-          />
-          <SegmentedControlOption
-            label="Monthly"
-            isSelected={selectedPeriod === 'monthly'}
-            onPress={() => setSelectedPeriod('monthly')}
-          />
-        </View>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.system.background.primary }]} edges={['top', 'bottom']}>
+      {renderHeader()}
+      <View style={[styles.content, { paddingTop: spacing['4xl'] }]}>
+        {renderFilters()}
         <FlatList
           data={chartData}
           keyExtractor={(item) => item.id.toString()}
@@ -271,11 +246,19 @@ interface SegmentedControlOptionProps {
 }
 
 const SegmentedControlOption: React.FC<SegmentedControlOptionProps> = memo(({ label, isSelected, onPress }) => {
+  const { colors, borderRadius, spacing } = useTheme();
   return (
     <TouchableOpacity
       style={[
         styles.segmentedControlOption,
-        isSelected && styles.segmentedControlOptionSelected,
+        { paddingVertical: spacing.sm, borderRadius: borderRadius.md },
+        isSelected && [
+          styles.segmentedControlOptionSelected,
+          { 
+            backgroundColor: colors.system.background.primary,
+            borderBottomColor: colors.brand.primary 
+          },
+        ],
       ]}
       onPress={onPress}
     >
@@ -295,50 +278,32 @@ SegmentedControlOption.displayName = 'SegmentedControlOption';
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: designTokens.colors.system.background.primary,
   },
   content: {
     flex: 1,
-    paddingTop: designTokens.spacing['4xl'],
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: designTokens.colors.system.background.primary,
-  },
-  loadingText: {
-    marginTop: designTokens.spacing.md,
   },
   listContent: {
-    paddingBottom: designTokens.spacing.lg,
+    // padding handled inline
   },
   segmentedControlContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    backgroundColor: designTokens.colors.system.fill.secondary,
-    borderRadius: designTokens.borderRadius.lg,
-    marginHorizontal: designTokens.spacing.lg,
-    marginVertical: designTokens.spacing.md,
-    padding: designTokens.spacing.xs,
   },
   segmentedControlOption: {
     flex: 1,
-    paddingVertical: designTokens.spacing.sm,
     alignItems: 'center',
-    borderRadius: designTokens.borderRadius.md,
   },
   segmentedControlOptionSelected: {
-    backgroundColor: designTokens.colors.system.background.primary,
     borderBottomWidth: 2,
-    borderBottomColor: designTokens.colors.brand.primary,
   },
   backButton: {
     position: 'absolute',
-    top: designTokens.spacing.lg,
-    left: designTokens.spacing.lg,
     zIndex: 1,
-    padding: designTokens.spacing.sm,
   },
 });
 

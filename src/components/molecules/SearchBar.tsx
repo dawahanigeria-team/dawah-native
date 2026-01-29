@@ -1,6 +1,7 @@
 import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import { TextInput, View, ViewStyle } from "react-native";
 import { BorderRadius, designTokens } from "../../theme/designTokens";
+import { useTheme } from "../../hooks/useTheme";
 import { Icon, Touchable } from "../atoms";
 
 interface SearchBarProps {
@@ -37,6 +38,7 @@ export const SearchBar: React.FC<SearchBarProps> = memo(
     autoFocus = false,
     style,
   }) => {
+    const { colors } = useTheme();
     const [internalValue, setInternalValue] = useState(value || "");
     const inputRef = useRef<TextInput>(null);
 
@@ -80,7 +82,7 @@ export const SearchBar: React.FC<SearchBarProps> = memo(
     const containerStyle: ViewStyle = {
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: designTokens.colors.system.fill.tertiary,
+      backgroundColor: colors.system.fill.tertiary,
       borderRadius: designTokens.borderRadius.lg,
       paddingHorizontal: designTokens.spacing.md,
       paddingVertical: designTokens.spacing.sm,
@@ -96,7 +98,7 @@ export const SearchBar: React.FC<SearchBarProps> = memo(
       fontSize: designTokens.typography.fontSize.body,
       fontWeight: designTokens.typography.fontWeight.regular,
       fontFamily: designTokens.typography.fontFamily.system,
-      color: designTokens.colors.system.label.primary,
+      color: colors.system.label.primary,
       marginLeft: designTokens.spacing.sm,
       marginRight: designTokens.spacing.sm,
     };
@@ -116,7 +118,7 @@ export const SearchBar: React.FC<SearchBarProps> = memo(
           ref={inputRef}
           style={inputStyle}
           placeholder={placeholder}
-          placeholderTextColor={designTokens.colors.system.label.tertiary}
+          placeholderTextColor={colors.system.label.tertiary}
           value={currentValue}
           onChangeText={handleTextChange}
           onSubmitEditing={() => {

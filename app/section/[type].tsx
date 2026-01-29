@@ -12,7 +12,7 @@ import { useRecentlyPlayedLectures } from "../../src/hooks/useRecentlyPlayedLect
 import { useTrending } from "../../src/hooks/useTrending";
 import { useVideos } from "../../src/hooks/useVideos";
 import { QuranAlbum } from "../../src/services/api/quran.api";
-
+import { useTheme } from "../../src/hooks/useTheme";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Episode, Series, Video } from "../../src/types/types";
@@ -84,6 +84,7 @@ type SortOption = "recent" | "most-played" | "downloads";
 type LanguageFilter = "all" | "hausa" | "english" | "yoruba" | "arabic";
 
 export default function SectionScreen() {
+  const { colors } = useTheme();
   const { type } = useLocalSearchParams<{ type: string }>();
   const canUseFlashList = Boolean(UIManager.getViewManagerConfig?.('AutoLayoutView'));
   const ListComponent = canUseFlashList ? FlashList : FlatList;
@@ -413,8 +414,8 @@ export default function SectionScreen() {
             style={[
               tw`p-4 rounded-xl`,
               {
-                backgroundColor: designTokens.colors.system.background.secondary,
-                shadowColor: designTokens.colors.system.label.primary,
+                backgroundColor: colors.system.background.secondary,
+                shadowColor: colors.system.label.primary,
                 shadowOffset: { width: 0, height: 1 },
                 shadowOpacity: 0.04,
                 shadowRadius: 4,
@@ -440,7 +441,7 @@ export default function SectionScreen() {
         </View>
       );
     }
-  }, [handleLecturePress, handleQuranAlbumPress, handleVideoPress, sectionInfo.variant, type]);
+  }, [handleLecturePress, handleQuranAlbumPress, handleVideoPress, sectionInfo.variant, type, colors]);
 
   // Render footer (loading indicator) for list
   const renderFooter = useCallback(() => {
@@ -448,21 +449,21 @@ export default function SectionScreen() {
     if (!isLoadingMore) return null;
     return (
       <View style={tw`py-4 items-center`}>
-        <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
+        <ActivityIndicator size="small" color={colors.brand.primary} />
         <Text variant="caption1" color="secondaryLabel" style={tw`mt-2`}>
           Loading more...
         </Text>
       </View>
     );
-  }, [isLoadingMore, type, hasMore]);
+  }, [isLoadingMore, type, hasMore, colors]);
 
   // Empty component for list
   const renderEmpty = useCallback(() => {
     if (isLoading) {
       return (
         <View style={tw`flex-1 items-center justify-center py-20`}>
-          <ActivityIndicator size="large" color={designTokens.colors.brand.primary} />
-          <Text style={tw`text-white mt-2`}>Loading {sectionInfo.title.toLowerCase()}...</Text>
+          <ActivityIndicator size="large" color={colors.brand.primary} />
+          <Text style={[tw`mt-2`, { color: colors.system.label.primary }]}>Loading {sectionInfo.title.toLowerCase()}...</Text>
         </View>
       );
     }
@@ -473,13 +474,13 @@ export default function SectionScreen() {
           <View
             style={[
               tw`w-16 h-16 rounded-full items-center justify-center mb-4`,
-              { backgroundColor: designTokens.colors.system.fill.quaternary },
+              { backgroundColor: colors.system.fill.quaternary },
             ]}
           >
             <Ionicons
               name="cloud-offline-outline"
               size={32}
-              color={designTokens.colors.system.label.tertiary}
+              color={colors.system.label.tertiary}
             />
           </View>
           <Text variant="title3" color="label" style={tw`font-semibold text-center mb-2`}>
@@ -492,7 +493,7 @@ export default function SectionScreen() {
             onPress={() => refetch()}
             style={[
               tw`px-6 py-3 rounded-full`,
-              { backgroundColor: designTokens.colors.brand.primary },
+              { backgroundColor: colors.brand.primary },
             ]}
             accessibilityLabel={`Retry loading ${sectionInfo.title.toLowerCase()}`}
             accessibilityRole="button"
@@ -502,7 +503,7 @@ export default function SectionScreen() {
               variant="body"
               style={[
                 tw`font-semibold`,
-                { color: designTokens.colors.system.background.primary },
+                { color: colors.system.background.primary },
               ]}
             >
               Retry
@@ -517,13 +518,13 @@ export default function SectionScreen() {
         <View
           style={[
             tw`w-16 h-16 rounded-full items-center justify-center mb-4`,
-            { backgroundColor: designTokens.colors.system.fill.quaternary },
+            { backgroundColor: colors.system.fill.quaternary },
           ]}
         >
           <Ionicons
             name={searchQuery.trim() ? "search-outline" : "library-outline"}
             size={32}
-            color={designTokens.colors.system.label.tertiary}
+            color={colors.system.label.tertiary}
           />
         </View>
         <Text variant="title2" color="label" style={tw`font-semibold mb-2 text-center`}>
@@ -536,13 +537,13 @@ export default function SectionScreen() {
         </Text>
       </View>
     );
-  }, [isLoading, hasError, searchQuery, refetch, sectionInfo.title]);
+  }, [isLoading, hasError, searchQuery, refetch, sectionInfo.title, colors]);
 
   return (
     <SafeAreaView
       style={[
         tw`flex-1 pb-4`,
-        { backgroundColor: designTokens.colors.system.background.primary },
+        { backgroundColor: colors.system.background.primary },
       ]}
       edges={["top", "left", "right", "bottom"]}
     >
@@ -551,7 +552,7 @@ export default function SectionScreen() {
         style={[
           tw`px-6 pt-2 pb-4`,
           {
-            backgroundColor: designTokens.colors.system.background.primary,
+            backgroundColor: colors.system.background.primary,
           },
         ]}
       >
@@ -567,7 +568,7 @@ export default function SectionScreen() {
             <Ionicons
               name="chevron-back"
               size={28}
-              color={designTokens.colors.brand.primary}
+              color={colors.brand.primary}
             />
           </TouchableOpacity>
           <Text variant="title1" color="label" style={tw`font-semibold`}>
@@ -591,7 +592,7 @@ export default function SectionScreen() {
             style={[
               tw`px-3 py-1.5 rounded-full mr-3`,
               {
-                backgroundColor: designTokens.colors.system.fill.tertiary,
+                backgroundColor: colors.system.fill.tertiary,
               },
             ]}
           >
@@ -620,9 +621,9 @@ export default function SectionScreen() {
         style={[
           tw`pb-4`,
           {
-            backgroundColor: designTokens.colors.system.background.primary,
+            backgroundColor: colors.system.background.primary,
             borderBottomWidth: 1,
-            borderBottomColor: designTokens.colors.system.separator.primary,
+            borderBottomColor: colors.system.separator.primary,
           },
         ]}
       >
@@ -679,7 +680,7 @@ export default function SectionScreen() {
                   style={[
                     tw`px-2 py-1 rounded-full`,
                     {
-                      backgroundColor: designTokens.colors.system.fill.tertiary,
+                      backgroundColor: colors.system.fill.tertiary,
                     },
                   ]}
                 >
@@ -695,7 +696,7 @@ export default function SectionScreen() {
               <Ionicons
                 name={filtersExpanded ? "chevron-up" : "chevron-down"}
                 size={20}
-                color={designTokens.colors.system.label.secondary}
+                color={colors.system.label.secondary}
               />
             </TouchableOpacity>
 

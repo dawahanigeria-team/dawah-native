@@ -15,7 +15,7 @@ import { ApiError } from "../../src/services/api/base.api";
 import { lectureDetailApi } from "../../src/services/api/lectureDetail.api";
 import { playlistApi } from "../../src/services/api/playlist.api";
 import { useAuthStore } from "../../src/stores/authStore";
-import { designTokens } from "../../src/theme/designTokens";
+import { useTheme } from "../../src/hooks/useTheme";
 import tw from "../../src/theme/twrnc";
 import { SearchLecture } from "../../src/types/api.types";
 
@@ -23,6 +23,7 @@ const PlaylistDetailScreen: React.FC = () => {
   const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
   const playlistId = id ?? "";
   const { isAuthenticated, user } = useAuthStore();
+  const { colors } = useTheme();
 
   const [playlistName] = useState(name || "");
   const [playlistContents, setPlaylistContents] = useState<SearchLecture[]>([]);
@@ -104,18 +105,18 @@ const PlaylistDetailScreen: React.FC = () => {
 
   if (loading) {
     return (
-      <SafeAreaView style={tw`flex-1 items-center justify-center bg-zinc-900`}>
-        <ActivityIndicator size="large" color={designTokens.colors.brand.primary} />
-        <Text style={tw`mt-4 text-zinc-400`}>Loading playlist...</Text>
+      <SafeAreaView style={[tw`flex-1 items-center justify-center`, { backgroundColor: colors.system.background.primary }]}>
+        <ActivityIndicator size="large" color={colors.brand.primary} />
+        <Text style={[tw`mt-4`, { color: colors.system.label.secondary }]}>Loading playlist...</Text>
       </SafeAreaView>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView style={tw`flex-1 items-center justify-center px-8 bg-zinc-900`}>
-        <Ionicons name="alert-circle-outline" size={64} color={designTokens.colors.semantic.red} />
-        <Text style={tw`mt-4 text-lg font-bold text-white text-center`}>
+      <SafeAreaView style={[tw`flex-1 items-center justify-center px-8`, { backgroundColor: colors.system.background.primary }]}>
+        <Ionicons name="alert-circle-outline" size={64} color={colors.semantic.red} />
+        <Text style={[tw`mt-4 text-lg font-bold text-center`, { color: colors.system.label.primary }]}>
           {error}
         </Text>
         <Button variant="filled" size="large" style={tw`mt-6`} onPress={() => router.back()}>
@@ -126,19 +127,19 @@ const PlaylistDetailScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={tw`flex-1 bg-zinc-900`}>
+    <SafeAreaView style={[tw`flex-1`, { backgroundColor: colors.system.background.primary }]}>
       <View style={tw`flex-row items-center p-4`}>
         <TouchableOpacity onPress={() => router.back()} style={tw`mr-4`}>
-          <Ionicons name="arrow-back" size={24} color={designTokens.colors.system.label.primary} />
+          <Ionicons name="arrow-back" size={24} color={colors.system.label.primary} />
         </TouchableOpacity>
-        <Text style={tw`text-xl font-bold text-white`}>{playlistName || "Playlist"}</Text>
+        <Text style={[tw`text-xl font-bold`, { color: colors.system.label.primary }]}>{playlistName || "Playlist"}</Text>
 
       </View>
 
       {playlistContents.length === 0 ? (
         <View style={tw`flex-1 items-center justify-center`}>
-          <Ionicons name="musical-notes-outline" size={64} color={designTokens.colors.system.label.tertiary} />
-          <Text style={tw`mt-4 text-zinc-400`}>This playlist is empty.</Text>
+          <Ionicons name="musical-notes-outline" size={64} color={colors.system.label.tertiary} />
+          <Text style={[tw`mt-4`, { color: colors.system.label.secondary }]}>This playlist is empty.</Text>
         </View>
       ) : (
         <FlatList
@@ -146,7 +147,7 @@ const PlaylistDetailScreen: React.FC = () => {
           keyExtractor={(item: SearchLecture) => item.id || item.nid?.toString() || ''}
           renderItem={({ item }: { item: SearchLecture }) => (
             <TouchableOpacity
-              style={tw`flex-row items-center p-4 border-b border-zinc-700`}
+              style={[tw`flex-row items-center p-4 border-b`, { borderColor: colors.system.separator.primary }]}
               onPress={() => {
                 // Navigate to lecture detail or play audio
                 router.push(`/lecture/${item.id || item.nid}`);
@@ -158,10 +159,10 @@ const PlaylistDetailScreen: React.FC = () => {
                 contentFit="cover"
               />
               <View style={tw`flex-1`}>
-                <Text style={tw`text-white font-semibold`}>{item.Title}</Text>
-                <Text style={tw`text-zinc-400 text-sm`}>{item.lecturer_name || item.rpname}</Text>
+                <Text style={[tw`font-semibold`, { color: colors.system.label.primary }]}>{item.Title}</Text>
+                <Text style={[tw`text-sm`, { color: colors.system.label.secondary }]}>{item.lecturer_name || item.rpname}</Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color={designTokens.colors.system.label.tertiary} />
+              <Ionicons name="chevron-forward" size={20} color={colors.system.label.tertiary} />
             </TouchableOpacity>
           )}
         />
