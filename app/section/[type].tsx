@@ -1,10 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
+import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   ScrollView,
   TouchableOpacity,
   UIManager,
@@ -68,7 +70,7 @@ const getSectionInfo = (type: string) => {
       return {
         title: "Quran Reciters",
         description:
-          "Discover renowned Quran reciters and their beautiful recitations",
+          "Listen to beautiful recitations from talented indigenous Nigerian Quran reciters",
         count: 0,
         data: [],
         variant: "quran" as const,
@@ -475,34 +477,124 @@ export default function SectionScreen() {
         );
       }
 
-      // Handle Quran albums
+      // Handle Quran albums - World-class reciter card
       if (
         sectionInfo.variant === "quran" &&
         "name" in item &&
         "lec_no" in item
       ) {
         const album = item as QuranAlbum;
+        const surahCount = album.lec_no || 0;
+        const viewCount = album.views || 0;
+
         return (
-          <Card
-            variant="section"
-            data={
-              {
-                id: album.id,
-                title: album.name,
-                coverUrl: album.alb_thumbnail || album.img,
-                lecturerName: `${album.lec_no} Surahs`,
-                plays: album.views,
-                downloads: album.downloads,
-                language: album.language,
-              } as Episode
-            }
+          <TouchableOpacity
             onPress={() => handleQuranAlbumPress(album)}
-            showTime={false}
-            showMeta={true}
-            metaValue={`${album.lec_no} Surahs • ${album.language}`}
-            titleNumberOfLines={0}
-            metaNumberOfLines={2}
-          />
+            activeOpacity={0.9}
+            style={[
+              tw`mb-4 rounded-2xl overflow-hidden`,
+              {
+                backgroundColor: colors.system.background.secondary,
+                shadowColor: colors.fixed.black,
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.08,
+                shadowRadius: 8,
+                elevation: 3,
+              },
+            ]}
+            accessibilityLabel={`${album.name}, ${surahCount} Surahs in ${album.language}`}
+            accessibilityRole="button"
+          >
+            <View style={tw`flex-row`}>
+              {/* Image Section */}
+              <View style={tw`w-28 h-28 relative`}>
+                <Image
+                  source={{ uri: album.alb_thumbnail || album.img }}
+                  style={tw`w-full h-full`}
+                  resizeMode="cover"
+                />
+                <LinearGradient
+                  colors={["transparent", "rgba(0,0,0,0.4)"]}
+                  style={tw`absolute inset-0`}
+                />
+                {/* Play Icon Overlay */}
+                <View
+                  style={[
+                    tw`absolute bottom-2 right-2 w-8 h-8 rounded-full items-center justify-center`,
+                    { backgroundColor: colors.brand.primary },
+                  ]}
+                >
+                  <Ionicons name="play" size={16} color={colors.fixed.black} />
+                </View>
+              </View>
+
+              {/* Content Section */}
+              <View style={tw`flex-1 p-3 justify-between`}>
+                {/* Top: Name and Language */}
+                <View>
+                  <Text
+                    variant="headline"
+                    color="label"
+                    weight="semibold"
+                    numberOfLines={2}
+                    style={tw`leading-5`}
+                  >
+                    {album.name}
+                  </Text>
+                  <View style={tw`flex-row items-center mt-1`}>
+                    <View
+                      style={[
+                        tw`px-2 py-0.5 rounded-full mr-2`,
+                        { backgroundColor: colors.brand.primary + "20" },
+                      ]}
+                    >
+                      <Text
+                        variant="caption2"
+                        weight="semibold"
+                        style={{ color: colors.brand.primary }}
+                      >
+                        {album.language}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Bottom: Stats */}
+                <View style={tw`flex-row items-center mt-2`}>
+                  <View style={tw`flex-row items-center mr-4`}>
+                    <Ionicons
+                      name="book-outline"
+                      size={14}
+                      color={colors.system.label.secondary}
+                    />
+                    <Text
+                      variant="caption1"
+                      color="secondaryLabel"
+                      style={tw`ml-1`}
+                    >
+                      {surahCount} {surahCount === 1 ? "Surah" : "Surahs"}
+                    </Text>
+                  </View>
+                  {viewCount > 0 && (
+                    <View style={tw`flex-row items-center`}>
+                      <Ionicons
+                        name="headset-outline"
+                        size={14}
+                        color={colors.system.label.secondary}
+                      />
+                      <Text
+                        variant="caption1"
+                        color="secondaryLabel"
+                        style={tw`ml-1`}
+                      >
+                        {viewCount.toLocaleString()}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </View>
+          </TouchableOpacity>
         );
       }
 
