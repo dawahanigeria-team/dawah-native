@@ -74,11 +74,11 @@ export const Card: React.FC<CardProps> = memo(
 
     const getAccessibilityLabel = () => {
       let label = `${data.title}`;
-      if (isVideo) {
+      if (isActualVideo) {
         label += `, video`;
       }
-      if ((isEpisode && episode && showTime) || (isVideo && video && showTime)) {
-        const durationSec = isVideo && video ? video.durationSec : (episode?.durationSec || 0);
+      if ((isEpisode && episode && showTime) || (isActualVideo && video && showTime)) {
+        const durationSec = isActualVideo && video ? video.durationSec : (episode?.durationSec || 0);
         label += `, duration ${formatDuration(durationSec)}`;
       }
       if (showMeta && metaValue) {
@@ -89,7 +89,7 @@ export const Card: React.FC<CardProps> = memo(
 
     const handlePress = () => {
       // For videos, always just call onPress without playing audio
-      if (isVideo) {
+      if (isActualVideo) {
         onPress?.();
         return;
       }
@@ -106,7 +106,7 @@ export const Card: React.FC<CardProps> = memo(
       event?.stopPropagation?.();
 
       // For videos, navigate to video player (same as card press)
-      if (isVideo) {
+      if (isActualVideo) {
         onPress?.();
         return;
       }
@@ -187,7 +187,7 @@ export const Card: React.FC<CardProps> = memo(
               )}
 
               {/* Video Badge - show on top-right corner if this is a video */}
-              {isVideo && (
+              {isActualVideo && (
                 <View
                   style={{
                     position: "absolute",
@@ -336,7 +336,7 @@ export const Card: React.FC<CardProps> = memo(
             />
 
             {/* Video Badge - show on top-right corner if this is a video */}
-            {isVideo && (
+            {isActualVideo && (
               <View
                 style={{
                   position: "absolute",
@@ -464,7 +464,7 @@ export const Card: React.FC<CardProps> = memo(
                 alignItems: "center",
               }}
               onPress={handlePlayButtonPress}
-              accessibilityLabel={isVideo ? "Play video" : "Play lecture"}
+              accessibilityLabel={isActualVideo ? "Play video" : "Play lecture"}
               accessibilityRole="button"
               hapticFeedback
               minHitTarget
