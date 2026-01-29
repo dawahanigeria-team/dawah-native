@@ -129,10 +129,11 @@ export default function HomeScreen() {
           lecture.img || lecture.lecturer_image || lecture.CoverUrl || "";
         const plays =
           parseInt(String(lecture.views || lecture.Plays || "0")) || 0;
+        const lectureRecord = lecture as unknown as Record<string, unknown>;
         const language =
           lecture.lang ||
           lecture.language ||
-          (lecture as any).language_name ||
+          (lectureRecord.language_name as string) ||
           lecture.Language ||
           "Unknown";
         const downloads =
@@ -142,8 +143,8 @@ export default function HomeScreen() {
         const lecturerName =
           lecture.rpname ||
           lecture.lecturer_name ||
-          (lecture as any).LecturerName ||
-          (lecture as any).reciter_name ||
+          (lectureRecord.LecturerName as string) ||
+          (lectureRecord.reciter_name as string) ||
           undefined;
 
         return {
@@ -204,26 +205,17 @@ export default function HomeScreen() {
     [playEpisode],
   );
 
-  const handleCarouselItemPress = useCallback(
-    (episode: Episode) => {
-      router.push(`/lecture/${episode.id}`);
-    },
-    [router],
-  );
+  const handleCarouselItemPress = useCallback((episode: Episode) => {
+    router.push(`/lecture/${episode.id}`);
+  }, []);
 
-  const handleAlbumPress = useCallback(
-    (album: QuranAlbum) => {
-      router.push(`/quran-reciter/${album.id}`);
-    },
-    [router],
-  );
+  const handleAlbumPress = useCallback((album: QuranAlbum) => {
+    router.push(`/quran-reciter/${album.id}`);
+  }, []);
 
-  const handleVideoPress = useCallback(
-    (videoId: string) => {
-      router.push(`/video/${videoId}`);
-    },
-    [router],
-  );
+  const handleVideoPress = useCallback((videoId: string) => {
+    router.push(`/video/${videoId}`);
+  }, []);
 
   const handleSearchSubmit = (query: string) => {
     // Navigate to search page when user submits
@@ -261,7 +253,7 @@ export default function HomeScreen() {
         </View>
       );
     },
-    [handleCarouselItemPress, router],
+    [handleCarouselItemPress],
   );
 
   const renderAlbumItem = useCallback(
@@ -576,7 +568,6 @@ export default function HomeScreen() {
     renderLectureItem,
     renderAlbumItem,
     renderVideoItem,
-    router,
   ]);
 
   const renderSectionItem = useCallback(
