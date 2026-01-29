@@ -10,6 +10,7 @@ import {
   InteractionManager,
   ScrollView,
   StyleSheet,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -93,9 +94,23 @@ export default function HomeScreen() {
   const { playEpisode } = usePlayerActions();
   const { colors } = useTheme();
   const [greeting] = useState(getGreeting());
+  const [searchValue, setSearchValue] = useState("");
   const { user } = useAuthStore();
 
   const unreadCount = useUnreadAnnouncementsCount();
+
+  // Handle search submission
+  const handleSearchSubmit = useCallback(() => {
+    if (searchValue.trim()) {
+      router.push(`/search?q=${encodeURIComponent(searchValue.trim())}`);
+    } else {
+      router.push("/search");
+    }
+  }, [searchValue]);
+
+  const handleMicPress = useCallback(() => {
+    router.push("/search?voice=true");
+  }, []);
 
   // Data fetching
   const { lectures: popularLectures, isLoading: popularLoading } =
@@ -525,35 +540,61 @@ export default function HomeScreen() {
           </View>
 
           {/* Search Bar */}
-          <TouchableOpacity
-            onPress={() => router.push("/search")}
+          <View
             style={[
               styles.searchBar,
               { backgroundColor: colors.system.background.secondary },
             ]}
-            activeOpacity={0.8}
           >
             <Ionicons
               name="search"
               size={20}
               color={colors.system.label.tertiary}
             />
-            <Text variant="body" color="tertiaryLabel" style={tw`flex-1 ml-3`}>
-              Search lectures, scholars...
-            </Text>
-            <View
+            <TextInput
               style={[
-                tw`w-8 h-8 rounded-lg items-center justify-center`,
-                { backgroundColor: colors.system.fill.tertiary },
+                tw`flex-1 ml-3`,
+                styles.searchInput,
+                { color: colors.system.label.primary },
               ]}
-            >
-              <Ionicons
-                name="mic"
-                size={18}
-                color={colors.system.label.secondary}
-              />
-            </View>
-          </TouchableOpacity>
+              placeholder="Search lectures, scholars..."
+              placeholderTextColor={colors.system.label.tertiary}
+              value={searchValue}
+              onChangeText={setSearchValue}
+              onSubmitEditing={handleSearchSubmit}
+              returnKeyType="search"
+              autoCorrect={false}
+              autoCapitalize="none"
+            />
+            {searchValue.length > 0 ? (
+              <TouchableOpacity
+                onPress={() => setSearchValue("")}
+                style={tw`w-8 h-8 rounded-lg items-center justify-center`}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="close-circle"
+                  size={20}
+                  color={colors.system.label.tertiary}
+                />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={handleMicPress}
+                style={[
+                  tw`w-8 h-8 rounded-lg items-center justify-center`,
+                  { backgroundColor: colors.system.fill.tertiary },
+                ]}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="mic"
+                  size={18}
+                  color={colors.system.label.secondary}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
         </Animated.View>
 
         {/* Hero Carousel */}
@@ -692,6 +733,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 16,
+  },
+  searchInput: {
+    fontSize: 16,
   },
   heroCard: {
     height: HERO_HEIGHT,

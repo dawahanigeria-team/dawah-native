@@ -1,5 +1,6 @@
 import React, { memo } from "react";
 import { ViewStyle } from "react-native";
+import { useTheme } from "../../hooks/useTheme";
 import { designTokens, BorderRadius } from "../../theme/designTokens";
 import { Touchable } from "./Touchable";
 import { Text } from "./Text";
@@ -34,6 +35,8 @@ export const Chip: React.FC<ChipProps> = memo(
     onPress,
     style,
   }) => {
+    const { colors } = useTheme();
+
     const getVariantStyles = (): ViewStyle => {
       const isSelected = selected && !disabled;
 
@@ -41,59 +44,59 @@ export const Chip: React.FC<ChipProps> = memo(
         case "primary":
           return {
             backgroundColor: isSelected
-              ? designTokens.colors.brand.primary
-              : designTokens.colors.system.background.secondary,
+              ? colors.brand.primary
+              : colors.system.background.secondary,
             borderWidth: isSelected ? 0 : 1,
             borderColor: isSelected
               ? "transparent"
-              : designTokens.colors.system.separator.primary,
+              : colors.system.separator.primary,
           };
         case "secondary":
           return {
             backgroundColor: isSelected
-              ? designTokens.colors.brand.primary
-              : designTokens.colors.system.background.secondary,
+              ? colors.brand.primary
+              : colors.system.background.secondary,
             borderWidth: isSelected ? 0 : 1,
             borderColor: isSelected
               ? "transparent"
-              : designTokens.colors.system.separator.primary,
+              : colors.system.separator.primary,
           };
         case "outline":
           return {
             backgroundColor: isSelected
-              ? designTokens.colors.brand.primary
-              : designTokens.colors.system.background.secondary,
+              ? colors.brand.primary
+              : colors.system.background.secondary,
             borderWidth: isSelected ? 0 : 1,
             borderColor: isSelected
               ? "transparent"
-              : designTokens.colors.system.separator.primary,
+              : colors.system.separator.primary,
           };
         case "muted":
           return {
             backgroundColor: isSelected
-              ? designTokens.colors.brand.primary
-              : designTokens.colors.system.background.secondary,
+              ? colors.brand.primary
+              : colors.system.background.secondary,
             borderWidth: isSelected ? 0 : 1,
             borderColor: isSelected
               ? "transparent"
-              : designTokens.colors.system.separator.primary,
+              : colors.system.separator.primary,
           };
         case "selected":
           return {
-            backgroundColor: designTokens.colors.brand.primary,
+            backgroundColor: colors.brand.primary,
             borderWidth: 0,
           };
         case "default":
           return {
-            backgroundColor: designTokens.colors.system.background.secondary,
+            backgroundColor: colors.system.background.secondary,
             borderWidth: 1,
-            borderColor: designTokens.colors.system.separator.primary,
+            borderColor: colors.system.separator.primary,
           };
         default:
           return {
-            backgroundColor: designTokens.colors.system.background.secondary,
+            backgroundColor: colors.system.background.secondary,
             borderWidth: 1,
-            borderColor: designTokens.colors.system.separator.primary,
+            borderColor: colors.system.separator.primary,
           };
       }
     };
@@ -132,15 +135,12 @@ export const Chip: React.FC<ChipProps> = memo(
 
       const isSelected = selected && !disabled;
 
-      switch (variant) {
-        case "primary":
-        case "secondary":
-        case "outline":
-        case "muted":
-          return isSelected ? "label" : "label";
-        default:
-          return "label";
+      // When selected, use contrasting color for visibility on brand background
+      if (isSelected) {
+        return "label"; // Text component will handle the color
       }
+
+      return "label";
     };
 
     const getTextVariant = () => {
@@ -167,6 +167,10 @@ export const Chip: React.FC<ChipProps> = memo(
       ...style,
     };
 
+    // For selected chips on brand primary background, use black text for contrast
+    const isSelected = selected && !disabled;
+    const textStyle = isSelected ? { color: colors.fixed.black } : undefined;
+
     return (
       <Touchable
         style={combinedStyle}
@@ -185,6 +189,7 @@ export const Chip: React.FC<ChipProps> = memo(
           color={getTextColor()}
           weight="medium"
           align="center"
+          style={textStyle}
         >
           {label}
         </Text>
