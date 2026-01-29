@@ -784,7 +784,7 @@ export default function SectionScreen() {
           {searchQuery.trim() && (
             <View style={tw`mt-3 flex-row items-center justify-between`}>
               <Text variant="caption1" color="secondaryLabel">
-                {filteredData.length} of {sectionInfo.count} results
+                {filteredData.length} of {rawData.length} results
               </Text>
               {searchQuery.trim() && (
                 <TouchableOpacity

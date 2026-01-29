@@ -134,10 +134,12 @@ export default function HomeScreen() {
 
   const buildPopularEpisodes = useCallback(
     (lectures: SearchLecture[]): Episode[] => {
-      return lectures.map((lecture) => {
+      return lectures.map((lecture, index) => {
         const lectureRecord = lecture as unknown as Record<string, unknown>;
         return {
-          id: String(lecture.nid || lecture.id || `lecture-${Date.now()}`),
+          id: String(
+            lecture.nid || lecture.id || `lecture-${Date.now()}-${index}`,
+          ),
           title: lecture.Title || lecture.mp3_title || "Untitled Lecture",
           durationSec: parseDuration(
             lecture.duration || lecture.mp3_duration || lecture.Duration,
@@ -265,22 +267,13 @@ export default function HomeScreen() {
               {item.title}
             </Text>
             <View style={tw`flex-row items-center mt-1`}>
-              <Text
-                variant="caption1"
-                style={{ color: "rgba(255,255,255,0.8)" }}
-              >
+              <Text variant="caption1" style={styles.heroMetaText}>
                 {item.lecturerName || "Unknown Scholar"}
               </Text>
               <View
-                style={[
-                  tw`w-1 h-1 rounded-full mx-2`,
-                  { backgroundColor: "rgba(255,255,255,0.5)" },
-                ]}
+                style={[tw`w-1 h-1 rounded-full mx-2`, styles.heroMetaDot]}
               />
-              <Text
-                variant="caption1"
-                style={{ color: "rgba(255,255,255,0.8)" }}
-              >
+              <Text variant="caption1" style={styles.heroMetaText}>
                 {Math.floor(item.durationSec / 60)} min
               </Text>
             </View>
@@ -396,7 +389,7 @@ export default function HomeScreen() {
       return (
         <Animated.View
           entering={FadeInRight.delay(index * 50).duration(300)}
-          style={{ width: 140, marginRight: 12 }}
+          style={styles.quranCardWrapper}
         >
           <TouchableOpacity
             onPress={() => handleAlbumPress(item)}
@@ -744,6 +737,12 @@ const styles = StyleSheet.create({
   heroTitle: {
     lineHeight: 26,
   },
+  heroMetaText: {
+    color: "rgba(255,255,255,0.8)",
+  },
+  heroMetaDot: {
+    backgroundColor: "rgba(255,255,255,0.5)",
+  },
   heroSkeleton: {
     height: HERO_HEIGHT,
     marginHorizontal: 16,
@@ -792,6 +791,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   skeletonCardWrapper: {
+    marginRight: 12,
+  },
+  quranCardWrapper: {
+    width: 140,
     marginRight: 12,
   },
 });
