@@ -15,11 +15,12 @@ import {
   syncNotificationPreferencesAsync,
   type NotificationPrefs,
 } from "../src/services/notifications.service";
-import { designTokens } from "../src/theme/designTokens";
+import { useTheme } from "../src/hooks/useTheme";
 import tw from "../src/theme/twrnc";
 
 const NotificationsScreen = () => {
   const router = useRouter();
+  const { colors } = useTheme();
   const [prefs, setPrefs] = useState<NotificationPrefs>(defaultNotificationPrefs);
   const [loading, setLoading] = useState(true);
   const [pushTokenStatus, setPushTokenStatus] = useState<"present" | "missing">("missing");
@@ -77,7 +78,7 @@ const NotificationsScreen = () => {
     <SafeAreaView
       style={[
         tw`flex-1`,
-        { backgroundColor: designTokens.colors.system.background.primary },
+        { backgroundColor: colors.system.background.primary },
       ]}
     >
       {/* Header */}
@@ -86,14 +87,14 @@ const NotificationsScreen = () => {
           <Ionicons
             name="arrow-back"
             size={24}
-            color={designTokens.colors.system.label.primary}
+            color={colors.system.label.primary}
             onPress={() => router.back()}
           />
         </View>
         <Text
           style={[
             tw`text-2xl font-bold`,
-            { color: designTokens.colors.system.label.primary },
+            { color: colors.system.label.primary },
           ]}
           accessibilityRole="header"
         >
@@ -107,7 +108,7 @@ const NotificationsScreen = () => {
         <Text
           style={[
             tw`text-sm`,
-            { color: designTokens.colors.system.label.secondary },
+            { color: colors.system.label.secondary },
           ]}
         >
           Control how dawahnigeria notifies you about new content and updates.
@@ -116,7 +117,7 @@ const NotificationsScreen = () => {
         <Text
           style={[
             tw`text-xs mt-2`,
-            { color: designTokens.colors.system.label.tertiary },
+            { color: colors.system.label.tertiary },
           ]}
         >
           Push token: {pushTokenStatus === "present" ? "registered" : "not registered"}
@@ -126,7 +127,7 @@ const NotificationsScreen = () => {
       <View
         style={[
           tw`mx-4 mb-4 rounded-2xl`,
-          { backgroundColor: designTokens.colors.system.background.secondary },
+          { backgroundColor: colors.system.background.secondary },
         ]}
       >
         <NotificationRow
@@ -140,7 +141,7 @@ const NotificationsScreen = () => {
       <View
         style={[
           tw`mx-4 mb-4 rounded-2xl`,
-          { backgroundColor: designTokens.colors.system.background.secondary },
+          { backgroundColor: colors.system.background.secondary },
         ]}
       >
         <NotificationRow
@@ -179,7 +180,7 @@ const NotificationsScreen = () => {
         <Text
           style={[
             tw`text-xs`,
-            { color: designTokens.colors.system.label.tertiary },
+            { color: colors.system.label.tertiary },
           ]}
         >
           To fully disable notifications, you may also need to turn them off in
@@ -207,13 +208,15 @@ const NotificationRow: React.FC<NotificationRowProps> = ({
   disabled,
   divider,
 }) => {
+  const { colors } = useTheme();
+  
   return (
     <View
       style={[
         tw`flex-row items-center px-4 py-3`,
         divider && {
           borderTopWidth: 1,
-          borderTopColor: designTokens.colors.overlay.lightThin,
+          borderTopColor: colors.system.separator.primary,
         },
       ]}
     >
@@ -221,7 +224,7 @@ const NotificationRow: React.FC<NotificationRowProps> = ({
         <Text
           style={[
             tw`text-base font-medium`,
-            { color: designTokens.colors.system.label.primary },
+            { color: colors.system.label.primary },
           ]}
         >
           {title}
@@ -230,7 +233,7 @@ const NotificationRow: React.FC<NotificationRowProps> = ({
           <Text
             style={[
               tw`text-xs mt-1`,
-              { color: designTokens.colors.system.label.secondary },
+              { color: colors.system.label.secondary },
             ]}
           >
             {subtitle}
@@ -243,12 +246,12 @@ const NotificationRow: React.FC<NotificationRowProps> = ({
         disabled={disabled}
         thumbColor={
           value
-            ? designTokens.colors.system.background.primary
-            : designTokens.colors.system.fill.secondary
+            ? colors.system.background.primary
+            : colors.system.fill.secondary
         }
         trackColor={{
-          true: designTokens.colors.brand.primary,
-          false: designTokens.colors.system.fill.quaternary,
+          true: colors.brand.primary,
+          false: colors.system.fill.quaternary,
         }}
       />
     </View>
