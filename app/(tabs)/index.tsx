@@ -1,8 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { FlatList, InteractionManager, Text, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  FlatList,
+  InteractionManager,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../../src/components/molecules/Card";
 import { CardSkeleton } from "../../src/components/molecules/Card.skeleton";
@@ -11,12 +17,12 @@ import { ActionGrid } from "../../src/components/organisms/ActionGrid";
 import { HeroCarousel } from "../../src/components/organisms/HeroCarousel";
 import { HeroCarouselSkeleton } from "../../src/components/organisms/HeroCarousel.skeleton";
 import { Row } from "../../src/components/organisms/Row";
+import { useUnreadAnnouncementsCount } from "../../src/hooks/useAnnouncements";
 import { usePopularLecturesWithCache } from "../../src/hooks/usePopularLecturesWithCache";
 import { useQuranAlbums } from "../../src/hooks/useQuranAlbums";
 import { useRecentlyPlayedLectures } from "../../src/hooks/useRecentlyPlayedLectures";
 import { useTrending } from "../../src/hooks/useTrending";
 import { useVideos } from "../../src/hooks/useVideos";
-import { useUnreadAnnouncementsCount } from "../../src/hooks/useAnnouncements";
 import { QuranAlbum } from "../../src/services/api/quran.api";
 import { usePlayerActions } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
@@ -32,7 +38,7 @@ const PREFETCH_LIMIT = 5;
 const Separator = () => <View style={{ width: ITEM_SPACING }} />;
 const SmallSeparator = () => <View style={{ width: 12 }} />;
 
-type HomeSection = { key: string; element: JSX.Element };
+type HomeSection = { key: string; element: React.JSX.Element };
 
 export default function HomeScreen() {
   const { playEpisode } = usePlayerActions();
@@ -45,7 +51,7 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       setSearchValue("");
-    }, [setSearchValue])
+    }, [setSearchValue]),
   );
 
   // Fetch popular lectures for the carousel (offline-first with cache)
@@ -56,10 +62,18 @@ export default function HomeScreen() {
   } = usePopularLecturesWithCache();
 
   // Fetch trending lectures for the 'Recently Posted' section
-  const { lectures: trendingLectures, loading: trendingLoading, error: trendingError } = useTrending({ limit: 10 });
+  const {
+    lectures: trendingLectures,
+    loading: trendingLoading,
+    error: trendingError,
+  } = useTrending({ limit: 10 });
 
   // Fetch Quran albums for the 'Quran Recitations' section
-  const { albums: quranAlbumsRaw, loading: quranLoading, error: quranError } = useQuranAlbums({ limit: 10 });
+  const {
+    albums: quranAlbumsRaw,
+    loading: quranLoading,
+    error: quranError,
+  } = useQuranAlbums({ limit: 10 });
 
   // Deduplicate Quran albums by name (API may return duplicates)
   const quranAlbums = useMemo(() => {
@@ -73,11 +87,18 @@ export default function HomeScreen() {
   }, [quranAlbumsRaw]);
 
   // Fetch recently played lectures using the custom hook
-  const { lectures: recentlyPlayed, loading: recentlyPlayedLoading, error: recentlyPlayedError } = useRecentlyPlayedLectures(10);
+  const {
+    lectures: recentlyPlayed,
+    loading: recentlyPlayedLoading,
+    error: recentlyPlayedError,
+  } = useRecentlyPlayedLectures(10);
 
   // Fetch videos for the 'Featured Videos' section
-  const { videos, loading: videosLoading, error: videosError } = useVideos({ limit: 10 });
-
+  const {
+    videos,
+    loading: videosLoading,
+    error: videosError,
+  } = useVideos({ limit: 10 });
 
   const [popularEpisodes, setPopularEpisodes] = useState<Episode[]>([]);
 
@@ -92,35 +113,54 @@ export default function HomeScreen() {
     return 0;
   }, []);
 
-  const buildPopularEpisodes = useCallback((lectures: SearchLecture[]): Episode[] => {
-    return lectures.map((lecture) => {
-      const id = String(lecture.nid || lecture.id || `lecture-${Date.now()}`);
-      const title = lecture.Title || lecture.mp3_title || "Untitled Lecture";
-      const duration = lecture.duration || lecture.mp3_duration || lecture.Duration;
-      const audioUrl = lecture.audio || lecture.mp3_url || lecture.AudioUrl || "";
-      const coverUrl = lecture.img || lecture.lecturer_image || lecture.CoverUrl || "";
-      const plays = parseInt(String(lecture.views || lecture.Plays || "0")) || 0;
-      const language = lecture.lang || lecture.language || (lecture as any).language_name || lecture.Language || "Unknown";
-      const downloads = parseInt(String(lecture.downloads || lecture.Downloads || "0")) || 0;
-      const createdAt = lecture.created_at || lecture.CreatedAt || new Date().toISOString();
-      const lecturerName = lecture.rpname || lecture.lecturer_name || (lecture as any).LecturerName || (lecture as any).reciter_name || undefined;
+  const buildPopularEpisodes = useCallback(
+    (lectures: SearchLecture[]): Episode[] => {
+      return lectures.map((lecture) => {
+        const id = String(lecture.nid || lecture.id || `lecture-${Date.now()}`);
+        const title = lecture.Title || lecture.mp3_title || "Untitled Lecture";
+        const duration =
+          lecture.duration || lecture.mp3_duration || lecture.Duration;
+        const audioUrl =
+          lecture.audio || lecture.mp3_url || lecture.AudioUrl || "";
+        const coverUrl =
+          lecture.img || lecture.lecturer_image || lecture.CoverUrl || "";
+        const plays =
+          parseInt(String(lecture.views || lecture.Plays || "0")) || 0;
+        const language =
+          lecture.lang ||
+          lecture.language ||
+          (lecture as any).language_name ||
+          lecture.Language ||
+          "Unknown";
+        const downloads =
+          parseInt(String(lecture.downloads || lecture.Downloads || "0")) || 0;
+        const createdAt =
+          lecture.created_at || lecture.CreatedAt || new Date().toISOString();
+        const lecturerName =
+          lecture.rpname ||
+          lecture.lecturer_name ||
+          (lecture as any).LecturerName ||
+          (lecture as any).reciter_name ||
+          undefined;
 
-      return {
-        id,
-        title,
-        durationSec: parseDuration(duration),
-        coverUrl,
-        audioUrl,
-        seriesId: "",
-        plays,
-        liked: false,
-        language,
-        downloads,
-        createdAt,
-        lecturerName,
-      } as Episode;
-    });
-  }, [parseDuration]);
+        return {
+          id,
+          title,
+          durationSec: parseDuration(duration),
+          coverUrl,
+          audioUrl,
+          seriesId: "",
+          plays,
+          liked: false,
+          language,
+          downloads,
+          createdAt,
+          lecturerName,
+        } as Episode;
+      });
+    },
+    [parseDuration],
+  );
 
   // Convert cached popular lectures to Episode shape after initial interactions
   useEffect(() => {
@@ -150,30 +190,41 @@ export default function HomeScreen() {
     return () => task.cancel?.();
   }, [popularEpisodes]);
 
+  const handleEpisodePress = useCallback(
+    async (episode: Episode) => {
+      console.log("🎵 Play button pressed for:", episode.title);
+      console.log("🔗 Audio URL:", episode.audioUrl);
 
-  const handleEpisodePress = useCallback(async (episode: Episode) => {
-    console.log('🎵 Play button pressed for:', episode.title);
-    console.log('🔗 Audio URL:', episode.audioUrl);
+      try {
+        await playEpisode(episode);
+        console.log("✅ Episode playing successfully");
+      } catch (error) {
+        console.error("❌ Error playing episode:", error);
+      }
+    },
+    [playEpisode],
+  );
 
-    try {
-      await playEpisode(episode);
-      console.log('✅ Episode playing successfully');
-    } catch (error) {
-      console.error('❌ Error playing episode:', error);
-    }
-  }, [playEpisode]);
+  const handleCarouselItemPress = useCallback(
+    (episode: Episode) => {
+      router.push(`/lecture/${episode.id}`);
+    },
+    [router],
+  );
 
-  const handleCarouselItemPress = useCallback((episode: Episode) => {
-    router.push(`/lecture/${episode.id}`);
-  }, [router]);
+  const handleAlbumPress = useCallback(
+    (album: QuranAlbum) => {
+      router.push(`/quran-reciter/${album.id}`);
+    },
+    [router],
+  );
 
-  const handleAlbumPress = useCallback((album: QuranAlbum) => {
-    router.push(`/quran-reciter/${album.id}`);
-  }, [router]);
-
-  const handleVideoPress = useCallback((videoId: string) => {
-    router.push(`/video/${videoId}`);
-  }, [router]);
+  const handleVideoPress = useCallback(
+    (videoId: string) => {
+      router.push(`/video/${videoId}`);
+    },
+    [router],
+  );
 
   const handleSearchSubmit = (query: string) => {
     // Navigate to search page when user submits
@@ -189,95 +240,105 @@ export default function HomeScreen() {
     router.push("/search?voice=true");
   };
 
-  const renderLectureItem = useCallback(({ item }: { item: Episode }) => {
-    // Defensive check to prevent crashes from malformed data
-    if (!item?.id) {
-      return null;
-    }
+  const renderLectureItem = useCallback(
+    ({ item }: { item: Episode }) => {
+      // Defensive check to prevent crashes from malformed data
+      if (!item?.id) {
+        return null;
+      }
 
-    return (
-      <View style={{ width: ITEM_WIDTH }}>
-        <Card
-          variant="landscape"
-          data={item}
-          onPress={() => handleCarouselItemPress(item)}
-          playOnPress={false}
-          showTime={true}
-          showMeta={true}
-          metaValue={item.lecturerName || "Unknown"}
-          onMorePress={() => router.push(`/lecture/${item.id}`)}
-        />
-      </View>
-    );
-  }, [handleCarouselItemPress, router]);
+      return (
+        <View style={{ width: ITEM_WIDTH }}>
+          <Card
+            variant="landscape"
+            data={item}
+            onPress={() => handleCarouselItemPress(item)}
+            playOnPress={false}
+            showTime={true}
+            showMeta={true}
+            metaValue={item.lecturerName || "Unknown"}
+            onMorePress={() => router.push(`/lecture/${item.id}`)}
+          />
+        </View>
+      );
+    },
+    [handleCarouselItemPress, router],
+  );
 
-  const renderAlbumItem = useCallback(({ item }: { item: QuranAlbum }) => {
-    // Defensive check to prevent crashes from malformed data
-    if (!item?.id) {
-      return null;
-    }
+  const renderAlbumItem = useCallback(
+    ({ item }: { item: QuranAlbum }) => {
+      // Defensive check to prevent crashes from malformed data
+      if (!item?.id) {
+        return null;
+      }
 
-    // Build meaningful subtitle: "X Surahs • Language" or just count/language
-    const surahCount = item.lec_no || 0;
-    const subtitle = surahCount > 0
-      ? `${surahCount} ${surahCount === 1 ? 'Surah' : 'Surahs'}`
-      : item.language || '';
+      // Build meaningful subtitle: "X Surahs • Language" or just count/language
+      const surahCount = item.lec_no || 0;
+      const subtitle =
+        surahCount > 0
+          ? `${surahCount} ${surahCount === 1 ? "Surah" : "Surahs"}`
+          : item.language || "";
 
-    return (
-      <View style={{ width: 140 }}>
-        <Card
-          variant="square"
-          data={{
-            id: item.id,
-            title: item.name || 'Unknown Reciter',
-            durationSec: 0,
-            coverUrl: item.img || item.alb_thumbnail,
-            audioUrl: '',
-            seriesId: '',
-            plays: item.views || 0,
-            liked: false,
-            language: item.language || '',
-            downloads: item.downloads || 0,
-            createdAt: item.post_date || '',
-            lecturerName: item.name || 'Unknown',
-          }}
-          onPress={() => handleAlbumPress(item)}
-          playOnPress={false}
-          showMeta={!!subtitle}
-          metaValue={subtitle}
-          titleNumberOfLines={2}
-        />
-      </View>
-    );
-  }, [handleAlbumPress]);
+      return (
+        <View style={{ width: 140 }}>
+          <Card
+            variant="square"
+            data={{
+              id: item.id,
+              title: item.name || "Unknown Reciter",
+              durationSec: 0,
+              coverUrl: item.img || item.alb_thumbnail,
+              audioUrl: "",
+              seriesId: "",
+              plays: item.views || 0,
+              liked: false,
+              language: item.language || "",
+              downloads: item.downloads || 0,
+              createdAt: item.post_date || "",
+              lecturerName: item.name || "Unknown",
+            }}
+            onPress={() => handleAlbumPress(item)}
+            playOnPress={false}
+            showMeta={!!subtitle}
+            metaValue={subtitle}
+            titleNumberOfLines={2}
+          />
+        </View>
+      );
+    },
+    [handleAlbumPress],
+  );
 
-  const renderVideoItem = useCallback(({ item }: { item: Video }) => {
-    // Defensive check to prevent crashes from malformed data
-    if (!item?.id) {
-      return null;
-    }
+  const renderVideoItem = useCallback(
+    ({ item }: { item: Video }) => {
+      // Defensive check to prevent crashes from malformed data
+      if (!item?.id) {
+        return null;
+      }
 
-    // Transform Video to match Card's expected structure
-    const cardData = {
-      ...item,
-      coverUrl: item.thumbnailUrl, // Card expects coverUrl, Video has thumbnailUrl
-    };
+      // Transform Video to match Card's expected structure
+      const cardData = {
+        ...item,
+        coverUrl: item.thumbnailUrl, // Card expects coverUrl, Video has thumbnailUrl
+      };
 
-    return (
-      <View style={{ width: ITEM_WIDTH }}>
-        <Card
-          variant="landscape"
-          data={cardData}
-          onPress={() => handleVideoPress(item.id)}
-          playOnPress={false}
-          showTime={true}
-          showMeta={true}
-          metaValue={item.lecturerName || "Unknown"}
-          isVideo={true}
-        />
-      </View>
-    );
-  }, [handleVideoPress]);
+      return (
+        <View style={{ width: ITEM_WIDTH }}>
+          <Card
+            variant="landscape"
+            data={cardData}
+            onPress={() => handleVideoPress(item.id)}
+            playOnPress={false}
+            showTime={true}
+            showMeta={true}
+            metaValue={item.lecturerName || "Unknown"}
+            isVideo={true}
+          />
+        </View>
+      );
+    },
+    [handleVideoPress],
+  );
 
   const sections = useMemo<HomeSection[]>(() => {
     const items: HomeSection[] = [];
@@ -289,7 +350,9 @@ export default function HomeScreen() {
         key: "popular-error",
         element: (
           <View style={tw`h-56 items-center justify-center px-6`}>
-            <Text style={tw`text-white text-center`}>Failed to load popular lectures</Text>
+            <Text style={tw`text-white text-center`}>
+              Failed to load popular lectures
+            </Text>
           </View>
         ),
       });
@@ -315,7 +378,10 @@ export default function HomeScreen() {
           <Row title="Recently Played" subtitle="Continue where you left off">
             <View style={tw`flex-row`}>
               {[...Array(3)].map((_, index) => (
-                <View key={`skeleton-recently-played-${index}`} style={tw`mr-4 w-80`}>
+                <View
+                  key={`skeleton-recently-played-${index}`}
+                  style={tw`mr-4 w-80`}
+                >
                   <CardSkeleton variant="landscape" />
                 </View>
               ))}
@@ -328,7 +394,9 @@ export default function HomeScreen() {
         key: "recently-played-error",
         element: (
           <View style={tw`h-40 items-center justify-center px-6`}>
-            <Text style={tw`text-white text-center`}>Failed to load recently played</Text>
+            <Text style={tw`text-white text-center`}>
+              Failed to load recently played
+            </Text>
           </View>
         ),
       });
@@ -373,7 +441,9 @@ export default function HomeScreen() {
         key: "recently-posted-error",
         element: (
           <View style={tw`h-40 items-center justify-center px-6`}>
-            <Text style={tw`text-white text-center`}>Failed to load recently posted</Text>
+            <Text style={tw`text-white text-center`}>
+              Failed to load recently posted
+            </Text>
           </View>
         ),
       });
@@ -418,7 +488,9 @@ export default function HomeScreen() {
         key: "videos-error",
         element: (
           <View style={tw`h-40 items-center justify-center px-6`}>
-            <Text style={tw`text-white text-center`}>Failed to load videos</Text>
+            <Text style={tw`text-white text-center`}>
+              Failed to load videos
+            </Text>
           </View>
         ),
       });
@@ -460,7 +532,9 @@ export default function HomeScreen() {
         key: "quran-error",
         element: (
           <View style={tw`h-40 items-center justify-center px-6`}>
-            <Text style={tw`text-white text-center`}>Failed to load Quran recitations</Text>
+            <Text style={tw`text-white text-center`}>
+              Failed to load Quran recitations
+            </Text>
           </View>
         ),
       });
@@ -506,7 +580,10 @@ export default function HomeScreen() {
     router,
   ]);
 
-  const renderSectionItem = useCallback(({ item }: { item: HomeSection }) => item.element, []);
+  const renderSectionItem = useCallback(
+    ({ item }: { item: HomeSection }) => item.element,
+    [],
+  );
 
   return (
     <SafeAreaView
@@ -516,86 +593,89 @@ export default function HomeScreen() {
       ]}
     >
       {/* Header */}
-      <View style={tw`px-4 py-3`}>
-        <View style={tw`flex-row items-center justify-between`}>
-          {/* Left side - Logo */}
-          <View
+      <View style={tw`px-4 py-3 flex-row items-center justify-between`}>
+        {/* Left side - Logo */}
+        <View
+          style={[
+            tw`w-8 h-8 rounded-lg items-center justify-center`,
+            { backgroundColor: designTokens.colors.brand.primary },
+          ]}
+          accessibilityLabel="dawahnigeria logo"
+          accessibilityRole="image"
+        >
+          <Text
             style={[
-              tw`w-8 h-8 rounded-lg items-center justify-center`,
-              { backgroundColor: designTokens.colors.brand.primary },
+              tw`font-bold text-lg`,
+              { color: designTokens.colors.system.background.primary },
             ]}
-            accessibilityLabel="dawahnigeria logo"
-            accessibilityRole="image"
           >
-            <Text
-              style={[
-                tw`font-bold text-lg`,
-                { color: designTokens.colors.system.background.primary },
-              ]}
-            >
-              DN
-            </Text>
-          </View>
+            DN
+          </Text>
+        </View>
 
-          {/* Right side - Notifications */}
-          <View style={tw`w-8 relative`}>
-            <TouchableOpacity
-              style={tw`items-center justify-center`}
-              onPress={() => router.push("/inbox")}
-              accessibilityLabel={`Notifications${unreadCount > 0 ? ` - ${unreadCount} unread` : ''}`}
-              accessibilityHint="Tap to view notifications and announcements"
-              accessibilityRole="button"
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name="notifications-outline"
-                size={24}
-                color={designTokens.colors.system.label.primary}
-              />
-              {/* Unread badge */}
-              {unreadCount > 0 && (
-                <View
+        {/* Center - Search Bar */}
+        <View style={tw`flex-1 mx-3`}>
+          <SearchBar
+            placeholder="Search lectures.."
+            value={searchValue}
+            onChangeText={setSearchValue}
+            onSearch={handleSearchSubmit}
+            onMicPress={handleMicPress}
+            disabled={false}
+            style={{
+              minHeight: 36,
+              paddingVertical: 0,
+              paddingHorizontal: 8,
+            }}
+          />
+        </View>
+
+        {/* Right side - Notifications */}
+        <View style={tw`w-8 relative`}>
+          <TouchableOpacity
+            style={tw`items-center justify-center`}
+            onPress={() => router.push("/inbox")}
+            accessibilityLabel={`Notifications${unreadCount > 0 ? ` - ${unreadCount} unread` : ""}`}
+            accessibilityHint="Tap to view notifications and announcements"
+            accessibilityRole="button"
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="notifications-outline"
+              size={24}
+              color={designTokens.colors.system.label.primary}
+            />
+            {/* Unread badge */}
+            {unreadCount > 0 && (
+              <View
+                style={{
+                  position: "absolute",
+                  top: -2,
+                  right: -2,
+                  backgroundColor: designTokens.colors.semantic.red,
+                  borderRadius: 10,
+                  minWidth: 18,
+                  height: 18,
+                  paddingHorizontal: 4,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderWidth: 2,
+                  borderColor: designTokens.colors.system.background.primary,
+                }}
+              >
+                <Text
                   style={{
-                    position: 'absolute',
-                    top: -2,
-                    right: -2,
-                    backgroundColor: designTokens.colors.system.red,
-                    borderRadius: 10,
-                    minWidth: 18,
-                    height: 18,
-                    paddingHorizontal: 4,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderWidth: 2,
-                    borderColor: designTokens.colors.system.background.primary,
+                    color: designTokens.colors.fixed.white,
+                    fontSize: 10,
+                    fontWeight: designTokens.typography.fontWeight.bold,
                   }}
                 >
-                  <Text
-                    style={{
-                      color: designTokens.colors.fixed.white,
-                      fontSize: 10,
-                      fontWeight: designTokens.typography.fontWeight.bold,
-                    }}
-                  >
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
-      </View>
-
-      {/* Search Bar - Real functional search */}
-      <View style={tw`px-4 mb-4`}>
-        <SearchBar
-          placeholder="Search lectures, scholars..."
-          value={searchValue}
-          onChangeText={setSearchValue}
-          onSearch={handleSearchSubmit}
-          onMicPress={handleMicPress}
-          disabled={false}
-        />
       </View>
 
       <FlatList
