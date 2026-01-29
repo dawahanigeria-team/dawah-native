@@ -122,6 +122,10 @@ export const useAnnouncements = (userIdParam?: string): UseAnnouncementsResult =
   }, [fetchAnnouncements]);
 
   const markAsRead = useCallback(async (announcementId: string) => {
+    // Check if announcement exists and is currently unread
+    const announcement = announcements.find(a => a.id === announcementId);
+    const wasUnread = announcement && !announcement.read;
+
     if (isAuthenticated && userId) {
       // For authenticated users, call the API
       try {
@@ -134,12 +138,17 @@ export const useAnnouncements = (userIdParam?: string): UseAnnouncementsResult =
       await saveGuestReadId(announcementId);
     }
 
-    // Update local state
-    setAnnouncements(prev => 
-      prev.map(a => a.id === announcementId ? { ...a, read: true } : a)
-    );
-    setUnreadCount(prev => Math.max(0, prev - 1));
-  }, [isAuthenticated, userId]);
+    // Update local state - only if announcement exists
+    if (announcement) {
+      setAnnouncements(prev => 
+        prev.map(a => a.id === announcementId ? { ...a, read: true } : a)
+      );
+      // Only decrement if it was previously unread
+      if (wasUnread) {
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    }
+  }, [isAuthenticated, userId, announcements]);
 
   return {
     announcements,

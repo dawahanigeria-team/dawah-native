@@ -634,7 +634,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Continue Listening */}
-        {recentlyPlayed.length > 0 && (
+        {(recentlyPlayedLoading || recentlyPlayed.length > 0) && (
           <View style={tw`mt-8`}>
             {renderSectionHeader(
               "Continue Listening",

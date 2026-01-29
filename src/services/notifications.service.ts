@@ -25,7 +25,7 @@ export const NOTIFICATION_PREFS_STORAGE_KEY = 'NOTIFICATION_PREFS';
 export const EXPO_PUSH_TOKEN_STORAGE_KEY = 'EXPO_PUSH_TOKEN';
 
 export const defaultNotificationPrefs: NotificationPrefs = {
-  enabled: false,
+  enabled: true, // Enabled by default so users get push token registered
   newLectures: false,
   favoritesActivity: false,
   downloadsComplete: false,

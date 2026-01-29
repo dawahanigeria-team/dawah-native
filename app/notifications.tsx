@@ -140,19 +140,11 @@ const NotificationsScreen = () => {
         ]}
       >
         <NotificationRow
-          title="New lectures from scholars"
-          subtitle="When new lectures are published"
-          value={prefs.newLectures}
-          onChange={(v) => updatePref("newLectures", v)}
-          disabled={disabled}
-        />
-        <NotificationRow
           title="Updates on favorites"
           subtitle="Activity on lectures and scholars you follow"
           value={prefs.favoritesActivity}
           onChange={(v) => updatePref("favoritesActivity", v)}
           disabled={disabled}
-          divider
         />
         <NotificationRow
           title="Downloads complete"
@@ -168,6 +160,7 @@ const NotificationsScreen = () => {
           value={announcementsForced || prefs.announcements}
           onChange={(v) => updatePref("announcements", v)}
           disabled={disabled || announcementsForced}
+          divider
         />
       </View>
 

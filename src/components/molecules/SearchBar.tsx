@@ -12,7 +12,6 @@ interface SearchBarProps {
   onSubmit?: (query: string) => void;
   onMicPress?: () => void;
   onClear?: () => void;
-  debounceMs?: number;
   borderRadius?: BorderRadius;
   showMic?: boolean;
   showClear?: boolean;
@@ -30,8 +29,7 @@ export const SearchBar: React.FC<SearchBarProps> = memo(
     onSubmit,
     onMicPress,
     onClear,
-    debounceMs: _debounceMs = 250,
-    borderRadius: _borderRadius = "full",
+    borderRadius = "lg",
     showMic = true,
     showClear = true,
     disabled = false,
@@ -83,7 +81,7 @@ export const SearchBar: React.FC<SearchBarProps> = memo(
       flexDirection: "row",
       alignItems: "center",
       backgroundColor: colors.system.fill.tertiary,
-      borderRadius: designTokens.borderRadius.lg,
+      borderRadius: designTokens.borderRadius[borderRadius],
       paddingHorizontal: designTokens.spacing.md,
       paddingVertical: designTokens.spacing.sm,
       marginHorizontal: 0,
