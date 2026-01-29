@@ -8,6 +8,7 @@ import {
   FlatList,
   Image,
   ScrollView,
+  StyleSheet,
   TouchableOpacity,
   UIManager,
   View,
@@ -493,13 +494,11 @@ export default function SectionScreen() {
             activeOpacity={0.9}
             style={[
               tw`mb-4 rounded-2xl overflow-hidden`,
+              styles.quranAlbumCard,
               {
                 backgroundColor: colors.system.background.secondary,
                 shadowColor: colors.fixed.black,
                 shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.08,
-                shadowRadius: 8,
-                elevation: 3,
               },
             ]}
             accessibilityLabel={`${album.name}, ${surahCount} Surahs in ${album.language}`}
@@ -1041,3 +1040,11 @@ export default function SectionScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  quranAlbumCard: {
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+});
