@@ -6,7 +6,7 @@ import { Card } from "../../src/components/molecules/Card";
 import { useRouter } from "expo-router";
 import { usePlayerActions, useDownloadsStore, useFavoritesStore } from "../../src/stores";
 import { useAuthStore } from "../../src/stores/authStore";
-import { designTokens } from "../../src/theme/designTokens";
+import { useTheme } from "../../src/hooks/useTheme";
 import tw from "../../src/theme/twrnc";
 import { Episode, Series } from "../../src/types/types";
 import type { DownloadMetadata } from "../../src/services/downloads.service";
@@ -41,6 +41,7 @@ export default function LibraryScreen() {
   const { downloads, deleteLecture, getTotalStorageUsed, refreshDownloads } = useDownloadsStore();
   const { favoriteIds, fetchFavorites, loading: favoritesLoading } = useFavoritesStore();
   const { isAuthenticated } = useAuthStore();
+  const { colors } = useTheme();
   const [activeTab, setActiveTab] = useState<LibraryTab>("Downloads");
   const [historyEpisodes, setHistoryEpisodes] = useState<Episode[]>([]);
   const [likedEpisodes, setLikedEpisodes] = useState<Episode[]>([]);
@@ -309,20 +310,20 @@ export default function LibraryScreen() {
       <View
         style={[
           tw`w-16 h-16 rounded-full items-center justify-center mb-4`,
-          { backgroundColor: designTokens.colors.system.background.tertiary },
+          { backgroundColor: colors.system.background.tertiary },
         ]}
       >
         <Ionicons
           name={getTabIcon(tab)}
           size={32}
-          color={designTokens.colors.system.label.tertiary}
+          color={colors.system.label.tertiary}
           accessibilityLabel={`${tab} icon`}
         />
       </View>
       <Text
         style={[
           tw`text-lg font-semibold mb-2`,
-          { color: designTokens.colors.system.label.primary },
+          { color: colors.system.label.primary },
         ]}
         accessibilityRole="header"
       >
@@ -331,7 +332,7 @@ export default function LibraryScreen() {
       <Text
         style={[
           tw`text-center px-8`,
-          { color: designTokens.colors.system.label.secondary },
+          { color: colors.system.label.secondary },
         ]}
         accessibilityRole="text"
       >
@@ -376,12 +377,12 @@ export default function LibraryScreen() {
         <View style={tw`flex-1 items-center justify-center py-20`}>
           <ActivityIndicator
             size="large"
-            color={designTokens.colors.brand.primary}
+            color={colors.brand.primary}
           />
           <Text
             style={[
               tw`mt-4`,
-              { color: designTokens.colors.system.label.secondary },
+              { color: colors.system.label.secondary },
             ]}
           >
             Loading {activeTab.toLowerCase()}...
@@ -391,13 +392,13 @@ export default function LibraryScreen() {
     }
 
     return renderEmptyState(activeTab);
-  }, [activeTab, loading]);
+  }, [activeTab, loading, colors]);
 
   return (
     <SafeAreaView
       style={[
         tw`flex-1`,
-        { backgroundColor: designTokens.colors.system.background.primary },
+        { backgroundColor: colors.system.background.primary },
       ]}
     >
       {/* Header */}
@@ -406,7 +407,7 @@ export default function LibraryScreen() {
           <Text
             style={[
               tw`text-2xl font-bold`,
-              { color: designTokens.colors.system.label.primary },
+              { color: colors.system.label.primary },
             ]}
             accessibilityRole="header"
           >
@@ -417,12 +418,12 @@ export default function LibraryScreen() {
               <Ionicons
                 name="cloud-outline"
                 size={16}
-                color={designTokens.colors.system.label.secondary}
+                color={colors.system.label.secondary}
               />
               <Text
                 style={[
                   tw`text-sm ml-1`,
-                  { color: designTokens.colors.system.label.secondary },
+                  { color: colors.system.label.secondary },
                 ]}
               >
                 {getTotalStorageUsed()}
@@ -437,7 +438,7 @@ export default function LibraryScreen() {
         <View
           style={[
             tw`rounded-2xl p-1 flex-row`,
-            { backgroundColor: designTokens.colors.system.background.tertiary },
+            { backgroundColor: colors.system.background.tertiary },
           ]}
         >
           {tabs.map((tab) => (
@@ -446,7 +447,7 @@ export default function LibraryScreen() {
               style={[
                 tw`flex-1 py-2 px-1 rounded-xl items-center`,
                 activeTab === tab && {
-                  backgroundColor: designTokens.colors.system.fill.primary,
+                  backgroundColor: colors.system.fill.primary,
                 },
               ]}
               onPress={() => handleTabPress(tab)}
@@ -462,8 +463,8 @@ export default function LibraryScreen() {
                   {
                     color:
                       activeTab === tab
-                        ? designTokens.colors.system.label.primary
-                        : designTokens.colors.system.label.secondary,
+                        ? colors.system.label.primary
+                        : colors.system.label.secondary,
                   },
                 ]}
               >

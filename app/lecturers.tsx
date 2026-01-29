@@ -15,10 +15,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { LecturerCard } from "../src/components/molecules/LecturerCard";
 import { LecturerCardSkeleton } from "../src/components/molecules/LecturerCard.skeleton";
 import { Lecturer, lecturersApi } from "../src/services/api/lecturers.api";
-import { designTokens } from "../src/theme/designTokens";
+import { useTheme } from "../src/hooks/useTheme";
 import tw from "../src/theme/twrnc";
 
 export default function LecturersScreen() {
+  const { colors } = useTheme();
   const [lecturers, setLecturers] = useState<Lecturer[]>([]);
   const [filteredLecturers, setFilteredLecturers] = useState<Lecturer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -280,7 +281,7 @@ export default function LecturersScreen() {
         <Text
           style={[
             tw`text-base text-center`,
-            { color: designTokens.colors.system.label.secondary },
+            { color: colors.system.label.secondary },
           ]}
         >
           {error
@@ -298,14 +299,14 @@ export default function LecturersScreen() {
             }}
             style={[
               tw`mt-4 px-5 py-3 rounded-lg`,
-              { backgroundColor: designTokens.colors.system.background.secondary },
+              { backgroundColor: colors.system.background.secondary },
             ]}
             activeOpacity={0.8}
           >
             <Text
               style={[
                 tw`text-sm font-medium`,
-                { color: designTokens.colors.brand.primary },
+                { color: colors.brand.primary },
               ]}
             >
               Clear Filters
@@ -316,14 +317,14 @@ export default function LecturersScreen() {
             onPress={handleRefresh}
             style={[
               tw`mt-4 px-5 py-3 rounded-lg`,
-              { backgroundColor: designTokens.colors.system.background.secondary },
+              { backgroundColor: colors.system.background.secondary },
             ]}
             activeOpacity={0.8}
           >
             <Text
               style={[
                 tw`text-sm font-medium`,
-                { color: designTokens.colors.brand.primary },
+                { color: colors.brand.primary },
               ]}
             >
               Try Again
@@ -332,7 +333,7 @@ export default function LecturersScreen() {
         )}
       </View>
     );
-  }, [error, handleRefresh, searchQuery, selectedLocation]);
+  }, [error, handleRefresh, searchQuery, selectedLocation, colors]);
 
   const renderFooter = () => {
     if (!loadingMore) {
@@ -348,7 +349,7 @@ export default function LecturersScreen() {
             <Text
               style={[
                 tw`text-xs`,
-                { color: designTokens.colors.system.label.tertiary },
+                { color: colors.system.label.tertiary },
               ]}
             >
               Scroll to load more scholars
@@ -360,11 +361,11 @@ export default function LecturersScreen() {
     }
     return (
       <View style={tw`py-4 items-center`}>
-        <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
+        <ActivityIndicator size="small" color={colors.brand.primary} />
         <Text
           style={[
             tw`mt-2 text-xs`,
-            { color: designTokens.colors.system.label.secondary },
+            { color: colors.system.label.secondary },
           ]}
         >
           Loading more scholars...
@@ -377,7 +378,7 @@ export default function LecturersScreen() {
     <SafeAreaView
       style={[
         tw`flex-1`,
-        { backgroundColor: designTokens.colors.system.background.primary },
+        { backgroundColor: colors.system.background.primary },
       ]}
     >
       <View style={tw`flex-row items-center px-5 py-4`}>
@@ -385,7 +386,7 @@ export default function LecturersScreen() {
           onPress={() => router.back()}
           style={[
             tw`w-10 h-10 rounded-full items-center justify-center`,
-            { backgroundColor: designTokens.colors.system.background.secondary },
+            { backgroundColor: colors.system.background.secondary },
           ]}
           accessibilityRole="button"
           accessibilityLabel="Go back"
@@ -393,14 +394,14 @@ export default function LecturersScreen() {
           <Ionicons
             name="arrow-back"
             size={22}
-            color={designTokens.colors.system.label.primary}
+            color={colors.system.label.primary}
           />
         </TouchableOpacity>
 
         <Text
           style={[
             tw`text-xl font-bold flex-1 text-center`,
-            { color: designTokens.colors.system.label.primary },
+            { color: colors.system.label.primary },
           ]}
           accessibilityRole="header"
         >
@@ -415,21 +416,21 @@ export default function LecturersScreen() {
         <View
           style={[
             tw`flex-row items-center px-4 py-3 rounded-xl`,
-            { backgroundColor: designTokens.colors.system.background.secondary },
+            { backgroundColor: colors.system.background.secondary },
           ]}
         >
           <Ionicons
             name="search"
             size={20}
-            color={designTokens.colors.system.label.tertiary}
+            color={colors.system.label.tertiary}
           />
           <TextInput
             style={[
               tw`flex-1 ml-2 text-base`,
-              { color: designTokens.colors.system.label.primary },
+              { color: colors.system.label.primary },
             ]}
             placeholder="Search scholars"
-            placeholderTextColor={designTokens.colors.system.label.tertiary}
+            placeholderTextColor={colors.system.label.tertiary}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoCapitalize="none"
@@ -443,7 +444,7 @@ export default function LecturersScreen() {
               <Ionicons
                 name="close-circle"
                 size={20}
-                color={designTokens.colors.system.label.tertiary}
+                color={colors.system.label.tertiary}
               />
             </TouchableOpacity>
           )}
@@ -471,8 +472,8 @@ export default function LecturersScreen() {
                   tw`px-4 py-2 rounded-full mr-2`,
                   {
                     backgroundColor: isSelected
-                      ? designTokens.colors.brand.primary
-                      : designTokens.colors.system.background.secondary,
+                      ? colors.brand.primary
+                      : colors.system.background.secondary,
                   },
                 ]}
               >
@@ -481,8 +482,8 @@ export default function LecturersScreen() {
                     tw`text-sm font-medium`,
                     {
                       color: isSelected
-                        ? designTokens.colors.fixed.white
-                        : designTokens.colors.system.label.primary,
+                        ? colors.fixed.white
+                        : colors.system.label.primary,
                     },
                   ]}
                 >
@@ -498,7 +499,7 @@ export default function LecturersScreen() {
             <Text
               style={[
                 tw`text-xs`,
-                { color: designTokens.colors.system.label.tertiary },
+                { color: colors.system.label.tertiary },
               ]}
             >
               Loading states...
@@ -514,7 +515,7 @@ export default function LecturersScreen() {
             <Text
               style={[
                 tw`text-sm font-medium`,
-                { color: designTokens.colors.system.label.primary },
+                { color: colors.system.label.primary },
               ]}
             >
               {searchQuery || selectedLocation
@@ -525,7 +526,7 @@ export default function LecturersScreen() {
               <Text
                 style={[
                   tw`text-xs mt-0.5`,
-                  { color: designTokens.colors.system.label.tertiary },
+                  { color: colors.system.label.tertiary },
                 ]}
               >
                 Scroll for more
@@ -543,18 +544,18 @@ export default function LecturersScreen() {
             }}
             style={[
               tw`flex-row items-center px-3 py-2 rounded-lg`,
-              { backgroundColor: designTokens.colors.system.background.secondary },
+              { backgroundColor: colors.system.background.secondary },
             ]}
           >
             <Ionicons
               name="swap-vertical"
               size={16}
-              color={designTokens.colors.system.label.primary}
+              color={colors.system.label.primary}
             />
             <Text
               style={[
                 tw`ml-2 text-sm font-medium`,
-                { color: designTokens.colors.system.label.primary },
+                { color: colors.system.label.primary },
               ]}
             >
               {sortBy === 'popular' ? 'Most Popular' : sortBy === 'name' ? 'A-Z' : 'Most Lectures'}
@@ -593,7 +594,7 @@ export default function LecturersScreen() {
             <RefreshControl
               refreshing={refreshing || searchLoading}
               onRefresh={handleRefresh}
-              tintColor={designTokens.colors.brand.primary}
+              tintColor={colors.brand.primary}
             />
           }
           initialNumToRender={10}

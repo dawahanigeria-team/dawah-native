@@ -8,13 +8,12 @@ import { CardSkeleton } from '../src/components/molecules';
 import { ApiError } from '../src/services/api/base.api';
 import { playlistApi } from '../src/services/api/playlist.api';
 import { useAuthStore } from '../src/stores/authStore';
-import { designTokens } from '../src/theme/designTokens';
+import { useTheme } from '../src/hooks/useTheme';
 import { UserPlaylist } from '../src/types/api.types';
-
-
 
 export default function PlaylistsScreen() {
   const router = useRouter();
+  const { colors, spacing, typography, borderRadius } = useTheme();
   const { isAuthenticated, user } = useAuthStore();
   const [playlists, setPlaylists] = useState<UserPlaylist[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,14 +63,14 @@ export default function PlaylistsScreen() {
           name: newPlaylistName,
           count: 0,
           is_private: '0',
-          user_id: user?.id || '', // Updated with actual user_id
+          user_id: user?.id || '',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
         setPlaylists([newPlaylist, ...playlists]);
         setNewPlaylistName('');
         setModalVisible(false);
-        fetchPlaylists(); // Re-fetch playlists after successful creation
+        fetchPlaylists();
       } else {
         Alert.alert('Error', response.message || 'Failed to create playlist.');
         console.error('Failed to create playlist:', response.message);
@@ -84,13 +83,13 @@ export default function PlaylistsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: designTokens.colors.system.background.primary }}>
-        <View style={{ padding: designTokens.spacing.lg }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: designTokens.spacing.lg, alignSelf: 'flex-start' }}>
-            <Ionicons name="arrow-back" size={24} color={designTokens.colors.system.label.primary} />
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.system.background.primary }}>
+        <View style={{ padding: spacing.lg }}>
+          <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: spacing.lg, alignSelf: 'flex-start' }}>
+            <Ionicons name="arrow-back" size={24} color={colors.system.label.primary} />
           </TouchableOpacity>
-          <Text style={{ fontSize: designTokens.typography.fontSize.title1, fontWeight: 'bold', color: designTokens.colors.system.label.primary }}>Playlists</Text>
-          <View style={{ marginTop: designTokens.spacing.lg }}>
+          <Text style={{ fontSize: typography.fontSize.title1, fontWeight: 'bold', color: colors.system.label.primary }}>Playlists</Text>
+          <View style={{ marginTop: spacing.lg }}>
             {[...Array(5)].map((_, index) => (
               <CardSkeleton key={`skeleton-${index}`} variant="list" />
             ))}
@@ -101,36 +100,36 @@ export default function PlaylistsScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: designTokens.colors.system.background.primary }}>
-      <View style={{ padding: designTokens.spacing.lg }}>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: designTokens.spacing.lg, alignSelf: 'flex-start' }}>
-          <Ionicons name="arrow-back" size={24} color={designTokens.colors.system.label.primary} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.system.background.primary }}>
+      <View style={{ padding: spacing.lg }}>
+        <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: spacing.lg, alignSelf: 'flex-start' }}>
+          <Ionicons name="arrow-back" size={24} color={colors.system.label.primary} />
         </TouchableOpacity>
-        <Text style={{ fontSize: designTokens.typography.fontSize.title1, fontWeight: 'bold', color: designTokens.colors.system.label.primary }}>Playlists</Text>
+        <Text style={{ fontSize: typography.fontSize.title1, fontWeight: 'bold', color: colors.system.label.primary }}>Playlists</Text>
         {!isAuthenticated ? (
-          <View style={{ marginTop: designTokens.spacing.lg, alignItems: 'center' }}>
-            <Text style={{ color: designTokens.colors.system.label.secondary, marginBottom: designTokens.spacing.md }}>
+          <View style={{ marginTop: spacing.lg, alignItems: 'center' }}>
+            <Text style={{ color: colors.system.label.secondary, marginBottom: spacing.md }}>
               Please log in to create and manage your playlists.
             </Text>
             <Button onPress={() => router.push('/sign-in')}>Log In</Button>
           </View>
         ) : (
           <>
-            <TouchableOpacity onPress={() => setModalVisible(true)} style={{ marginTop: designTokens.spacing.lg, padding: designTokens.spacing.md, backgroundColor: designTokens.colors.brand.primary, borderRadius: designTokens.borderRadius.md }}>
-              <Text style={{ color: 'white', textAlign: 'center' }}>Create New Playlist</Text>
+            <TouchableOpacity onPress={() => setModalVisible(true)} style={{ marginTop: spacing.lg, padding: spacing.md, backgroundColor: colors.brand.primary, borderRadius: borderRadius.md }}>
+              <Text style={{ color: colors.fixed.white, textAlign: 'center' }}>Create New Playlist</Text>
             </TouchableOpacity>
             <FlatList
               data={playlists}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
-                <TouchableOpacity onPress={() => router.push(`/playlist/${item.id}` as any)} style={{ padding: designTokens.spacing.lg, borderBottomWidth: 1, borderBottomColor: designTokens.colors.system.separator.primary }}>
+                <TouchableOpacity onPress={() => router.push(`/playlist/${item.id}` as any)} style={{ padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.system.separator.primary }}>
                   <View>
-                    <Text style={{ fontSize: designTokens.typography.fontSize.body, color: designTokens.colors.system.label.primary }}>{item.name}</Text>
-                    <Text style={{ fontSize: designTokens.typography.fontSize.caption1, color: designTokens.colors.system.label.secondary }}>{item.count} tracks</Text>
+                    <Text style={{ fontSize: typography.fontSize.body, color: colors.system.label.primary }}>{item.name}</Text>
+                    <Text style={{ fontSize: typography.fontSize.caption1, color: colors.system.label.secondary }}>{item.count} tracks</Text>
                   </View>
                 </TouchableOpacity>
               )}
-              style={{ marginTop: designTokens.spacing.lg }}
+              style={{ marginTop: spacing.lg }}
             />
           </>
         )}
@@ -148,19 +147,19 @@ export default function PlaylistsScreen() {
             flex: 1,
             justifyContent: 'center',
             alignItems: 'center',
-            backgroundColor: designTokens.colors.overlay.darkMedium,
+            backgroundColor: colors.overlay.darkMedium,
           }}
         >
-          <View style={{ width: '80%', backgroundColor: designTokens.colors.system.background.secondary, padding: designTokens.spacing.xl, borderRadius: designTokens.borderRadius.lg }}>
-            <Text style={{ fontSize: designTokens.typography.fontSize.title3, fontWeight: 'bold', color: designTokens.colors.system.label.primary }}>New Playlist</Text>
+          <View style={{ width: '80%', backgroundColor: colors.system.background.secondary, padding: spacing.xl, borderRadius: borderRadius.lg }}>
+            <Text style={{ fontSize: typography.fontSize.title3, fontWeight: 'bold', color: colors.system.label.primary }}>New Playlist</Text>
             <TextInput
               placeholder="Playlist Name"
-              placeholderTextColor={designTokens.colors.system.label.secondary}
-              style={{ marginTop: designTokens.spacing.lg, padding: designTokens.spacing.md, backgroundColor: designTokens.colors.system.background.primary, borderRadius: designTokens.borderRadius.md, color: designTokens.colors.system.label.primary }}
+              placeholderTextColor={colors.system.label.secondary}
+              style={{ marginTop: spacing.lg, padding: spacing.md, backgroundColor: colors.system.background.primary, borderRadius: borderRadius.md, color: colors.system.label.primary }}
               value={newPlaylistName}
               onChangeText={setNewPlaylistName}
             />
-            <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: designTokens.spacing.xl }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: spacing.xl }}>
               <Button variant="destructive" onPress={() => setModalVisible(false)}>Cancel</Button>
               <Button onPress={handleCreatePlaylist}>Create</Button>
             </View>

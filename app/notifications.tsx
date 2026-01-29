@@ -1,10 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Switch, View } from "react-native";
+import { StyleSheet, Switch, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Text } from "../src/components/atoms";
+import { useTheme } from "../src/hooks/useTheme";
 import {
   defaultNotificationPrefs,
   disablePushNotificationsAsync,
@@ -15,14 +16,18 @@ import {
   syncNotificationPreferencesAsync,
   type NotificationPrefs,
 } from "../src/services/notifications.service";
-import { designTokens } from "../src/theme/designTokens";
 import tw from "../src/theme/twrnc";
 
 const NotificationsScreen = () => {
   const router = useRouter();
-  const [prefs, setPrefs] = useState<NotificationPrefs>(defaultNotificationPrefs);
+  const { colors } = useTheme();
+  const [prefs, setPrefs] = useState<NotificationPrefs>(
+    defaultNotificationPrefs,
+  );
   const [loading, setLoading] = useState(true);
-  const [pushTokenStatus, setPushTokenStatus] = useState<"present" | "missing">("missing");
+  const [pushTokenStatus, setPushTokenStatus] = useState<"present" | "missing">(
+    "missing",
+  );
   const announcementsForced = true;
 
   useEffect(() => {
@@ -44,7 +49,7 @@ const NotificationsScreen = () => {
 
   const updatePref = async <K extends keyof NotificationPrefs>(
     key: K,
-    value: NotificationPrefs[K]
+    value: NotificationPrefs[K],
   ) => {
     const next = {
       ...prefs,
@@ -77,7 +82,7 @@ const NotificationsScreen = () => {
     <SafeAreaView
       style={[
         tw`flex-1`,
-        { backgroundColor: designTokens.colors.system.background.primary },
+        { backgroundColor: colors.system.background.primary },
       ]}
     >
       {/* Header */}
@@ -86,14 +91,14 @@ const NotificationsScreen = () => {
           <Ionicons
             name="arrow-back"
             size={24}
-            color={designTokens.colors.system.label.primary}
+            color={colors.system.label.primary}
             onPress={() => router.back()}
           />
         </View>
         <Text
           style={[
             tw`text-2xl font-bold`,
-            { color: designTokens.colors.system.label.primary },
+            { color: colors.system.label.primary },
           ]}
           accessibilityRole="header"
         >
@@ -101,32 +106,23 @@ const NotificationsScreen = () => {
         </Text>
       </View>
 
-      <View
-        style={tw`px-4 pb-4`}
-      >
-        <Text
-          style={[
-            tw`text-sm`,
-            { color: designTokens.colors.system.label.secondary },
-          ]}
-        >
+      <View style={tw`px-4 pb-4`}>
+        <Text style={[tw`text-sm`, { color: colors.system.label.secondary }]}>
           Control how dawahnigeria notifies you about new content and updates.
           You can also turn notifications off entirely.
         </Text>
         <Text
-          style={[
-            tw`text-xs mt-2`,
-            { color: designTokens.colors.system.label.tertiary },
-          ]}
+          style={[tw`text-xs mt-2`, { color: colors.system.label.tertiary }]}
         >
-          Push token: {pushTokenStatus === "present" ? "registered" : "not registered"}
+          Push token:{" "}
+          {pushTokenStatus === "present" ? "registered" : "not registered"}
         </Text>
       </View>
 
       <View
         style={[
           tw`mx-4 mb-4 rounded-2xl`,
-          { backgroundColor: designTokens.colors.system.background.secondary },
+          { backgroundColor: colors.system.background.secondary },
         ]}
       >
         <NotificationRow
@@ -140,23 +136,15 @@ const NotificationsScreen = () => {
       <View
         style={[
           tw`mx-4 mb-4 rounded-2xl`,
-          { backgroundColor: designTokens.colors.system.background.secondary },
+          { backgroundColor: colors.system.background.secondary },
         ]}
       >
-        <NotificationRow
-          title="New lectures from scholars"
-          subtitle="When new lectures are published"
-          value={prefs.newLectures}
-          onChange={(v) => updatePref("newLectures", v)}
-          disabled={disabled}
-        />
         <NotificationRow
           title="Updates on favorites"
           subtitle="Activity on lectures and scholars you follow"
           value={prefs.favoritesActivity}
           onChange={(v) => updatePref("favoritesActivity", v)}
           disabled={disabled}
-          divider
         />
         <NotificationRow
           title="Downloads complete"
@@ -172,16 +160,12 @@ const NotificationsScreen = () => {
           value={announcementsForced || prefs.announcements}
           onChange={(v) => updatePref("announcements", v)}
           disabled={disabled || announcementsForced}
+          divider
         />
       </View>
 
       <View style={tw`px-4 mt-auto mb-6`}>
-        <Text
-          style={[
-            tw`text-xs`,
-            { color: designTokens.colors.system.label.tertiary },
-          ]}
-        >
+        <Text style={[tw`text-xs`, { color: colors.system.label.tertiary }]}>
           To fully disable notifications, you may also need to turn them off in
           your device settings.
         </Text>
@@ -207,31 +191,30 @@ const NotificationRow: React.FC<NotificationRowProps> = ({
   disabled,
   divider,
 }) => {
+  const { colors } = useTheme();
+
   return (
     <View
       style={[
         tw`flex-row items-center px-4 py-3`,
-        divider && {
-          borderTopWidth: 1,
-          borderTopColor: designTokens.colors.overlay.lightThin,
-        },
+        divider && [
+          styles.rowDivider,
+          { borderTopColor: colors.system.separator.primary },
+        ],
       ]}
     >
       <View style={tw`flex-1 mr-3`}>
         <Text
           style={[
             tw`text-base font-medium`,
-            { color: designTokens.colors.system.label.primary },
+            { color: colors.system.label.primary },
           ]}
         >
           {title}
         </Text>
         {subtitle ? (
           <Text
-            style={[
-              tw`text-xs mt-1`,
-              { color: designTokens.colors.system.label.secondary },
-            ]}
+            style={[tw`text-xs mt-1`, { color: colors.system.label.secondary }]}
           >
             {subtitle}
           </Text>
@@ -243,12 +226,12 @@ const NotificationRow: React.FC<NotificationRowProps> = ({
         disabled={disabled}
         thumbColor={
           value
-            ? designTokens.colors.system.background.primary
-            : designTokens.colors.system.fill.secondary
+            ? colors.system.background.primary
+            : colors.system.fill.secondary
         }
         trackColor={{
-          true: designTokens.colors.brand.primary,
-          false: designTokens.colors.system.fill.quaternary,
+          true: colors.brand.primary,
+          false: colors.system.fill.quaternary,
         }}
       />
     </View>
@@ -256,3 +239,9 @@ const NotificationRow: React.FC<NotificationRowProps> = ({
 };
 
 export default NotificationsScreen;
+
+const styles = StyleSheet.create({
+  rowDivider: {
+    borderTopWidth: 1,
+  },
+});

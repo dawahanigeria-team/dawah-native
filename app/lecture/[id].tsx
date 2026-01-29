@@ -36,6 +36,7 @@ import { addSentryBreadcrumb, captureSentryException } from "../../src/services/
 import { DownloadStatus } from "../../src/services/downloads/downloadQueue.service";
 import { linkingService } from "../../src/services/linking.service";
 import { authStore, useDownloadsStore, useFavoritesStore, usePlayerStore } from "../../src/stores";
+import { useTheme } from "../../src/hooks/useTheme";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import type { LectureDetail } from "../../src/types/api.types";
@@ -68,6 +69,7 @@ const createEpisodeFromDetail = (detail: LectureDetail | null): Episode | null =
 const LectureDetailScreen: React.FC = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { colors } = useTheme();
   const lectureId = id ?? "";
 
   // Local State & Animations
@@ -353,10 +355,10 @@ const LectureDetailScreen: React.FC = () => {
   if (loading) {
     return (
       <SafeAreaView
-        style={[tw`flex-1 items-center justify-center`, { backgroundColor: designTokens.colors.system.background.primary }]}
+        style={[tw`flex-1 items-center justify-center`, { backgroundColor: colors.system.background.primary }]}
         edges={["top", "left", "right", "bottom"]}
       >
-        <ActivityIndicator size="large" color={designTokens.colors.brand.primary} />
+        <ActivityIndicator size="large" color={colors.brand.primary} />
         <Text variant="body" color="secondaryLabel" style={tw`mt-4`}>
           Loading lecture...
         </Text>
@@ -367,13 +369,13 @@ const LectureDetailScreen: React.FC = () => {
   if (error || !lecture) {
     return (
       <SafeAreaView
-        style={[tw`flex-1 items-center justify-center px-8`, { backgroundColor: designTokens.colors.system.background.primary }]}
+        style={[tw`flex-1 items-center justify-center px-8`, { backgroundColor: colors.system.background.primary }]}
         edges={["top", "left", "right", "bottom"]}
       >
         <Ionicons
           name="alert-circle-outline"
           size={64}
-          color={designTokens.colors.semantic.red}
+          color={colors.semantic.red}
         />
         <Text variant="title2" weight="bold" color="label" style={tw`mt-4 text-center`}>
           {error || "Lecture not found"}
@@ -405,10 +407,10 @@ const LectureDetailScreen: React.FC = () => {
       <BlurView intensity={80} tint="prominent" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
       <View style={tw`flex-row items-center justify-between`}>
         <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.back(); }} style={tw`w-10 h-10 items-center justify-center`}>
-          <Ionicons name="chevron-back" size={28} color={designTokens.colors.system.label.primary} />
+          <Ionicons name="chevron-back" size={28} color={colors.system.label.primary} />
         </TouchableOpacity>
         <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/playlists'); }} style={tw`w-10 h-10 items-center justify-center ml-2`}>
-          <Ionicons name="list" size={24} color={designTokens.colors.system.label.primary} />
+          <Ionicons name="list" size={24} color={colors.system.label.primary} />
         </TouchableOpacity>
         <View style={tw`flex-1 mx-3`}>
           <Text variant="body" color="label" weight="semibold" numberOfLines={1} style={tw`text-center`}>
@@ -420,7 +422,7 @@ const LectureDetailScreen: React.FC = () => {
             <Ionicons
               name={liked ? "heart" : "heart-outline"}
               size={26}
-              color={liked ? designTokens.colors.semantic.red : designTokens.colors.system.label.primary}
+              color={liked ? colors.semantic.red : colors.system.label.primary}
             />
           </TouchableOpacity>
         </Animated.View>
@@ -432,7 +434,7 @@ const LectureDetailScreen: React.FC = () => {
     if (loading) {
       return (
         <View style={tw`flex-1 items-center justify-center`}>
-          <ActivityIndicator size="large" color={designTokens.colors.brand.primary} />
+          <ActivityIndicator size="large" color={colors.brand.primary} />
           <Text variant="body" color="secondaryLabel" style={tw`mt-3`}>
             Loading lecture...
           </Text>
@@ -446,7 +448,7 @@ const LectureDetailScreen: React.FC = () => {
           <Ionicons
             name="alert-circle-outline"
             size={48}
-            color={designTokens.colors.semantic.red}
+            color={colors.semantic.red}
           />
           <Text variant="title3" color="label" weight="semibold" style={tw`mt-4 text-center`}>
             Unable to load lecture
@@ -472,7 +474,7 @@ const LectureDetailScreen: React.FC = () => {
           <Ionicons
             name="help-circle-outline"
             size={48}
-            color={designTokens.colors.system.label.tertiary}
+            color={colors.system.label.tertiary}
           />
           <Text variant="title3" color="label" weight="semibold" style={tw`mt-4 text-center`}>
             Lecture not found
@@ -506,19 +508,19 @@ const LectureDetailScreen: React.FC = () => {
                 contentFit="cover"
               />
             ) : (
-              <View style={[tw`flex-1 items-center justify-center`, { backgroundColor: designTokens.colors.system.fill.secondary }]}>
-                <Ionicons name="musical-notes-outline" size={64} color={designTokens.colors.system.label.tertiary} />
+              <View style={[tw`flex-1 items-center justify-center`, { backgroundColor: colors.system.fill.secondary }]}>
+                <Ionicons name="musical-notes-outline" size={64} color={colors.system.label.tertiary} />
               </View>
             )}
             <LinearGradient
-              colors={['transparent', designTokens.colors.overlay.darkStrong]}
+              colors={['transparent', colors.overlay.darkStrong]}
               style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 80 }}
             />
           </Animated.View>
         </View>
 
         {/* Content Section */}
-        <View style={[tw`px-6 -mt-12`, { backgroundColor: designTokens.colors.system.background.primary, borderTopLeftRadius: 32, borderTopRightRadius: 32 }]}>
+        <View style={[tw`px-6 -mt-12`, { backgroundColor: colors.system.background.primary, borderTopLeftRadius: 32, borderTopRightRadius: 32 }]}>
           {/* Title and Lecturer */}
           <View style={tw`pt-6`}>
             <Text
@@ -577,14 +579,14 @@ const LectureDetailScreen: React.FC = () => {
                 }}
               >
                 <View style={tw`flex-row items-center mt-3`}>
-                  <View style={[tw`w-10 h-10 rounded-full items-center justify-center mr-3`, { backgroundColor: designTokens.colors.brand.primary + '20' }]}>
+                  <View style={[tw`w-10 h-10 rounded-full items-center justify-center mr-3`, { backgroundColor: colors.brand.primary + '20' }]}>
                     {lecture.lecturerImage ? (
                       <Image
                         source={{ uri: lecture.lecturerImage }}
                         style={tw`w-10 h-10 rounded-full`}
                       />
                     ) : (
-                        <Ionicons name="person" size={20} color={designTokens.colors.brand.primary} />
+                        <Ionicons name="person" size={20} color={colors.brand.primary} />
                     )}
                   </View>
                   <View style={tw`flex-1`}>
@@ -597,7 +599,7 @@ const LectureDetailScreen: React.FC = () => {
                       </Text>
                     )}
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color={designTokens.colors.system.label.tertiary} />
+                  <Ionicons name="chevron-forward" size={20} color={colors.system.label.tertiary} />
                 </View>
               </Touchable>
             )}
@@ -615,13 +617,13 @@ const LectureDetailScreen: React.FC = () => {
                 style={[
                   tw`flex-1 items-center`,
                   {
-                    backgroundColor: designTokens.colors.system.background.secondary,
+                    backgroundColor: colors.system.background.secondary,
                     paddingVertical: designTokens.spacing.lg,
                     borderRadius: designTokens.borderRadius.xl,
                   },
                 ]}
               >
-                <Ionicons name={item.icon as any} size={20} color={designTokens.colors.brand.primary} />
+                <Ionicons name={item.icon as any} size={20} color={colors.brand.primary} />
                 <Text variant="headline" color="label" weight="bold" style={tw`mt-2`}>
                   {formatNumber(item.value)}
                 </Text>
@@ -698,8 +700,8 @@ const LectureDetailScreen: React.FC = () => {
                 </Text>
                 {meta.map((item: any) => (
                   <View key={item.label} style={tw`flex-row items-center mb-3`}>
-                    <View style={[tw`w-8 h-8 rounded-full items-center justify-center mr-3`, { backgroundColor: designTokens.colors.system.fill.secondary }]}>
-                      <Ionicons name={item.icon} size={16} color={designTokens.colors.system.label.secondary} />
+                    <View style={[tw`w-8 h-8 rounded-full items-center justify-center mr-3`, { backgroundColor: colors.system.fill.secondary }]}>
+                      <Ionicons name={item.icon} size={16} color={colors.system.label.secondary} />
                     </View>
                     <View style={tw`flex-1`}>
                       <Text variant="caption1" color="tertiaryLabel">
@@ -735,12 +737,12 @@ const LectureDetailScreen: React.FC = () => {
                       style={[
                         tw`items-center`,
                         {
-                          backgroundColor: designTokens.colors.brand.primary + '15',
+                          backgroundColor: colors.brand.primary + '15',
                           paddingHorizontal: designTokens.spacing.lg,
                           paddingVertical: designTokens.spacing.md,
                           borderRadius: designTokens.borderRadius.xl,
                           borderWidth: 1,
-                          borderColor: designTokens.colors.brand.primary + '30',
+                          borderColor: colors.brand.primary + '30',
                         },
                       ]}
                     >
@@ -773,15 +775,15 @@ const LectureDetailScreen: React.FC = () => {
     const progressPercent = duration > 0 ? (progress / duration) * 100 : 0;
 
     return (
-      <View style={[tw`px-6 pb-8 pt-4`, { backgroundColor: designTokens.colors.system.background.primary }]}>
+      <View style={[tw`px-6 pb-8 pt-4`, { backgroundColor: colors.system.background.primary }]}>
         {/* Progress Bar */}
         <View style={tw`mb-2`}>
-          <View style={[tw`h-1 rounded-full overflow-hidden`, { backgroundColor: designTokens.colors.system.fill.tertiary }]}>
+          <View style={[tw`h-1 rounded-full overflow-hidden`, { backgroundColor: colors.system.fill.tertiary }]}>
             <View
               style={[
                 tw`h-full rounded-full`,
                 {
-                  backgroundColor: designTokens.colors.brand.primary,
+                  backgroundColor: colors.brand.primary,
                   width: `${progressPercent}%`
                 }
               ]}
@@ -804,7 +806,7 @@ const LectureDetailScreen: React.FC = () => {
             onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
             style={tw`w-12 h-12 items-center justify-center`}
           >
-            <Ionicons name="shuffle" size={24} color={designTokens.colors.system.label.secondary} />
+            <Ionicons name="shuffle" size={24} color={colors.system.label.secondary} />
           </TouchableOpacity>
 
           {/* Previous */}
@@ -812,7 +814,7 @@ const LectureDetailScreen: React.FC = () => {
             onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
             style={tw`w-14 h-14 items-center justify-center mx-4`}
           >
-            <Ionicons name="play-back" size={32} color={designTokens.colors.system.label.primary} />
+            <Ionicons name="play-back" size={32} color={colors.system.label.primary} />
           </TouchableOpacity>
 
           {/* Play/Pause - Large Center Button */}
@@ -822,8 +824,8 @@ const LectureDetailScreen: React.FC = () => {
             style={[
               tw`w-20 h-20 rounded-full items-center justify-center mx-6`,
               {
-                backgroundColor: canPlay ? designTokens.colors.brand.primary : designTokens.colors.system.fill.tertiary,
-                shadowColor: designTokens.colors.brand.primary,
+                backgroundColor: canPlay ? colors.brand.primary : colors.system.fill.tertiary,
+                shadowColor: colors.brand.primary,
                 shadowOffset: { width: 0, height: 4 },
                 shadowOpacity: 0.3,
                 shadowRadius: 8,
@@ -834,7 +836,7 @@ const LectureDetailScreen: React.FC = () => {
             <Ionicons
               name={!canPlay ? "alert-circle" : isCurrentlyPlaying ? "pause" : "play"}
               size={36}
-              color={canPlay ? designTokens.colors.system.background.primary : designTokens.colors.system.label.tertiary}
+              color={canPlay ? colors.system.background.primary : colors.system.label.tertiary}
               style={!canPlay ? {} : { marginLeft: isCurrentlyPlaying ? 0 : 3 }}
             />
           </TouchableOpacity>
@@ -844,7 +846,7 @@ const LectureDetailScreen: React.FC = () => {
             onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
             style={tw`w-14 h-14 items-center justify-center mx-4`}
           >
-            <Ionicons name="play-forward" size={32} color={designTokens.colors.system.label.primary} />
+            <Ionicons name="play-forward" size={32} color={colors.system.label.primary} />
           </TouchableOpacity>
 
           {/* Repeat */}
@@ -852,7 +854,7 @@ const LectureDetailScreen: React.FC = () => {
             onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
             style={tw`w-12 h-12 items-center justify-center`}
           >
-            <Ionicons name="repeat" size={24} color={designTokens.colors.system.label.secondary} />
+            <Ionicons name="repeat" size={24} color={colors.system.label.secondary} />
           </TouchableOpacity>
         </View>
 
@@ -864,7 +866,7 @@ const LectureDetailScreen: React.FC = () => {
             downloadStatus === DownloadStatus.PAUSED ||
             downloadStatus === DownloadStatus.QUEUED) && (
               <TouchableOpacity onPress={handleCancelDownload} style={tw`mr-4`}>
-                <Ionicons name="close-circle-outline" size={24} color={designTokens.colors.semantic.red} />
+                <Ionicons name="close-circle-outline" size={24} color={colors.semantic.red} />
               </TouchableOpacity>
             )}
 
@@ -890,10 +892,10 @@ const LectureDetailScreen: React.FC = () => {
                 size={24}
                 color={
                   downloadStatus === DownloadStatus.COMPLETED
-                    ? designTokens.colors.brand.primary
+                    ? colors.brand.primary
                     : downloadStatus === DownloadStatus.FAILED
-                      ? designTokens.colors.semantic.red
-                      : designTokens.colors.system.label.secondary
+                      ? colors.semantic.red
+                      : colors.system.label.secondary
                 }
               />
               <Text
@@ -923,7 +925,7 @@ const LectureDetailScreen: React.FC = () => {
           </View>
 
           <TouchableOpacity onPress={handleShare} style={tw`flex-row items-center`}>
-            <Ionicons name="share-outline" size={24} color={designTokens.colors.system.label.secondary} />
+            <Ionicons name="share-outline" size={24} color={colors.system.label.secondary} />
             <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
               Share
             </Text>
@@ -939,14 +941,14 @@ const LectureDetailScreen: React.FC = () => {
               setShowAddToPlaylistModal(true);
             }
           }} style={tw`flex-row items-center`}>
-            <Ionicons name="add-circle-outline" size={24} color={designTokens.colors.system.label.secondary} />
+            <Ionicons name="add-circle-outline" size={24} color={colors.system.label.secondary} />
             <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
               Add to Playlist
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={handleSpeedChange} style={tw`flex-row items-center`}>
-            <Ionicons name="speedometer-outline" size={24} color={designTokens.colors.system.label.secondary} />
+            <Ionicons name="speedometer-outline" size={24} color={colors.system.label.secondary} />
             <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
               {playbackSpeed}x
             </Text>
@@ -960,7 +962,7 @@ const LectureDetailScreen: React.FC = () => {
     <SafeAreaView
       style={[
         tw`flex-1`,
-        { backgroundColor: designTokens.colors.system.background.primary },
+        { backgroundColor: colors.system.background.primary },
       ]}
       edges={["top", "left", "right", "bottom"]}
     >

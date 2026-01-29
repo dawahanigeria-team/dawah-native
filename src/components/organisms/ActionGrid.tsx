@@ -2,6 +2,7 @@ import React, { memo } from 'react';
 import { View, ViewStyle, FlatList } from 'react-native';
 import { useRouter } from 'expo-router';
 import { designTokens, BorderRadius } from '../../theme/designTokens';
+import { useTheme } from '../../hooks/useTheme';
 import { Touchable, Text, Icon } from '../atoms';
 
 interface ActionItem {
@@ -27,42 +28,42 @@ const defaultActions: ActionItem[] = [
     id: '1',
     title: 'Chart',
     icon: 'trending-up',
-    color: designTokens.colors.palette.blue500,
+    color: designTokens.colorsDark.palette.blue500,
     description: 'View trending content'
   },
   {
     id: '2',
     title: 'Lecturers',
     icon: 'people',
-    color: designTokens.colors.palette.green500,
+    color: designTokens.colorsDark.palette.green500,
     description: 'Browse all lecturers'
   },
   {
     id: '3',
     title: 'Playlist',
     icon: 'list',
-    color: designTokens.colors.palette.amber500,
+    color: designTokens.colorsDark.palette.amber500,
     description: 'Your saved playlists'
   },
   {
     id: '4',
-    title: 'Video',
-    icon: 'videocam',
-    color: designTokens.colors.palette.red500,
-    description: 'Watch video content'
+    title: 'Ramadan',
+    icon: 'moon',
+    color: designTokens.colorsDark.semantic.purple,
+    description: 'Ramadan Tafsir collections'
   },
   {
     id: '5',
     title: 'Quran',
     icon: 'book',
-    color: designTokens.colors.palette.emerald500,
+    color: designTokens.colorsDark.palette.emerald500,
     description: 'Quran recitations'
   },
   {
     id: '6',
     title: 'Trending',
     icon: 'flame',
-    color: designTokens.colors.palette.orange500,
+    color: designTokens.colorsDark.palette.orange500,
     description: 'Most popular content'
   },
 ];
@@ -70,13 +71,14 @@ const defaultActions: ActionItem[] = [
 export const ActionGrid: React.FC<ActionGridProps> = memo(({
   items = defaultActions,
   columns = 3,
-  itemSpacing = 'md',
-  contentPadding = 'lg',
+  itemSpacing: _itemSpacing = 'md',
+  contentPadding: _contentPadding = 'lg',
   borderRadius = 'xl',
   onItemPress,
   style,
 }) => {
   const router = useRouter();
+  const { colors } = useTheme();
 
   const handleItemPress = (item: ActionItem) => {
     if (item.id === '1' && item.title === 'Chart') {
@@ -85,8 +87,8 @@ export const ActionGrid: React.FC<ActionGridProps> = memo(({
       router.push('/lecturers');
     } else if (item.id === '3' && item.title === 'Playlist') {
       router.push('/playlists');
-    } else if (item.id === '4' && item.title === 'Video') {
-      router.push('/section/videos');
+    } else if (item.id === '4' && item.title === 'Ramadan') {
+      router.push('/ramadan-tafsir');
     } else if (item.id === '5' && item.title === 'Quran') {
       router.push('/section/quran-recitations');
     } else if (item.id === '6' && item.title === 'Trending') {
@@ -96,7 +98,7 @@ export const ActionGrid: React.FC<ActionGridProps> = memo(({
     }
   };
 
-  const renderItem = ({ item, index }: { item: ActionItem; index: number }) => {
+  const renderItem = ({ item, index: _index }: { item: ActionItem; index: number }) => {
     const itemWidth = (
       100 - (columns - 1) * 2
     ) / columns;
@@ -107,7 +109,7 @@ export const ActionGrid: React.FC<ActionGridProps> = memo(({
     };
 
     const cardStyle: ViewStyle = {
-      backgroundColor: designTokens.colors.system.background.secondary,
+      backgroundColor: colors.system.background.secondary,
       borderRadius: designTokens.borderRadius[borderRadius],
       padding: designTokens.spacing.lg,
       alignItems: 'center',

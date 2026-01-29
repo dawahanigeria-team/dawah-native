@@ -5,7 +5,7 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -16,8 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../src/components/atoms";
 import { useAnnouncements } from "../src/hooks/useAnnouncements";
-import { announcementsApi } from "../src/services/api/announcements.api";
-import { userService } from "../src/services/user.service";
+import { useTheme } from "../src/hooks/useTheme";
 import { designTokens } from "../src/theme/designTokens";
 import tw from "../src/theme/twrnc";
 
@@ -66,21 +65,15 @@ const mockAnnouncements: Announcement[] = [
 ];
 
 export default function InboxScreen() {
-  const [userId, setUserId] = useState<string>();
+  const { colors } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
 
-  // Load user ID for markAsRead callback
-  useEffect(() => {
-    userService.getUserId().then(setUserId);
-  }, []);
-
-  // Fetch announcements using the hook (userId fetched internally)
+  // Fetch announcements using the hook - handles both authenticated and guest users
   const {
     announcements: apiAnnouncements,
-    unreadCount: apiUnreadCount,
     loading,
-    error,
     refetch,
+    markAsRead: markAnnouncementAsRead,
   } = useAnnouncements();
 
   // Transform API announcements to local format
@@ -102,17 +95,10 @@ export default function InboxScreen() {
     setRefreshing(false);
   }, [refetch]);
 
-  const markAsRead = useCallback(async (id: string) => {
-    try {
-      // Fetch userId if we don't have it yet
-      const currentUserId = userId || await userService.getUserId();
-      await announcementsApi.markAsRead(id, currentUserId);
-      // Refetch to update the list
-      await refetch();
-    } catch (error) {
-      console.error('Failed to mark as read:', error);
-    }
-  }, [userId, refetch]);
+  // Use the hook's markAsRead which handles both authenticated and guest users
+  const handleMarkAsRead = useCallback(async (id: string) => {
+    await markAnnouncementAsRead(id);
+  }, [markAnnouncementAsRead]);
 
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
@@ -136,11 +122,11 @@ export default function InboxScreen() {
   const getIconColor = (type: Announcement["type"]): string => {
     switch (type) {
       case "alert":
-        return designTokens.colors.system.red;
+        return colors.semantic.red;
       case "update":
-        return designTokens.colors.brand.primary;
+        return colors.brand.primary;
       default:
-        return designTokens.colors.palette.blue500;
+        return colors.palette.blue500;
     }
   };
 
@@ -150,13 +136,13 @@ export default function InboxScreen() {
         tw`px-4 py-4`,
         {
           backgroundColor: item.read
-            ? designTokens.colors.system.background.primary
-            : designTokens.colors.system.background.secondary,
+            ? colors.system.background.primary
+            : colors.system.background.secondary,
           borderBottomWidth: 1,
-          borderBottomColor: designTokens.colors.system.separator.primary,
+          borderBottomColor: colors.system.separator.primary,
         },
       ]}
-      onPress={() => markAsRead(item.id)}
+      onPress={() => handleMarkAsRead(item.id)}
       activeOpacity={0.7}
     >
       <View style={tw`flex-row`}>
@@ -187,7 +173,7 @@ export default function InboxScreen() {
                   fontWeight: item.read
                     ? designTokens.typography.fontWeight.medium
                     : designTokens.typography.fontWeight.bold,
-                  color: designTokens.colors.system.label.primary,
+                  color: colors.system.label.primary,
                 },
               ]}
               numberOfLines={1}
@@ -197,7 +183,7 @@ export default function InboxScreen() {
             <Text
               style={{
                 fontSize: designTokens.typography.fontSize.caption1,
-                color: designTokens.colors.system.label.tertiary,
+                color: colors.system.label.tertiary,
               }}
             >
               {formatDate(item.createdAt)}
@@ -207,7 +193,7 @@ export default function InboxScreen() {
           <Text
             style={{
               fontSize: designTokens.typography.fontSize.footnote,
-              color: designTokens.colors.system.label.secondary,
+              color: colors.system.label.secondary,
               lineHeight: designTokens.typography.fontSize.footnote * 1.4,
             }}
             numberOfLines={2}
@@ -221,13 +207,13 @@ export default function InboxScreen() {
               <View
                 style={[
                   tw`w-2 h-2 rounded-full mr-2`,
-                  { backgroundColor: designTokens.colors.brand.primary },
+                  { backgroundColor: colors.brand.primary },
                 ]}
               />
               <Text
                 style={{
                   fontSize: designTokens.typography.fontSize.caption2,
-                  color: designTokens.colors.brand.primary,
+                  color: colors.brand.primary,
                   fontWeight: designTokens.typography.fontWeight.semibold,
                 }}
               >
@@ -246,7 +232,7 @@ export default function InboxScreen() {
     <SafeAreaView
       style={[
         tw`flex-1`,
-        { backgroundColor: designTokens.colors.system.background.primary },
+        { backgroundColor: colors.system.background.primary },
       ]}
     >
       {/* Header */}
@@ -261,7 +247,7 @@ export default function InboxScreen() {
             <Ionicons
               name="arrow-back"
               size={24}
-              color={designTokens.colors.system.label.primary}
+              color={colors.system.label.primary}
             />
           </TouchableOpacity>
           <View>
@@ -269,7 +255,7 @@ export default function InboxScreen() {
               style={{
                 fontSize: designTokens.typography.fontSize.title2,
                 fontWeight: designTokens.typography.fontWeight.bold,
-                color: designTokens.colors.system.label.primary,
+                color: colors.system.label.primary,
               }}
             >
               Inbox
@@ -278,7 +264,7 @@ export default function InboxScreen() {
               <Text
                 style={{
                   fontSize: designTokens.typography.fontSize.caption1,
-                  color: designTokens.colors.system.label.secondary,
+                  color: colors.system.label.secondary,
                   marginTop: 2,
                 }}
               >
@@ -298,7 +284,7 @@ export default function InboxScreen() {
           <Ionicons
             name="settings-outline"
             size={22}
-            color={designTokens.colors.system.label.primary}
+            color={colors.system.label.primary}
           />
         </TouchableOpacity>
       </View>
@@ -308,13 +294,13 @@ export default function InboxScreen() {
         <View style={tw`flex-1 items-center justify-center`}>
           <ActivityIndicator
             size="large"
-            color={designTokens.colors.brand.primary}
+            color={colors.brand.primary}
           />
           <Text
             style={[
               tw`mt-4`,
               {
-                color: designTokens.colors.system.label.secondary,
+                color: colors.system.label.secondary,
                 fontSize: designTokens.typography.fontSize.body,
               },
             ]}
@@ -327,7 +313,7 @@ export default function InboxScreen() {
           <Ionicons
             name="mail-open-outline"
             size={64}
-            color={designTokens.colors.system.label.tertiary}
+            color={colors.system.label.tertiary}
           />
           <Text
             style={[
@@ -335,7 +321,7 @@ export default function InboxScreen() {
               {
                 fontSize: designTokens.typography.fontSize.title3,
                 fontWeight: designTokens.typography.fontWeight.semibold,
-                color: designTokens.colors.system.label.primary,
+                color: colors.system.label.primary,
               },
             ]}
           >
@@ -346,11 +332,11 @@ export default function InboxScreen() {
               tw`mt-2 text-center`,
               {
                 fontSize: designTokens.typography.fontSize.body,
-                color: designTokens.colors.system.label.secondary,
+                color: colors.system.label.secondary,
               },
             ]}
           >
-            We'll notify you when there's something new
+            We&apos;ll notify you when there&apos;s something new
           </Text>
         </View>
       ) : (
@@ -362,7 +348,7 @@ export default function InboxScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={designTokens.colors.brand.primary}
+              tintColor={colors.brand.primary}
             />
           }
           contentContainerStyle={{ paddingBottom: 20 }}

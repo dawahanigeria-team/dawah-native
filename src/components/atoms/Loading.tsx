@@ -1,5 +1,6 @@
 import React from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { useTheme } from "../../hooks/useTheme";
 import { designTokens } from "../../theme/designTokens";
 
 interface LoadingProps {
@@ -11,23 +12,38 @@ interface LoadingProps {
 
 export const Loading: React.FC<LoadingProps> = ({
   size = "large",
-  color = designTokens.colors.brand.primary,
+  color,
   fullScreen = false,
   message,
 }) => {
-  const containerStyle = fullScreen ? styles.fullScreen : styles.inline;
+  const { colors, spacing, typography } = useTheme();
+  
+  // Use brand color as default if not provided
+  const activityColor = color || colors.brand.primary;
+
+  const containerStyle = fullScreen 
+    ? [styles.fullScreen, { backgroundColor: colors.system.background.primary }] 
+    : [styles.inline, { padding: spacing.xl }];
 
   return (
     <View style={containerStyle}>
       <ActivityIndicator
         size={size}
-        color={color}
+        color={activityColor}
         accessibilityLabel="Loading indicator"
         accessibilityRole="progressbar"
       />
       {message && (
-        <View style={styles.messageContainer}>
-          <Text style={styles.messageText}>{message}</Text>
+        <View style={[styles.messageContainer, { marginTop: spacing.md }]}>
+          <Text style={[
+            styles.messageText, 
+            { 
+              fontSize: typography.fontSize.body,
+              color: colors.system.label.secondary 
+            }
+          ]}>
+            {message}
+          </Text>
         </View>
       )}
     </View>
@@ -39,20 +55,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: designTokens.colors.system.background.primary,
   },
   inline: {
-    padding: designTokens.spacing.xl,
     justifyContent: "center",
     alignItems: "center",
   },
   messageContainer: {
-    marginTop: designTokens.spacing.md,
     alignItems: "center",
   },
   messageText: {
-    fontSize: designTokens.typography.fontSize.body,
-    color: designTokens.colors.system.label.secondary,
     textAlign: "center",
   },
 });
