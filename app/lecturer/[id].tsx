@@ -879,13 +879,13 @@ export default function LecturerDetailScreen() {
         contentContainerStyle={tw`px-5 pb-20`}
         onEndReached={loadMorePlaylists}
         onEndReachedThreshold={0.5}
-        ListHeaderComponent={renderHeaderContent}
+        ListHeaderComponent={headerContent}
         ListFooterComponent={renderPlaylistFooter}
       />
     );
   };
 
-  const renderHeaderContent = () => (
+  const headerContent = (
     <View
       style={[
         styles.stickyHeader,
@@ -1069,7 +1069,7 @@ export default function LecturerDetailScreen() {
         contentContainerStyle={tw`pb-20`}
         onEndReached={loadMoreLectures}
         onEndReachedThreshold={0.5}
-        ListHeaderComponent={renderHeaderContent}
+        ListHeaderComponent={headerContent}
         ListFooterComponent={renderLectureFooter}
         ListEmptyComponent={() => {
           if (lecturesLoading) {
@@ -1116,7 +1116,7 @@ export default function LecturerDetailScreen() {
         contentContainerStyle={tw`pb-20`}
         onEndReached={loadMoreAlbums}
         onEndReachedThreshold={0.5}
-        ListHeaderComponent={renderHeaderContent}
+        ListHeaderComponent={headerContent}
         ListFooterComponent={renderAlbumFooter}
         ListEmptyComponent={() => {
           if (albumsLoading) {
