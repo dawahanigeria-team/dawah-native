@@ -879,6 +879,7 @@ export default function LecturerDetailScreen() {
         contentContainerStyle={tw`px-5 pb-20`}
         onEndReached={loadMorePlaylists}
         onEndReachedThreshold={0.5}
+        keyboardDismissMode="on-drag"
         ListHeaderComponent={headerContent}
         ListFooterComponent={renderPlaylistFooter}
       />
@@ -1069,6 +1070,7 @@ export default function LecturerDetailScreen() {
         contentContainerStyle={tw`pb-20`}
         onEndReached={loadMoreLectures}
         onEndReachedThreshold={0.5}
+        keyboardDismissMode="on-drag"
         ListHeaderComponent={headerContent}
         ListFooterComponent={renderLectureFooter}
         ListEmptyComponent={() => {
@@ -1116,6 +1118,7 @@ export default function LecturerDetailScreen() {
         contentContainerStyle={tw`pb-20`}
         onEndReached={loadMoreAlbums}
         onEndReachedThreshold={0.5}
+        keyboardDismissMode="on-drag"
         ListHeaderComponent={headerContent}
         ListFooterComponent={renderAlbumFooter}
         ListEmptyComponent={() => {
