@@ -104,23 +104,18 @@ export default function ResetPasswordScreen() {
           email: userEmail,
         });
 
-        Alert.alert(
-          "Password Reset Successful",
-          "Your password has been reset successfully. You can now sign in with your new password.",
-          [
-            {
-              text: "Sign In",
-              onPress: () => {
-                // Clear entire navigation stack and go to sign-in
-                // This removes forgot-password and reset-password from the stack
-                while (router.canGoBack()) {
-                  router.back();
-                }
-                router.replace("/sign-in");
-              },
-            },
-          ]
-        );
+        // Navigate directly to sign-in after showing success message
+        router.dismissAll();
+        router.replace("/sign-in");
+
+        // Show success message after navigation
+        setTimeout(() => {
+          Alert.alert(
+            "Password Reset Successful",
+            "Your password has been reset successfully. You can now sign in with your new password.",
+            [{ text: "OK" }]
+          );
+        }, 300);
       } else {
         throw new Error(response.message || "Failed to reset password");
       }
