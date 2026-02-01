@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   StyleSheet,
@@ -22,10 +23,18 @@ import {
 } from "../../src/services/api/lecturers.api";
 import { searchApi } from "../../src/services/api/search.api";
 import {
+  followLecturer,
+  unfollowLecturer,
+} from "../../src/services/api/lecturerFollow.api";
+import {
   addSentryBreadcrumb,
   captureSentryException,
 } from "../../src/services/config/sentry.config";
-import { usePlayerActions } from "../../src/stores";
+import {
+  getStoredPushToken,
+  registerForPushNotificationsAsync,
+} from "../../src/services/notifications.service";
+import { useAuthStore, usePlayerActions } from "../../src/stores";
 import tw from "../../src/theme/twrnc";
 import { SearchPlaylist } from "../../src/types/api.types";
 import { Episode } from "../../src/types/types";
@@ -33,6 +42,10 @@ import {
   getInitials,
   getPlaceholderColor,
 } from "../../src/utils/colorPlaceholder";
+import {
+  buildLecturerFollowReturnTo,
+  parseAutoFollowFlag,
+} from "../../src/utils/lecturerFollowAuth";
 
 // Tab types
 type TabType = "songs" | "albums" | "playlists";
@@ -41,11 +54,17 @@ type TabType = "songs" | "albums" | "playlists";
 const PAGE_SIZE = 10;
 
 export default function LecturerDetailScreen() {
-  const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
+  const { id, name, autoFollow } = useLocalSearchParams<{
+    id: string;
+    name?: string;
+    autoFollow?: string;
+  }>();
   const lecturerId = Array.isArray(id) ? id[0] : id;
   const lecturerNameHint = Array.isArray(name) ? name[0] : name || "";
+  const shouldAutoFollow = parseAutoFollowFlag(autoFollow);
   const { playEpisode } = usePlayerActions();
   const { colors } = useTheme();
+  const { isAuthenticated } = useAuthStore();
 
   // If we navigated here without a valid lecturer id (e.g., id=0), try resolving by name.
   useEffect(() => {
@@ -139,12 +158,48 @@ export default function LecturerDetailScreen() {
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Follow state
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
+  const followDisabled =
+    isFollowLoading || !lecturerId || String(lecturerId) === "0";
+  const autoFollowHandledRef = useRef(false);
+
   // Fetch lecturer details
   useEffect(() => {
+    setIsFollowing(false);
+    setIsFollowLoading(false);
+    autoFollowHandledRef.current = false;
     fetchLecturerDetails();
     fetchLecturerLectures();
     fetchAlbums(); // Fetch albums on initial load to show correct count
   }, [lecturerId]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setIsFollowing(false);
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!shouldAutoFollow) return;
+    if (!isAuthenticated) return;
+    if (!lecturerId || String(lecturerId) === "0") return;
+    if (isFollowing) {
+      if (!autoFollowHandledRef.current) {
+        autoFollowHandledRef.current = true;
+        router.replace(`/lecturer/${lecturerId}`);
+      }
+      return;
+    }
+    if (autoFollowHandledRef.current) return;
+
+    autoFollowHandledRef.current = true;
+    handleFollowPress({ skipAuthCheck: true, forceFollow: true })
+      .finally(() => {
+        router.replace(`/lecturer/${lecturerId}`);
+      });
+  }, [shouldAutoFollow, isAuthenticated, lecturerId, isFollowing]);
 
   const fetchLecturerDetails = async () => {
     try {
@@ -856,6 +911,114 @@ export default function LecturerDetailScreen() {
     );
   };
 
+  const confirmEnableNotifications = (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      Alert.alert(
+        "Enable notifications?",
+        "Enable notifications to follow this lecturer and get new lecture alerts.",
+        [
+          {
+            text: "Not now",
+            style: "cancel",
+            onPress: () => resolve(false),
+          },
+          {
+            text: "Enable",
+            onPress: () => resolve(true),
+          },
+        ],
+        { cancelable: true },
+      );
+    });
+  };
+
+  const confirmSignIn = (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      Alert.alert(
+        "Sign in required",
+        "Please sign in to follow this lecturer.",
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => resolve(false),
+          },
+          {
+            text: "Sign In",
+            onPress: () => resolve(true),
+          },
+        ],
+        { cancelable: true },
+      );
+    });
+  };
+
+  const navigateToSignIn = () => {
+    if (!lecturerId || String(lecturerId) === "0") return;
+    router.push({
+      pathname: "/sign-in",
+      params: { returnTo: buildLecturerFollowReturnTo(lecturerId) },
+    });
+  };
+
+  const handleFollowPress = async (
+    options: { skipAuthCheck?: boolean; forceFollow?: boolean } = {},
+  ) => {
+    if (!lecturerId || String(lecturerId) === "0") {
+      Alert.alert("Please wait", "Lecturer details are still loading.");
+      return;
+    }
+
+    if (isFollowLoading) return;
+
+    if (!options.skipAuthCheck && !isAuthenticated) {
+      const shouldSignIn = await confirmSignIn();
+      if (shouldSignIn) {
+        navigateToSignIn();
+      }
+      return;
+    }
+
+    setIsFollowLoading(true);
+    try {
+      const shouldFollow = options.forceFollow ? true : !isFollowing;
+      if (shouldFollow) {
+        let token = await getStoredPushToken();
+
+        if (!token) {
+          const shouldEnable = await confirmEnableNotifications();
+          if (!shouldEnable) return;
+
+          token = await registerForPushNotificationsAsync();
+          if (!token) {
+            Alert.alert(
+              "Notifications not enabled",
+              "Enable notifications to follow this lecturer.",
+            );
+            return;
+          }
+        }
+
+        const response = await followLecturer(lecturerId, "rp");
+        if (!response?.success) {
+          throw new Error(response?.message || "Follow failed");
+        }
+        setIsFollowing(response.data?.following ?? true);
+      } else {
+        const response = await unfollowLecturer(lecturerId, "rp");
+        if (!response?.success) {
+          throw new Error(response?.message || "Unfollow failed");
+        }
+        setIsFollowing(response.data?.following ?? false);
+      }
+    } catch (err) {
+      console.error("Failed to update follow status:", err);
+      Alert.alert("Something went wrong", "Please try again.");
+    } finally {
+      setIsFollowLoading(false);
+    }
+  };
+
   const headerContent = (
     <View
       style={[
@@ -867,25 +1030,25 @@ export default function LecturerDetailScreen() {
       ]}
     >
       {/* Lecturer Info with Cover Image */}
-      <View style={tw`px-5 py-3`}>
-        <View style={tw`flex-row`}>
+      <View style={tw`px-5 py-4`}>
+        <View style={tw`flex-row items-start`}>
           {/* Cover/Profile Image */}
           {lecturerImage ? (
             <Image
               source={{ uri: lecturerImage }}
-              style={tw`w-24 h-24 rounded-lg`}
+              style={tw`w-32 h-32 rounded-2xl shadow-lg`}
             />
           ) : (
             <View
               style={[
-                tw`w-24 h-24 rounded-lg items-center justify-center`,
+                tw`w-32 h-32 rounded-2xl items-center justify-center shadow-lg`,
                 { backgroundColor: getPlaceholderColor(lecturerId) },
               ]}
             >
               <Text
                 style={[
                   styles.initialsText,
-                  { color: colors.fixed.white },
+                  { color: colors.fixed.white, fontSize: 36 },
                 ]}
               >
                 {getInitials(lecturerName)}
@@ -893,95 +1056,138 @@ export default function LecturerDetailScreen() {
             </View>
           )}
 
-          {/* Info */}
-          <View style={tw`flex-1 ml-4 justify-between`}>
-            <View>
-              <Text
-                style={[
-                  tw`text-xl font-bold mb-1`,
-                  { color: colors.system.label.primary },
-                ]}
-              >
-                {lecturerName}
-              </Text>
-              {lecturer.bio && (
-                <Text
-                  style={[
-                    tw`text-sm`,
-                    { color: colors.system.label.secondary },
-                  ]}
-                  numberOfLines={2}
-                >
-                  {lecturer.bio}
-                </Text>
-              )}
-            </View>
+          {/* Info Section */}
+          <View style={tw`flex-1 ml-4`}>
+            <Text
+              style={[
+                tw`text-2xl font-bold mb-1`,
+                { color: colors.system.label.primary },
+              ]}
+              numberOfLines={2}
+            >
+              {lecturerName}
+            </Text>
 
-            {/* Stats */}
-            <View style={tw`flex-row items-center mt-2`}>
-              <View
-                style={[
-                  tw`flex-row items-center rounded-full px-3 py-1.5 mr-2`,
-                  { backgroundColor: colors.system.fill.tertiary },
-                ]}
-              >
+            {/* Stats Row */}
+            <View style={tw`flex-row items-center mb-3`}>
+              <View style={tw`flex-row items-center mr-3`}>
                 <Ionicons
                   name="heart"
-                  size={14}
+                  size={16}
                   color={colors.system.label.tertiary}
                 />
                 <Text
                   style={[
-                    tw`text-xs ml-1.5`,
+                    tw`text-sm ml-1`,
                     { color: colors.system.label.secondary },
                   ]}
                 >
                   {formatNumber(favorites)}
                 </Text>
               </View>
-              <View
-                style={[
-                  tw`flex-row items-center rounded-full px-3 py-1.5 mr-2`,
-                  { backgroundColor: colors.system.fill.tertiary },
-                ]}
-              >
+              <View style={tw`flex-row items-center mr-3`}>
                 <Ionicons
                   name="share-social"
-                  size={14}
+                  size={16}
                   color={colors.system.label.tertiary}
                 />
                 <Text
                   style={[
-                    tw`text-xs ml-1.5`,
+                    tw`text-sm ml-1`,
                     { color: colors.system.label.secondary },
                   ]}
                 >
-                  {shares}
+                  {formatNumber(shares)}
                 </Text>
               </View>
-              <View
-                style={[
-                  tw`flex-row items-center rounded-full px-3 py-1.5`,
-                  { backgroundColor: colors.system.fill.tertiary },
-                ]}
-              >
+              <View style={tw`flex-row items-center`}>
                 <Ionicons
                   name="chatbubble"
-                  size={14}
+                  size={16}
                   color={colors.system.label.tertiary}
                 />
                 <Text
                   style={[
-                    tw`text-xs ml-1.5`,
+                    tw`text-sm ml-1`,
                     { color: colors.system.label.secondary },
                   ]}
                 >
-                  {comments}
+                  {formatNumber(comments)}
                 </Text>
               </View>
             </View>
+
+            {/* Follow Button */}
+            <TouchableOpacity
+              onPress={handleFollowPress}
+              disabled={followDisabled}
+              activeOpacity={0.7}
+              style={[
+                tw`flex-row items-center justify-center px-6 py-2.5 rounded-full`,
+                {
+                  backgroundColor: isFollowing
+                    ? colors.system.background.secondary
+                    : colors.brand.primary,
+                  borderWidth: isFollowing ? 1.5 : 0,
+                  borderColor: isFollowing
+                    ? colors.system.separator.primary
+                    : "transparent",
+                  opacity: followDisabled ? 0.5 : 1,
+                  minWidth: 120,
+                },
+              ]}
+            >
+              {isFollowLoading ? (
+                <ActivityIndicator
+                  size="small"
+                  color={
+                    isFollowing
+                      ? colors.system.label.primary
+                      : colors.fixed.white
+                  }
+                />
+              ) : (
+                <>
+                  {isFollowing && (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={18}
+                      color={colors.brand.primary}
+                      style={tw`mr-1.5`}
+                    />
+                  )}
+                  <Text
+                    style={[
+                      tw`text-base font-semibold`,
+                      {
+                        color: isFollowing
+                          ? colors.system.label.primary
+                          : colors.fixed.white,
+                      },
+                    ]}
+                  >
+                    {isFollowing ? "Following" : "Follow"}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
+
+        {/* Bio Section - Full Width Below */}
+        {lecturer.bio && (
+          <View style={tw`mt-4`}>
+            <Text
+              style={[
+                tw`text-sm leading-5`,
+                { color: colors.system.label.secondary },
+              ]}
+              numberOfLines={3}
+            >
+              {lecturer.bio}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Tabs */}

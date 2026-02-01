@@ -60,6 +60,7 @@ export const API_CONFIG = {
     LECTURERS: '/api/fetchcatrps.php',
     LECTURER_DETAIL: '/api/fetchrp_detail.php',
     LECTURER_LECTURES: '/api/fetch_lecbyRp.php',
+    LECTURER_FOLLOW: '/api/lecturer_follow.php',
 
     // Categories
     CATEGORIES: '/api/categorylist.php',
