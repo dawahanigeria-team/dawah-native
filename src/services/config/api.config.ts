@@ -69,7 +69,7 @@ export const API_CONFIG = {
     // User Auth
     AUTH_LOGIN: '/user_auth.php',
     AUTH_REGISTER: '/user_auth.php',
-    AUTH_FORGOT_PASSWORD: '/forgotpassword.php',
+    AUTH_FORGOT_PASSWORD: '/api/forgot_passwordApi.php',
 
     // User Data
     USER_PROFILE: '/api/userprofile.php',
@@ -106,5 +106,5 @@ export type ApiEndpoint = typeof API_CONFIG.ENDPOINTS[keyof typeof API_CONFIG.EN
 // Environment-specific overrides
 if (__DEV__) {
   // Development environment adjustments
-  console.log('API Running in Development Mode');
+  console.warn('API Running in Development Mode');
 }

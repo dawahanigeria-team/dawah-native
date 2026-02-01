@@ -106,11 +106,7 @@ export default function SignInScreen() {
   };
 
   const handleForgotPassword = () => {
-    Alert.alert(
-      "Forgot Password",
-      "Password recovery feature coming soon! Please contact support for assistance.",
-      [{ text: "OK" }]
-    );
+    router.push("/forgot-password");
   };
 
   const handleSignUp = () => {
