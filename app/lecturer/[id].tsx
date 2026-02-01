@@ -601,7 +601,10 @@ export default function LecturerDetailScreen() {
 
         if (!token) {
           const shouldEnable = await confirmEnableNotifications();
-          if (!shouldEnable) return;
+          if (!shouldEnable) {
+            setIsFollowLoading(false);
+            return;
+          }
 
           token = await registerForPushNotificationsAsync();
           if (!token) {
@@ -609,6 +612,7 @@ export default function LecturerDetailScreen() {
               "Notifications not enabled",
               "Enable notifications to follow this lecturer.",
             );
+            setIsFollowLoading(false);
             return;
           }
         }

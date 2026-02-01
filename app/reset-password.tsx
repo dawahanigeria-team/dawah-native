@@ -7,6 +7,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   TextInput,
   TouchableOpacity,
   View,
@@ -43,6 +44,7 @@ export default function ResetPasswordScreen() {
   const [confirmPasswordFocused, setConfirmPasswordFocused] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
+  const submitButtonOpacity = isLoading ? 0.7 : 1;
 
   const validateCode = (text: string): boolean => {
     const codeRegex = /^\d{6}$/;
@@ -104,9 +106,9 @@ export default function ResetPasswordScreen() {
           email: userEmail,
         });
 
-        // Navigate directly to sign-in after showing success message
-        router.dismissAll();
-        router.replace("/sign-in");
+        // Navigate to sign-in screen
+        // Use push to ensure navigation happens, even if there are modals
+        router.push("/sign-in");
 
         // Show success message after navigation
         setTimeout(() => {
@@ -214,14 +216,14 @@ export default function ResetPasswordScreen() {
               variant="title1"
               weight="bold"
               color="label"
-              style={{ textAlign: "center", marginBottom: 8 }}
+              style={styles.titleText}
             >
               Reset Password
             </Text>
             <Text
               variant="subheadline"
               color="secondaryLabel"
-              style={{ textAlign: "center", paddingHorizontal: 20 }}
+              style={styles.subtitleText}
             >
               Enter the 6-digit code sent to{" "}
               <Text variant="subheadline" weight="semibold" color="label">
@@ -240,16 +242,16 @@ export default function ResetPasswordScreen() {
               variant="subheadline"
               weight="medium"
               color="label"
-              style={{ marginBottom: 6 }}
+              style={styles.labelText}
             >
               Verification Code
             </Text>
             <View
               style={[
                 tw`rounded-xl px-4 py-3 flex-row items-center`,
+                styles.inputContainer,
                 {
                   backgroundColor: colors.system.background.secondary,
-                  borderWidth: 1.5,
                   borderColor: getInputBorderColor(!!codeError, codeFocused),
                 },
               ]}
@@ -265,13 +267,8 @@ export default function ResetPasswordScreen() {
               <TextInput
                 style={[
                   tw`flex-1`,
-                  {
-                    color: colors.system.label.primary,
-                    fontSize: 20,
-                    letterSpacing: 8,
-                    fontWeight: "600",
-                    paddingVertical: 0,
-                  },
+                  styles.codeInput,
+                  { color: colors.system.label.primary },
                 ]}
                 placeholder="000000"
                 placeholderTextColor={colors.system.label.tertiary}
@@ -306,7 +303,7 @@ export default function ResetPasswordScreen() {
             {codeError && (
               <Text
                 variant="caption1"
-                style={{ color: colors.semantic.red, marginTop: 4 }}
+                style={[styles.errorText, { color: colors.semantic.red }]}
               >
                 {codeError}
               </Text>
@@ -322,16 +319,16 @@ export default function ResetPasswordScreen() {
               variant="subheadline"
               weight="medium"
               color="label"
-              style={{ marginBottom: 6 }}
+              style={styles.labelText}
             >
               New Password
             </Text>
             <View
               style={[
                 tw`rounded-xl px-4 py-3 flex-row items-center`,
+                styles.inputContainer,
                 {
                   backgroundColor: colors.system.background.secondary,
-                  borderWidth: 1.5,
                   borderColor: getInputBorderColor(
                     !!passwordError,
                     passwordFocused
@@ -352,11 +349,8 @@ export default function ResetPasswordScreen() {
               <TextInput
                 style={[
                   tw`flex-1`,
-                  {
-                    color: colors.system.label.primary,
-                    fontSize: 16,
-                    paddingVertical: 0,
-                  },
+                  styles.passwordInput,
+                  { color: colors.system.label.primary },
                 ]}
                 placeholder="Enter new password"
                 placeholderTextColor={colors.system.label.tertiary}
@@ -393,7 +387,7 @@ export default function ResetPasswordScreen() {
             {passwordError && (
               <Text
                 variant="caption1"
-                style={{ color: colors.semantic.red, marginTop: 4 }}
+                style={[styles.errorText, { color: colors.semantic.red }]}
               >
                 {passwordError}
               </Text>
@@ -409,16 +403,16 @@ export default function ResetPasswordScreen() {
               variant="subheadline"
               weight="medium"
               color="label"
-              style={{ marginBottom: 6 }}
+              style={styles.labelText}
             >
               Confirm Password
             </Text>
             <View
               style={[
                 tw`rounded-xl px-4 py-3 flex-row items-center`,
+                styles.inputContainer,
                 {
                   backgroundColor: colors.system.background.secondary,
-                  borderWidth: 1.5,
                   borderColor: getInputBorderColor(
                     !!confirmPasswordError,
                     confirmPasswordFocused
@@ -439,11 +433,8 @@ export default function ResetPasswordScreen() {
               <TextInput
                 style={[
                   tw`flex-1`,
-                  {
-                    color: colors.system.label.primary,
-                    fontSize: 16,
-                    paddingVertical: 0,
-                  },
+                  styles.passwordInput,
+                  { color: colors.system.label.primary },
                 ]}
                 placeholder="Confirm new password"
                 placeholderTextColor={colors.system.label.tertiary}
@@ -481,7 +472,7 @@ export default function ResetPasswordScreen() {
             {confirmPasswordError && (
               <Text
                 variant="caption1"
-                style={{ color: colors.semantic.red, marginTop: 4 }}
+                style={[styles.errorText, { color: colors.semantic.red }]}
               >
                 {confirmPasswordError}
               </Text>
@@ -496,14 +487,11 @@ export default function ResetPasswordScreen() {
               activeOpacity={0.8}
               style={[
                 tw`rounded-xl py-4 items-center justify-center mb-5`,
+                styles.submitButton,
                 {
                   backgroundColor: colors.brand.primary,
-                  opacity: isLoading ? 0.7 : 1,
+                  opacity: submitButtonOpacity,
                   shadowColor: colors.brand.primary,
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 8,
-                  elevation: 4,
                 },
               ]}
             >
@@ -513,7 +501,7 @@ export default function ResetPasswordScreen() {
                 <Text
                   variant="body"
                   weight="semibold"
-                  style={{ color: colors.fixed.black, fontSize: 16 }}
+                  style={[styles.submitButtonText, { color: colors.fixed.black }]}
                 >
                   Reset Password
                 </Text>
@@ -543,14 +531,14 @@ export default function ResetPasswordScreen() {
                   <Text
                     variant="caption1"
                     color="secondaryLabel"
-                    style={{ lineHeight: 18, marginBottom: 4 }}
+                    style={styles.helpTextFirst}
                   >
                     The verification code expires in 10 minutes.
                   </Text>
                   <Text
                     variant="caption1"
                     color="secondaryLabel"
-                    style={{ lineHeight: 18 }}
+                    style={styles.helpTextLast}
                   >
                     You have 5 attempts to enter the correct code.
                   </Text>
@@ -571,7 +559,7 @@ export default function ResetPasswordScreen() {
               <Text
                 variant="subheadline"
                 weight="semibold"
-                style={{ color: colors.brand.primary }}
+                style={[styles.linkText, { color: colors.brand.primary }]}
               >
                 Resend
               </Text>
@@ -582,3 +570,52 @@ export default function ResetPasswordScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  titleText: {
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  subtitleText: {
+    textAlign: "center",
+    paddingHorizontal: 20,
+  },
+  labelText: {
+    marginBottom: 6,
+  },
+  inputContainer: {
+    borderWidth: 1.5,
+  },
+  codeInput: {
+    fontSize: 20,
+    letterSpacing: 8,
+    fontWeight: "600",
+    paddingVertical: 0,
+  },
+  passwordInput: {
+    fontSize: 16,
+    paddingVertical: 0,
+  },
+  errorText: {
+    marginTop: 4,
+  },
+  submitButton: {
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  submitButtonText: {
+    fontSize: 16,
+  },
+  helpTextFirst: {
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  helpTextLast: {
+    lineHeight: 18,
+  },
+  linkText: {
+    // Color is dynamic, set via inline style
+  },
+});
