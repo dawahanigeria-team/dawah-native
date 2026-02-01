@@ -172,7 +172,6 @@ export default function LecturerDetailScreen() {
 
   const fetchLecturerLectures = async (page = 1, appendData = false) => {
     if (isLoadingRef.current) {
-      console.log("⏸️ Already loading, skipping request");
       return;
     }
 
@@ -192,16 +191,10 @@ export default function LecturerDetailScreen() {
         setLecturesLoading(true);
       }
 
-      console.log(`📚 Fetching lectures for page ${page}`);
-
       // Fetch lectures by lecturer using the specific API endpoint
       const response = await lecturersApi.getLecturesByLecturer(
         lecturerId,
         page,
-      );
-
-      console.log(
-        `✅ Received ${response.data.length} lectures for page ${page}`,
       );
 
       // Add unique ID to each lecture to prevent key collisions
@@ -217,28 +210,16 @@ export default function LecturerDetailScreen() {
           const newLectures = lecturesWithUniqueIds.filter(
             (l) => !existingIds.has(l.nid),
           );
-          console.log(
-            `➕ Adding ${newLectures.length} new lectures (${lecturesWithUniqueIds.length - newLectures.length} duplicates removed)`,
-          );
-          console.log(
-            `📊 Total lectures now: ${prev.length + newLectures.length}`,
-          );
           return [...prev, ...newLectures];
         });
       } else {
         // Replace lectures with new data
-        console.log(
-          `🔄 Replacing lectures with ${lecturesWithUniqueIds.length} items`,
-        );
         setLectures(lecturesWithUniqueIds);
       }
 
       // Check if there are more lectures to load
       // API returns 30 by default, if we get less than PAGE_SIZE, probably no more
       const hasMore = response.data.length >= PAGE_SIZE;
-      console.log(
-        `📊 Pagination status: Page ${page}, Has more: ${hasMore} (received ${response.data.length} lectures)`,
-      );
       setHasMoreLectures(hasMore);
       setCurrentPage(page);
     } catch (err) {
@@ -259,14 +240,8 @@ export default function LecturerDetailScreen() {
       searchQuery ||
       isLoadingRef.current
     ) {
-      console.log(
-        `❌ Cannot load more - hasMore: ${hasMoreLectures}, loadingMore: ${loadingMore}, loading: ${lecturesLoading}, hasSearch: ${!!searchQuery}`,
-      );
       return;
     }
-    console.log(
-      `🔄 Loading more lectures - Current page: ${currentPage}, Next: ${currentPage + 1}`,
-    );
     fetchLecturerLectures(currentPage + 1, true);
   };
 
@@ -304,7 +279,6 @@ export default function LecturerDetailScreen() {
       setHasMoreAlbums(hasMore);
       setCurrentAlbumPage(page);
 
-      console.log("✅ Loaded albums:", response.data.length, "Page:", page);
       addSentryBreadcrumb("Albums loaded successfully", "info", {
         lecturerId,
         albumCount: response.data.length,
@@ -378,8 +352,6 @@ export default function LecturerDetailScreen() {
       const hasMore = response.data.length >= PAGE_SIZE;
       setHasMorePlaylists(hasMore);
       setCurrentPlaylistPage(page);
-
-      console.log("✅ Loaded playlists:", response.data.length, "Page:", page);
     } catch (err: any) {
       console.error("Failed to fetch playlists:", err);
       // Don't show full error for empty search results
@@ -570,8 +542,6 @@ export default function LecturerDetailScreen() {
           lecturerId,
           lecturerName: lecturer?.rpname || lecturer?.name,
         });
-
-        console.log("📀 Navigating to album:", item.id, item.title);
 
         // Navigate to album detail page
         router.push(`/album/${item.id}`);
@@ -913,11 +883,10 @@ export default function LecturerDetailScreen() {
               ]}
             >
               <Text
-                style={{
-                  color: colors.fixed.white,
-                  fontSize: 30,
-                  fontWeight: "bold",
-                }}
+                style={[
+                  styles.initialsText,
+                  { color: colors.fixed.white },
+                ]}
               >
                 {getInitials(lecturerName)}
               </Text>
@@ -1063,7 +1032,7 @@ export default function LecturerDetailScreen() {
       <FlatList
         data={filteredLectures}
         renderItem={({ item, index }) => renderLectureItem(item, index)}
-        keyExtractor={(item: any, index: number) =>
+        keyExtractor={(item: LecturerLecture, index: number) =>
           item._uniqueId || `${item.nid}-${index}`
         }
         stickyHeaderIndices={[0]}
@@ -1196,5 +1165,9 @@ export default function LecturerDetailScreen() {
 const styles = StyleSheet.create({
   stickyHeader: {
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  initialsText: {
+    fontSize: 30,
+    fontWeight: "bold",
   },
 });
