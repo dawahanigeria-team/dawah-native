@@ -525,6 +525,114 @@ export default function LecturerDetailScreen() {
     return num.toString();
   };
 
+  const confirmEnableNotifications = (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      Alert.alert(
+        "Enable notifications?",
+        "Enable notifications to follow this lecturer and get new lecture alerts.",
+        [
+          {
+            text: "Not now",
+            style: "cancel",
+            onPress: () => resolve(false),
+          },
+          {
+            text: "Enable",
+            onPress: () => resolve(true),
+          },
+        ],
+        { cancelable: true },
+      );
+    });
+  };
+
+  const confirmSignIn = (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      Alert.alert(
+        "Sign in required",
+        "Please sign in to follow this lecturer.",
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => resolve(false),
+          },
+          {
+            text: "Sign In",
+            onPress: () => resolve(true),
+          },
+        ],
+        { cancelable: true },
+      );
+    });
+  };
+
+  const navigateToSignIn = () => {
+    if (!lecturerId || String(lecturerId) === "0") return;
+    router.push({
+      pathname: "/sign-in",
+      params: { returnTo: buildLecturerFollowReturnTo(lecturerId) },
+    });
+  };
+
+  const handleFollowPress = async (
+    options: { skipAuthCheck?: boolean; forceFollow?: boolean } = {},
+  ) => {
+    if (!lecturerId || String(lecturerId) === "0") {
+      Alert.alert("Please wait", "Lecturer details are still loading.");
+      return;
+    }
+
+    if (isFollowLoading) return;
+
+    if (!options.skipAuthCheck && !isAuthenticated) {
+      const shouldSignIn = await confirmSignIn();
+      if (shouldSignIn) {
+        navigateToSignIn();
+      }
+      return;
+    }
+
+    setIsFollowLoading(true);
+    try {
+      const shouldFollow = options.forceFollow ? true : !isFollowing;
+      if (shouldFollow) {
+        let token = await getStoredPushToken();
+
+        if (!token) {
+          const shouldEnable = await confirmEnableNotifications();
+          if (!shouldEnable) return;
+
+          token = await registerForPushNotificationsAsync();
+          if (!token) {
+            Alert.alert(
+              "Notifications not enabled",
+              "Enable notifications to follow this lecturer.",
+            );
+            return;
+          }
+        }
+
+        const response = await followLecturer(lecturerId, "rp");
+        if (!response?.success) {
+          throw new Error(response?.message || "Follow failed");
+        }
+        setIsFollowing(response.data?.following ?? true);
+      } else {
+        const response = await unfollowLecturer(lecturerId, "rp");
+        if (!response?.success) {
+          throw new Error(response?.message || "Unfollow failed");
+        }
+        setIsFollowing(response.data?.following ?? false);
+      }
+    } catch (err) {
+      console.error("Failed to update follow status:", err);
+      Alert.alert("Something went wrong", "Please try again.");
+    } finally {
+      setIsFollowLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <SafeAreaView
@@ -909,114 +1017,6 @@ export default function LecturerDetailScreen() {
         ListFooterComponent={renderPlaylistFooter}
       />
     );
-  };
-
-  const confirmEnableNotifications = (): Promise<boolean> => {
-    return new Promise((resolve) => {
-      Alert.alert(
-        "Enable notifications?",
-        "Enable notifications to follow this lecturer and get new lecture alerts.",
-        [
-          {
-            text: "Not now",
-            style: "cancel",
-            onPress: () => resolve(false),
-          },
-          {
-            text: "Enable",
-            onPress: () => resolve(true),
-          },
-        ],
-        { cancelable: true },
-      );
-    });
-  };
-
-  const confirmSignIn = (): Promise<boolean> => {
-    return new Promise((resolve) => {
-      Alert.alert(
-        "Sign in required",
-        "Please sign in to follow this lecturer.",
-        [
-          {
-            text: "Cancel",
-            style: "cancel",
-            onPress: () => resolve(false),
-          },
-          {
-            text: "Sign In",
-            onPress: () => resolve(true),
-          },
-        ],
-        { cancelable: true },
-      );
-    });
-  };
-
-  const navigateToSignIn = () => {
-    if (!lecturerId || String(lecturerId) === "0") return;
-    router.push({
-      pathname: "/sign-in",
-      params: { returnTo: buildLecturerFollowReturnTo(lecturerId) },
-    });
-  };
-
-  const handleFollowPress = async (
-    options: { skipAuthCheck?: boolean; forceFollow?: boolean } = {},
-  ) => {
-    if (!lecturerId || String(lecturerId) === "0") {
-      Alert.alert("Please wait", "Lecturer details are still loading.");
-      return;
-    }
-
-    if (isFollowLoading) return;
-
-    if (!options.skipAuthCheck && !isAuthenticated) {
-      const shouldSignIn = await confirmSignIn();
-      if (shouldSignIn) {
-        navigateToSignIn();
-      }
-      return;
-    }
-
-    setIsFollowLoading(true);
-    try {
-      const shouldFollow = options.forceFollow ? true : !isFollowing;
-      if (shouldFollow) {
-        let token = await getStoredPushToken();
-
-        if (!token) {
-          const shouldEnable = await confirmEnableNotifications();
-          if (!shouldEnable) return;
-
-          token = await registerForPushNotificationsAsync();
-          if (!token) {
-            Alert.alert(
-              "Notifications not enabled",
-              "Enable notifications to follow this lecturer.",
-            );
-            return;
-          }
-        }
-
-        const response = await followLecturer(lecturerId, "rp");
-        if (!response?.success) {
-          throw new Error(response?.message || "Follow failed");
-        }
-        setIsFollowing(response.data?.following ?? true);
-      } else {
-        const response = await unfollowLecturer(lecturerId, "rp");
-        if (!response?.success) {
-          throw new Error(response?.message || "Unfollow failed");
-        }
-        setIsFollowing(response.data?.following ?? false);
-      }
-    } catch (err) {
-      console.error("Failed to update follow status:", err);
-      Alert.alert("Something went wrong", "Please try again.");
-    } finally {
-      setIsFollowLoading(false);
-    }
   };
 
   const headerContent = (
