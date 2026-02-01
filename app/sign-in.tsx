@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useState } from "react";
 import {
   Alert,
@@ -21,6 +21,7 @@ import tw from "../src/theme/twrnc";
 
 export default function SignInScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { colors } = useTheme();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const returnToRoute = Array.isArray(returnTo) ? returnTo[0] : returnTo;
@@ -61,6 +62,21 @@ export default function SignInScreen() {
     return true;
   };
 
+  const handleBack = () => {
+    let canGoBack = false;
+    try {
+      canGoBack = navigation.canGoBack();
+    } catch {
+      canGoBack = false;
+    }
+
+    if (canGoBack) {
+      router.back();
+    } else {
+      router.replace("/");
+    }
+  };
+
   const handleSignIn = async () => {
     clearError();
 
@@ -81,7 +97,7 @@ export default function SignInScreen() {
       if (returnToRoute) {
         router.replace(returnToRoute as `/${string}`);
       } else {
-        router.back();
+        handleBack();
       }
     } catch (err: unknown) {
       const error = err as Error;
@@ -139,7 +155,7 @@ export default function SignInScreen() {
           {/* Back Button */}
           <Animated.View entering={FadeIn.duration(300)}>
             <Pressable
-              onPress={() => router.back()}
+              onPress={handleBack}
               style={[
                 tw`mb-6 self-start p-2 -ml-2 rounded-full`,
                 { backgroundColor: colors.system.fill.tertiary },
