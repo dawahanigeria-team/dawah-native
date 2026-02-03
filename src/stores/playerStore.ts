@@ -265,23 +265,26 @@ const playEpisode = async (episode: Episode) => {
         { episodeId: episode.id, title: episode.title }
       );
     }
-  } catch (error: any) {
-    logger.error('❌ PlayerStore: Failed to play episode', error as Error, {
+  } catch (error) {
+    const err = error as Error;
+    const message = err?.message ?? '';
+
+    logger.error('❌ PlayerStore: Failed to play episode', err, {
       episodeId: episode.id,
       title: episode.title,
       audioUrl: episode.audioUrl,
     });
 
-    const errorMessage = error.message?.includes('timeout')
+    const errorMessage = message.includes('timeout')
       ? 'Audio loading timed out. Please check your internet connection and try again.'
       : 'Failed to play audio. Please try again.';
 
-    captureSentryException(error, {
+    captureSentryException(err, {
       episodeId: episode.id,
       title: episode.title,
       audioUrl: episode.audioUrl,
-      errorType: error.message?.includes('timeout') ? 'loading_timeout' : 'playback_failed',
-      errorMessage: error.message,
+      errorType: message.includes('timeout') ? 'loading_timeout' : 'playback_failed',
+      errorMessage: message,
     });
 
     playerStore.set({

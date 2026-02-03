@@ -3,7 +3,7 @@ import TrackPlayer, { Event } from 'react-native-track-player'
 const safeCall = async (action: () => Promise<void> | void): Promise<void> => {
   try {
     await action()
-  } catch (_error) {
+  } catch {
     // Swallow errors to avoid crashing background service
   }
 }

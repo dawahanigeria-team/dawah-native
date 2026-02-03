@@ -7,6 +7,12 @@ const episode = {
   coverUrl: 'img',
   audioUrl: 'https://example.com/audio.mp3',
   durationSec: 3600,
+  seriesId: '',
+  plays: 0,
+  liked: false,
+  language: 'Unknown',
+  downloads: 0,
+  createdAt: new Date().toISOString(),
 }
 
 test('buildTrack maps Episode to Track Player track', () => {
@@ -18,6 +24,9 @@ test('buildTrack maps Episode to Track Player track', () => {
 })
 
 test('buildQueue preserves order', () => {
-  const queue = buildQueue([episode, { ...episode, id: '11', title: 'Next' }], (item) => item.audioUrl)
+  const queue = buildQueue(
+    [episode, { ...episode, id: '11', title: 'Next' }],
+    (item) => item.audioUrl
+  )
   expect(queue.map((track) => track.id)).toEqual(['10', '11'])
 })

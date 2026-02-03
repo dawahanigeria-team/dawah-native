@@ -116,6 +116,12 @@ test('playEpisode builds queue and uses TrackPlayer', async () => {
     lecturerName: 'Ustadh',
     coverUrl: 'cover.png',
     durationSec: 120,
+    seriesId: '',
+    plays: 0,
+    liked: false,
+    language: 'Unknown',
+    downloads: 0,
+    createdAt: new Date().toISOString(),
   }
 
   mockGetPlaybackUri.mockReturnValue('file:///audio.mp3')
