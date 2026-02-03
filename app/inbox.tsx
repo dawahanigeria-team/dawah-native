@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
+  StyleSheet,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -24,6 +25,7 @@ interface Announcement {
   id: string;
   title: string;
   message: string;
+  body?: string;
   createdAt: string;
   read: boolean;
   type: "announcement" | "update" | "alert";
@@ -82,9 +84,10 @@ export default function InboxScreen() {
         id: item.id,
         title: item.title,
         message: item.message || item.body || '',
+        body: item.body || item.message || '',
         createdAt: item.created_at,
         read: item.read || false,
-        type: (item.type as any) || 'announcement',
+        type: normalizeType(item.type),
         icon: item.icon,
       }))
     : mockAnnouncements; // Fallback to mock data if API returns empty
@@ -130,19 +133,27 @@ export default function InboxScreen() {
     }
   };
 
+  const handleAnnouncementPress = useCallback(
+    (announcement: Announcement) => {
+      void handleMarkAsRead(announcement.id);
+      router.push(`/announcement/${announcement.id}`);
+    },
+    [handleMarkAsRead],
+  );
+
   const renderItem = ({ item }: { item: Announcement }) => (
     <TouchableOpacity
       style={[
         tw`px-4 py-4`,
+        styles.itemDivider,
         {
           backgroundColor: item.read
             ? colors.system.background.primary
             : colors.system.background.secondary,
-          borderBottomWidth: 1,
           borderBottomColor: colors.system.separator.primary,
         },
       ]}
-      onPress={() => handleMarkAsRead(item.id)}
+      onPress={() => handleAnnouncementPress(item)}
       activeOpacity={0.7}
     >
       <View style={tw`flex-row`}>
@@ -156,7 +167,7 @@ export default function InboxScreen() {
           ]}
         >
           <Ionicons
-            name={(item.icon as any) || "mail"}
+            name={resolveIconName(item.icon)}
             size={20}
             color={getIconColor(item.type)}
           />
@@ -262,11 +273,13 @@ export default function InboxScreen() {
             </Text>
             {unreadCount > 0 && (
               <Text
-                style={{
-                  fontSize: designTokens.typography.fontSize.caption1,
-                  color: colors.system.label.secondary,
-                  marginTop: 2,
-                }}
+                style={[
+                  styles.headerSubtitle,
+                  {
+                    fontSize: designTokens.typography.fontSize.caption1,
+                    color: colors.system.label.secondary,
+                  },
+                ]}
               >
                 {unreadCount} unread
               </Text>
@@ -351,9 +364,36 @@ export default function InboxScreen() {
               tintColor={colors.brand.primary}
             />
           }
-          contentContainerStyle={{ paddingBottom: 20 }}
+          contentContainerStyle={styles.listContent}
         />
       )}
     </SafeAreaView>
   );
 }
+
+const normalizeType = (value?: string): Announcement["type"] => {
+  if (value === "alert" || value === "update" || value === "announcement") {
+    return value;
+  }
+  return "announcement";
+};
+
+const resolveIconName = (icon?: string): keyof typeof Ionicons.glyphMap => {
+  const iconName = icon as keyof typeof Ionicons.glyphMap;
+  if (iconName && iconName in Ionicons.glyphMap) {
+    return iconName;
+  }
+  return "mail";
+};
+
+const styles = StyleSheet.create({
+  itemDivider: {
+    borderBottomWidth: 1,
+  },
+  headerSubtitle: {
+    marginTop: 2,
+  },
+  listContent: {
+    paddingBottom: 20,
+  },
+});

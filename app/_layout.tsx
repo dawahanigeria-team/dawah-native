@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef } from "react";
 import { Linking, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { PostHogProvider, usePostHog } from "posthog-react-native";
 
 import { useStorageState } from "../src/hooks/useStorageState";
 import { useTheme } from "../src/hooks/useTheme";
@@ -20,6 +21,7 @@ import { downloadsService } from "../src/services/downloads.service";
 import { linkingService } from "../src/services/linking.service";
 import { getNotificationRouteFromData } from "../src/services/notifications.service";
 import { userService } from "../src/services/user.service";
+import { ENV } from "../src/config/env";
 import { initializeAuth } from "../src/stores/authStore";
 import { fetchFavorites } from "../src/stores/favoritesStore";
  
@@ -58,6 +60,44 @@ function useNotificationObserver() {
       subscription.remove();
     };
   }, [router]);
+}
+
+function PostHogAnalytics() {
+  const posthog = usePostHog();
+  const pathname = usePathname();
+  const lastScreenRef = useRef<string | null>(null);
+  const identifiedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!posthog || !pathname) return;
+    if (lastScreenRef.current === pathname) return;
+    lastScreenRef.current = pathname;
+    posthog.screen(pathname);
+  }, [pathname, posthog]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const identifyUser = async () => {
+      try {
+        const userId = await userService.getUserId();
+        if (!isMounted || !userId) return;
+        if (identifiedRef.current === userId) return;
+        identifiedRef.current = userId;
+        posthog?.identify(userId);
+      } catch (error) {
+        console.warn("PostHog identify failed:", error);
+      }
+    };
+
+    void identifyUser();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [posthog]);
+
+  return null;
 }
 
 function RootLayout() {
@@ -173,45 +213,45 @@ function RootLayout() {
           <AudioProvider>
             <StatusBar style={isDark ? "light" : "dark"} />
             <View style={{ flex: 1 }}>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen
-                name="charts"
-                options={{
-                  headerShown: false,
-                  presentation: "modal",
-                  animation: "slide_from_bottom",
-                }}
-              />
-              <Stack.Screen
-                name="sign-in"
-                options={{
-                  presentation: "modal",
-                  animation: "slide_from_bottom",
-                }}
-              />
-              <Stack.Screen
-                name="sign-up"
-                options={{
-                  presentation: "modal",
-                  animation: "slide_from_bottom",
-                }}
-              />
-            </Stack>
-            {/* Mini Player - hidden on lecture detail page */}
-            {shouldShowMiniPlayer && <MiniPlayer />}
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen
+                  name="charts"
+                  options={{
+                    headerShown: false,
+                    presentation: "modal",
+                    animation: "slide_from_bottom",
+                  }}
+                />
+                <Stack.Screen
+                  name="sign-in"
+                  options={{
+                    presentation: "modal",
+                    animation: "slide_from_bottom",
+                  }}
+                />
+                <Stack.Screen
+                  name="sign-up"
+                  options={{
+                    presentation: "modal",
+                    animation: "slide_from_bottom",
+                  }}
+                />
+              </Stack>
+              {/* Mini Player - hidden on lecture detail page */}
+              {shouldShowMiniPlayer && <MiniPlayer />}
 
-            {/* Keep the app tree mounted while AsyncStorage hydration happens.
+              {/* Keep the app tree mounted while AsyncStorage hydration happens.
                 This prevents MiniPlayer/provider unmounts which look like "reloads". */}
-            {isHydrating && (
-              <View
-                style={StyleSheet.absoluteFill}
-                onStartShouldSetResponder={() => true}
-              >
-                <Loading fullScreen />
-              </View>
-            )}
-          </View>
+              {isHydrating && (
+                <View
+                  style={StyleSheet.absoluteFill}
+                  onStartShouldSetResponder={() => true}
+                >
+                  <Loading fullScreen />
+                </View>
+              )}
+            </View>
           </AudioProvider>
         </UpdatesProvider>
       </ErrorBoundary>
@@ -220,4 +260,23 @@ function RootLayout() {
 }
 
 // Wrap with Sentry for error tracking
-export default Sentry.wrap(RootLayout);
+function RootLayoutWithProviders() {
+  const posthogEnabled = Boolean(ENV.POSTHOG_KEY);
+
+  if (!posthogEnabled) {
+    return <RootLayout />;
+  }
+
+  return (
+    <PostHogProvider
+      apiKey={ENV.POSTHOG_KEY}
+      options={{ host: ENV.POSTHOG_HOST }}
+      autocapture={{ captureScreens: false, captureTouches: false }}
+    >
+      <PostHogAnalytics />
+      <RootLayout />
+    </PostHogProvider>
+  );
+}
+
+export default Sentry.wrap(RootLayoutWithProviders);
