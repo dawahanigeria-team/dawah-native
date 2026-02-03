@@ -36,7 +36,7 @@ export const initializeMediaSession = async (): Promise<void> => {
  * Update media session metadata
  * This updates the lock screen notification with current track info
  */
-export const updateMediaMetadata = (metadata: MediaMetadata): void => {
+export const updateMediaMetadata = (_metadata: MediaMetadata): void => {
   try {
     // Metadata is updated via player.setActiveForLockScreen in useAudioPlayback
     // This function exists for future extensibility

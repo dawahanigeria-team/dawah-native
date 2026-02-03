@@ -1,156 +1,144 @@
 /**
  * AudioProvider Component
- * Initializes and manages the audio playback system using expo-audio
+ * Initializes and manages the audio playback system using Track Player
  * Syncs audio status with the playerStore
  */
 
-import { setAudioModeAsync } from 'expo-audio';
-import React, { useEffect, useRef } from 'react';
-import { Platform } from 'react-native';
-import { useAudioPlayback } from '../../hooks/useAudioPlayback';
-import { addSentryBreadcrumb, captureSentryException } from '../../services/config/sentry.config';
-import { initializeMediaSession } from '../../services/mediaSession.service';
-import { getPlayNextRef, playerStore, setAudioControls } from '../../stores/playerStore';
+import TrackPlayer, {
+  AndroidAudioContentType,
+  AppKilledPlaybackBehavior,
+  Capability,
+  IOSCategory,
+  IOSCategoryMode,
+  IOSCategoryOptions,
+} from 'react-native-track-player'
+import React, { useEffect, useRef } from 'react'
+import { Platform } from 'react-native'
+import { useAudioPlayback } from '../../hooks/useAudioPlayback'
+import { addSentryBreadcrumb, captureSentryException } from '../../services/config/sentry.config'
+import { playerStore, setAudioControls } from '../../stores/playerStore'
 
 interface AudioProviderProps {
-  children: React.ReactNode;
+  children: React.ReactNode
 }
 
 export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
-  const isInitializedRef = useRef(false);
+  const isInitializedRef = useRef(false)
 
-  // Configure audio mode for background playback and proper audio focus handling
   useEffect(() => {
-    const setupAudioMode = async () => {
+    const setupTrackPlayer = async () => {
       try {
-        // Configure audio mode for iOS and Android
-        await setAudioModeAsync({
-          // Enable playback in silent mode (iOS)
-          playsInSilentMode: true,
+        await TrackPlayer.setupPlayer({
+          iosCategory: IOSCategory.Playback,
+          iosCategoryMode: IOSCategoryMode.Default,
+          iosCategoryOptions: [
+            IOSCategoryOptions.AllowBluetooth,
+            IOSCategoryOptions.AllowAirPlay,
+          ],
+          androidAudioContentType: AndroidAudioContentType.Music,
+          autoHandleInterruptions: true,
+          autoUpdateMetadata: true,
+        })
 
-          // Keep audio active when app goes to background
-          shouldPlayInBackground: true,
+        await TrackPlayer.updateOptions({
+          android: {
+            appKilledPlaybackBehavior: AppKilledPlaybackBehavior.StopPlaybackAndRemoveNotification,
+            alwaysPauseOnInterruption: true,
+          },
+          progressUpdateEventInterval: 2,
+          forwardJumpInterval: 15,
+          backwardJumpInterval: 15,
+          capabilities: [
+            Capability.Play,
+            Capability.Pause,
+            Capability.Stop,
+            Capability.SeekTo,
+            Capability.SkipToNext,
+            Capability.SkipToPrevious,
+            Capability.JumpForward,
+            Capability.JumpBackward,
+          ],
+          compactCapabilities: [
+            Capability.Play,
+            Capability.Pause,
+            Capability.SkipToNext,
+          ],
+        })
 
-          // Handle interruptions (phone calls, other apps)
-          // iOS: Request exclusive audio focus to prevent background interruption
-          // Using 'doNotMix' ensures iOS gives our audio priority and doesn't stop it
-          interruptionMode: 'doNotMix',
-          // Android: temporarily duck other audio instead of fully stopping it
-          interruptionModeAndroid: 'duckOthers',
-        });
-
-        // Initialize media session for lock screen controls
-        await initializeMediaSession();
-
-        addSentryBreadcrumb('Background audio configured', 'info', {
+        addSentryBreadcrumb('Track Player configured', 'info', {
           platform: Platform.OS,
-          playsInSilentMode: true,
-          shouldPlayInBackground: true,
-        });
+          interruptionsHandled: true,
+        })
       } catch (error) {
         captureSentryException(error as Error, {
           component: 'AudioProvider',
-          action: 'setupAudioMode',
+          action: 'setupTrackPlayer',
           level: 'error',
-        });
+        })
       }
-    };
+    }
 
-    setupAudioMode();
-  }, []);
+    setupTrackPlayer()
+  }, [])
 
-  // Initialize audio playback with status callbacks
   const audioControls = useAudioPlayback({
     onPlaybackStatusUpdate: (status) => {
-      const currentState = playerStore.get();
+      const currentState = playerStore.get()
 
-      // Only update if there's an active episode
-      if (!currentState.currentEpisode) return;
+      if (!currentState.currentEpisode) return
 
-      const updates: Partial<typeof currentState> = {};
+      const updates: Partial<typeof currentState> = {}
 
-      // Update playing state
       if (status.isPlaying !== currentState.isPlaying) {
-        updates.isPlaying = status.isPlaying;
+        updates.isPlaying = status.isPlaying
       }
 
-      // Update progress and duration
       const shouldUpdateProgress =
         status.isPlaying ||
         status.currentTime < currentState.progress ||
-        status.currentTime === 0;
+        status.currentTime === 0
       if (shouldUpdateProgress && status.currentTime !== currentState.progress) {
-        updates.progress = status.currentTime;
+        updates.progress = status.currentTime
       }
       if (status.duration !== currentState.duration && status.duration > 0) {
-        updates.duration = status.duration;
+        updates.duration = status.duration
       }
 
-      // Update loading state
       if (status.isBuffering !== currentState.isLoading) {
-        updates.isLoading = status.isBuffering;
+        updates.isLoading = status.isBuffering
       }
 
-      // Apply updates if any
       if (Object.keys(updates).length > 0) {
         playerStore.set({
           ...currentState,
           ...updates,
-        });
+        })
       }
     },
-    onPlaybackFinished: async () => {
-
-      const currentState = playerStore.get();
-      const playNext = getPlayNextRef();
-
-      // If there's a queue and playNext is available, play next track
-      // Defensive check: ensure queue is an array before accessing .length
-      const queue = Array.isArray(currentState.queue) ? currentState.queue : [];
-      if (playNext && queue.length > 0) {
-        try {
-          await playNext();
-        } catch (error) {
-          captureSentryException(error as Error, {
-            component: 'AudioProvider',
-            action: 'onPlaybackFinished',
-            level: 'error',
-          });
-          // Reset playback state on error
-          playerStore.set({
-            ...currentState,
-            isPlaying: false,
-            progress: 0,
-          });
-        }
-      } else {
-        // No queue, just reset playback
-        playerStore.set({
-          ...currentState,
-          isPlaying: false,
-          progress: 0,
-        });
-      }
+    onPlaybackFinished: () => {
+      const currentState = playerStore.get()
+      playerStore.set({
+        ...currentState,
+        isPlaying: false,
+        progress: 0,
+      })
     },
-  });
+  })
 
-  // Update audio controls reference whenever it changes
   useEffect(() => {
     if (!isInitializedRef.current) {
-      isInitializedRef.current = true;
+      isInitializedRef.current = true
     }
 
-    // Always keep the latest audioControls reference in playerStore
-    setAudioControls(audioControls);
-  }, [audioControls]);
+    setAudioControls(audioControls)
+  }, [audioControls])
 
-  // Cleanup only on unmount
   useEffect(() => {
     return () => {
-      setAudioControls(null);
-      isInitializedRef.current = false;
-    };
-  }, []);
+      setAudioControls(null)
+      isInitializedRef.current = false
+    }
+  }, [])
 
-  return <>{children}</>;
-};
+  return <>{children}</>
+}
