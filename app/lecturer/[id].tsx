@@ -1,11 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   FlatList,
   Image,
+  Platform,
   StyleSheet,
   TextInput,
   TouchableOpacity,
@@ -18,6 +19,7 @@ import { useDebounce } from "../../src/hooks/useDebounce";
 import { useTheme } from "../../src/hooks/useTheme";
 import { Album, albumsApi } from "../../src/services/api/albums.api";
 import {
+  Lecturer,
   LecturerLecture,
   lecturersApi,
 } from "../../src/services/api/lecturers.api";
@@ -50,10 +52,36 @@ import {
 // Tab types
 type TabType = "songs" | "albums" | "playlists";
 
+type LecturerDetails = Lecturer & {
+  rpname?: string;
+  image?: string;
+  avatarUrl?: string;
+};
+
+type LecturerLectureWithId = LecturerLecture & { _uniqueId: string };
+
+const buildLecturerDetails = (
+  data: Lecturer | null,
+  overrides?: { id: string | number; name: string; img?: string },
+): LecturerDetails | null => {
+  if (data) {
+    return { ...data, img: data.img ?? "", ...(overrides ?? {}) };
+  }
+  if (overrides) {
+    return {
+      id: overrides.id,
+      name: overrides.name,
+      img: overrides.img ?? "",
+    };
+  }
+  return null;
+};
+
 // Pagination constants
 const PAGE_SIZE = 10;
 
 export default function LecturerDetailScreen() {
+  const shouldClipSubviews = Platform.OS !== "android";
   const { id, name, autoFollow } = useLocalSearchParams<{
     id: string;
     name?: string;
@@ -121,11 +149,11 @@ export default function LecturerDetailScreen() {
     };
 
     resolve();
-  }, [lecturerId, lecturerNameHint, router]);
+  }, [lecturerId, lecturerNameHint]);
 
   // States
-  const [lecturer, setLecturer] = useState<any>(null);
-  const [lectures, setLectures] = useState<LecturerLecture[]>([]);
+  const [lecturer, setLecturer] = useState<LecturerDetails | null>(null);
+  const [lectures, setLectures] = useState<LecturerLectureWithId[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
   const [lecturesLoading, setLecturesLoading] = useState(true);
@@ -165,43 +193,13 @@ export default function LecturerDetailScreen() {
     isFollowLoading || !lecturerId || String(lecturerId) === "0";
   const autoFollowHandledRef = useRef(false);
 
-  // Fetch lecturer details
-  useEffect(() => {
-    setIsFollowing(false);
-    setIsFollowLoading(false);
-    autoFollowHandledRef.current = false;
-    fetchLecturerDetails();
-    fetchLecturerLectures();
-    fetchAlbums(); // Fetch albums on initial load to show correct count
-  }, [lecturerId]);
-
   useEffect(() => {
     if (!isAuthenticated) {
       setIsFollowing(false);
     }
   }, [isAuthenticated]);
 
-  useEffect(() => {
-    if (!shouldAutoFollow) return;
-    if (!isAuthenticated) return;
-    if (!lecturerId || String(lecturerId) === "0") return;
-    if (isFollowing) {
-      if (!autoFollowHandledRef.current) {
-        autoFollowHandledRef.current = true;
-        router.replace(`/lecturer/${lecturerId}`);
-      }
-      return;
-    }
-    if (autoFollowHandledRef.current) return;
-
-    autoFollowHandledRef.current = true;
-    handleFollowPress({ skipAuthCheck: true, forceFollow: true })
-      .finally(() => {
-        router.replace(`/lecturer/${lecturerId}`);
-      });
-  }, [shouldAutoFollow, isAuthenticated, lecturerId, isFollowing]);
-
-  const fetchLecturerDetails = async () => {
+  const fetchLecturerDetails = useCallback(async () => {
     try {
       setLoading(true);
       const data = await lecturersApi.getLecturerDetails(lecturerId);
@@ -209,13 +207,15 @@ export default function LecturerDetailScreen() {
       // If we arrived here via name-hint flow (id=0), prefer showing the name hint
       // even if the underlying fetch returns "Unknown Lecturer".
       if (String(lecturerId) === "0" && lecturerNameHint.trim().length >= 2) {
-        setLecturer({
-          ...(data || {}),
-          id: lecturerId,
-          name: lecturerNameHint,
-        });
+        setLecturer(
+          buildLecturerDetails(data, {
+            id: lecturerId,
+            name: lecturerNameHint,
+            img: data?.img,
+          }),
+        );
       } else {
-        setLecturer(data);
+        setLecturer(buildLecturerDetails(data));
       }
     } catch (err) {
       console.error("Failed to fetch lecturer details:", err);
@@ -223,9 +223,10 @@ export default function LecturerDetailScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [lecturerId, lecturerNameHint]);
 
-  const fetchLecturerLectures = async (page = 1, appendData = false) => {
+  const fetchLecturerLectures = useCallback(
+    async (page = 1, appendData = false) => {
     if (isLoadingRef.current) {
       return;
     }
@@ -285,7 +286,9 @@ export default function LecturerDetailScreen() {
       setLoadingMore(false);
       isLoadingRef.current = false;
     }
-  };
+    },
+    [lecturerId],
+  );
 
   const loadMoreLectures = () => {
     if (
@@ -300,11 +303,13 @@ export default function LecturerDetailScreen() {
     fetchLecturerLectures(currentPage + 1, true);
   };
 
-  const fetchAlbums = async (page = 1, appendData = false) => {
+  const fetchAlbums = useCallback(
+    async (page = 1, appendData = false) => {
     if (isAlbumLoadingRef.current) return;
 
     try {
       isAlbumLoadingRef.current = true;
+      const breadcrumbName = lecturerNameHint || String(lecturerId ?? "");
       if (appendData) {
         setLoadingMoreAlbums(true);
       } else {
@@ -314,7 +319,7 @@ export default function LecturerDetailScreen() {
       addSentryBreadcrumb("Fetching albums for lecturer", "http", {
         lecturerId,
         page,
-        lecturerName: lecturer?.rpname || lecturer?.name,
+        lecturerName: breadcrumbName,
       });
 
       const response = await albumsApi.getAlbumsByLecturer(lecturerId, page);
@@ -339,9 +344,11 @@ export default function LecturerDetailScreen() {
         albumCount: response.data.length,
         page,
       });
-    } catch (err: any) {
-      console.error("Failed to fetch albums:", err);
-      captureSentryException(err, {
+    } catch (err: unknown) {
+      const error =
+        err instanceof Error ? err : new Error("Failed to fetch albums");
+      console.error("Failed to fetch albums:", error);
+      captureSentryException(error, {
         component: "LecturerDetailScreen",
         action: "fetchAlbums",
         lecturerId,
@@ -353,7 +360,9 @@ export default function LecturerDetailScreen() {
       setLoadingMoreAlbums(false);
       isAlbumLoadingRef.current = false;
     }
-  };
+    },
+    [lecturerId, lecturerNameHint],
+  );
 
   const loadMoreAlbums = () => {
     if (
@@ -366,7 +375,18 @@ export default function LecturerDetailScreen() {
     fetchAlbums(currentAlbumPage + 1, true);
   };
 
-  const fetchPlaylists = async (page = 1, appendData = false) => {
+  // Fetch lecturer details
+  useEffect(() => {
+    setIsFollowing(false);
+    setIsFollowLoading(false);
+    autoFollowHandledRef.current = false;
+    fetchLecturerDetails();
+    fetchLecturerLectures();
+    fetchAlbums(); // Fetch albums on initial load to show correct count
+  }, [lecturerId, fetchLecturerDetails, fetchLecturerLectures, fetchAlbums]);
+
+  const fetchPlaylists = useCallback(
+    async (page = 1, appendData = false) => {
     if (isPlaylistLoadingRef.current) return;
 
     // Need lecturer name to search
@@ -407,8 +427,10 @@ export default function LecturerDetailScreen() {
       const hasMore = response.data.length >= PAGE_SIZE;
       setHasMorePlaylists(hasMore);
       setCurrentPlaylistPage(page);
-    } catch (err: any) {
-      console.error("Failed to fetch playlists:", err);
+    } catch (err: unknown) {
+      const error =
+        err instanceof Error ? err : new Error("Failed to fetch playlists");
+      console.error("Failed to fetch playlists:", error);
       // Don't show full error for empty search results
       setHasMorePlaylists(false);
     } finally {
@@ -416,7 +438,9 @@ export default function LecturerDetailScreen() {
       setLoadingMorePlaylists(false);
       isPlaylistLoadingRef.current = false;
     }
-  };
+    },
+    [lecturer?.name, lecturer?.rpname, lecturerId],
+  );
 
   const loadMorePlaylists = () => {
     if (
@@ -439,13 +463,20 @@ export default function LecturerDetailScreen() {
     ) {
       fetchPlaylists();
     }
-  }, [activeTab, lecturer]);
+  }, [
+    activeTab,
+    fetchPlaylists,
+    lecturer?.name,
+    lecturer?.rpname,
+    playlists.length,
+    playlistsLoading,
+  ]);
 
   // Debounce search query to avoid excessive filtering
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   // Handle search with debouncing for better performance
-  const filteredLectures = useMemo(() => {
+  const filteredLectures = useMemo<LecturerLectureWithId[]>(() => {
     if (debouncedSearchQuery.trim() === "") {
       return lectures;
     }
@@ -525,7 +556,7 @@ export default function LecturerDetailScreen() {
     return num.toString();
   };
 
-  const confirmEnableNotifications = (): Promise<boolean> => {
+  const confirmEnableNotifications = useCallback((): Promise<boolean> => {
     return new Promise((resolve) => {
       Alert.alert(
         "Enable notifications?",
@@ -544,9 +575,9 @@ export default function LecturerDetailScreen() {
         { cancelable: true },
       );
     });
-  };
+  }, []);
 
-  const confirmSignIn = (): Promise<boolean> => {
+  const confirmSignIn = useCallback((): Promise<boolean> => {
     return new Promise((resolve) => {
       Alert.alert(
         "Sign in required",
@@ -565,19 +596,18 @@ export default function LecturerDetailScreen() {
         { cancelable: true },
       );
     });
-  };
+  }, []);
 
-  const navigateToSignIn = () => {
+  const navigateToSignIn = useCallback(() => {
     if (!lecturerId || String(lecturerId) === "0") return;
     router.push({
       pathname: "/sign-in",
       params: { returnTo: buildLecturerFollowReturnTo(lecturerId) },
     });
-  };
+  }, [lecturerId]);
 
-  const handleFollowPress = async (
-    options: { skipAuthCheck?: boolean; forceFollow?: boolean } = {},
-  ) => {
+  const handleFollowPress = useCallback(
+    async (options: { skipAuthCheck?: boolean; forceFollow?: boolean } = {}) => {
     if (!lecturerId || String(lecturerId) === "0") {
       Alert.alert("Please wait", "Lecturer details are still loading.");
       return;
@@ -635,7 +665,68 @@ export default function LecturerDetailScreen() {
     } finally {
       setIsFollowLoading(false);
     }
-  };
+    },
+    [
+      lecturerId,
+      isFollowLoading,
+      isAuthenticated,
+      confirmSignIn,
+      navigateToSignIn,
+      isFollowing,
+      confirmEnableNotifications,
+    ],
+  );
+
+  useEffect(() => {
+    if (!shouldAutoFollow) return;
+    if (!isAuthenticated) return;
+    if (!lecturerId || String(lecturerId) === "0") return;
+    if (isFollowing) {
+      if (!autoFollowHandledRef.current) {
+        autoFollowHandledRef.current = true;
+        router.replace(`/lecturer/${lecturerId}`);
+      }
+      return;
+    }
+    if (autoFollowHandledRef.current) return;
+
+    autoFollowHandledRef.current = true;
+    handleFollowPress({ skipAuthCheck: true, forceFollow: true })
+      .finally(() => {
+        router.replace(`/lecturer/${lecturerId}`);
+      });
+  }, [
+    shouldAutoFollow,
+    isAuthenticated,
+    lecturerId,
+    isFollowing,
+    handleFollowPress,
+  ]);
+
+  const initialsTextStyle = useMemo(
+    () => [styles.initialsText, { color: colors.fixed.white }],
+    [colors.fixed.white],
+  );
+  const followButtonStyle = useMemo(
+    () => ({
+      backgroundColor: isFollowing
+        ? colors.system.background.secondary
+        : colors.brand.primary,
+      borderWidth: isFollowing ? 1.5 : 0,
+      borderColor: isFollowing
+        ? colors.system.separator.primary
+        : "transparent",
+      opacity: followDisabled ? 0.5 : 1,
+      minWidth: 120,
+    }),
+    [
+      colors.brand.primary,
+      colors.system.background.secondary,
+      colors.system.separator.primary,
+      followDisabled,
+      isFollowing,
+    ],
+  );
 
   if (loading) {
     return (
@@ -712,9 +803,11 @@ export default function LecturerDetailScreen() {
 
         // Navigate to album detail page
         router.push(`/album/${item.id}`);
-      } catch (err: any) {
-        console.error("Album press error:", err);
-        captureSentryException(err, {
+      } catch (err: unknown) {
+        const error =
+          err instanceof Error ? err : new Error("Album press error");
+        console.error("Album press error:", error);
+        captureSentryException(error, {
           component: "LecturerDetailScreen",
           action: "handleAlbumPress",
           albumId: item.id,
@@ -1049,12 +1142,7 @@ export default function LecturerDetailScreen() {
                 { backgroundColor: getPlaceholderColor(lecturerId) },
               ]}
             >
-              <Text
-                style={[
-                  styles.initialsText,
-                  { color: colors.fixed.white, fontSize: 36 },
-                ]}
-              >
+              <Text style={initialsTextStyle}>
                 {getInitials(lecturerName)}
               </Text>
             </View>
@@ -1123,22 +1211,14 @@ export default function LecturerDetailScreen() {
 
             {/* Follow Button */}
             <TouchableOpacity
-              onPress={handleFollowPress}
+              onPress={() => {
+                void handleFollowPress();
+              }}
               disabled={followDisabled}
               activeOpacity={0.7}
               style={[
                 tw`flex-row items-center justify-center px-6 py-2.5 rounded-full`,
-                {
-                  backgroundColor: isFollowing
-                    ? colors.system.background.secondary
-                    : colors.brand.primary,
-                  borderWidth: isFollowing ? 1.5 : 0,
-                  borderColor: isFollowing
-                    ? colors.system.separator.primary
-                    : "transparent",
-                  opacity: followDisabled ? 0.5 : 1,
-                  minWidth: 120,
-                },
+                followButtonStyle,
               ]}
             >
               {isFollowLoading ? (
@@ -1239,12 +1319,10 @@ export default function LecturerDetailScreen() {
 
   const renderSongsList = () => {
     return (
-      <FlatList
+      <FlatList<LecturerLectureWithId>
         data={filteredLectures}
         renderItem={({ item, index }) => renderLectureItem(item, index)}
-        keyExtractor={(item: LecturerLecture, index: number) =>
-          item._uniqueId || `${item.nid}-${index}`
-        }
+        keyExtractor={(item, index) => item._uniqueId || `${item.nid}-${index}`}
         stickyHeaderIndices={[0]}
         contentContainerStyle={tw`pb-20`}
         onEndReached={loadMoreLectures}
@@ -1280,7 +1358,7 @@ export default function LecturerDetailScreen() {
             </View>
           );
         }}
-        removeClippedSubviews={true}
+        removeClippedSubviews={shouldClipSubviews}
         maxToRenderPerBatch={20}
         windowSize={10}
       />
@@ -1377,7 +1455,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   initialsText: {
-    fontSize: 30,
+    fontSize: 36,
     fontWeight: "bold",
   },
 });

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Platform,
   RefreshControl,
   ScrollView,
   Text,
@@ -19,6 +20,7 @@ import { useTheme } from "../src/hooks/useTheme";
 import tw from "../src/theme/twrnc";
 
 export default function LecturersScreen() {
+  const shouldClipSubviews = Platform.OS !== "android";
   const { colors } = useTheme();
   const [lecturers, setLecturers] = useState<Lecturer[]>([]);
   const [filteredLecturers, setFilteredLecturers] = useState<Lecturer[]>([]);
@@ -600,7 +602,7 @@ export default function LecturersScreen() {
           initialNumToRender={10}
           maxToRenderPerBatch={5}
           windowSize={11}
-          removeClippedSubviews={true}
+          removeClippedSubviews={shouldClipSubviews}
           showsVerticalScrollIndicator={false}
           accessibilityLabel="List of scholars"
         />

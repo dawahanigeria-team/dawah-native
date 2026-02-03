@@ -8,6 +8,7 @@ import {
   FlatList,
   Image,
   InteractionManager,
+  Platform,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -40,6 +41,7 @@ const CARD_WIDTH = 280;
 const CARD_SPACING = 12;
 const HERO_HEIGHT = 200;
 const PREFETCH_LIMIT = 5;
+const IS_ANDROID = Platform.OS === "android";
 
 // Get greeting based on time of day (Arabic greetings)
 const getGreeting = (): string => {
@@ -228,7 +230,7 @@ export default function HomeScreen() {
   const renderHeroItem = useCallback(
     ({ item, index }: { item: Episode; index: number }) => (
       <Animated.View
-        entering={FadeInRight.delay(index * 100).duration(400)}
+        entering={IS_ANDROID ? undefined : FadeInRight.delay(index * 100).duration(400)}
         style={[styles.heroCard, { width: SCREEN_WIDTH - 32 }]}
       >
         <TouchableOpacity
@@ -303,7 +305,7 @@ export default function HomeScreen() {
     (action: (typeof QUICK_ACTIONS)[0], index: number) => (
       <Animated.View
         key={action.id}
-        entering={FadeInDown.delay(index * 50).duration(300)}
+        entering={IS_ANDROID ? undefined : FadeInDown.delay(index * 50).duration(300)}
       >
         <TouchableOpacity
           onPress={() =>
@@ -377,10 +379,10 @@ export default function HomeScreen() {
     ({ item, index }: { item: Episode; index: number }) => {
       if (!item?.id) return null;
       return (
-        <Animated.View
-          entering={FadeInRight.delay(index * 50).duration(300)}
-          style={{ width: CARD_WIDTH, marginRight: CARD_SPACING }}
-        >
+      <Animated.View
+        entering={IS_ANDROID ? undefined : FadeInRight.delay(index * 50).duration(300)}
+        style={{ width: CARD_WIDTH, marginRight: CARD_SPACING }}
+      >
           <Card
             variant="landscape"
             data={item}
@@ -401,10 +403,10 @@ export default function HomeScreen() {
     ({ item, index }: { item: QuranAlbum; index: number }) => {
       if (!item?.id) return null;
       return (
-        <Animated.View
-          entering={FadeInRight.delay(index * 50).duration(300)}
-          style={styles.quranCardWrapper}
-        >
+      <Animated.View
+        entering={IS_ANDROID ? undefined : FadeInRight.delay(index * 50).duration(300)}
+        style={styles.quranCardWrapper}
+      >
           <TouchableOpacity
             onPress={() => handleAlbumPress(item)}
             activeOpacity={0.8}
@@ -478,7 +480,7 @@ export default function HomeScreen() {
       >
         {/* Sticky Header */}
         <Animated.View
-          entering={FadeIn.duration(400)}
+          entering={IS_ANDROID ? undefined : FadeIn.duration(400)}
           style={[
             styles.header,
             { backgroundColor: colors.system.background.primary },

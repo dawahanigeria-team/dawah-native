@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { FlatList, Text, TouchableOpacity, View, Alert, ActivityIndicator } from "react-native";
+import { FlatList, Text, TouchableOpacity, View, Alert, ActivityIndicator, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../../src/components/molecules/Card";
 import { useRouter } from "expo-router";
@@ -36,6 +36,7 @@ const downloadToEpisode = (download: DownloadMetadata): Episode => ({
 });
 
 export default function LibraryScreen() {
+  const shouldClipSubviews = Platform.OS !== "android";
   const router = useRouter();
   const { playEpisode } = usePlayerActions();
   const { downloads, deleteLecture, getTotalStorageUsed, refreshDownloads } = useDownloadsStore();
@@ -487,7 +488,7 @@ export default function LibraryScreen() {
         ]}
         ListEmptyComponent={renderListEmpty}
         accessibilityLabel="Library content"
-        removeClippedSubviews={true}
+        removeClippedSubviews={shouldClipSubviews}
         initialNumToRender={8}
         windowSize={10}
         maxToRenderPerBatch={8}
