@@ -1,3 +1,7 @@
+jest.mock('../services/trackPlayerReady.service', () => ({
+  ensureTrackPlayerReady: jest.fn().mockResolvedValue(undefined),
+}))
+
 jest.mock('react-native-track-player', () => ({
   State: {
     None: 'none',

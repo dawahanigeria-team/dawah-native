@@ -13,6 +13,7 @@ import TrackPlayer, {
 } from 'react-native-track-player'
 import type { PlaybackState, Progress } from 'react-native-track-player'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { ensureTrackPlayerReady } from '../services/trackPlayerReady.service'
 
 const HTTP_URL_REGEX = /^https?:\/\//i
 
@@ -141,6 +142,7 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
     const normalizedUri = sanitizeAudioUri(uri)
     setIsReady(false)
 
+    await ensureTrackPlayerReady()
     await TrackPlayer.reset()
     await TrackPlayer.add({
       id: normalizedUri,

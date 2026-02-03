@@ -22,6 +22,7 @@ import { lectureDetailApi } from '../../services/api/lectureDetail.api'
 import { addSentryBreadcrumb, captureSentryException } from '../../services/config/sentry.config'
 import { downloadsService } from '../../services/downloads.service'
 import { loadQueueSnapshot, saveQueueSnapshot } from '../../services/playerQueue.service'
+import { setTrackPlayerSetupPromise } from '../../services/trackPlayerReady.service'
 import { buildQueue } from '../../services/trackPlayerQueue.service'
 import { playerStore, setAudioControls } from '../../stores/playerStore'
 import type { Episode, PlayerState } from '../../types/types'
@@ -125,7 +126,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   useEffect(() => {
     const setupTrackPlayer = async () => {
       try {
-        await TrackPlayer.setupPlayer({
+        const setupPromise = TrackPlayer.setupPlayer({
           iosCategory: IOSCategory.Playback,
           iosCategoryMode: IOSCategoryMode.Default,
           iosCategoryOptions: [
@@ -136,6 +137,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           autoHandleInterruptions: true,
           autoUpdateMetadata: true,
         })
+        setTrackPlayerSetupPromise(setupPromise)
+        await setupPromise
 
         await TrackPlayer.updateOptions({
           android: {

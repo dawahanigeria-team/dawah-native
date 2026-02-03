@@ -6,6 +6,7 @@ import { addSentryBreadcrumb, captureSentryException } from "../services/config/
 import { downloadsService } from "../services/downloads.service";
 import { historyService } from "../services/history.service";
 import { clearQueueSnapshot, saveQueueSnapshot } from "../services/playerQueue.service";
+import { ensureTrackPlayerReady } from "../services/trackPlayerReady.service";
 import { buildQueue } from "../services/trackPlayerQueue.service";
 import { Episode, PlayerState } from "../types/types";
 import { logger } from "../utils/logger";
@@ -216,6 +217,7 @@ const playEpisode = async (episode: Episode) => {
       const queue = [episode];
       const tracks = buildQueue(queue, resolvePlaybackUri);
 
+      await ensureTrackPlayerReady();
       await TrackPlayer.reset();
       await TrackPlayer.add(tracks);
       await TrackPlayer.skip(0);
@@ -311,6 +313,7 @@ const playNext = async () => {
   }
 
   try {
+    await ensureTrackPlayerReady();
     await TrackPlayer.skipToNext();
     const nextIndex = await TrackPlayer.getCurrentTrack();
 
@@ -389,6 +392,7 @@ const playPrevious = async () => {
   }
 
   try {
+    await ensureTrackPlayerReady();
     await TrackPlayer.skipToPrevious();
     const prevIndex = await TrackPlayer.getCurrentTrack();
 
@@ -444,6 +448,7 @@ const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: b
 
     const tracks = buildQueue(queue, resolvePlaybackUri);
 
+    await ensureTrackPlayerReady();
     await TrackPlayer.reset();
     await TrackPlayer.add(tracks);
     await TrackPlayer.skip(startIndex);
@@ -697,7 +702,9 @@ const addToQueue = (episodes: Episode | Episode[]) => {
 
   const tracks = buildQueue(episodeArray, resolvePlaybackUri).filter((track) => track.url);
   if (tracks.length > 0) {
-    void TrackPlayer.add(tracks);
+    void ensureTrackPlayerReady()
+      .then(() => TrackPlayer.add(tracks))
+      .catch((error) => logger.error('Failed to add tracks to queue', error as Error));
   }
 };
 
@@ -727,7 +734,9 @@ const removeFromQueue = (index: number) => {
     currentEpisode: newQueue[newIndex] ?? currentState.currentEpisode,
   });
 
-  void TrackPlayer.remove(index);
+  void ensureTrackPlayerReady()
+    .then(() => TrackPlayer.remove(index))
+    .catch((error) => logger.error('Failed to remove track from queue', error as Error));
 };
 
 const toggleShuffle = () => {
@@ -749,7 +758,8 @@ const toggleShuffle = () => {
     const newQueue = [currentEpisode, ...remaining];
 
     const tracks = buildQueue(newQueue, resolvePlaybackUri).filter((track) => track.url);
-    void TrackPlayer.reset()
+    void ensureTrackPlayerReady()
+      .then(() => TrackPlayer.reset())
       .then(() => TrackPlayer.add(tracks))
       .then(() => TrackPlayer.skip(0))
       .then(() => currentState.isPlaying ? TrackPlayer.play() : Promise.resolve())
@@ -787,7 +797,9 @@ const setRepeatMode = (mode: 'off' | 'all' | 'one') => {
 
   const repeatModeValue =
     mode === 'one' ? RepeatMode.Track : mode === 'all' ? RepeatMode.Queue : RepeatMode.Off;
-  void TrackPlayer.setRepeatMode(repeatModeValue);
+  void ensureTrackPlayerReady()
+    .then(() => TrackPlayer.setRepeatMode(repeatModeValue))
+    .catch((error) => logger.error('Failed to set repeat mode', error as Error));
 
   setAndPersistPlayerState({
     ...playerStore.get(),
@@ -808,7 +820,9 @@ const clearQueue = () => {
     currentQueueIndex: -1,
     isShuffled: false,
   });
-  void TrackPlayer.reset();
+  void ensureTrackPlayerReady()
+    .then(() => TrackPlayer.reset())
+    .catch((error) => logger.error('Failed to clear track player queue', error as Error));
   void clearQueueSnapshot();
 };
 

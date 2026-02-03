@@ -2,6 +2,7 @@ import TrackPlayer from 'react-native-track-player'
 import { playerStore, setAudioControls, usePlayerActions } from './playerStore'
 import { downloadsService } from '../services/downloads.service'
 import { historyService } from '../services/history.service'
+import { ensureTrackPlayerReady } from '../services/trackPlayerReady.service'
 
 jest.mock('react-native-track-player', () => ({
   reset: jest.fn(),
@@ -29,6 +30,10 @@ jest.mock('../services/history.service', () => ({
   },
 }))
 
+jest.mock('../services/trackPlayerReady.service', () => ({
+  ensureTrackPlayerReady: jest.fn().mockResolvedValue(undefined),
+}))
+
 jest.mock('../services/config/sentry.config', () => ({
   addSentryBreadcrumb: jest.fn(),
   captureSentryException: jest.fn(),
@@ -51,6 +56,7 @@ jest.mock('expo-sqlite/kv-store', () => ({
 const mockGetPlaybackUri = downloadsService.getPlaybackUri as jest.Mock
 const mockIsDownloaded = downloadsService.isDownloaded as jest.Mock
 const mockAddToHistory = historyService.addToHistory as jest.Mock
+const mockEnsureReady = ensureTrackPlayerReady as jest.Mock
 
 beforeEach(() => {
   playerStore.set({
@@ -102,6 +108,7 @@ beforeEach(() => {
   mockGetPlaybackUri.mockReset()
   mockIsDownloaded.mockReset()
   mockAddToHistory.mockReset()
+  mockEnsureReady.mockReset()
   ;(TrackPlayer.reset as jest.Mock).mockReset()
   ;(TrackPlayer.add as jest.Mock).mockReset()
   ;(TrackPlayer.skip as jest.Mock).mockReset()
@@ -131,6 +138,7 @@ test('playEpisode builds queue and uses TrackPlayer', async () => {
   const actions = usePlayerActions()
   await actions.playEpisode(episode)
 
+  expect(mockEnsureReady).toHaveBeenCalledTimes(1)
   expect(TrackPlayer.reset).toHaveBeenCalledTimes(1)
   expect(TrackPlayer.add).toHaveBeenCalledTimes(1)
   expect(TrackPlayer.play).toHaveBeenCalledTimes(1)
