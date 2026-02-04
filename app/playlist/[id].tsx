@@ -1,3 +1,4 @@
+import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
@@ -14,15 +15,67 @@ import { Button, Text } from "../../src/components/atoms";
 import { ApiError } from "../../src/services/api/base.api";
 import { lectureDetailApi } from "../../src/services/api/lectureDetail.api";
 import { playlistApi } from "../../src/services/api/playlist.api";
+import { usePlayerStore } from "../../src/stores";
 import { useAuthStore } from "../../src/stores/authStore";
 import { useTheme } from "../../src/hooks/useTheme";
 import tw from "../../src/theme/twrnc";
 import { SearchLecture } from "../../src/types/api.types";
+import { Episode } from "../../src/types/types";
+
+const parseDuration = (duration: string | number | undefined): number => {
+  if (typeof duration === "number") {
+    return duration;
+  }
+  if (!duration || typeof duration !== "string") {
+    return 0;
+  }
+  const parts = duration.split(":").map(Number);
+  if (parts.length === 3) {
+    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  }
+  if (parts.length === 2) {
+    return parts[0] * 60 + parts[1];
+  }
+  const numericDuration = parseInt(duration, 10);
+  return Number.isNaN(numericDuration) ? 0 : numericDuration;
+};
+
+const lectureToEpisode = (lecture: SearchLecture): Episode => {
+  const id = String(lecture.id || lecture.nid || `playlist-${Date.now()}`);
+  const title = lecture.Title || lecture.mp3_title || "Untitled Lecture";
+  const duration = lecture.duration || lecture.mp3_duration || lecture.Duration;
+  const audioUrl = lecture.audio || lecture.mp3_url || lecture.AudioUrl || "";
+  const coverUrl = lecture.img || lecture.CoverUrl || "";
+  const plays = parseInt(lecture.views || lecture.Plays || "0", 10) || 0;
+  const language = lecture.lang || lecture.language || lecture.Language || "Unknown";
+  const downloads =
+    parseInt(lecture.downloads || lecture.Downloads || "0", 10) || 0;
+  const createdAt =
+    lecture.created_at || lecture.CreatedAt || new Date().toISOString();
+  const lecturerName =
+    lecture.lecturer_name || lecture.rpname || lecture.ResourcePerson || undefined;
+
+  return {
+    id,
+    title,
+    durationSec: parseDuration(duration),
+    coverUrl,
+    audioUrl,
+    seriesId: "",
+    plays,
+    liked: false,
+    language,
+    downloads,
+    createdAt,
+    lecturerName,
+  };
+};
 
 const PlaylistDetailScreen: React.FC = () => {
   const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
   const playlistId = id ?? "";
   const { isAuthenticated, user } = useAuthStore();
+  const { playQueue } = usePlayerStore();
   const { colors } = useTheme();
 
   const [playlistName] = useState(name || "");
@@ -30,6 +83,30 @@ const PlaylistDetailScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const handlePlayAll = useCallback(async () => {
+    if (playlistContents.length === 0) return;
+
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const episodes = playlistContents.map(lectureToEpisode);
+      await playQueue(episodes, 0, false);
+    } catch (err) {
+      console.error("Play all error:", err);
+    }
+  }, [playlistContents, playQueue]);
+
+  const handleShuffle = useCallback(async () => {
+    if (playlistContents.length === 0) return;
+
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const episodes = playlistContents.map(lectureToEpisode);
+      const startIndex = Math.floor(Math.random() * episodes.length);
+      await playQueue(episodes, startIndex, true);
+    } catch (err) {
+      console.error("Shuffle error:", err);
+    }
+  }, [playlistContents, playQueue]);
 
   const fetchPlaylistDetails = useCallback(async () => {
     if (!isAuthenticated || !user?.id) {
@@ -135,6 +212,17 @@ const PlaylistDetailScreen: React.FC = () => {
         <Text style={[tw`text-xl font-bold`, { color: colors.system.label.primary }]}>{playlistName || "Playlist"}</Text>
 
       </View>
+
+      {playlistContents.length > 0 && (
+        <View style={tw`flex-row gap-3 px-4 pb-3`}>
+          <Button variant="filled" size="large" style={tw`flex-1`} onPress={handlePlayAll}>
+            Play All
+          </Button>
+          <Button variant="outline" size="large" style={tw`flex-1`} onPress={handleShuffle}>
+            Shuffle
+          </Button>
+        </View>
+      )}
 
       {playlistContents.length === 0 ? (
         <View style={tw`flex-1 items-center justify-center`}>
