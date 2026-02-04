@@ -26,3 +26,13 @@ test('ensureTrackPlayerReady waits for existing setup promise', async () => {
   await ensureTrackPlayerReady()
   expect(TrackPlayer.setupPlayer).not.toHaveBeenCalled()
 })
+
+test('ensureTrackPlayerReady treats already initialized error as ready', async () => {
+  ;(TrackPlayer.setupPlayer as jest.Mock).mockRejectedValueOnce(
+    new Error('The player has already been initialized via setupPlayer.')
+  )
+
+  await expect(ensureTrackPlayerReady()).resolves.toBeUndefined()
+  await expect(ensureTrackPlayerReady()).resolves.toBeUndefined()
+  expect(TrackPlayer.setupPlayer).toHaveBeenCalledTimes(1)
+})

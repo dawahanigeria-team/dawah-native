@@ -22,7 +22,10 @@ import { lectureDetailApi } from '../../services/api/lectureDetail.api'
 import { addSentryBreadcrumb, captureSentryException } from '../../services/config/sentry.config'
 import { downloadsService } from '../../services/downloads.service'
 import { loadQueueSnapshot, saveQueueSnapshot } from '../../services/playerQueue.service'
-import { setTrackPlayerSetupPromise } from '../../services/trackPlayerReady.service'
+import {
+  ensureTrackPlayerReady,
+  setTrackPlayerSetupConfig,
+} from '../../services/trackPlayerReady.service'
 import { buildQueue } from '../../services/trackPlayerQueue.service'
 import { playerStore, setAudioControls } from '../../stores/playerStore'
 import type { Episode, PlayerState } from '../../types/types'
@@ -34,6 +37,26 @@ interface AudioProviderProps {
 const resolvePlaybackUri = (episode: Episode): string => {
   return downloadsService.getPlaybackUri(episode.id, episode.audioUrl)
 }
+
+const TRACK_PLAYER_SETUP_CONFIG = {
+  iosCategory: IOSCategory.Playback,
+  iosCategoryMode: IOSCategoryMode.Default,
+  iosCategoryOptions: [
+    IOSCategoryOptions.AllowBluetooth,
+    IOSCategoryOptions.AllowAirPlay,
+  ],
+  androidAudioContentType: AndroidAudioContentType.Music,
+  autoHandleInterruptions: true,
+  autoUpdateMetadata: true,
+  // Buffer tuning for smoother seeks and fewer stalls on long audio
+  minBuffer: 15,
+  maxBuffer: 60,
+  playBuffer: 3,
+  backBuffer: 30,
+  maxCacheSize: 51200, // 50 MB in KB
+}
+
+setTrackPlayerSetupConfig(TRACK_PLAYER_SETUP_CONFIG)
 
 const detailToEpisode = (detail: {
   id: string
@@ -126,25 +149,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   useEffect(() => {
     const setupTrackPlayer = async () => {
       try {
-        const setupPromise = TrackPlayer.setupPlayer({
-          iosCategory: IOSCategory.Playback,
-          iosCategoryMode: IOSCategoryMode.Default,
-          iosCategoryOptions: [
-            IOSCategoryOptions.AllowBluetooth,
-            IOSCategoryOptions.AllowAirPlay,
-          ],
-          androidAudioContentType: AndroidAudioContentType.Music,
-          autoHandleInterruptions: true,
-          autoUpdateMetadata: true,
-          // Buffer tuning for smoother seeks and fewer stalls on long audio
-          minBuffer: 15,
-          maxBuffer: 60,
-          playBuffer: 3,
-          backBuffer: 30,
-          maxCacheSize: 51200, // 50 MB in KB
-        })
-        setTrackPlayerSetupPromise(setupPromise)
-        await setupPromise
+        await ensureTrackPlayerReady()
 
         await TrackPlayer.updateOptions({
           android: {

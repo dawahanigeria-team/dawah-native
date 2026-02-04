@@ -1,7 +1,8 @@
-import TrackPlayer from 'react-native-track-player'
+import TrackPlayer, { type SetupPlayerOptions } from 'react-native-track-player'
 
 let setupPromise: Promise<void> | null = null
 let isReady = false
+let setupConfig: SetupPlayerOptions | undefined
 
 export const setTrackPlayerSetupPromise = (promise: Promise<void>) => {
   setupPromise = promise
@@ -14,16 +15,50 @@ export const setTrackPlayerSetupPromise = (promise: Promise<void>) => {
     })
 }
 
+export const setTrackPlayerSetupConfig = (config: SetupPlayerOptions) => {
+  setupConfig = config
+}
+
+export const isTrackPlayerAlreadyInitializedError = (error: unknown): boolean => {
+  if (!error || typeof error !== 'object') return false
+  const message = (error as Error).message ?? ''
+  return message.includes('already been initialized') && message.includes('setupPlayer')
+}
+
 export const ensureTrackPlayerReady = async (): Promise<void> => {
   if (isReady) return
 
   if (setupPromise) {
-    await setupPromise
-    return
+    try {
+      await setupPromise
+      return
+    } catch (error) {
+      if (isTrackPlayerAlreadyInitializedError(error)) {
+        isReady = true
+        return
+      }
+      throw error
+    }
   }
 
-  await TrackPlayer.setupPlayer()
-  isReady = true
+  const promise = TrackPlayer.setupPlayer(setupConfig).catch((error) => {
+    if (isTrackPlayerAlreadyInitializedError(error)) {
+      return
+    }
+    throw error
+  })
+  setupPromise = promise
+
+  try {
+    await promise
+    isReady = true
+  } catch (error) {
+    if (isTrackPlayerAlreadyInitializedError(error)) {
+      isReady = true
+      return
+    }
+    throw error
+  }
 }
 
 export const resetTrackPlayerReadyState = () => {
