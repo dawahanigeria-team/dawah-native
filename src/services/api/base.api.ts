@@ -16,6 +16,7 @@ export class ApiError extends Error {
     public data?: any,
     public isNetworkError: boolean = false,
     public isTimeout: boolean = false,
+    public isCancelled: boolean = false,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -207,6 +208,7 @@ class ApiClient {
   ): Promise<Response> {
     const abortController = new AbortController();
     const requestId = `${config.method || 'GET'}_${url}`;
+    let didTimeout = false;
 
     // Cancel any existing request to the same endpoint
     if (this.abortControllers.has(requestId)) {
@@ -215,6 +217,7 @@ class ApiClient {
     this.abortControllers.set(requestId, abortController);
 
     const timeoutId = setTimeout(() => {
+      didTimeout = true;
       abortController.abort();
     }, timeout);
 
@@ -232,13 +235,16 @@ class ApiClient {
       this.abortControllers.delete(requestId);
 
       if (error.name === 'AbortError') {
-        throw new ApiError(
-          'The request is taking longer than usual. Please check your internet connection and try again.',
-          undefined,
-          undefined,
-          false,
-          true
-        );
+        if (didTimeout) {
+          throw new ApiError(
+            'The request is taking longer than usual. Please check your internet connection and try again.',
+            undefined,
+            undefined,
+            false,
+            true
+          );
+        }
+        throw new ApiError('Request cancelled', undefined, undefined, false, false, true);
       }
       throw error;
     }
@@ -492,6 +498,9 @@ class ApiClient {
       // If the error is already an ApiError with a status code, re-throw it directly.
       // This prevents HTTP errors from being re-classified as network errors.
       if (error instanceof ApiError && error.statusCode) {
+        throw error;
+      }
+      if (error instanceof ApiError && error.isCancelled) {
         throw error;
       }
 

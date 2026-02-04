@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { quranApi, QuranAlbum, QuranAlbumsParams } from '../services/api/quran.api';
+import { ApiError } from '../services/api/base.api';
 
 interface UseQuranAlbumsResult {
   albums: QuranAlbum[];
@@ -25,6 +26,7 @@ export const useQuranAlbums = (
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const hasFetched = useRef(false);
+  const inFlight = useRef(false);
 
   // Skip fetching if params is undefined
   const shouldFetch = params !== undefined;
@@ -32,8 +34,10 @@ export const useQuranAlbums = (
   const fetchAlbums = useCallback(
     async (page: number = 1, append: boolean = false) => {
       if (!shouldFetch) return;
+      if (inFlight.current) return;
 
       try {
+        inFlight.current = true;
         if (append) {
           setIsLoadingMore(true);
         } else {
@@ -55,11 +59,15 @@ export const useQuranAlbums = (
         setHasMore(response.hasMore);
         setCurrentPage(page);
       } catch (err) {
+        if (err instanceof ApiError && err.isCancelled) {
+          return;
+        }
         console.error('Error fetching Quran albums:', err);
         setError(err as Error);
       } finally {
         setLoading(false);
         setIsLoadingMore(false);
+        inFlight.current = false;
       }
     },
     [shouldFetch, params?.limit]
