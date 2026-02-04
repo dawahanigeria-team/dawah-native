@@ -86,15 +86,6 @@
         }
       ],
       [
-        "expo-audio",
-        {
-          "audioMode": {
-            "playsInSilentModeIOS": true,
-            "staysActiveInBackground": true
-          }
-        }
-      ],
-      [
         "@sentry/react-native/expo",
         {
           "url": "https://sentry.io/",

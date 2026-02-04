@@ -1,9 +1,13 @@
 import AsyncStorage from "expo-sqlite/kv-store";
+import TrackPlayer, { RepeatMode } from 'react-native-track-player';
 import { entity } from "simpler-state";
 import type { AudioPlaybackControls } from "../hooks/useAudioPlayback";
 import { addSentryBreadcrumb, captureSentryException } from "../services/config/sentry.config";
 import { downloadsService } from "../services/downloads.service";
 import { historyService } from "../services/history.service";
+import { clearQueueSnapshot, saveQueueSnapshot } from "../services/playerQueue.service";
+import { ensureTrackPlayerReady } from "../services/trackPlayerReady.service";
+import { buildQueue } from "../services/trackPlayerQueue.service";
 import { Episode, PlayerState } from "../types/types";
 import { logger } from "../utils/logger";
 
@@ -93,6 +97,39 @@ function buildLockScreenInfo(episode: Episode): { title: string; artist: string;
   };
 }
 
+const resolvePlaybackUri = (episode: Episode): string => {
+  if (!episode.audioUrl) {
+    return '';
+  }
+
+  return downloadsService.getPlaybackUri(episode.id, episode.audioUrl);
+};
+
+const persistQueueSnapshot = (state: PlayerState) => {
+  if (!state.queue.length || state.currentQueueIndex < 0) {
+    void clearQueueSnapshot();
+    return;
+  }
+
+  const currentEpisode = state.currentEpisode ?? state.queue[state.currentQueueIndex];
+  void saveQueueSnapshot({
+    trackIds: state.queue.map((item) => String(item.id)),
+    currentIndex: state.currentQueueIndex,
+    position: state.progress,
+    playbackRate: state.playbackSpeed,
+    repeatMode: state.repeatMode,
+    isShuffled: state.isShuffled,
+    currentTrack: currentEpisode
+      ? {
+        id: String(currentEpisode.id),
+        title: currentEpisode.title,
+        artist: currentEpisode.lecturerName,
+        artwork: currentEpisode.coverUrl,
+      }
+      : undefined,
+  });
+};
+
 // ----------------------------------------------------------------------
 // ACTION IMPLEMENTATIONS
 // These functions operate on the store but do NOT cause subscriptions
@@ -137,6 +174,11 @@ const playEpisode = async (episode: Episode) => {
           isPlaying: true,
           isExpanded: false,
         });
+        persistQueueSnapshot({
+          ...currentState,
+          isPlaying: true,
+          isExpanded: false,
+        });
       } else {
         logger.debug('⏸️ PlayerStore: Already playing this episode');
         // Just show the mini player if it's hidden
@@ -146,13 +188,6 @@ const playEpisode = async (episode: Episode) => {
         });
       }
       return;
-    }
-
-    // If playing a different episode, stop the current one first
-    if (currentState.currentEpisode) {
-      logger.debug('🛑 PlayerStore: Stopping current episode...');
-      audioControls.stop();
-      audioControls.unload();
     }
 
     // Set loading state
@@ -170,7 +205,7 @@ const playEpisode = async (episode: Episode) => {
     // Load and play the audio (use downloaded file if available)
     if (episode.audioUrl) {
       // Check if lecture is downloaded, use local file if available
-      const playbackUri = downloadsService.getPlaybackUri(episode.id, episode.audioUrl);
+      const playbackUri = resolvePlaybackUri(episode);
       const isOffline = downloadsService.isDownloaded(episode.id);
 
       if (isOffline) {
@@ -179,13 +214,17 @@ const playEpisode = async (episode: Episode) => {
         logger.debug('🔊 PlayerStore: Loading from REMOTE URL:', playbackUri);
       }
 
-      // loadAudio now properly waits for the audio to be ready
-      await audioControls.loadAudio(playbackUri);
+      const queue = [episode];
+      const tracks = buildQueue(queue, resolvePlaybackUri);
+
+      await ensureTrackPlayerReady();
+      await TrackPlayer.reset();
+      await TrackPlayer.add(tracks);
+      await TrackPlayer.skip(0);
 
       logger.debug('▶️ PlayerStore: Starting playback...');
-      audioControls.play();
+      await TrackPlayer.play();
 
-      // Set lock screen controls after playback starts (iOS requires active playback)
       audioControls.setLockScreenInfo(buildLockScreenInfo(episode));
 
       // Add to history
@@ -203,6 +242,17 @@ const playEpisode = async (episode: Episode) => {
       logger.debug('✅ PlayerStore: Updating state to playing...');
       setAndPersistPlayerState({
         ...playerStore.get(),
+        queue,
+        currentQueueIndex: 0,
+        isPlaying: true,
+        isLoading: false,
+        isDownloaded: isOffline,
+      });
+      persistQueueSnapshot({
+        ...playerStore.get(),
+        queue,
+        currentQueueIndex: 0,
+        currentEpisode: episode,
         isPlaying: true,
         isLoading: false,
         isDownloaded: isOffline,
@@ -217,23 +267,26 @@ const playEpisode = async (episode: Episode) => {
         { episodeId: episode.id, title: episode.title }
       );
     }
-  } catch (error: any) {
-    logger.error('❌ PlayerStore: Failed to play episode', error as Error, {
+  } catch (error) {
+    const err = error as Error;
+    const message = err?.message ?? '';
+
+    logger.error('❌ PlayerStore: Failed to play episode', err, {
       episodeId: episode.id,
       title: episode.title,
       audioUrl: episode.audioUrl,
     });
 
-    const errorMessage = error.message?.includes('timeout')
+    const errorMessage = message.includes('timeout')
       ? 'Audio loading timed out. Please check your internet connection and try again.'
       : 'Failed to play audio. Please try again.';
 
-    captureSentryException(error, {
+    captureSentryException(err, {
       episodeId: episode.id,
       title: episode.title,
       audioUrl: episode.audioUrl,
-      errorType: error.message?.includes('timeout') ? 'loading_timeout' : 'playback_failed',
-      errorMessage: error.message,
+      errorType: message.includes('timeout') ? 'loading_timeout' : 'playback_failed',
+      errorMessage: message,
     });
 
     playerStore.set({
@@ -250,54 +303,80 @@ const playEpisode = async (episode: Episode) => {
 const playNext = async () => {
   const currentState = playerStore.get();
   const queue = Array.isArray(currentState.queue) ? currentState.queue : [];
-  const { currentQueueIndex, repeatMode } = currentState;
+  const { repeatMode } = currentState;
 
-  logger.debug('⏭️ PlayerStore: playNext called, currentIndex:', currentQueueIndex, 'queueLength:', queue.length);
+  logger.debug('⏭️ PlayerStore: playNext called, currentIndex:', currentState.currentQueueIndex, 'queueLength:', queue.length);
 
   if (queue.length === 0) {
     logger.warn('⚠️ PlayerStore: No queue to play next');
     return;
   }
 
-  if (repeatMode === 'one' && currentState.currentEpisode) {
-    logger.debug('🔂 PlayerStore: Repeat one, replaying current episode');
-    await playEpisode(currentState.currentEpisode);
-    return;
-  }
+  try {
+    await ensureTrackPlayerReady();
+    await TrackPlayer.skipToNext();
+    const nextIndex = await TrackPlayer.getCurrentTrack();
 
-  let nextIndex = currentQueueIndex + 1;
-
-  if (nextIndex >= queue.length) {
-    if (repeatMode === 'all') {
-      logger.debug('🔁 PlayerStore: Repeat all, going back to start');
-      nextIndex = 0;
-    } else {
-      logger.debug('⏹️ PlayerStore: End of queue reached');
-      if (audioControls) {
-        audioControls.stop();
-      }
+    if (nextIndex !== null && queue[nextIndex]) {
       setAndPersistPlayerState({
         ...currentState,
-        isPlaying: false,
+        currentQueueIndex: nextIndex,
+        currentEpisode: queue[nextIndex],
+        isPlaying: true,
+        progress: 0,
+      });
+      persistQueueSnapshot({
+        ...currentState,
+        currentQueueIndex: nextIndex,
+        currentEpisode: queue[nextIndex],
+        isPlaying: true,
+        progress: 0,
       });
       return;
     }
+  } catch (error) {
+    logger.error('Failed to skip to next track', error as Error);
   }
 
+  if (repeatMode === 'all' && queue.length > 0) {
+    try {
+      await TrackPlayer.skip(0);
+      await TrackPlayer.play();
+      setAndPersistPlayerState({
+        ...currentState,
+        currentQueueIndex: 0,
+        currentEpisode: queue[0],
+        isPlaying: true,
+        progress: 0,
+      });
+      persistQueueSnapshot({
+        ...currentState,
+        currentQueueIndex: 0,
+        currentEpisode: queue[0],
+        isPlaying: true,
+        progress: 0,
+      });
+      return;
+    } catch (error) {
+      logger.error('Failed to repeat queue', error as Error);
+    }
+  }
+
+  logger.debug('⏹️ PlayerStore: End of queue reached');
+  if (audioControls) {
+    audioControls.stop();
+  }
   setAndPersistPlayerState({
     ...currentState,
-    currentQueueIndex: nextIndex,
+    isPlaying: false,
   });
-
-  await playEpisode(queue[nextIndex]);
 };
 
 const playPrevious = async () => {
   const currentState = playerStore.get();
   const queue = Array.isArray(currentState.queue) ? currentState.queue : [];
-  const { currentQueueIndex } = currentState;
 
-  logger.debug('⏮️ PlayerStore: playPrevious called, currentIndex:', currentQueueIndex);
+  logger.debug('⏮️ PlayerStore: playPrevious called, currentIndex:', currentState.currentQueueIndex);
 
   if (queue.length === 0) {
     logger.warn('⚠️ PlayerStore: No queue to play previous');
@@ -312,18 +391,30 @@ const playPrevious = async () => {
     return;
   }
 
-  let prevIndex = currentQueueIndex - 1;
+  try {
+    await ensureTrackPlayerReady();
+    await TrackPlayer.skipToPrevious();
+    const prevIndex = await TrackPlayer.getCurrentTrack();
 
-  if (prevIndex < 0) {
-    prevIndex = queue.length - 1;
+    if (prevIndex !== null && queue[prevIndex]) {
+      setAndPersistPlayerState({
+        ...currentState,
+        currentQueueIndex: prevIndex,
+        currentEpisode: queue[prevIndex],
+        isPlaying: true,
+        progress: 0,
+      });
+      persistQueueSnapshot({
+        ...currentState,
+        currentQueueIndex: prevIndex,
+        currentEpisode: queue[prevIndex],
+        isPlaying: true,
+        progress: 0,
+      });
+    }
+  } catch (error) {
+    logger.error('Failed to skip to previous track', error as Error);
   }
-
-  setAndPersistPlayerState({
-    ...currentState,
-    currentQueueIndex: prevIndex,
-  });
-
-  await playEpisode(queue[prevIndex]);
 };
 
 const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: boolean = false) => {
@@ -355,14 +446,33 @@ const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: b
       startIndex = 0;
     }
 
+    const tracks = buildQueue(queue, resolvePlaybackUri);
+
+    await ensureTrackPlayerReady();
+    await TrackPlayer.reset();
+    await TrackPlayer.add(tracks);
+    await TrackPlayer.skip(startIndex);
+    await TrackPlayer.play();
+
     setAndPersistPlayerState({
       ...playerStore.get(),
       queue,
       currentQueueIndex: startIndex,
+      currentEpisode: queue[startIndex],
       isShuffled: shuffle,
+      isPlaying: true,
+      isLoading: false,
+      progress: 0,
     });
-
-    await playEpisode(queue[startIndex]);
+    persistQueueSnapshot({
+      ...playerStore.get(),
+      queue,
+      currentQueueIndex: startIndex,
+      currentEpisode: queue[startIndex],
+      isShuffled: shuffle,
+      isPlaying: true,
+      progress: 0,
+    });
   } catch (error) {
     logger.error('Failed to play queue', error as Error);
     captureSentryException(error as Error, { action: 'playQueue', episodeCount: episodes.length });
@@ -398,6 +508,10 @@ const setProgress = (progress: number) => {
 
   try {
     setAndPersistPlayerState({
+      ...playerStore.get(),
+      progress,
+    });
+    persistQueueSnapshot({
       ...playerStore.get(),
       progress,
     });
@@ -468,6 +582,10 @@ const setPlaybackSpeed = (speed: number) => {
 
   try {
     setAndPersistPlayerState({
+      ...playerStore.get(),
+      playbackSpeed: speed,
+    });
+    persistQueueSnapshot({
       ...playerStore.get(),
       playbackSpeed: speed,
     });
@@ -543,15 +661,9 @@ const closePlayer = () => {
 
   try {
     audioControls.stop();
-
-    // Clear lock screen notification
-    try {
-      audioControls.player.setActiveForLockScreen(false);
-    } catch {
-      // Silent fail - clearing lock screen is optional
-    }
-
     audioControls.unload();
+    void TrackPlayer.reset();
+    void clearQueueSnapshot();
 
     setAndPersistPlayerState({
       ...initialState,
@@ -577,10 +689,23 @@ const addToQueue = (episodes: Episode | Episode[]) => {
     { episodeCount: episodeArray.length }
   );
 
+  const queue = [...existingQueue, ...episodeArray];
+
   setAndPersistPlayerState({
     ...currentState,
-    queue: [...existingQueue, ...episodeArray],
+    queue,
   });
+  persistQueueSnapshot({
+    ...currentState,
+    queue,
+  });
+
+  const tracks = buildQueue(episodeArray, resolvePlaybackUri).filter((track) => track.url);
+  if (tracks.length > 0) {
+    void ensureTrackPlayerReady()
+      .then(() => TrackPlayer.add(tracks))
+      .catch((error) => logger.error('Failed to add tracks to queue', error as Error));
+  }
 };
 
 const removeFromQueue = (index: number) => {
@@ -600,7 +725,18 @@ const removeFromQueue = (index: number) => {
     ...currentState,
     queue: newQueue,
     currentQueueIndex: newIndex,
+    currentEpisode: newQueue[newIndex] ?? currentState.currentEpisode,
   });
+  persistQueueSnapshot({
+    ...currentState,
+    queue: newQueue,
+    currentQueueIndex: newIndex,
+    currentEpisode: newQueue[newIndex] ?? currentState.currentEpisode,
+  });
+
+  void ensureTrackPlayerReady()
+    .then(() => TrackPlayer.remove(index))
+    .catch((error) => logger.error('Failed to remove track from queue', error as Error));
 };
 
 const toggleShuffle = () => {
@@ -621,14 +757,35 @@ const toggleShuffle = () => {
 
     const newQueue = [currentEpisode, ...remaining];
 
+    const tracks = buildQueue(newQueue, resolvePlaybackUri).filter((track) => track.url);
+    void ensureTrackPlayerReady()
+      .then(() => TrackPlayer.reset())
+      .then(() => TrackPlayer.add(tracks))
+      .then(() => TrackPlayer.skip(0))
+      .then(() => currentState.isPlaying ? TrackPlayer.play() : Promise.resolve())
+      .then(() => TrackPlayer.seekTo(currentState.progress))
+      .catch((error) => logger.error('Failed to reshuffle queue', error as Error));
+
     setAndPersistPlayerState({
       ...currentState,
       queue: newQueue,
       currentQueueIndex: 0,
+      currentEpisode: newQueue[0],
+      isShuffled: true,
+    });
+    persistQueueSnapshot({
+      ...currentState,
+      queue: newQueue,
+      currentQueueIndex: 0,
+      currentEpisode: newQueue[0],
       isShuffled: true,
     });
   } else {
     setAndPersistPlayerState({
+      ...currentState,
+      isShuffled: false,
+    });
+    persistQueueSnapshot({
       ...currentState,
       isShuffled: false,
     });
@@ -638,7 +795,17 @@ const toggleShuffle = () => {
 const setRepeatMode = (mode: 'off' | 'all' | 'one') => {
   logger.debug('🔁 PlayerStore: Set repeat mode:', mode);
 
+  const repeatModeValue =
+    mode === 'one' ? RepeatMode.Track : mode === 'all' ? RepeatMode.Queue : RepeatMode.Off;
+  void ensureTrackPlayerReady()
+    .then(() => TrackPlayer.setRepeatMode(repeatModeValue))
+    .catch((error) => logger.error('Failed to set repeat mode', error as Error));
+
   setAndPersistPlayerState({
+    ...playerStore.get(),
+    repeatMode: mode,
+  });
+  persistQueueSnapshot({
     ...playerStore.get(),
     repeatMode: mode,
   });
@@ -653,6 +820,10 @@ const clearQueue = () => {
     currentQueueIndex: -1,
     isShuffled: false,
   });
+  void ensureTrackPlayerReady()
+    .then(() => TrackPlayer.reset())
+    .catch((error) => logger.error('Failed to clear track player queue', error as Error));
+  void clearQueueSnapshot();
 };
 
 const actions = {
