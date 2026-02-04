@@ -545,13 +545,6 @@ const LectureDetailScreen: React.FC = () => {
                     return s;
                   };
 
-                  const normalizeName = (value: string): string =>
-                    value
-                      .replace(/\[[^\]]*\]/g, '') // remove bracketed honorifics/notes
-                      .replace(/\s+/g, ' ')
-                      .trim()
-                      .toLowerCase();
-
                   // Prefer normalized lecturerId, then fall back to known fields
                   const directId =
                     normalizeId(lecture.lecturerId) ||

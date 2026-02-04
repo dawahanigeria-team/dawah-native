@@ -71,7 +71,6 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
   const previousStatusRef = useRef<AudioPlaybackStatus | null>(null);
   const loadResolveRef = useRef<(() => void) | null>(null);
   const loadRejectRef = useRef<((error?: unknown) => void) | null>(null);
-  const isFirstLoad = useRef(true);
   const isReleasedRef = useRef(true);
   const desiredVolumeRef = useRef(1);
   const desiredMutedRef = useRef(false);
@@ -382,7 +381,7 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
         artist: info.artist || '',
         artworkUrl: info.artwork || '',
       });
-    } catch (error) {
+    } catch {
       // Silent fail - lock screen controls are a nice-to-have feature
     }
   };

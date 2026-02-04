@@ -606,9 +606,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     // Border color handled dynamically
   },
-  recitationItemPlaying: {
-    // Bg color handled dynamically
-  },
   trackNumberContainer: {
     width: 32,
     alignItems: 'center',

@@ -101,6 +101,19 @@ export default function ResetPasswordScreen() {
 
       const response = await resetPasswordWithCode(userEmail, code, password);
 
+      const getFriendlyErrorMessage = (message: string) => {
+        if (message.includes("Invalid") || message.includes("incorrect")) {
+          return "Invalid verification code. Please check and try again.";
+        }
+        if (message.includes("expired")) {
+          return "Verification code has expired. Please request a new code.";
+        }
+        if (message.includes("attempts")) {
+          return "Too many failed attempts. Please request a new code.";
+        }
+        return message || "Unable to reset password. Please try again.";
+      };
+
       if (response.success) {
         addSentryBreadcrumb("Password reset successful", "info", {
           email: userEmail,
@@ -119,7 +132,13 @@ export default function ResetPasswordScreen() {
           );
         }, 300);
       } else {
-        throw new Error(response.message || "Failed to reset password");
+        addSentryBreadcrumb("Password reset failed", "info", {
+          error: response.message,
+          email: userEmail,
+        });
+
+        const errorMessage = getFriendlyErrorMessage(response.message || "");
+        Alert.alert("Reset Failed", errorMessage, [{ text: "OK" }]);
       }
     } catch (err: unknown) {
       const error = err as Error;
@@ -135,17 +154,7 @@ export default function ResetPasswordScreen() {
         email: userEmail,
       });
 
-      // Check for specific error messages
-      let errorMessage = error.message || "Unable to reset password. Please try again.";
-
-      if (errorMessage.includes("Invalid") || errorMessage.includes("incorrect")) {
-        errorMessage = "Invalid verification code. Please check and try again.";
-      } else if (errorMessage.includes("expired")) {
-        errorMessage = "Verification code has expired. Please request a new code.";
-      } else if (errorMessage.includes("attempts")) {
-        errorMessage = "Too many failed attempts. Please request a new code.";
-      }
-
+      const errorMessage = error.message || "Unable to reset password. Please try again.";
       Alert.alert("Reset Failed", errorMessage, [{ text: "OK" }]);
     } finally {
       setIsLoading(false);

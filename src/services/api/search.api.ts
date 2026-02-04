@@ -170,7 +170,7 @@ class SearchApiService {
         success: true,
         results: this.transformToQuickResults(response),
       };
-    } catch (error) {
+    } catch {
       // Return empty results on error for better UX
       return {
         success: false,
@@ -356,7 +356,6 @@ class SearchApiService {
   private transformToQuickResults(response: SearchResponse<any>): any[] {
     return response.data.slice(0, 10).map((item: any) => {
       // Determine item type and format accordingly
-      let type: SearchType = response.type;
       let title = '';
       let subtitle = '';
       let imageUrl = '';
@@ -427,7 +426,7 @@ class SearchApiService {
         .slice(0, 5 - recentMatches.length);
 
       return [...recentMatches, ...apiSuggestions];
-    } catch (error) {
+    } catch {
       // Return recent searches as fallback
       return this.recentSearches.slice(0, 5);
     }

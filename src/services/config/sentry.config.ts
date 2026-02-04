@@ -176,6 +176,10 @@ export const captureSentryException = (error: Error, context?: Record<string, an
   if (maybeCancelled) {
     return;
   }
+  const statusCode = (error as { statusCode?: number } | null)?.statusCode;
+  if (statusCode && statusCode >= 400 && statusCode < 500) {
+    return;
+  }
   if (context) {
     Sentry.withScope((scope) => {
       Object.entries(context).forEach(([key, value]) => {
