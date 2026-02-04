@@ -257,9 +257,22 @@ class ApiClient {
   ): Promise<Response> {
     const abortController = new AbortController();
     let didTimeout = false;
+    let didCallerAbort = false;
+    const externalSignal = config.signal;
 
     if (requestToken.cancelled) {
       throw new ApiError('Request cancelled', undefined, undefined, false, false, true);
+    }
+    if (externalSignal?.aborted) {
+      throw new ApiError('Request cancelled', undefined, undefined, false, false, true);
+    }
+
+    const onExternalAbort = () => {
+      didCallerAbort = true;
+      abortController.abort();
+    };
+    if (externalSignal) {
+      externalSignal.addEventListener('abort', onExternalAbort);
     }
 
     // Cancel any existing request to the same endpoint
@@ -281,10 +294,16 @@ class ApiClient {
 
       clearTimeout(timeoutId);
       this.abortControllers.delete(requestId);
+      if (externalSignal) {
+        externalSignal.removeEventListener('abort', onExternalAbort);
+      }
       return response;
     } catch (error: any) {
       clearTimeout(timeoutId);
       this.abortControllers.delete(requestId);
+      if (externalSignal) {
+        externalSignal.removeEventListener('abort', onExternalAbort);
+      }
 
       if (error.name === 'AbortError') {
         if (didTimeout) {
@@ -295,6 +314,9 @@ class ApiClient {
             false,
             true
           );
+        }
+        if (didCallerAbort) {
+          throw new ApiError('Request cancelled', undefined, undefined, false, false, true);
         }
         throw new ApiError('Request cancelled', undefined, undefined, false, false, true);
       }

@@ -336,7 +336,11 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
 
     void (async () => {
       try {
-        await TrackPlayer.retry()
+        const progress = await TrackPlayer.getProgress()
+        if (Number.isFinite(progress.position)) {
+          await TrackPlayer.seekTo(Math.max(0, progress.position - 1))
+        }
+        await TrackPlayer.play()
         return
       } catch {
         // Ignore retry failure and attempt to advance
