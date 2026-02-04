@@ -716,16 +716,27 @@ const removeFromQueue = (index: number) => {
   logger.debug('➖ PlayerStore: Removing episode at index', index);
 
   let newIndex = currentState.currentQueueIndex;
+  let newEpisode: Episode | null = currentState.currentEpisode ?? null;
   if (index < currentState.currentQueueIndex) {
     newIndex--;
   } else if (index === currentState.currentQueueIndex) {
+    if (newQueue.length === 0) {
+      newIndex = -1;
+      newEpisode = null;
+    } else if (index >= newQueue.length) {
+      newIndex = newQueue.length - 1;
+      newEpisode = newQueue[newIndex] ?? null;
+    } else {
+      newIndex = index;
+      newEpisode = newQueue[newIndex] ?? null;
+    }
   }
 
   setAndPersistPlayerState({
     ...currentState,
     queue: newQueue,
     currentQueueIndex: newIndex,
-    currentEpisode: newQueue[newIndex] ?? currentState.currentEpisode,
+    currentEpisode: newQueue[newIndex] ?? newEpisode,
   });
   persistQueueSnapshot({
     ...currentState,
@@ -747,8 +758,12 @@ const toggleShuffle = () => {
   logger.debug('🔀 PlayerStore: Toggle shuffle:', newShuffleState);
 
   if (newShuffleState && queue.length > 0) {
-    const currentEpisode = queue[currentState.currentQueueIndex];
-    const remaining = queue.filter((_, i) => i !== currentState.currentQueueIndex);
+    const safeIndex =
+      currentState.currentQueueIndex >= 0 && currentState.currentQueueIndex < queue.length
+        ? currentState.currentQueueIndex
+        : 0;
+    const currentEpisode = queue[safeIndex];
+    const remaining = queue.filter((_, i) => i !== safeIndex);
 
     for (let i = remaining.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
