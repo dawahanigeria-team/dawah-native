@@ -12,7 +12,7 @@ jest.mock('react-native-track-player', () => ({
   stop: jest.fn(),
   remove: jest.fn(),
   setRepeatMode: jest.fn(),
-  getCurrentTrack: jest.fn().mockResolvedValue(0),
+  getActiveTrackIndex: jest.fn().mockResolvedValue(0),
   skipToNext: jest.fn(),
   skipToPrevious: jest.fn(),
 }))

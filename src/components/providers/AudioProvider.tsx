@@ -136,6 +136,12 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           androidAudioContentType: AndroidAudioContentType.Music,
           autoHandleInterruptions: true,
           autoUpdateMetadata: true,
+          // Buffer tuning for smoother seeks and fewer stalls on long audio
+          minBuffer: 15,
+          maxBuffer: 60,
+          playBuffer: 3,
+          backBuffer: 30,
+          maxCacheSize: 51200, // 50 MB in KB
         })
         setTrackPlayerSetupPromise(setupPromise)
         await setupPromise
@@ -157,6 +163,15 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
             Capability.SkipToPrevious,
             Capability.JumpForward,
             Capability.JumpBackward,
+          ],
+          notificationCapabilities: [
+            Capability.Play,
+            Capability.Pause,
+            Capability.SkipToNext,
+            Capability.SkipToPrevious,
+            Capability.JumpForward,
+            Capability.JumpBackward,
+            Capability.Stop,
           ],
           compactCapabilities: [
             Capability.Play,
@@ -301,6 +316,47 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       playerStore.set(nextState)
       persistQueueSnapshot(nextState)
     },
+  })
+
+  useTrackPlayerEvents([Event.PlaybackError], (event) => {
+    const currentState = playerStore.get()
+    captureSentryException(new Error('TrackPlayer playback error'), {
+      component: 'AudioProvider',
+      action: 'playbackError',
+      trackId: currentState.currentEpisode?.id,
+      errorCode: (event as { code?: string }).code,
+      errorMessage: (event as { message?: string }).message,
+      level: 'error',
+    })
+
+    void (async () => {
+      try {
+        await TrackPlayer.retry()
+        return
+      } catch {
+        // Ignore retry failure and attempt to advance
+      }
+
+      try {
+        await TrackPlayer.skipToNext()
+        await TrackPlayer.play()
+        return
+      } catch {
+        // Fall through to stop
+      }
+
+      try {
+        await TrackPlayer.stop()
+      } catch {
+        // Ignore stop failure
+      }
+
+      playerStore.set({
+        ...playerStore.get(),
+        isPlaying: false,
+        isLoading: false,
+      })
+    })()
   })
 
   useTrackPlayerEvents([Event.PlaybackActiveTrackChanged], (event) => {

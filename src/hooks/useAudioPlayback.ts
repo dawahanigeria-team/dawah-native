@@ -227,12 +227,12 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
     }
 
     void (async () => {
-      const currentTrack = await TrackPlayer.getCurrentTrack()
-      if (currentTrack === null) {
+      const currentTrack = await TrackPlayer.getActiveTrack()
+      if (!currentTrack) {
         return
       }
 
-      await TrackPlayer.updateMetadataForTrack(currentTrack, {
+      await TrackPlayer.updateMetadataForTrack(String(currentTrack.id), {
         title: info.title,
         artist: info.artist || '',
         artwork: info.artwork || '',

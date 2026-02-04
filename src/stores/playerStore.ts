@@ -315,7 +315,7 @@ const playNext = async () => {
   try {
     await ensureTrackPlayerReady();
     await TrackPlayer.skipToNext();
-    const nextIndex = await TrackPlayer.getCurrentTrack();
+    const nextIndex = await TrackPlayer.getActiveTrackIndex();
 
     if (nextIndex !== null && queue[nextIndex]) {
       setAndPersistPlayerState({
@@ -394,7 +394,7 @@ const playPrevious = async () => {
   try {
     await ensureTrackPlayerReady();
     await TrackPlayer.skipToPrevious();
-    const prevIndex = await TrackPlayer.getCurrentTrack();
+    const prevIndex = await TrackPlayer.getActiveTrackIndex();
 
     if (prevIndex !== null && queue[prevIndex]) {
       setAndPersistPlayerState({
