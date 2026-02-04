@@ -161,7 +161,10 @@ export function useSearch<T = any>(
           apiParams.lecturer_nid = searchFilters.lecturerId;
         }
 
-        const response = await searchApi.search<T>(apiParams);
+        const response = await searchApi.search<T>({
+          ...apiParams,
+          signal: abortControllerRef.current?.signal,
+        });
 
         // Cache result
         if (cacheResults) {

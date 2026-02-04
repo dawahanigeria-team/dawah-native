@@ -51,9 +51,15 @@ interface CacheEntry {
   ttl: number;
 }
 
+interface RequestToken {
+  cancelled: boolean;
+  listeners: Set<() => void>;
+}
+
 class ApiClient {
   private static instance: ApiClient;
   private abortControllers: Map<string, AbortController> = new Map();
+  private requestTokens: Map<string, RequestToken> = new Map();
   private activeRequests = 0;
   private authToken: string | null = null;
   private _authTokenChangeListener: ((token: string | null) => void) | null = null;
@@ -158,6 +164,47 @@ class ApiClient {
     return `cache_${method}_${url}`;
   }
 
+  private cancelRequestToken(token: RequestToken): void {
+    if (token.cancelled) {
+      return;
+    }
+    token.cancelled = true;
+    token.listeners.forEach(listener => listener());
+    token.listeners.clear();
+  }
+
+  private createRequestToken(requestId: string): RequestToken {
+    const existing = this.requestTokens.get(requestId);
+    if (existing) {
+      this.cancelRequestToken(existing);
+    }
+
+    const token: RequestToken = { cancelled: false, listeners: new Set() };
+    this.requestTokens.set(requestId, token);
+    return token;
+  }
+
+  private async waitForDelayOrCancel(delay: number, token: RequestToken): Promise<void> {
+    if (token.cancelled) {
+      throw new ApiError('Request cancelled', undefined, undefined, false, false, true);
+    }
+
+    return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        token.listeners.delete(onCancel);
+        resolve();
+      }, delay);
+
+      const onCancel = () => {
+        clearTimeout(timeoutId);
+        token.listeners.delete(onCancel);
+        reject(new ApiError('Request cancelled', undefined, undefined, false, false, true));
+      };
+
+      token.listeners.add(onCancel);
+    });
+  }
+
   /**
    * Get cached data
    */
@@ -205,10 +252,15 @@ class ApiClient {
     url: string,
     config: RequestConfig,
     timeout: number,
+    requestId: string,
+    requestToken: RequestToken,
   ): Promise<Response> {
     const abortController = new AbortController();
-    const requestId = `${config.method || 'GET'}_${url}`;
     let didTimeout = false;
+
+    if (requestToken.cancelled) {
+      throw new ApiError('Request cancelled', undefined, undefined, false, false, true);
+    }
 
     // Cancel any existing request to the same endpoint
     if (this.abortControllers.has(requestId)) {
@@ -256,13 +308,19 @@ class ApiClient {
   private async retryRequest(
     url: string,
     config: RequestConfig,
+    requestId: string,
+    requestToken: RequestToken,
     attempt: number = 1,
   ): Promise<Response> {
     const maxAttempts = config.retryAttempts || API_CONFIG.RETRY.MAX_ATTEMPTS;
     const timeout = config.timeout || API_CONFIG.TIMEOUTS.DEFAULT;
 
+    if (requestToken.cancelled) {
+      throw new ApiError('Request cancelled', undefined, undefined, false, false, true);
+    }
+
     try {
-      return await this.executeWithTimeout(url, config, timeout);
+      return await this.executeWithTimeout(url, config, timeout, requestId, requestToken);
     } catch (error: any) {
       const isLastAttempt = attempt >= maxAttempts;
       const shouldRetry = config.retry !== false && !isLastAttempt;
@@ -294,8 +352,8 @@ class ApiClient {
 
       console.log(`Retrying request (attempt ${attempt}/${maxAttempts}) after ${totalDelay}ms`);
 
-      await new Promise(resolve => setTimeout(resolve, totalDelay));
-      return this.retryRequest(url, config, attempt + 1);
+      await this.waitForDelayOrCancel(totalDelay, requestToken);
+      return this.retryRequest(url, config, requestId, requestToken, attempt + 1);
     }
   }
 
@@ -322,6 +380,8 @@ class ApiClient {
     // Define these outside try block so they're available in catch
     let url = '';
     let method = '';
+    let requestId = '';
+    let requestToken: RequestToken | null = null;
 
     try {
       // Enforce rate limiting
@@ -329,6 +389,8 @@ class ApiClient {
 
       url = this.buildUrl(endpoint, config.params);
       method = config.method || 'GET';
+      requestId = `${method}_${url}`;
+      requestToken = this.createRequestToken(requestId);
 
       // Check cache for GET requests
       if (method === 'GET' && config.useCache !== false) {
@@ -406,7 +468,7 @@ class ApiClient {
       );
 
       // Execute request with retry logic
-      const response = await this.retryRequest(url, requestConfig);
+      const response = await this.retryRequest(url, requestConfig, requestId, requestToken);
 
       // Log HTTP response status
       console.log('📡 HTTP Response:', {
@@ -563,6 +625,10 @@ class ApiClient {
       });
 
       throw unknownError;
+    } finally {
+      if (requestId && requestToken && this.requestTokens.get(requestId) === requestToken) {
+        this.requestTokens.delete(requestId);
+      }
     }
   }
 

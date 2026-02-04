@@ -27,6 +27,7 @@ export interface SearchParams {
   sortBy?: 'relevance' | 'date' | 'popularity';
   field?: string;
   lecturer_nid?: string;
+  signal?: AbortSignal;
 }
 
 class SearchApiService {
@@ -119,6 +120,7 @@ class SearchApiService {
           timeout: params.quick ? 5000 : API_CONFIG.TIMEOUTS.SEARCH,
           useCache: true,
           cacheTTL: params.quick ? 60 : API_CONFIG.CACHE.SEARCH_TTL,
+          signal: params.signal,
         }
       );
 
@@ -392,7 +394,7 @@ class SearchApiService {
       }
 
       return {
-        type,
+        type: response.type,
         id: item.id || item.nid,
         title,
         subtitle,
