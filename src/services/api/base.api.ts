@@ -272,6 +272,9 @@ class ApiClient {
       }
 
       // Check if error is retryable
+      if (error instanceof ApiError && error.isCancelled) {
+        throw error;
+      }
       if (error instanceof ApiError && error.isTimeout) {
         // Timeout errors are retryable
       } else if (error.statusCode && !API_CONFIG.RETRY.RETRY_CONDITIONS.includes(error.statusCode)) {

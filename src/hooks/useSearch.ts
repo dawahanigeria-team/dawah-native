@@ -80,6 +80,7 @@ export function useSearch<T = any>(
   const debouncedQuery = useDebounce(query, debounceDelay);
   const abortControllerRef = useRef<AbortController | null>(null);
   const cacheRef = useRef<Map<string, SearchResponse<T>>>(new Map());
+  const loadMoreInFlight = useRef(false);
   const filtersRef = useRef<Record<string, any>>(state.filters);
   useEffect(() => {
     filtersRef.current = state.filters;
@@ -100,6 +101,13 @@ export function useSearch<T = any>(
           filters: searchFilters,
         }));
         return;
+      }
+
+      if (append) {
+        if (loadMoreInFlight.current) {
+          return;
+        }
+        loadMoreInFlight.current = true;
       }
 
       // Check cache
@@ -176,6 +184,9 @@ export function useSearch<T = any>(
           filters: searchFilters,
         }));
       } catch (error) {
+        if (error instanceof ApiError && error.isCancelled) {
+          return; // Ignore cancelled requests
+        }
         if (error instanceof Error && error.name === 'AbortError') {
           return; // Ignore abort errors
         }
@@ -185,6 +196,10 @@ export function useSearch<T = any>(
           loading: false,
           error: error instanceof ApiError ? error : new ApiError('Search failed'),
         }));
+      } finally {
+        if (append) {
+          loadMoreInFlight.current = false;
+        }
       }
     },
     [searchType, minQueryLength, cacheResults, enableQuickSearch, state.filters]
@@ -219,7 +234,7 @@ export function useSearch<T = any>(
 
   // Load more function for pagination
   const loadMore = useCallback(() => {
-    if (!state.loading && state.hasMore && state.query) {
+    if (!state.loading && state.hasMore && state.query && !loadMoreInFlight.current) {
       performSearch(state.query, state.page + 1, true, state.filters);
     }
   }, [state.loading, state.hasMore, state.query, state.page, performSearch, state.filters]);

@@ -130,7 +130,7 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
 
   // Load more function for infinite scroll
   const loadMore = useCallback(async () => {
-    if (!hasMore || isLoadingMore || loading) return;
+    if (!hasMore || isLoadingMore || loading || isLoadingRef.current) return;
     await fetchTrending(currentPage + 1, true);
   }, [hasMore, isLoadingMore, loading, currentPage, fetchTrending]);
 
