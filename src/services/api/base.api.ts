@@ -558,8 +558,6 @@ class ApiClient {
         timestamp: Date.now(),
       };
     } catch (error: any) {
-      console.log('Error caught in base.api.ts request method:', error);
-
       // If the error is already an ApiError with a status code, re-throw it directly.
       // This prevents HTTP errors from being re-classified as network errors.
       if (error instanceof ApiError && error.statusCode) {
@@ -568,6 +566,8 @@ class ApiClient {
       if (error instanceof ApiError && error.isCancelled) {
         throw error;
       }
+
+      console.log('Error caught in base.api.ts request method:', error);
 
       // Handle network errors (avoid web-only navigator.onLine on native)
       const isNavigatorOffline =

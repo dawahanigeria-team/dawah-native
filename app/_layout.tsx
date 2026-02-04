@@ -24,6 +24,7 @@ import { userService } from "../src/services/user.service";
 import { ENV } from "../src/config/env";
 import { initializeAuth } from "../src/stores/authStore";
 import { fetchFavorites } from "../src/stores/favoritesStore";
+import { usePlayerActions } from "../src/stores";
  
 
 // Initialize Sentry as early as possible
@@ -107,6 +108,7 @@ function RootLayout() {
   const [isPlayerStateLoading] = useStorageState(PLAYER_STATE_KEY);
   const hasInitializedApp = useRef(false);
   const { isDark } = useTheme();
+  const { expandPlayer } = usePlayerActions();
 
   usePushNotifications();
   useNotificationObserver();
@@ -176,6 +178,10 @@ function RootLayout() {
       const initialUrl = await linkingService.getInitialURL();
       if (initialUrl) {
         console.log('🔗 App opened with URL:', initialUrl);
+        if (initialUrl.startsWith('trackplayer://')) {
+          expandPlayer();
+          return;
+        }
         const parsed = linkingService.parseURL(initialUrl);
         if (parsed && parsed.path) {
           console.log('🔗 Navigating to:', parsed.path);
@@ -189,6 +195,10 @@ function RootLayout() {
     // Listen for deep links while app is running
     const subscription = Linking.addEventListener('url', (event) => {
       console.log('🔗 Deep link received:', event.url);
+      if (event.url?.startsWith('trackplayer://')) {
+        expandPlayer();
+        return;
+      }
       const parsed = linkingService.parseURL(event.url);
       if (parsed && parsed.path) {
         console.log('🔗 Navigating to:', parsed.path);
@@ -199,7 +209,7 @@ function RootLayout() {
     return () => {
       subscription.remove();
     };
-  }, [router]);
+  }, [expandPlayer, router]);
 
   // Hide mini player on lecture detail page since it has full playback controls
   const shouldShowMiniPlayer = !pathname.startsWith("/lecture/");

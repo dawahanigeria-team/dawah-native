@@ -123,6 +123,9 @@ class LecturersApiService {
       // Normalize the response
       return this.normalizeResponse(response.data, params);
     } catch (error) {
+      if (error instanceof ApiError && error.isCancelled) {
+        throw error;
+      }
       console.error('❌ Lecturers API Error:', error);
       if (error instanceof ApiError) {
         throw error;
