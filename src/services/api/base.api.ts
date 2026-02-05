@@ -743,6 +743,8 @@ class ApiClient {
   public cancelAllRequests(): void {
     this.abortControllers.forEach(controller => controller.abort());
     this.abortControllers.clear();
+    this.requestTokens.forEach(token => this.cancelRequestToken(token));
+    this.requestTokens.clear();
   }
 
   /**
