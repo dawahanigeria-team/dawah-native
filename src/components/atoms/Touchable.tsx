@@ -1,7 +1,14 @@
-import React, { memo } from 'react';
+import React, { memo, useCallback } from 'react';
 import { Pressable, PressableProps, ViewStyle } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { designTokens } from '../../theme/designTokens';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface TouchableProps extends Omit<PressableProps, 'style'> {
   hapticFeedback?: boolean;
@@ -23,6 +30,25 @@ export const Touchable: React.FC<TouchableProps> = memo(({
   onPress,
   ...props
 }) => {
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const springConfig = { damping: 15, stiffness: 150 };
+
+  const handlePressIn = useCallback(() => {
+    if (scaleOnPress && !disabled) {
+      scale.value = withSpring(scaleValue, springConfig);
+    }
+  }, [scaleOnPress, disabled, scaleValue]);
+
+  const handlePressOut = useCallback(() => {
+    if (scaleOnPress && !disabled) {
+      scale.value = withSpring(1, springConfig);
+    }
+  }, [scaleOnPress, disabled]);
+
   const handlePress = (event: any) => {
     if (!disabled) {
       if (hapticFeedback) {
@@ -32,49 +58,28 @@ export const Touchable: React.FC<TouchableProps> = memo(({
     }
   };
 
-  const getBaseStyle = (): ViewStyle => ({
+  const baseStyle: ViewStyle = {
     minHeight: minHitTarget ? designTokens.hitTargets.minimum : undefined,
     minWidth: minHitTarget ? designTokens.hitTargets.minimum : undefined,
-  });
-
-  const getPressedStyle = (pressed: boolean): ViewStyle => {
-    if (!scaleOnPress || disabled) return {};
-    
-    return {
-      transform: pressed ? [{ scale: scaleValue }] : [{ scale: 1 }],
-    };
   };
 
-  const combinedStyle = ({ pressed }: { pressed: boolean }): ViewStyle => {
-    const baseStyle = getBaseStyle();
-    const pressedStyle = getPressedStyle(pressed);
-    
-    if (typeof style === 'function') {
-      return {
-        ...baseStyle,
-        ...style({ pressed }),
-        ...pressedStyle,
-      };
-    }
-    
-    return {
-      ...baseStyle,
-      ...(style as ViewStyle),
-      ...pressedStyle,
-    };
-  };
+  const flatStyle: ViewStyle = typeof style === 'function'
+    ? { ...baseStyle, ...style({ pressed: false }) }
+    : { ...baseStyle, ...(style as ViewStyle) };
 
   return (
-    <Pressable
-      style={combinedStyle}
+    <AnimatedPressable
+      style={[flatStyle, animatedStyle]}
       onPress={handlePress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
       disabled={disabled}
       accessibilityRole="button"
-      accessibilityState={{ disabled }}
+      accessibilityState={{ disabled: !!disabled }}
       {...props}
     >
       {children}
-    </Pressable>
+    </AnimatedPressable>
   );
 });
 

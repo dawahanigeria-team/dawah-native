@@ -1,6 +1,16 @@
-import React, { useEffect, useRef } from "react";
-import { Animated, StyleSheet, ViewStyle } from "react-native";
+import React, { useEffect, useState } from "react";
+import { DimensionValue, LayoutChangeEvent, StyleSheet, View, ViewStyle } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  interpolate,
+} from "react-native-reanimated";
+import { LinearGradient } from "expo-linear-gradient";
 import { designTokens } from "src/theme/designTokens";
+
+const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 
 interface SkeletonProps {
   width?: number | string;
@@ -15,30 +25,30 @@ export const Skeleton: React.FC<SkeletonProps> = ({
   variant = "rect",
   style,
 }) => {
-  const opacity = useRef(new Animated.Value(0.3)).current;
+  const shimmer = useSharedValue(0);
+  const [containerWidth, setContainerWidth] = useState(0);
 
   useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0.3,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    animation.start();
-    return () => animation.stop();
-  }, [opacity]);
+    shimmer.value = withRepeat(withTiming(1, { duration: 1200 }), -1, false);
+  }, []);
 
-  const skeletonStyle = {
-    width,
-    height,
+  const handleLayout = (event: LayoutChangeEvent) => {
+    setContainerWidth(event.nativeEvent.layout.width);
+  };
+
+  const shimmerStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateX: containerWidth
+          ? interpolate(shimmer.value, [0, 1], [-containerWidth, containerWidth])
+          : 0,
+      },
+    ],
+  }));
+
+  const skeletonStyle: ViewStyle = {
+    width: width as DimensionValue,
+    height: height as DimensionValue,
     backgroundColor: designTokens.colors.system.background.secondary,
     borderRadius:
       variant === "circle"
@@ -46,17 +56,28 @@ export const Skeleton: React.FC<SkeletonProps> = ({
           ? height / 2
           : 9999
         : designTokens.borderRadius.sm,
+    overflow: "hidden",
   };
 
-  const animatedStyle = {
-    opacity,
-  };
-
-  return <Animated.View style={[styles.skeleton, skeletonStyle, animatedStyle, style]} />;
+  return (
+    <View style={[styles.skeleton, skeletonStyle, style]} onLayout={handleLayout}>
+      {containerWidth > 0 && (
+        <AnimatedLinearGradient
+          colors={["transparent", "rgba(255,255,255,0.15)", "transparent"]}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={[styles.shimmer, shimmerStyle]}
+        />
+      )}
+    </View>
+  );
 };
 
 const styles = StyleSheet.create({
   skeleton: {
-    // Base styles for the skeleton
+    position: "relative",
+  },
+  shimmer: {
+    ...StyleSheet.absoluteFillObject,
   },
 });
