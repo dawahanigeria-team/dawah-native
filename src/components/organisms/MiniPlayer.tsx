@@ -643,7 +643,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                       color="secondaryLabel"
                       style={{ marginLeft: 4 }}
                     >
-                      {Math.round(downloadProgress)}%
+                      {Math.round(downloadProgress * 100)}%
                     </Text>
                   </View>
                 ) : (

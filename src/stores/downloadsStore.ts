@@ -74,7 +74,6 @@ const resumeDownload = async (lectureId: string) => {
 
 const cancelDownload = async (lectureId: string) => {
   await downloadQueueService.cancelDownload(lectureId);
-  await downloadsService.deleteLecture(lectureId);
 };
 
 const deleteLecture = async (lectureId: string) => {
