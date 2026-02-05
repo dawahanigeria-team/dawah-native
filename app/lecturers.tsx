@@ -46,6 +46,7 @@ export default function LecturersScreen() {
   const prevDebouncedQuery = useRef<string | null>(null);
   const prevNormalizedState = useRef<string | null>(null);
   const lecturerLanguageByIdRef = useRef<Map<string, string>>(new Map());
+  const lecturerImageByIdRef = useRef<Map<string, string>>(new Map());
 
   const resolveLecturerLanguage = useCallback((item: Lecturer): string => {
     const candidate =
@@ -57,6 +58,33 @@ export default function LecturersScreen() {
 
     return candidate || "Unknown";
   }, []);
+
+  const normalizeRemoteUrl = useCallback((url?: string): string => {
+    if (!url) {
+      return "";
+    }
+    if (!/^https?:\/\//i.test(url)) {
+      return url;
+    }
+    try {
+      return encodeURI(decodeURI(url));
+    } catch {
+      return encodeURI(url);
+    }
+  }, []);
+
+  const resolveLecturerImage = useCallback((item: Lecturer): string => {
+    const candidate =
+      item.rp_thumbnail ||
+      item.img ||
+      (item as any).rp_image ||
+      (item as any).image ||
+      (item as any).avatarUrl ||
+      lecturerImageByIdRef.current.get(String(item.id)) ||
+      "";
+
+    return normalizeRemoteUrl(candidate);
+  }, [normalizeRemoteUrl]);
 
   const normalizedState = useMemo(() => {
     if (!selectedLocation) return null;
@@ -112,11 +140,16 @@ export default function LecturersScreen() {
       const normalizedLecturers = response.data.map((item) => ({
         ...item,
         language: resolveLecturerLanguage(item),
+        rp_thumbnail: resolveLecturerImage(item) || item.rp_thumbnail,
       }));
 
       normalizedLecturers.forEach((item) => {
         if (item.language && item.language !== "Unknown") {
           lecturerLanguageByIdRef.current.set(String(item.id), item.language);
+        }
+        const imageUrl = resolveLecturerImage(item);
+        if (imageUrl) {
+          lecturerImageByIdRef.current.set(String(item.id), imageUrl);
         }
       });
 
@@ -186,6 +219,7 @@ export default function LecturersScreen() {
       const normalizedResults = results.map((item) => ({
         ...item,
         language: resolveLecturerLanguage(item),
+        rp_thumbnail: resolveLecturerImage(item) || item.rp_thumbnail,
       }));
       setLecturers(normalizedResults);
       setTotalScholars(normalizedResults.length);
@@ -297,7 +331,7 @@ export default function LecturersScreen() {
         <LecturerCard
           id={String(item.id)}
           name={item.name}
-          imageUrl={item.rp_thumbnail || item.img}
+          imageUrl={resolveLecturerImage(item)}
           totalLectures={item.total_lectures}
           followers={item.followers || item.views}
           language={item.language}
@@ -307,7 +341,7 @@ export default function LecturersScreen() {
         />
       </View>
     ),
-    [handleLecturerPress]
+    [handleLecturerPress, resolveLecturerImage]
   );
 
   const renderEmptyState = useCallback(() => {
