@@ -230,6 +230,31 @@ class ApiClient {
   }
 
   /**
+   * Expose cached response for a specific request (used for stale-on-timeout fallback).
+   */
+  public async getCachedResponse<T = any>(
+    endpoint: string,
+    params?: Record<string, any>,
+    method: string = 'GET',
+  ): Promise<ApiResponse<T> | null> {
+    const url = this.buildUrl(endpoint, params);
+    const cacheKey = this.getCacheKey(url, method);
+    const cachedData = await this.getCachedData(cacheKey);
+
+    if (cachedData === null) {
+      return null;
+    }
+
+    return {
+      data: cachedData as T,
+      status: 200,
+      headers: new Headers(),
+      cached: true,
+      timestamp: Date.now(),
+    };
+  }
+
+  /**
    * Set cached data
    */
   private async setCachedData(key: string, data: any, ttl: number): Promise<void> {

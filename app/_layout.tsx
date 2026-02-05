@@ -18,7 +18,7 @@ import { AudioProvider } from "../src/components/providers/AudioProvider";
 import { UpdatesProvider } from "../src/components/providers/UpdatesProvider";
 import { usePushNotifications } from "../src/hooks/usePushNotifications";
 import { offlineFirstApi } from "../src/services/cache/offlineFirst.api";
-import { initSentry, Sentry } from "../src/services/config/sentry.config";
+import { captureSentryException, initSentry, Sentry } from "../src/services/config/sentry.config";
 import { downloadsService } from "../src/services/downloads.service";
 import { linkingService } from "../src/services/linking.service";
 import { getNotificationRouteFromData } from "../src/services/notifications.service";
