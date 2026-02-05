@@ -26,7 +26,19 @@ export const loadQueueSnapshot = async (): Promise<QueueSnapshot | null> => {
   if (!raw) {
     return null
   }
-  return JSON.parse(raw) as QueueSnapshot
+  try {
+    const parsed = JSON.parse(raw)
+    if (
+      !Array.isArray(parsed?.trackIds) ||
+      typeof parsed?.currentIndex !== 'number' ||
+      typeof parsed?.position !== 'number'
+    ) {
+      return null
+    }
+    return parsed as QueueSnapshot
+  } catch {
+    return null
+  }
 }
 
 export const clearQueueSnapshot = async (): Promise<void> => {

@@ -24,6 +24,7 @@ const initialState: PlayerState = {
   isDownloaded: false,
   isDownloading: false,
   downloadProgress: 0,
+  errorMessage: null,
   queue: [],
   currentQueueIndex: -1,
   isShuffled: false,
@@ -98,6 +99,8 @@ function buildLockScreenInfo(episode: Episode): { title: string; artist: string;
   };
 }
 
+let currentPlayRequestId = 0;
+
 const resolvePlaybackUri = (episode: Episode): string => {
   if (!episode.audioUrl) {
     return '';
@@ -106,9 +109,12 @@ const resolvePlaybackUri = (episode: Episode): string => {
   return downloadsService.getPlaybackUri(episode.id, episode.audioUrl);
 };
 
-const waitForPlaybackReady = async (timeoutMs: number) => {
+const waitForPlaybackReady = async (timeoutMs: number, requestId: number) => {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
+    if (requestId !== currentPlayRequestId) {
+      throw new Error('Playback superseded');
+    }
     const playbackState = await TrackPlayer.getPlaybackState();
     const state =
       typeof playbackState === 'object' && playbackState !== null && 'state' in playbackState
@@ -158,6 +164,7 @@ const persistQueueSnapshot = (state: PlayerState) => {
 // ----------------------------------------------------------------------
 
 const playEpisode = async (episode: Episode) => {
+  const requestId = ++currentPlayRequestId;
   logger.debug('🎮 PlayerStore: playEpisode called with:', episode.title);
 
   addSentryBreadcrumb(
@@ -199,7 +206,6 @@ const playEpisode = async (episode: Episode) => {
         persistQueueSnapshot(nextState);
       } else {
         logger.debug('⏸️ PlayerStore: Already playing this episode');
-        // Just show the mini player if it's hidden
         setAndPersistPlayerState({
           ...currentState,
           isExpanded: false,
@@ -216,13 +222,12 @@ const playEpisode = async (episode: Episode) => {
       isPlaying: false,
       progress: 0,
       duration: episode.durationSec,
-      isExpanded: false,  // Changed to false - show mini player by default
+      isExpanded: false,
       isLoading: true,
     });
 
     // Load and play the audio (use downloaded file if available)
     if (episode.audioUrl) {
-      // Check if lecture is downloaded, use local file if available
       const playbackUri = resolvePlaybackUri(episode);
       const isOffline = downloadsService.isDownloaded(episode.id);
 
@@ -236,13 +241,19 @@ const playEpisode = async (episode: Episode) => {
       const tracks = buildQueue(queue, resolvePlaybackUri);
 
       await ensureTrackPlayerReady();
+      if (requestId !== currentPlayRequestId) return;
+
       await TrackPlayer.reset();
       await TrackPlayer.add(tracks);
       await TrackPlayer.skip(0);
 
+      if (requestId !== currentPlayRequestId) return;
+
       logger.debug('▶️ PlayerStore: Starting playback...');
       await TrackPlayer.play();
-      await waitForPlaybackReady(60000);
+      await waitForPlaybackReady(60000, requestId);
+
+      if (requestId !== currentPlayRequestId) return;
 
       audioControls.setLockScreenInfo(buildLockScreenInfo(episode));
 
@@ -254,7 +265,6 @@ const playEpisode = async (episode: Episode) => {
         logger.error('Failed to add to history', error as Error, {
           episodeId: episode.id,
         });
-        // Don't block playback if history fails
       }
 
       // Update state after successful play
@@ -267,6 +277,7 @@ const playEpisode = async (episode: Episode) => {
         isPlaying: true,
         isLoading: false,
         isDownloaded: isOffline,
+        errorMessage: null,
       };
       setAndPersistPlayerState(nextState);
       persistQueueSnapshot(nextState);
@@ -281,6 +292,8 @@ const playEpisode = async (episode: Episode) => {
       );
     }
   } catch (error) {
+    if (requestId !== currentPlayRequestId) return;
+
     const err = error as Error;
     const message = err?.message ?? '';
     const isTimeout = message.toLowerCase().includes('timeout');
@@ -321,9 +334,8 @@ const playEpisode = async (episode: Episode) => {
       isPlaying: false,
       isLoading: false,
       currentEpisode: episode,
+      errorMessage,
     });
-
-    logger.warn('⚠️ User message:', errorMessage);
   }
 };
 

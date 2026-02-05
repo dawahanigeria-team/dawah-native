@@ -370,22 +370,28 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         }
         await TrackPlayer.play()
         return
-      } catch {
-        // Ignore retry failure and attempt to advance
+      } catch (retryError) {
+        addSentryBreadcrumb('PlaybackError recovery: seek-back retry failed', 'error', {
+          error: (retryError as Error).message,
+        })
       }
 
       try {
         await TrackPlayer.skipToNext()
         await TrackPlayer.play()
         return
-      } catch {
-        // Fall through to stop
+      } catch (skipError) {
+        addSentryBreadcrumb('PlaybackError recovery: skip-to-next failed', 'error', {
+          error: (skipError as Error).message,
+        })
       }
 
       try {
         await TrackPlayer.stop()
-      } catch {
-        // Ignore stop failure
+      } catch (stopError) {
+        addSentryBreadcrumb('PlaybackError recovery: stop failed', 'error', {
+          error: (stopError as Error).message,
+        })
       }
 
       playerStore.set({

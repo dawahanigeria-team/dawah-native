@@ -71,8 +71,12 @@ const registerRemoteEventHandlers = () => {
       paused: event.paused,
       permanent: event.permanent,
     })
-    if (event.paused) {
+    if (event.permanent) {
+      void safeCall(() => TrackPlayer.stop())
+    } else if (event.paused) {
       void safeCall(() => TrackPlayer.pause())
+    } else {
+      void safeCall(() => TrackPlayer.play())
     }
   })
 }

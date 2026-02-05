@@ -73,6 +73,7 @@ export interface PlayerState {
   isDownloaded: boolean;
   isDownloading: boolean;
   downloadProgress: number;
+  errorMessage: string | null;
   // Queue management
   queue: Episode[];
   currentQueueIndex: number;
