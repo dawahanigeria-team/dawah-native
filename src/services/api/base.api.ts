@@ -397,7 +397,7 @@ class ApiClient {
       const jitter = Math.random() * 0.3 * delay;
       const totalDelay = delay + jitter;
 
-      console.log(`Retrying request (attempt ${attempt}/${maxAttempts}) after ${totalDelay}ms`);
+      if (__DEV__) console.log(`Retrying request (attempt ${attempt}/${maxAttempts}) after ${totalDelay}ms`);
 
       await this.waitForDelayOrCancel(totalDelay, requestToken);
       return this.retryRequest(url, config, requestId, requestToken, attempt + 1);
@@ -445,7 +445,7 @@ class ApiClient {
         const cachedData = await this.getCachedData(cacheKey);
 
         if (cachedData) {
-          console.log(`Cache hit for ${url}`);
+          if (__DEV__) console.log(`Cache hit for ${url}`);
           return {
             data: cachedData,
             status: 200,
@@ -487,20 +487,13 @@ class ApiClient {
         }
       }
 
-      // Log the actual HTTP request being made
-      console.log('🌐 HTTP Request:', {
-        method,
-        url,
-        headers: requestConfig.headers,
-        hasBody: !!requestConfig.body,
-        body: requestConfig.body
-          ? isFormData
-            ? '[FormData]'
-            : typeof requestConfig.body === 'string'
-              ? requestConfig.body
-              : JSON.stringify(requestConfig.body)
-          : null,
-      });
+      if (__DEV__) {
+        console.log('🌐 HTTP Request:', {
+          method,
+          url,
+          hasBody: !!requestConfig.body,
+        });
+      }
 
       // Add breadcrumb for Sentry tracking
       addSentryBreadcrumb(
@@ -517,13 +510,13 @@ class ApiClient {
       // Execute request with retry logic
       const response = await this.retryRequest(url, requestConfig, requestId, requestToken);
 
-      // Log HTTP response status
-      console.log('📡 HTTP Response:', {
-        url,
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-      });
+      if (__DEV__) {
+        console.log('📡 HTTP Response:', {
+          url,
+          status: response.status,
+          ok: response.ok,
+        });
+      }
 
       const responseText = await response.text();
       const tryParseJson = (text: string) => {
@@ -581,14 +574,13 @@ class ApiClient {
       }
       const data = parsedBody;
 
-      // Log parsed response data
-      console.log('📦 Parsed Response Data:', {
-        hasData: !!data,
-        dataType: typeof data,
-        isArray: Array.isArray(data),
-        dataKeys: data && typeof data === 'object' ? Object.keys(data).slice(0, 10) : [],
-        sampleData: Array.isArray(data) ? data[0] : (data && typeof data === 'object' ? Object.keys(data).slice(0, 5) : data),
-      });
+      if (__DEV__) {
+        console.log('📦 Parsed Response Data:', {
+          hasData: !!data,
+          dataType: typeof data,
+          isArray: Array.isArray(data),
+        });
+      }
 
       // Cache successful GET requests
       if (method === 'GET' && config.useCache !== false) {
@@ -614,7 +606,7 @@ class ApiClient {
         throw error;
       }
 
-      console.log('Error caught in base.api.ts request method:', error);
+      if (__DEV__) console.log('Error caught in base.api.ts request method:', error);
 
       // Handle network errors (avoid web-only navigator.onLine on native)
       const isNavigatorOffline =
@@ -761,7 +753,7 @@ class ApiClient {
 
       if (cacheKeys.length > 0) {
         await AsyncStorage.multiRemove(cacheKeys);
-        console.log(`Cleared ${cacheKeys.length} cache entries`);
+        if (__DEV__) console.log(`Cleared ${cacheKeys.length} cache entries`);
       }
     } catch (error) {
       console.error('Failed to clear cache:', error);

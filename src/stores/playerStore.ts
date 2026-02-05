@@ -660,37 +660,43 @@ const setLoading = (isLoading: boolean) => {
   });
 };
 
-const downloadEpisode = (_episode: Episode) => {
-  const state = playerStore.get();
+const downloadEpisode = async (episode: Episode) => {
   setAndPersistPlayerState({
-    ...state,
+    ...playerStore.get(),
     isDownloading: true,
     downloadProgress: 0,
   });
 
-  const simulateDownload = () => {
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += Math.random() * 0.1;
-      if (progress >= 1) {
-        progress = 1;
-        clearInterval(interval);
-        setAndPersistPlayerState({
-          ...playerStore.get(),
-          isDownloading: false,
-          isDownloaded: true,
-          downloadProgress: 1,
-        });
-      } else {
-        setAndPersistPlayerState({
-          ...playerStore.get(),
-          downloadProgress: progress,
-        });
-      }
-    }, 200);
-  };
+  try {
+    await downloadsService.downloadLecture(episode, (progress) => {
+      setAndPersistPlayerState({
+        ...playerStore.get(),
+        downloadProgress: progress.progress,
+      });
+    });
 
-  simulateDownload();
+    setAndPersistPlayerState({
+      ...playerStore.get(),
+      isDownloading: false,
+      isDownloaded: true,
+      downloadProgress: 1,
+    });
+  } catch (error) {
+    logger.error('Failed to download episode', error as Error, {
+      episodeId: episode.id,
+      title: episode.title,
+    });
+    captureSentryException(error as Error, {
+      action: 'downloadEpisode',
+      episodeId: episode.id,
+    });
+
+    setAndPersistPlayerState({
+      ...playerStore.get(),
+      isDownloading: false,
+      downloadProgress: 0,
+    });
+  }
 };
 
 const closePlayer = () => {

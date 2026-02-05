@@ -1,11 +1,14 @@
 import TrackPlayer, { Event } from 'react-native-track-player'
-import { addSentryBreadcrumb } from './config/sentry.config'
+import { addSentryBreadcrumb, captureSentryException } from './config/sentry.config'
 
 const safeCall = async (action: () => Promise<void> | void): Promise<void> => {
   try {
     await action()
-  } catch {
-    // Swallow errors to avoid crashing background service
+  } catch (error) {
+    captureSentryException(error as Error, {
+      component: 'playbackService',
+      action: 'remoteEvent',
+    })
   }
 }
 
