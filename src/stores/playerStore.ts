@@ -859,6 +859,7 @@ const clearQueue = () => {
     ...playerStore.get(),
     queue: [],
     currentQueueIndex: -1,
+    currentEpisode: null,
     isShuffled: false,
   });
   void ensureTrackPlayerReady()
