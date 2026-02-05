@@ -5,6 +5,10 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
+    "assetBundlePatterns": [
+      "assets/**/*",
+      "node_modules/**/node_modules/@expo/vector-icons/**/Fonts/*"
+    ],
     "scheme": "dawahnigeria",
     "userInterfaceStyle": "automatic",
     "ios": {

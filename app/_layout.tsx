@@ -1,6 +1,8 @@
 import * as Notifications from "expo-notifications";
 import { Stack, usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { Ionicons } from "@expo/vector-icons";
+import { useFonts } from "expo-font";
 import { useEffect, useRef } from "react";
 import { Linking, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -109,9 +111,20 @@ function RootLayout() {
   const hasInitializedApp = useRef(false);
   const { isDark } = useTheme();
   const { expandPlayer } = usePlayerActions();
+  const [fontsLoaded, fontError] = useFonts(Ionicons.font);
 
   usePushNotifications();
   useNotificationObserver();
+
+  useEffect(() => {
+    if (fontError) {
+      captureSentryException(fontError, {
+        component: "RootLayout",
+        action: "loadFonts",
+        level: "warning",
+      });
+    }
+  }, [fontError]);
 
   useEffect(() => {
     if (!__DEV__) return;
@@ -215,6 +228,14 @@ function RootLayout() {
   const shouldShowMiniPlayer = !pathname.startsWith("/lecture/");
 
   const isHydrating = isNavigationLoading || isPlayerStateLoading;
+
+  if (!fontsLoaded) {
+    return (
+      <SafeAreaProvider>
+        <Loading fullScreen message="Loading assets..." />
+      </SafeAreaProvider>
+    );
+  }
 
   return (
     <SafeAreaProvider>
