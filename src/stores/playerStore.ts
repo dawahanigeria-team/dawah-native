@@ -481,7 +481,19 @@ const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: b
       startIndex = safeStartIndex;
     }
 
-    const tracks = buildQueue(queue, resolvePlaybackUri).filter((track) => track.url);
+    const filteredQueue = queue.filter((episode) => resolvePlaybackUri(episode));
+    if (filteredQueue.length === 0) {
+      logger.error('No valid tracks with audio URLs', new Error('No playable tracks'));
+      return;
+    }
+
+    const targetEpisode = queue[startIndex];
+    const filteredStartIndex = targetEpisode
+      ? filteredQueue.findIndex((episode) => String(episode.id) === String(targetEpisode.id))
+      : 0;
+    const safeFilteredStartIndex = filteredStartIndex >= 0 ? filteredStartIndex : 0;
+
+    const tracks = buildQueue(filteredQueue, resolvePlaybackUri);
     if (tracks.length === 0) {
       logger.error('No valid tracks with audio URLs', new Error('No playable tracks'));
       return;
@@ -490,14 +502,14 @@ const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: b
     await ensureTrackPlayerReady();
     await TrackPlayer.reset();
     await TrackPlayer.add(tracks);
-    await TrackPlayer.skip(startIndex);
+    await TrackPlayer.skip(safeFilteredStartIndex);
     await TrackPlayer.play();
 
     const nextState = {
       ...playerStore.get(),
-      queue,
-      currentQueueIndex: startIndex,
-      currentEpisode: queue[startIndex],
+      queue: filteredQueue,
+      currentQueueIndex: safeFilteredStartIndex,
+      currentEpisode: filteredQueue[safeFilteredStartIndex],
       isShuffled: shuffle,
       isPlaying: true,
       isLoading: false,
