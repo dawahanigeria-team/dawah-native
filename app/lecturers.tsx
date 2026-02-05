@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { LecturerCard } from "../src/components/molecules/LecturerCard";
 import { LecturerCardSkeleton } from "../src/components/molecules/LecturerCard.skeleton";
 import { Lecturer, lecturersApi } from "../src/services/api/lecturers.api";
+import { ApiError } from "../src/services/api/base.api";
 import { useTheme } from "../src/hooks/useTheme";
 import tw from "../src/theme/twrnc";
 
@@ -129,6 +130,9 @@ export default function LecturersScreen() {
       }
 
     } catch (err) {
+      if (err instanceof ApiError && err.isCancelled) {
+        return;
+      }
       console.error('Failed to fetch lecturers:', err);
       setError('Failed to load scholars');
     } finally {
@@ -158,6 +162,9 @@ export default function LecturersScreen() {
       setLecturers(results);
       setTotalScholars(results.length);
     } catch (err) {
+      if (err instanceof ApiError && err.isCancelled) {
+        return;
+      }
       console.error('Failed to search lecturers:', err);
       setError('Failed to search scholars');
     } finally {
