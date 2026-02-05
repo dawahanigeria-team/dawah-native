@@ -236,7 +236,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
             await TrackPlayer.reset()
             await TrackPlayer.add(tracks)
 
-            const safeIndex = Math.max(0, Math.min(snapshot.currentIndex, queue.length - 1))
+            const safeIndex = Math.max(0, Math.min(snapshot.currentIndex, tracks.length - 1))
             await TrackPlayer.skip(safeIndex)
 
             if (snapshot.position > 0) {

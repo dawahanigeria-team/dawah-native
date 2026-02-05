@@ -117,6 +117,9 @@ const waitForPlaybackReady = async (timeoutMs: number) => {
     if (state === State.Playing || state === State.Buffering || state === State.Ready) {
       return;
     }
+    if (state === State.Error) {
+      throw new Error('Audio playback error');
+    }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
 
