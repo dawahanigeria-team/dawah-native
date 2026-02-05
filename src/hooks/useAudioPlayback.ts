@@ -111,6 +111,8 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
   const [isReady, setIsReady] = useState(false)
   const volumeRef = useRef(1)
   const rateRef = useRef(1)
+  const onStatusUpdateRef = useRef<AudioPlaybackConfig['onPlaybackStatusUpdate']>()
+  const onPlaybackFinishedRef = useRef<AudioPlaybackConfig['onPlaybackFinished']>()
 
   const playbackState = usePlaybackState()
   const progress = useProgress(500)
@@ -128,15 +130,18 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
     [playbackState, progress, activeTrack]
   )
 
+  useEffect(() => {
+    onStatusUpdateRef.current = config?.onPlaybackStatusUpdate
+    onPlaybackFinishedRef.current = config?.onPlaybackFinished
+  }, [config?.onPlaybackFinished, config?.onPlaybackStatusUpdate])
+
   useTrackPlayerEvents([Event.PlaybackQueueEnded], () => {
-    config?.onPlaybackFinished?.()
+    onPlaybackFinishedRef.current?.()
   })
 
   useEffect(() => {
-    if (config?.onPlaybackStatusUpdate) {
-      config.onPlaybackStatusUpdate(status)
-    }
-  }, [config, status])
+    onStatusUpdateRef.current?.(status)
+  }, [status])
 
   const loadAudio = async (uri: string): Promise<void> => {
     const normalizedUri = sanitizeAudioUri(uri)

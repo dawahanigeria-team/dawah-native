@@ -332,6 +332,26 @@ const playNext = async () => {
     return;
   }
 
+  if (repeatMode === 'one' && currentState.currentEpisode) {
+    logger.debug('🔂 PlayerStore: Repeat one, replaying current episode');
+    if (audioControls) {
+      try {
+        audioControls.seekTo(0);
+        audioControls.play();
+      } catch (error) {
+        logger.error('Failed to restart current episode', error as Error);
+      }
+    }
+    const nextState = {
+      ...currentState,
+      isPlaying: true,
+      progress: 0,
+    };
+    setAndPersistPlayerState(nextState);
+    persistQueueSnapshot(nextState);
+    return;
+  }
+
   try {
     await ensureTrackPlayerReady();
     await TrackPlayer.skipToNext();
@@ -438,10 +458,11 @@ const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: b
 
   try {
     let queue = [...episodes];
+    const safeStartIndex = Math.max(0, Math.min(startIndex, queue.length - 1));
 
     if (shuffle) {
-      const startEpisode = queue[startIndex];
-      const remaining = queue.filter((_, i) => i !== startIndex);
+      const startEpisode = queue[safeStartIndex];
+      const remaining = queue.filter((_, i) => i !== safeStartIndex);
       // Fisher-Yates shuffle
       for (let i = remaining.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -449,9 +470,15 @@ const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: b
       }
       queue = [startEpisode, ...remaining];
       startIndex = 0;
+    } else {
+      startIndex = safeStartIndex;
     }
 
-    const tracks = buildQueue(queue, resolvePlaybackUri);
+    const tracks = buildQueue(queue, resolvePlaybackUri).filter((track) => track.url);
+    if (tracks.length === 0) {
+      logger.error('No valid tracks with audio URLs', new Error('No playable tracks'));
+      return;
+    }
 
     await ensureTrackPlayerReady();
     await TrackPlayer.reset();

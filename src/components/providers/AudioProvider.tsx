@@ -49,10 +49,10 @@ const TRACK_PLAYER_SETUP_CONFIG = {
   autoHandleInterruptions: true,
   autoUpdateMetadata: true,
   // Buffer tuning for smoother seeks and fewer stalls on long audio
-  minBuffer: 15,
-  maxBuffer: 60,
-  playBuffer: 3,
-  backBuffer: 30,
+  minBuffer: 30,
+  maxBuffer: 120,
+  playBuffer: 5,
+  backBuffer: 60,
   maxCacheSize: 51200, // 50 MB in KB
 }
 
@@ -144,6 +144,7 @@ const persistQueueSnapshot = (state: PlayerState) => {
 export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   const isInitializedRef = useRef(false)
   const hasRestoredRef = useRef(false)
+  const isRestoringRef = useRef(false)
   const lastSnapshotAtRef = useRef(0)
 
   useEffect(() => {
@@ -190,73 +191,88 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
           interruptionsHandled: true,
         })
 
-        if (!hasRestoredRef.current) {
-          hasRestoredRef.current = true
-          const snapshot = await loadQueueSnapshot()
-          if (!snapshot || snapshot.trackIds.length === 0) return
-
-          const episodes: Episode[] = []
-          for (const id of snapshot.trackIds) {
-            const downloaded = downloadsService.getDownloadMetadata(id)
-            if (downloaded) {
-              episodes.push(downloadMetadataToEpisode(downloaded))
-              continue
+        if (!hasRestoredRef.current && !isRestoringRef.current) {
+          isRestoringRef.current = true
+          try {
+            const snapshot = await loadQueueSnapshot()
+            if (!snapshot || snapshot.trackIds.length === 0) {
+              hasRestoredRef.current = true
+              return
             }
 
-            try {
-              const detail = await lectureDetailApi.getLectureDetail({ lectureId: id, useCache: true })
-              episodes.push(detailToEpisode(detail))
-            } catch (error) {
-              captureSentryException(error as Error, {
-                component: 'AudioProvider',
-                action: 'restoreQueue',
-                lectureId: id,
-                level: 'warning',
-              })
+            const episodes: Episode[] = []
+            for (const id of snapshot.trackIds) {
+              const downloaded = downloadsService.getDownloadMetadata(id)
+              if (downloaded) {
+                episodes.push(downloadMetadataToEpisode(downloaded))
+                continue
+              }
+
+              try {
+                const detail = await lectureDetailApi.getLectureDetail({ lectureId: id, useCache: true })
+                episodes.push(detailToEpisode(detail))
+              } catch (error) {
+                captureSentryException(error as Error, {
+                  component: 'AudioProvider',
+                  action: 'restoreQueue',
+                  lectureId: id,
+                  level: 'warning',
+                })
+              }
             }
+
+            if (!episodes.length) {
+              hasRestoredRef.current = true
+              return
+            }
+
+            const queue = episodes
+            const tracks = buildQueue(queue, resolvePlaybackUri).filter((track) => track.url)
+            if (!tracks.length) {
+              hasRestoredRef.current = true
+              return
+            }
+
+            await TrackPlayer.reset()
+            await TrackPlayer.add(tracks)
+
+            const safeIndex = Math.max(0, Math.min(snapshot.currentIndex, queue.length - 1))
+            await TrackPlayer.skip(safeIndex)
+
+            if (snapshot.position > 0) {
+              await TrackPlayer.seekTo(snapshot.position)
+            }
+
+            const repeatModeValue =
+              snapshot.repeatMode === 'one'
+                ? RepeatMode.Track
+                : snapshot.repeatMode === 'all'
+                  ? RepeatMode.Queue
+                  : RepeatMode.Off
+            await TrackPlayer.setRepeatMode(repeatModeValue)
+
+            if (snapshot.playbackRate) {
+              await TrackPlayer.setRate(snapshot.playbackRate)
+            }
+
+            const currentEpisode = queue[safeIndex]
+            playerStore.set({
+              ...playerStore.get(),
+              queue,
+              currentQueueIndex: safeIndex,
+              currentEpisode,
+              progress: snapshot.position ?? 0,
+              duration: currentEpisode?.durationSec ?? 0,
+              playbackSpeed: snapshot.playbackRate ?? 1,
+              repeatMode: snapshot.repeatMode ?? 'off',
+              isShuffled: snapshot.isShuffled ?? false,
+              isPlaying: false,
+            })
+
+            hasRestoredRef.current = true
+          } finally {
+            isRestoringRef.current = false
           }
-
-          if (!episodes.length) return
-
-          const queue = episodes
-          const tracks = buildQueue(queue, resolvePlaybackUri).filter((track) => track.url)
-          if (!tracks.length) return
-
-          await TrackPlayer.reset()
-          await TrackPlayer.add(tracks)
-
-          const safeIndex = Math.max(0, Math.min(snapshot.currentIndex, queue.length - 1))
-          await TrackPlayer.skip(safeIndex)
-
-          if (snapshot.position > 0) {
-            await TrackPlayer.seekTo(snapshot.position)
-          }
-
-          const repeatModeValue =
-            snapshot.repeatMode === 'one'
-              ? RepeatMode.Track
-              : snapshot.repeatMode === 'all'
-                ? RepeatMode.Queue
-                : RepeatMode.Off
-          await TrackPlayer.setRepeatMode(repeatModeValue)
-
-          if (snapshot.playbackRate) {
-            await TrackPlayer.setRate(snapshot.playbackRate)
-          }
-
-          const currentEpisode = queue[safeIndex]
-          playerStore.set({
-            ...playerStore.get(),
-            queue,
-            currentQueueIndex: safeIndex,
-            currentEpisode,
-            progress: snapshot.position ?? 0,
-            duration: currentEpisode?.durationSec ?? 0,
-            playbackSpeed: snapshot.playbackRate ?? 1,
-            repeatMode: snapshot.repeatMode ?? 'off',
-            isShuffled: snapshot.isShuffled ?? false,
-            isPlaying: false,
-          })
         }
       } catch (error) {
         captureSentryException(error as Error, {
