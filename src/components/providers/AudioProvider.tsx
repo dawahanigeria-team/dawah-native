@@ -227,7 +227,12 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
             }
 
             const queue = episodes
-            const tracks = buildQueue(queue, resolvePlaybackUri).filter((track) => track.url)
+            const filteredQueue = queue.filter((episode) => resolvePlaybackUri(episode))
+            if (!filteredQueue.length) {
+              hasRestoredRef.current = true
+              return
+            }
+            const tracks = buildQueue(filteredQueue, resolvePlaybackUri)
             if (!tracks.length) {
               hasRestoredRef.current = true
               return
@@ -236,7 +241,14 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
             await TrackPlayer.reset()
             await TrackPlayer.add(tracks)
 
-            const safeIndex = Math.max(0, Math.min(snapshot.currentIndex, tracks.length - 1))
+            const snapshotTrackId = snapshot.trackIds[snapshot.currentIndex]
+            const matchedIndex = snapshotTrackId
+              ? filteredQueue.findIndex((episode) => String(episode.id) === String(snapshotTrackId))
+              : -1
+            const safeIndex =
+              matchedIndex >= 0
+                ? matchedIndex
+                : Math.max(0, Math.min(snapshot.currentIndex, tracks.length - 1))
             await TrackPlayer.skip(safeIndex)
 
             if (snapshot.position > 0) {
@@ -255,10 +267,10 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
               await TrackPlayer.setRate(snapshot.playbackRate)
             }
 
-            const currentEpisode = queue[safeIndex]
+            const currentEpisode = filteredQueue[safeIndex]
             playerStore.set({
               ...playerStore.get(),
-              queue,
+              queue: filteredQueue,
               currentQueueIndex: safeIndex,
               currentEpisode,
               progress: snapshot.position ?? 0,
