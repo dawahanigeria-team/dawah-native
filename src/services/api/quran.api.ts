@@ -58,15 +58,14 @@ class QuranApiService {
    */
   async getQuranAlbums(params: QuranAlbumsParams = {}): Promise<QuranAlbumsResponse> {
     const { page = 1, limit = 20 } = params;
+    const requestParams = {
+      action: 'get_quran_album',
+      page: page.toString(),
+      limit: limit.toString(),
+    };
 
     try {
       addSentryBreadcrumb('Fetching Quran albums', 'query', { page, limit });
-
-      const requestParams = {
-        action: 'get_quran_album',
-        page: page.toString(),
-        limit: limit.toString(),
-      };
 
       const response = await apiClient.get<any>(
         '/api/dn_quran_api.php',
