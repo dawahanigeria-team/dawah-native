@@ -112,6 +112,8 @@ function RootLayout() {
   const { isDark } = useTheme();
   const { expandPlayer } = usePlayerActions();
   const { currentEpisode } = usePlayerStore();
+  const currentEpisodeRef = useRef<typeof currentEpisode | null>(null);
+  const pendingPlayerNavigationRef = useRef(false);
   const [fontsLoaded, fontError] = useFonts(Ionicons.font);
 
   usePushNotifications();
@@ -187,11 +189,19 @@ function RootLayout() {
 
   // Handle deep links when app opens
   useEffect(() => {
+    currentEpisodeRef.current = currentEpisode;
+  }, [currentEpisode]);
+
+  useEffect(() => {
     const navigateToPlayer = () => {
       expandPlayer();
-      if (currentEpisode?.id) {
-        router.push(`/lecture/${currentEpisode.id}` as any);
+      const episodeId = currentEpisodeRef.current?.id;
+      if (episodeId) {
+        pendingPlayerNavigationRef.current = false;
+        router.push(`/lecture/${episodeId}` as any);
+        return;
       }
+      pendingPlayerNavigationRef.current = true;
     };
 
     const handleDeepLink = async () => {
@@ -236,6 +246,19 @@ function RootLayout() {
     return () => {
       subscription.remove();
     };
+  }, [expandPlayer, router]);
+
+  useEffect(() => {
+    if (!pendingPlayerNavigationRef.current) {
+      return;
+    }
+    const episodeId = currentEpisode?.id;
+    if (!episodeId) {
+      return;
+    }
+    pendingPlayerNavigationRef.current = false;
+    expandPlayer();
+    router.push(`/lecture/${episodeId}` as any);
   }, [currentEpisode?.id, expandPlayer, router]);
 
   // Hide mini player on lecture detail page since it has full playback controls
