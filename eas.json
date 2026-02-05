@@ -11,7 +11,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_PUSH_REGISTER_URL": "https://backend.dawahbox.com/api/register_push_token.php"
+        "EXPO_PUBLIC_PUSH_REGISTER_URL": "https://backend.dawahbox.com/api/register_push_token.php",
+        "EXPO_PUBLIC_POSTHOG_KEY": "phc_WZcuuwHzWZEmX4PKpoZhL2aQuuRaiVL07LHOs8KlBo6"
       },
       "channel": "development"
     },
@@ -22,7 +23,8 @@
         "gradleCommand": ":app:assembleRelease"
       },
       "env": {
-        "EXPO_PUBLIC_PUSH_REGISTER_URL": "https://backend.dawahbox.com/api/register_push_token.php"
+        "EXPO_PUBLIC_PUSH_REGISTER_URL": "https://backend.dawahbox.com/api/register_push_token.php",
+        "EXPO_PUBLIC_POSTHOG_KEY": "phc_WZcuuwHzWZEmX4PKpoZhL2aQuuRaiVL07LHOs8KlBo6"
       },
       "channel": "preview"
     },
@@ -35,7 +37,8 @@
         "buildConfiguration": "Release"
       },
       "env": {
-        "EXPO_PUBLIC_PUSH_REGISTER_URL": "https://backend.dawahbox.com/api/register_push_token.php"
+        "EXPO_PUBLIC_PUSH_REGISTER_URL": "https://backend.dawahbox.com/api/register_push_token.php",
+        "EXPO_PUBLIC_POSTHOG_KEY": "phc_WZcuuwHzWZEmX4PKpoZhL2aQuuRaiVL07LHOs8KlBo6"
       },
       "channel": "production"
     },
