@@ -26,7 +26,7 @@ import { userService } from "../src/services/user.service";
 import { ENV } from "../src/config/env";
 import { initializeAuth } from "../src/stores/authStore";
 import { fetchFavorites } from "../src/stores/favoritesStore";
-import { usePlayerActions } from "../src/stores";
+import { usePlayerActions, usePlayerStore } from "../src/stores";
  
 
 // Initialize Sentry as early as possible
@@ -111,6 +111,7 @@ function RootLayout() {
   const hasInitializedApp = useRef(false);
   const { isDark } = useTheme();
   const { expandPlayer } = usePlayerActions();
+  const { currentEpisode } = usePlayerStore();
   const [fontsLoaded, fontError] = useFonts(Ionicons.font);
 
   usePushNotifications();
@@ -186,13 +187,23 @@ function RootLayout() {
 
   // Handle deep links when app opens
   useEffect(() => {
+    const navigateToPlayer = () => {
+      expandPlayer();
+      if (currentEpisode?.id) {
+        router.push(`/lecture/${currentEpisode.id}` as any);
+      }
+    };
+
     const handleDeepLink = async () => {
       // Check if app was opened with a URL
       const initialUrl = await linkingService.getInitialURL();
       if (initialUrl) {
         console.log('🔗 App opened with URL:', initialUrl);
-        if (initialUrl.startsWith('trackplayer://')) {
-          expandPlayer();
+        const isPlayerNotification =
+          initialUrl.startsWith('trackplayer://notification.click') ||
+          initialUrl.startsWith('dawahnigeria://notification.click');
+        if (isPlayerNotification) {
+          navigateToPlayer();
           return;
         }
         const parsed = linkingService.parseURL(initialUrl);
@@ -208,8 +219,11 @@ function RootLayout() {
     // Listen for deep links while app is running
     const subscription = Linking.addEventListener('url', (event) => {
       console.log('🔗 Deep link received:', event.url);
-      if (event.url?.startsWith('trackplayer://')) {
-        expandPlayer();
+      const isPlayerNotification =
+        event.url?.startsWith('trackplayer://notification.click') ||
+        event.url?.startsWith('dawahnigeria://notification.click');
+      if (isPlayerNotification) {
+        navigateToPlayer();
         return;
       }
       const parsed = linkingService.parseURL(event.url);
@@ -222,7 +236,7 @@ function RootLayout() {
     return () => {
       subscription.remove();
     };
-  }, [expandPlayer, router]);
+  }, [currentEpisode?.id, expandPlayer, router]);
 
   // Hide mini player on lecture detail page since it has full playback controls
   const shouldShowMiniPlayer = !pathname.startsWith("/lecture/");
