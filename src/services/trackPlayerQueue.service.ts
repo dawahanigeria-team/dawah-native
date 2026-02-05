@@ -1,0 +1,24 @@
+import type { Episode } from '../types/types'
+
+export type TrackPlayerTrack = {
+  id: string
+  url: string
+  title: string
+  artist?: string
+  artwork?: string
+  duration?: number
+}
+
+export const buildTrack = (episode: Episode, url: string): TrackPlayerTrack => ({
+  id: String(episode.id),
+  url,
+  title: episode.title,
+  artist: episode.lecturerName,
+  artwork: episode.coverUrl,
+  duration: episode.durationSec,
+})
+
+export const buildQueue = (
+  episodes: Episode[],
+  resolveUrl: (episode: Episode) => string
+): TrackPlayerTrack[] => episodes.map((episode) => buildTrack(episode, resolveUrl(episode)))

@@ -1,6 +1,8 @@
 import * as Notifications from "expo-notifications";
 import { Stack, usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { Ionicons } from "@expo/vector-icons";
+import { useFonts } from "expo-font";
 import { useEffect, useRef } from "react";
 import { Linking, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -16,7 +18,7 @@ import { AudioProvider } from "../src/components/providers/AudioProvider";
 import { UpdatesProvider } from "../src/components/providers/UpdatesProvider";
 import { usePushNotifications } from "../src/hooks/usePushNotifications";
 import { offlineFirstApi } from "../src/services/cache/offlineFirst.api";
-import { initSentry, Sentry } from "../src/services/config/sentry.config";
+import { captureSentryException, initSentry, Sentry } from "../src/services/config/sentry.config";
 import { downloadsService } from "../src/services/downloads.service";
 import { linkingService } from "../src/services/linking.service";
 import { getNotificationRouteFromData } from "../src/services/notifications.service";
@@ -24,6 +26,7 @@ import { userService } from "../src/services/user.service";
 import { ENV } from "../src/config/env";
 import { initializeAuth } from "../src/stores/authStore";
 import { fetchFavorites } from "../src/stores/favoritesStore";
+import { usePlayerActions, usePlayerStore } from "../src/stores";
  
 
 // Initialize Sentry as early as possible
@@ -107,9 +110,24 @@ function RootLayout() {
   const [isPlayerStateLoading] = useStorageState(PLAYER_STATE_KEY);
   const hasInitializedApp = useRef(false);
   const { isDark } = useTheme();
+  const { expandPlayer } = usePlayerActions();
+  const { currentEpisode } = usePlayerStore();
+  const currentEpisodeRef = useRef<typeof currentEpisode | null>(null);
+  const pendingPlayerNavigationRef = useRef(false);
+  const [fontsLoaded, fontError] = useFonts(Ionicons.font);
 
   usePushNotifications();
   useNotificationObserver();
+
+  useEffect(() => {
+    if (fontError) {
+      captureSentryException(fontError, {
+        component: "RootLayout",
+        action: "loadFonts",
+        level: "warning",
+      });
+    }
+  }, [fontError]);
 
   useEffect(() => {
     if (!__DEV__) return;
@@ -171,11 +189,33 @@ function RootLayout() {
 
   // Handle deep links when app opens
   useEffect(() => {
+    currentEpisodeRef.current = currentEpisode;
+  }, [currentEpisode]);
+
+  useEffect(() => {
+    const navigateToPlayer = () => {
+      expandPlayer();
+      const episodeId = currentEpisodeRef.current?.id;
+      if (episodeId) {
+        pendingPlayerNavigationRef.current = false;
+        router.push(`/lecture/${episodeId}` as any);
+        return;
+      }
+      pendingPlayerNavigationRef.current = true;
+    };
+
     const handleDeepLink = async () => {
       // Check if app was opened with a URL
       const initialUrl = await linkingService.getInitialURL();
       if (initialUrl) {
         console.log('🔗 App opened with URL:', initialUrl);
+        const isPlayerNotification =
+          initialUrl.startsWith('trackplayer://notification.click') ||
+          initialUrl.startsWith('dawahnigeria://notification.click');
+        if (isPlayerNotification) {
+          navigateToPlayer();
+          return;
+        }
         const parsed = linkingService.parseURL(initialUrl);
         if (parsed && parsed.path) {
           console.log('🔗 Navigating to:', parsed.path);
@@ -189,6 +229,13 @@ function RootLayout() {
     // Listen for deep links while app is running
     const subscription = Linking.addEventListener('url', (event) => {
       console.log('🔗 Deep link received:', event.url);
+      const isPlayerNotification =
+        event.url?.startsWith('trackplayer://notification.click') ||
+        event.url?.startsWith('dawahnigeria://notification.click');
+      if (isPlayerNotification) {
+        navigateToPlayer();
+        return;
+      }
       const parsed = linkingService.parseURL(event.url);
       if (parsed && parsed.path) {
         console.log('🔗 Navigating to:', parsed.path);
@@ -199,12 +246,33 @@ function RootLayout() {
     return () => {
       subscription.remove();
     };
-  }, [router]);
+  }, [expandPlayer, router]);
+
+  useEffect(() => {
+    if (!pendingPlayerNavigationRef.current) {
+      return;
+    }
+    const episodeId = currentEpisode?.id;
+    if (!episodeId) {
+      return;
+    }
+    pendingPlayerNavigationRef.current = false;
+    expandPlayer();
+    router.push(`/lecture/${episodeId}` as any);
+  }, [currentEpisode?.id, expandPlayer, router]);
 
   // Hide mini player on lecture detail page since it has full playback controls
   const shouldShowMiniPlayer = !pathname.startsWith("/lecture/");
 
   const isHydrating = isNavigationLoading || isPlayerStateLoading;
+
+  if (!fontsLoaded) {
+    return (
+      <SafeAreaProvider>
+        <Loading fullScreen message="Loading assets..." />
+      </SafeAreaProvider>
+    );
+  }
 
   return (
     <SafeAreaProvider>

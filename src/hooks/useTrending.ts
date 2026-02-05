@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { trendingApi, TrendingLecturesParams } from '../services/api/trending.api';
 import { SearchLecture } from '../types/api.types';
 import { Episode } from '../types/types';
+import { ApiError } from '../services/api/base.api';
 
 export interface UseTrendingResult {
   lectures: Episode[];
@@ -119,6 +120,9 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
       setHasMore(hasMorePages);
       setCurrentPage(page);
     } catch (err: any) {
+      if (err instanceof ApiError && err.isCancelled) {
+        return;
+      }
       console.error('❌ Error fetching trending lectures:', err);
       setError(err.message || 'Failed to fetch trending lectures');
     } finally {
@@ -130,7 +134,7 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
 
   // Load more function for infinite scroll
   const loadMore = useCallback(async () => {
-    if (!hasMore || isLoadingMore || loading) return;
+    if (!hasMore || isLoadingMore || loading || isLoadingRef.current) return;
     await fetchTrending(currentPage + 1, true);
   }, [hasMore, isLoadingMore, loading, currentPage, fetchTrending]);
 

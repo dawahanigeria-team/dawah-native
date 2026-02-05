@@ -1,7 +1,6 @@
 import React from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../../hooks/useTheme";
-import { designTokens } from "../../theme/designTokens";
 
 interface LoadingProps {
   size?: "small" | "large";

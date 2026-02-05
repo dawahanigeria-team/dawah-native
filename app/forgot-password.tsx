@@ -67,7 +67,17 @@ export default function ForgotPasswordScreen() {
           params: { email: email },
         });
       } else {
-        throw new Error(response.message || "Failed to send reset email");
+        addSentryBreadcrumb("Password reset request failed", "info", {
+          error: response.message,
+          email: email,
+        });
+
+        Alert.alert(
+          "Reset Failed",
+          response.message ||
+            "Unable to send password reset email. Please try again.",
+          [{ text: "OK" }]
+        );
       }
     } catch (err: unknown) {
       const error = err as Error;

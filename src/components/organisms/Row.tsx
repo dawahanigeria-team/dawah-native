@@ -39,16 +39,18 @@ const RowComponent = <T,>({
       ...style,
     };
 
+    const horizontalPadding = designTokens.spacing[contentPadding];
+
     const headerStyle: ViewStyle = {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
       marginBottom: designTokens.spacing.md,
-      paddingHorizontal: designTokens.spacing.lg,
+      paddingHorizontal: horizontalPadding,
     };
 
     const contentContainerStyle = {
-      paddingHorizontal: designTokens.spacing.lg,
+      paddingHorizontal: horizontalPadding,
     };
 
     const Header = (

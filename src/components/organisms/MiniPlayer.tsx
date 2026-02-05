@@ -29,12 +29,14 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLectureDetail } from "../../hooks/useLectureDetail";
 import { useTheme } from "../../hooks/useTheme";
+import { useDownloadsStore } from "../../stores";
 import { usePlayerStore } from "../../stores/playerStore";
 import { designTokens } from "../../theme/designTokens";
 import { getTabBarHeight } from "../../utils";
 import { getInitials, getPlaceholderStyle } from "../../utils/colorPlaceholder";
 import { linkingService } from "../../services/linking.service";
 import { appendShareSignature } from "../../utils/shareMessage";
+import { DownloadStatus } from "../../services/downloads/downloadQueue.service";
 import { Loading, Text, Touchable } from "../atoms";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
@@ -57,19 +59,23 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       duration,
       isExpanded,
       isLoading,
-      isDownloading,
-      downloadProgress,
       togglePlayPause,
       expandPlayer,
       minimizePlayer,
       seekForward,
       seekBackward,
-      downloadEpisode,
       closePlayer,
       setProgress,
       playbackSpeed,
       setPlaybackSpeed,
     } = usePlayerStore();
+    const {
+      addToQueue,
+      pauseDownload,
+      resumeDownload,
+      getDownloadStatus,
+      getDownloadProgress,
+    } = useDownloadsStore();
     const { colors } = useTheme();
 
     // Fetch richer lecture metadata only when the player is expanded.
@@ -104,6 +110,12 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
     );
 
     const contentTypeLabel = isRecitation ? "Quran Recitation" : "Islamic Lecture";
+
+    const downloadStatus = currentEpisode ? getDownloadStatus(currentEpisode.id) : null;
+    const downloadProgress = currentEpisode ? getDownloadProgress(currentEpisode.id) : 0;
+    const isDownloading =
+      downloadStatus === DownloadStatus.DOWNLOADING ||
+      downloadStatus === DownloadStatus.QUEUED;
 
     const [imageError, setImageError] = useState(false);
     const translateY = useSharedValue(0);
@@ -227,6 +239,24 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
         });
       } catch (error) {
         console.warn("Failed to share lecture", error);
+      }
+    };
+
+    const handleDownloadPress = async () => {
+      if (!currentEpisode) return;
+
+      try {
+        if (downloadStatus === DownloadStatus.DOWNLOADING) {
+          await pauseDownload(currentEpisode.id);
+        } else if (downloadStatus === DownloadStatus.PAUSED) {
+          await resumeDownload(currentEpisode.id);
+        } else if (downloadStatus === DownloadStatus.COMPLETED) {
+          // No-op; already downloaded
+        } else {
+          await addToQueue(currentEpisode);
+        }
+      } catch (error) {
+        console.error("Failed to manage download", error);
       }
     };
 
@@ -588,10 +618,20 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
               </Touchable>
 
               <Touchable
-                onPress={() => downloadEpisode(currentEpisode)}
+                onPress={handleDownloadPress}
                 style={styles.secondaryButton}
                 accessibilityLabel={
-                  isDownloading ? "Downloading..." : "Download"
+                  downloadStatus === DownloadStatus.COMPLETED
+                    ? "Downloaded"
+                    : downloadStatus === DownloadStatus.DOWNLOADING
+                      ? "Downloading..."
+                      : downloadStatus === DownloadStatus.PAUSED
+                        ? "Resume download"
+                        : downloadStatus === DownloadStatus.QUEUED
+                          ? "Queued"
+                          : downloadStatus === DownloadStatus.FAILED
+                            ? "Retry download"
+                            : "Download"
                 }
                 accessibilityRole="button"
               >
@@ -603,14 +643,30 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                       color="secondaryLabel"
                       style={{ marginLeft: 4 }}
                     >
-                      {Math.round(downloadProgress * 100)}%
+                      {Math.round(downloadProgress)}%
                     </Text>
                   </View>
                 ) : (
                   <Ionicons
-                    name="download-outline"
+                    name={
+                      downloadStatus === DownloadStatus.COMPLETED
+                        ? "checkmark-circle"
+                        : downloadStatus === DownloadStatus.PAUSED
+                          ? "play-circle-outline"
+                          : downloadStatus === DownloadStatus.QUEUED
+                            ? "time-outline"
+                            : downloadStatus === DownloadStatus.FAILED
+                              ? "alert-circle-outline"
+                              : "download-outline"
+                    }
                     size={24}
-                    color={colors.system.label.secondary}
+                    color={
+                      downloadStatus === DownloadStatus.COMPLETED
+                        ? colors.brand.primary
+                        : downloadStatus === DownloadStatus.FAILED
+                          ? colors.semantic.red
+                          : colors.system.label.secondary
+                    }
                   />
                 )}
               </Touchable>

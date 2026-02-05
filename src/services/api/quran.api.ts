@@ -58,19 +58,20 @@ class QuranApiService {
    */
   async getQuranAlbums(params: QuranAlbumsParams = {}): Promise<QuranAlbumsResponse> {
     const { page = 1, limit = 20 } = params;
+    const requestParams = {
+      action: 'get_quran_album',
+      page: page.toString(),
+      limit: limit.toString(),
+    };
 
     try {
       addSentryBreadcrumb('Fetching Quran albums', 'query', { page, limit });
 
       const response = await apiClient.get<any>(
         '/api/dn_quran_api.php',
+        requestParams,
         {
-          action: 'get_quran_album',
-          page: page.toString(),
-          limit: limit.toString(),
-        },
-        {
-          timeout: API_CONFIG.TIMEOUTS.DEFAULT,
+          timeout: 60000,
           useCache: true,
           cacheTTL: 600, // Cache for 10 minutes
         }
@@ -102,6 +103,41 @@ class QuranApiService {
         hasMore: albums.length >= limit,
       };
     } catch (error) {
+      if (error instanceof ApiError && error.isTimeout) {
+        const cached = await apiClient.getCachedResponse<any>(
+          '/api/dn_quran_api.php',
+          requestParams
+        );
+        if (cached) {
+          const rawAlbums = Array.isArray(cached.data) ? cached.data : [];
+          const albums: QuranAlbum[] = rawAlbums.map((item: any) => ({
+            id: String(item.id),
+            name: item.name || 'Unknown Reciter',
+            img: item.img || '',
+            alb_thumbnail: item.alb_thumbnail || item.img || '',
+            lec_no: item.lec_no || 0,
+            language: item.language || 'Arabic',
+            views: item.views || 0,
+            downloads: item.downloads || 0,
+            categories: item.categories || '',
+            post_date: item.post_date || '',
+            charts: item.charts || { daily: 0, monthly: 0, weekly: 0 },
+          }));
+
+          addSentryBreadcrumb('Quran albums timeout: using cached data', 'cache', {
+            page,
+            limit,
+            cachedCount: albums.length,
+          });
+
+          return {
+            albums,
+            total: albums.length,
+            page,
+            hasMore: albums.length >= limit,
+          };
+        }
+      }
       console.error('❌ Failed to fetch Quran albums:', error);
       captureSentryException(error as Error, {
         component: 'QuranApiService',

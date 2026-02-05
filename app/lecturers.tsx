@@ -16,8 +16,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { LecturerCard } from "../src/components/molecules/LecturerCard";
 import { LecturerCardSkeleton } from "../src/components/molecules/LecturerCard.skeleton";
 import { Lecturer, lecturersApi } from "../src/services/api/lecturers.api";
+import { ApiError } from "../src/services/api/base.api";
 import { useTheme } from "../src/hooks/useTheme";
 import tw from "../src/theme/twrnc";
+import { getLanguageName } from "../src/utils/languages";
 
 export default function LecturersScreen() {
   const shouldClipSubviews = Platform.OS !== "android";
@@ -43,6 +45,46 @@ export default function LecturersScreen() {
   const [searchLoading, setSearchLoading] = useState(false);
   const prevDebouncedQuery = useRef<string | null>(null);
   const prevNormalizedState = useRef<string | null>(null);
+  const lecturerLanguageByIdRef = useRef<Map<string, string>>(new Map());
+  const lecturerImageByIdRef = useRef<Map<string, string>>(new Map());
+
+  const resolveLecturerLanguage = useCallback((item: Lecturer): string => {
+    const candidate =
+      item.language ||
+      (item as any).lang ||
+      (item as any).language_name ||
+      ((item as any).lang_id ? getLanguageName((item as any).lang_id) : undefined) ||
+      lecturerLanguageByIdRef.current.get(String(item.id));
+
+    return candidate || "Unknown";
+  }, []);
+
+  const normalizeRemoteUrl = useCallback((url?: string): string => {
+    if (!url) {
+      return "";
+    }
+    if (!/^https?:\/\//i.test(url)) {
+      return url;
+    }
+    try {
+      return encodeURI(decodeURI(url));
+    } catch {
+      return encodeURI(url);
+    }
+  }, []);
+
+  const resolveLecturerImage = useCallback((item: Lecturer): string => {
+    const candidate =
+      item.rp_thumbnail ||
+      item.img ||
+      (item as any).rp_image ||
+      (item as any).image ||
+      (item as any).avatarUrl ||
+      lecturerImageByIdRef.current.get(String(item.id)) ||
+      "";
+
+    return normalizeRemoteUrl(candidate);
+  }, [normalizeRemoteUrl]);
 
   const normalizedState = useMemo(() => {
     if (!selectedLocation) return null;
@@ -95,22 +137,38 @@ export default function LecturersScreen() {
       // Determine if there are more pages based on data received
       const hasMorePages = response.data.length > 0;
 
+      const normalizedLecturers = response.data.map((item) => ({
+        ...item,
+        language: resolveLecturerLanguage(item),
+        rp_thumbnail: resolveLecturerImage(item) || item.rp_thumbnail,
+      }));
+
+      normalizedLecturers.forEach((item) => {
+        if (item.language && item.language !== "Unknown") {
+          lecturerLanguageByIdRef.current.set(String(item.id), item.language);
+        }
+        const imageUrl = resolveLecturerImage(item);
+        if (imageUrl) {
+          lecturerImageByIdRef.current.set(String(item.id), imageUrl);
+        }
+      });
+
       if (isRefresh) {
-        setLecturers(response.data);
+        setLecturers(normalizedLecturers);
         setPage(1);
         setHasMore(hasMorePages);
-        setTotalScholars(response.total || response.data.length);
+        setTotalScholars(response.total || normalizedLecturers.length);
       } else if (pageNum === 1) {
-        setLecturers(response.data);
+        setLecturers(normalizedLecturers);
         // Always try to load page 2, even if page 1 returned less than requested
         setHasMore(true);
-        setTotalScholars(response.total || response.data.length);
+        setTotalScholars(response.total || normalizedLecturers.length);
       } else {
         // Use functional update to avoid stale closure
         setLecturers(prevLecturers => {
           // Filter out duplicates before adding
           const existingIds = new Set(prevLecturers.map(l => String(l.id)));
-          const newItems = response.data.filter((item: Lecturer) => !existingIds.has(String(item.id)));
+          const newItems = normalizedLecturers.filter((item: Lecturer) => !existingIds.has(String(item.id)));
 
           if (newItems.length === 0 && response.data.length > 0) {
             // If we got data but they are all duplicates, it might mean we are fetching the same page or overlapping data.
@@ -129,6 +187,9 @@ export default function LecturersScreen() {
       }
 
     } catch (err) {
+      if (err instanceof ApiError && err.isCancelled) {
+        return;
+      }
       console.error('Failed to fetch lecturers:', err);
       setError('Failed to load scholars');
     } finally {
@@ -155,9 +216,17 @@ export default function LecturersScreen() {
       setHasMore(false);
       setLecturers([]);
       const results = await lecturersApi.searchLecturers(query, state || undefined);
-      setLecturers(results);
-      setTotalScholars(results.length);
+      const normalizedResults = results.map((item) => ({
+        ...item,
+        language: resolveLecturerLanguage(item),
+        rp_thumbnail: resolveLecturerImage(item) || item.rp_thumbnail,
+      }));
+      setLecturers(normalizedResults);
+      setTotalScholars(normalizedResults.length);
     } catch (err) {
+      if (err instanceof ApiError && err.isCancelled) {
+        return;
+      }
       console.error('Failed to search lecturers:', err);
       setError('Failed to search scholars');
     } finally {
@@ -262,7 +331,7 @@ export default function LecturersScreen() {
         <LecturerCard
           id={String(item.id)}
           name={item.name}
-          imageUrl={item.rp_thumbnail || item.img}
+          imageUrl={resolveLecturerImage(item)}
           totalLectures={item.total_lectures}
           followers={item.followers || item.views}
           language={item.language}
@@ -272,7 +341,7 @@ export default function LecturersScreen() {
         />
       </View>
     ),
-    [handleLecturerPress]
+    [handleLecturerPress, resolveLecturerImage]
   );
 
   const renderEmptyState = useCallback(() => {

@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, StyleProp, ViewStyle } from 'react-native';
 import tw from '../../theme/twrnc';
-import { designTokens } from '../../theme/designTokens';
 import { Skeleton } from '../atoms';
 
 interface LecturerCardSkeletonProps {

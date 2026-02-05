@@ -48,16 +48,35 @@ export const requestPasswordReset = async (
       }
     );
 
+    const responseText = await response.text();
+    const data = responseText
+      ? (() => {
+          try {
+            return JSON.parse(responseText);
+          } catch {
+            return null;
+          }
+        })()
+      : null;
+
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      return {
+        success: false,
+        message: (data && data.message) || `Request failed (${response.status})`,
+      };
     }
 
-    const data = await response.json();
-
     addSentryBreadcrumb('Password reset requested', 'info', {
-      success: data.success,
+      success: data?.success,
       email,
     });
+
+    if (!data) {
+      return {
+        success: false,
+        message: 'Invalid server response',
+      };
+    }
 
     return data;
   } catch (error) {
@@ -103,16 +122,35 @@ export const resetPasswordWithCode = async (
       }
     );
 
+    const responseText = await response.text();
+    const data = responseText
+      ? (() => {
+          try {
+            return JSON.parse(responseText);
+          } catch {
+            return null;
+          }
+        })()
+      : null;
+
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      return {
+        success: false,
+        message: (data && data.message) || `Request failed (${response.status})`,
+      };
     }
 
-    const data = await response.json();
-
     addSentryBreadcrumb('Password reset successful', 'info', {
-      success: data.success,
+      success: data?.success,
       email,
     });
+
+    if (!data) {
+      return {
+        success: false,
+        message: 'Invalid server response',
+      };
+    }
 
     return data;
   } catch (error) {

@@ -172,6 +172,14 @@ export const addSentryBreadcrumb = (message: string, category: string, data?: Re
  * Manually capture an exception
  */
 export const captureSentryException = (error: Error, context?: Record<string, any>) => {
+  const maybeCancelled = (error as { isCancelled?: boolean } | null)?.isCancelled;
+  if (maybeCancelled) {
+    return;
+  }
+  const statusCode = (error as { statusCode?: number } | null)?.statusCode;
+  if (statusCode && statusCode >= 400 && statusCode < 500) {
+    return;
+  }
   if (context) {
     Sentry.withScope((scope) => {
       Object.entries(context).forEach(([key, value]) => {

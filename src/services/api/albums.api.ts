@@ -5,7 +5,6 @@
 
 import { API_CONFIG } from '../config/api.config';
 import { apiClient, ApiError } from './base.api';
-import { SearchAlbum } from '../../types/api.types';
 import { addSentryBreadcrumb, captureSentryException } from '../config/sentry.config';
 
 export interface Album {

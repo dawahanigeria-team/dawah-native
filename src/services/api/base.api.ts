@@ -16,6 +16,7 @@ export class ApiError extends Error {
     public data?: any,
     public isNetworkError: boolean = false,
     public isTimeout: boolean = false,
+    public isCancelled: boolean = false,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -50,9 +51,15 @@ interface CacheEntry {
   ttl: number;
 }
 
+interface RequestToken {
+  cancelled: boolean;
+  listeners: Set<() => void>;
+}
+
 class ApiClient {
   private static instance: ApiClient;
   private abortControllers: Map<string, AbortController> = new Map();
+  private requestTokens: Map<string, RequestToken> = new Map();
   private activeRequests = 0;
   private authToken: string | null = null;
   private _authTokenChangeListener: ((token: string | null) => void) | null = null;
@@ -157,6 +164,47 @@ class ApiClient {
     return `cache_${method}_${url}`;
   }
 
+  private cancelRequestToken(token: RequestToken): void {
+    if (token.cancelled) {
+      return;
+    }
+    token.cancelled = true;
+    token.listeners.forEach(listener => listener());
+    token.listeners.clear();
+  }
+
+  private createRequestToken(requestId: string): RequestToken {
+    const existing = this.requestTokens.get(requestId);
+    if (existing) {
+      this.cancelRequestToken(existing);
+    }
+
+    const token: RequestToken = { cancelled: false, listeners: new Set() };
+    this.requestTokens.set(requestId, token);
+    return token;
+  }
+
+  private async waitForDelayOrCancel(delay: number, token: RequestToken): Promise<void> {
+    if (token.cancelled) {
+      throw new ApiError('Request cancelled', undefined, undefined, false, false, true);
+    }
+
+    return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        token.listeners.delete(onCancel);
+        resolve();
+      }, delay);
+
+      const onCancel = () => {
+        clearTimeout(timeoutId);
+        token.listeners.delete(onCancel);
+        reject(new ApiError('Request cancelled', undefined, undefined, false, false, true));
+      };
+
+      token.listeners.add(onCancel);
+    });
+  }
+
   /**
    * Get cached data
    */
@@ -182,6 +230,31 @@ class ApiClient {
   }
 
   /**
+   * Expose cached response for a specific request (used for stale-on-timeout fallback).
+   */
+  public async getCachedResponse<T = any>(
+    endpoint: string,
+    params?: Record<string, any>,
+    method: string = 'GET',
+  ): Promise<ApiResponse<T> | null> {
+    const url = this.buildUrl(endpoint, params);
+    const cacheKey = this.getCacheKey(url, method);
+    const cachedData = await this.getCachedData(cacheKey);
+
+    if (cachedData === null) {
+      return null;
+    }
+
+    return {
+      data: cachedData as T,
+      status: 200,
+      headers: new Headers(),
+      cached: true,
+      timestamp: Date.now(),
+    };
+  }
+
+  /**
    * Set cached data
    */
   private async setCachedData(key: string, data: any, ttl: number): Promise<void> {
@@ -204,9 +277,28 @@ class ApiClient {
     url: string,
     config: RequestConfig,
     timeout: number,
+    requestId: string,
+    requestToken: RequestToken,
   ): Promise<Response> {
     const abortController = new AbortController();
-    const requestId = `${config.method || 'GET'}_${url}`;
+    let didTimeout = false;
+    let didCallerAbort = false;
+    const externalSignal = config.signal;
+
+    if (requestToken.cancelled) {
+      throw new ApiError('Request cancelled', undefined, undefined, false, false, true);
+    }
+    if (externalSignal?.aborted) {
+      throw new ApiError('Request cancelled', undefined, undefined, false, false, true);
+    }
+
+    const onExternalAbort = () => {
+      didCallerAbort = true;
+      abortController.abort();
+    };
+    if (externalSignal) {
+      externalSignal.addEventListener('abort', onExternalAbort);
+    }
 
     // Cancel any existing request to the same endpoint
     if (this.abortControllers.has(requestId)) {
@@ -215,6 +307,7 @@ class ApiClient {
     this.abortControllers.set(requestId, abortController);
 
     const timeoutId = setTimeout(() => {
+      didTimeout = true;
       abortController.abort();
     }, timeout);
 
@@ -226,19 +319,31 @@ class ApiClient {
 
       clearTimeout(timeoutId);
       this.abortControllers.delete(requestId);
+      if (externalSignal) {
+        externalSignal.removeEventListener('abort', onExternalAbort);
+      }
       return response;
     } catch (error: any) {
       clearTimeout(timeoutId);
       this.abortControllers.delete(requestId);
+      if (externalSignal) {
+        externalSignal.removeEventListener('abort', onExternalAbort);
+      }
 
       if (error.name === 'AbortError') {
-        throw new ApiError(
-          'The request is taking longer than usual. Please check your internet connection and try again.',
-          undefined,
-          undefined,
-          false,
-          true
-        );
+        if (didTimeout) {
+          throw new ApiError(
+            'The request is taking longer than usual. Please check your internet connection and try again.',
+            undefined,
+            undefined,
+            false,
+            true
+          );
+        }
+        if (didCallerAbort) {
+          throw new ApiError('Request cancelled', undefined, undefined, false, false, true);
+        }
+        throw new ApiError('Request cancelled', undefined, undefined, false, false, true);
       }
       throw error;
     }
@@ -250,13 +355,19 @@ class ApiClient {
   private async retryRequest(
     url: string,
     config: RequestConfig,
+    requestId: string,
+    requestToken: RequestToken,
     attempt: number = 1,
   ): Promise<Response> {
     const maxAttempts = config.retryAttempts || API_CONFIG.RETRY.MAX_ATTEMPTS;
     const timeout = config.timeout || API_CONFIG.TIMEOUTS.DEFAULT;
 
+    if (requestToken.cancelled) {
+      throw new ApiError('Request cancelled', undefined, undefined, false, false, true);
+    }
+
     try {
-      return await this.executeWithTimeout(url, config, timeout);
+      return await this.executeWithTimeout(url, config, timeout, requestId, requestToken);
     } catch (error: any) {
       const isLastAttempt = attempt >= maxAttempts;
       const shouldRetry = config.retry !== false && !isLastAttempt;
@@ -266,6 +377,9 @@ class ApiClient {
       }
 
       // Check if error is retryable
+      if (error instanceof ApiError && error.isCancelled) {
+        throw error;
+      }
       if (error instanceof ApiError && error.isTimeout) {
         // Timeout errors are retryable
       } else if (error.statusCode && !API_CONFIG.RETRY.RETRY_CONDITIONS.includes(error.statusCode)) {
@@ -285,8 +399,8 @@ class ApiClient {
 
       console.log(`Retrying request (attempt ${attempt}/${maxAttempts}) after ${totalDelay}ms`);
 
-      await new Promise(resolve => setTimeout(resolve, totalDelay));
-      return this.retryRequest(url, config, attempt + 1);
+      await this.waitForDelayOrCancel(totalDelay, requestToken);
+      return this.retryRequest(url, config, requestId, requestToken, attempt + 1);
     }
   }
 
@@ -313,6 +427,8 @@ class ApiClient {
     // Define these outside try block so they're available in catch
     let url = '';
     let method = '';
+    let requestId = '';
+    let requestToken: RequestToken | null = null;
 
     try {
       // Enforce rate limiting
@@ -320,6 +436,8 @@ class ApiClient {
 
       url = this.buildUrl(endpoint, config.params);
       method = config.method || 'GET';
+      requestId = `${method}_${url}`;
+      requestToken = this.createRequestToken(requestId);
 
       // Check cache for GET requests
       if (method === 'GET' && config.useCache !== false) {
@@ -397,7 +515,7 @@ class ApiClient {
       );
 
       // Execute request with retry logic
-      const response = await this.retryRequest(url, requestConfig);
+      const response = await this.retryRequest(url, requestConfig, requestId, requestToken);
 
       // Log HTTP response status
       console.log('📡 HTTP Response:', {
@@ -487,13 +605,16 @@ class ApiClient {
         timestamp: Date.now(),
       };
     } catch (error: any) {
-      console.log('Error caught in base.api.ts request method:', error);
-
       // If the error is already an ApiError with a status code, re-throw it directly.
       // This prevents HTTP errors from being re-classified as network errors.
       if (error instanceof ApiError && error.statusCode) {
         throw error;
       }
+      if (error instanceof ApiError && error.isCancelled) {
+        throw error;
+      }
+
+      console.log('Error caught in base.api.ts request method:', error);
 
       // Handle network errors (avoid web-only navigator.onLine on native)
       const isNavigatorOffline =
@@ -551,6 +672,10 @@ class ApiClient {
       });
 
       throw unknownError;
+    } finally {
+      if (requestId && requestToken && this.requestTokens.get(requestId) === requestToken) {
+        this.requestTokens.delete(requestId);
+      }
     }
   }
 
@@ -618,6 +743,8 @@ class ApiClient {
   public cancelAllRequests(): void {
     this.abortControllers.forEach(controller => controller.abort());
     this.abortControllers.clear();
+    this.requestTokens.forEach(token => this.cancelRequestToken(token));
+    this.requestTokens.clear();
   }
 
   /**

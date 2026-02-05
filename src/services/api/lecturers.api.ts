@@ -59,6 +59,16 @@ class LecturersApiService {
     return getLanguageName(langId);
   }
 
+  private resolveLanguage(lecturer: any): string {
+    return (
+      lecturer.language ||
+      lecturer.lang ||
+      lecturer.language_name ||
+      this.getLanguageFromId(lecturer.lang_id) ||
+      'Unknown'
+    );
+  }
+
   /**
    * Fetch all lecturers
    */
@@ -123,6 +133,9 @@ class LecturersApiService {
       // Normalize the response
       return this.normalizeResponse(response.data, params);
     } catch (error) {
+      if (error instanceof ApiError && error.isCancelled) {
+        throw error;
+      }
       console.error('❌ Lecturers API Error:', error);
       if (error instanceof ApiError) {
         throw error;
@@ -207,7 +220,7 @@ class LecturersApiService {
 
       return lecturers.map((lecturer: any) => ({
         ...lecturer,
-        language: this.getLanguageFromId(lecturer.lang_id),
+        language: this.resolveLanguage(lecturer),
         followers: lecturer.views || 0,
       }));
     } catch (error) {
@@ -245,7 +258,7 @@ class LecturersApiService {
     // Add computed language field to each lecturer
     const enhancedLecturers = lecturers.map((lecturer: any) => ({
       ...lecturer,
-      language: this.getLanguageFromId(lecturer.lang_id),
+      language: this.resolveLanguage(lecturer),
       followers: lecturer.views || 0, // Use views as followers for now
     }));
 

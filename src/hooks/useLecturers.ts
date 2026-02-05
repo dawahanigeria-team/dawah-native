@@ -2,8 +2,9 @@
  * Custom hook for fetching lecturers
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { lecturersApi , Lecturer } from '../services/api/lecturers.api';
+import { ApiError } from '../services/api/base.api';
 
 export interface LecturerCard {
   id: string;
@@ -22,6 +23,14 @@ export function useLecturers(limit = 12) {
   const [lecturerCards, setLecturerCards] = useState<LecturerCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const isMountedRef = useRef(true);
+  const requestIdRef = useRef(0);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   /**
    * Convert API lecturer to card format
@@ -44,13 +53,20 @@ export function useLecturers(limit = 12) {
    * Fetch lecturers
    */
   const fetchLecturers = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
     try {
-      setLoading(true);
-      setError(null);
+      if (isMountedRef.current) {
+        setLoading(true);
+        setError(null);
+      }
 
       const lecturersData = await lecturersApi.getLecturersForSlider(limit);
 
       console.log(`👥 Fetched ${lecturersData.length} lecturers`);
+
+      if (!isMountedRef.current || requestIdRef.current !== requestId) {
+        return;
+      }
 
       setLecturers(lecturersData);
 
@@ -58,6 +74,12 @@ export function useLecturers(limit = 12) {
       const cards = lecturersData.map(convertToCard);
       setLecturerCards(cards);
     } catch (err) {
+      if (!isMountedRef.current || requestIdRef.current !== requestId) {
+        return;
+      }
+      if (err instanceof ApiError && err.isCancelled) {
+        return;
+      }
       console.error('Failed to fetch lecturers:', err);
       setError(err instanceof Error ? err : new Error('Failed to fetch lecturers'));
 
@@ -65,7 +87,9 @@ export function useLecturers(limit = 12) {
       setLecturers([]);
       setLecturerCards([]);
     } finally {
-      setLoading(false);
+      if (isMountedRef.current && requestIdRef.current === requestId) {
+        setLoading(false);
+      }
     }
   }, [limit, convertToCard]);
 

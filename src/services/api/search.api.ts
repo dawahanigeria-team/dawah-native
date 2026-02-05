@@ -27,6 +27,7 @@ export interface SearchParams {
   sortBy?: 'relevance' | 'date' | 'popularity';
   field?: string;
   lecturer_nid?: string;
+  signal?: AbortSignal;
 }
 
 class SearchApiService {
@@ -119,6 +120,7 @@ class SearchApiService {
           timeout: params.quick ? 5000 : API_CONFIG.TIMEOUTS.SEARCH,
           useCache: true,
           cacheTTL: params.quick ? 60 : API_CONFIG.CACHE.SEARCH_TTL,
+          signal: params.signal,
         }
       );
 
@@ -170,7 +172,7 @@ class SearchApiService {
         success: true,
         results: this.transformToQuickResults(response),
       };
-    } catch (error) {
+    } catch {
       // Return empty results on error for better UX
       return {
         success: false,
@@ -356,7 +358,6 @@ class SearchApiService {
   private transformToQuickResults(response: SearchResponse<any>): any[] {
     return response.data.slice(0, 10).map((item: any) => {
       // Determine item type and format accordingly
-      let type: SearchType = response.type;
       let title = '';
       let subtitle = '';
       let imageUrl = '';
@@ -393,7 +394,7 @@ class SearchApiService {
       }
 
       return {
-        type,
+        type: response.type,
         id: item.id || item.nid,
         title,
         subtitle,
@@ -427,7 +428,7 @@ class SearchApiService {
         .slice(0, 5 - recentMatches.length);
 
       return [...recentMatches, ...apiSuggestions];
-    } catch (error) {
+    } catch {
       // Return recent searches as fallback
       return this.recentSearches.slice(0, 5);
     }

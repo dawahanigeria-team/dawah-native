@@ -53,7 +53,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
     setCurrentIndex(index);
   };
 
-  const renderItem = (item: Episode, index: number) => {
+  const renderItem = (item: Episode, _index: number) => {
     return (
       <View key={item.id} style={[tw`mr-6`, { width: CARD_WIDTH, height }]}>
         <TouchableOpacity
