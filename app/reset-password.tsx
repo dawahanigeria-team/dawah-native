@@ -95,24 +95,24 @@ export default function ResetPasswordScreen() {
       return;
     }
 
+    const getFriendlyErrorMessage = (message: string) => {
+      if (message.includes("Invalid") || message.includes("incorrect")) {
+        return "Invalid verification code. Please check and try again.";
+      }
+      if (message.includes("expired")) {
+        return "Verification code has expired. Please request a new code.";
+      }
+      if (message.includes("attempts")) {
+        return "Too many failed attempts. Please request a new code.";
+      }
+      return message || "Unable to reset password. Please try again.";
+    };
+
     try {
       setIsLoading(true);
       addSentryBreadcrumb("Resetting password", "user", { email: userEmail });
 
       const response = await resetPasswordWithCode(userEmail, code, password);
-
-      const getFriendlyErrorMessage = (message: string) => {
-        if (message.includes("Invalid") || message.includes("incorrect")) {
-          return "Invalid verification code. Please check and try again.";
-        }
-        if (message.includes("expired")) {
-          return "Verification code has expired. Please request a new code.";
-        }
-        if (message.includes("attempts")) {
-          return "Too many failed attempts. Please request a new code.";
-        }
-        return message || "Unable to reset password. Please try again.";
-      };
 
       if (response.success) {
         addSentryBreadcrumb("Password reset successful", "info", {
@@ -154,7 +154,7 @@ export default function ResetPasswordScreen() {
         email: userEmail,
       });
 
-      const errorMessage = error.message || "Unable to reset password. Please try again.";
+      const errorMessage = getFriendlyErrorMessage(error.message || "");
       Alert.alert("Reset Failed", errorMessage, [{ text: "OK" }]);
     } finally {
       setIsLoading(false);
