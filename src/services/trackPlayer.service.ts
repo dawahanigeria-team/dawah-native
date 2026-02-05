@@ -54,7 +54,7 @@ const registerRemoteEventHandlers = () => {
   })
 }
 
-const playbackService = () => {
+const playbackService = async () => {
   registerRemoteEventHandlers()
 }
 
