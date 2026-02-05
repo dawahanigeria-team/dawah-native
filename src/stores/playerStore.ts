@@ -109,7 +109,11 @@ const resolvePlaybackUri = (episode: Episode): string => {
 const waitForPlaybackReady = async (timeoutMs: number) => {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    const state = await TrackPlayer.getState();
+    const playbackState = await TrackPlayer.getPlaybackState();
+    const state =
+      typeof playbackState === 'object' && playbackState !== null && 'state' in playbackState
+        ? playbackState.state
+        : playbackState;
     if (state === State.Playing || state === State.Buffering || state === State.Ready) {
       return;
     }
