@@ -227,16 +227,20 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
     }
 
     void (async () => {
-      const currentTrack = await TrackPlayer.getActiveTrack()
-      if (!currentTrack) {
-        return
-      }
+      try {
+        const trackIndex = await TrackPlayer.getActiveTrackIndex()
+        if (trackIndex === null || trackIndex < 0) {
+          return
+        }
 
-      await TrackPlayer.updateMetadataForTrack(String(currentTrack.id), {
-        title: info.title,
-        artist: info.artist || '',
-        artwork: info.artwork || '',
-      })
+        await TrackPlayer.updateMetadataForTrack(trackIndex, {
+          title: info.title,
+          artist: info.artist || '',
+          artwork: info.artwork || '',
+        })
+      } catch {
+        // Silent fail - lock screen controls are a nice-to-have feature
+      }
     })()
   }
 
