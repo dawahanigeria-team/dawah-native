@@ -697,7 +697,7 @@ const closePlayer = () => {
   }
 };
 
-const addToQueue = (episodes: Episode | Episode[]) => {
+const addToQueue = async (episodes: Episode | Episode[]) => {
   const episodeArray = Array.isArray(episodes) ? episodes : [episodes];
   const currentState = playerStore.get();
   const existingQueue = Array.isArray(currentState.queue) ? currentState.queue : [];
@@ -720,10 +720,16 @@ const addToQueue = (episodes: Episode | Episode[]) => {
   persistQueueSnapshot(nextState);
 
   const tracks = buildQueue(episodeArray, resolvePlaybackUri).filter((track) => track.url);
-  if (tracks.length > 0) {
-    void ensureTrackPlayerReady()
-      .then(() => TrackPlayer.add(tracks))
-      .catch((error) => logger.error('Failed to add tracks to queue', error as Error));
+  if (tracks.length === 0) {
+    logger.error('No valid tracks to add to queue', new Error('No playable tracks'));
+    return;
+  }
+
+  try {
+    await ensureTrackPlayerReady();
+    await TrackPlayer.add(tracks);
+  } catch (error) {
+    logger.error('Failed to add tracks to queue', error as Error);
   }
 };
 
@@ -765,7 +771,7 @@ const removeFromQueue = (index: number) => {
     .catch((error) => logger.error('Failed to remove track from queue', error as Error));
 };
 
-const toggleShuffle = () => {
+const toggleShuffle = async () => {
   const currentState = playerStore.get();
   const queue = Array.isArray(currentState.queue) ? currentState.queue : [];
   const newShuffleState = !currentState.isShuffled;
@@ -788,13 +794,10 @@ const toggleShuffle = () => {
     const newQueue = [currentEpisode, ...remaining];
 
     const tracks = buildQueue(newQueue, resolvePlaybackUri).filter((track) => track.url);
-    void ensureTrackPlayerReady()
-      .then(() => TrackPlayer.reset())
-      .then(() => TrackPlayer.add(tracks))
-      .then(() => TrackPlayer.skip(0))
-      .then(() => currentState.isPlaying ? TrackPlayer.play() : Promise.resolve())
-      .then(() => TrackPlayer.seekTo(currentState.progress))
-      .catch((error) => logger.error('Failed to reshuffle queue', error as Error));
+    if (tracks.length === 0) {
+      logger.error('No valid tracks to shuffle', new Error('No playable tracks'));
+      return;
+    }
 
     const nextState = {
       ...currentState,
@@ -803,8 +806,21 @@ const toggleShuffle = () => {
       currentEpisode: newQueue[0],
       isShuffled: true,
     };
-    setAndPersistPlayerState(nextState);
-    persistQueueSnapshot(nextState);
+
+    try {
+      await ensureTrackPlayerReady();
+      await TrackPlayer.reset();
+      await TrackPlayer.add(tracks);
+      await TrackPlayer.skip(0);
+      if (currentState.isPlaying) {
+        await TrackPlayer.play();
+      }
+      await TrackPlayer.seekTo(currentState.progress);
+      setAndPersistPlayerState(nextState);
+      persistQueueSnapshot(nextState);
+    } catch (error) {
+      logger.error('Failed to reshuffle queue', error as Error);
+    }
   } else {
     const nextState = {
       ...currentState,

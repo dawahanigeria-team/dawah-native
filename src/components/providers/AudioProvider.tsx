@@ -407,6 +407,12 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     }
     playerStore.set(nextState)
     persistQueueSnapshot(nextState)
+
+    audioControls.setLockScreenInfo({
+      title: nextEpisode.title,
+      artist: nextEpisode.lecturerName || 'dawahnigeria',
+      artwork: nextEpisode.coverUrl || '',
+    })
   })
 
   useEffect(() => {

@@ -40,8 +40,15 @@ const parseDuration = (duration: string | number | undefined): number => {
   return Number.isNaN(numericDuration) ? 0 : numericDuration;
 };
 
-const lectureToEpisode = (lecture: SearchLecture): Episode => {
-  const id = String(lecture.id || lecture.nid || `playlist-${Date.now()}`);
+const lectureToEpisode = (lecture: SearchLecture, index: number = 0): Episode => {
+  const fallbackKey =
+    lecture.audio ||
+    lecture.mp3_url ||
+    lecture.AudioUrl ||
+    lecture.Title ||
+    lecture.mp3_title ||
+    `index-${index}`;
+  const id = String(lecture.id || lecture.nid || `playlist-${index}-${fallbackKey}`);
   const title = lecture.Title || lecture.mp3_title || "Untitled Lecture";
   const duration = lecture.duration || lecture.mp3_duration || lecture.Duration;
   const audioUrl = lecture.audio || lecture.mp3_url || lecture.AudioUrl || "";
@@ -88,7 +95,7 @@ const PlaylistDetailScreen: React.FC = () => {
 
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const episodes = playlistContents.map(lectureToEpisode);
+      const episodes = playlistContents.map((lecture, index) => lectureToEpisode(lecture, index));
       await playQueue(episodes, 0, false);
     } catch (err) {
       console.error("Play all error:", err);
@@ -100,7 +107,7 @@ const PlaylistDetailScreen: React.FC = () => {
 
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const episodes = playlistContents.map(lectureToEpisode);
+      const episodes = playlistContents.map((lecture, index) => lectureToEpisode(lecture, index));
       const startIndex = Math.floor(Math.random() * episodes.length);
       await playQueue(episodes, startIndex, true);
     } catch (err) {
