@@ -365,6 +365,9 @@ export default function InboxScreen() {
             />
           }
           contentContainerStyle={styles.listContent}
+          initialNumToRender={10}
+          maxToRenderPerBatch={5}
+          windowSize={5}
         />
       )}
     </SafeAreaView>

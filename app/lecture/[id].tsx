@@ -30,6 +30,7 @@ import Animated, {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button, Chip, Text, Touchable } from "../../src/components/atoms";
+import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
 import AddToPlaylistModal from "../../src/components/organisms/AddToPlaylistModal";
 import { useLectureDetail } from "../../src/hooks/useLectureDetail";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
@@ -975,4 +976,10 @@ const LectureDetailScreen: React.FC = () => {
   );
 };
 
-export default LectureDetailScreen;
+export default function LectureDetailScreenWithBoundary() {
+  return (
+    <ErrorBoundary>
+      <LectureDetailScreen />
+    </ErrorBoundary>
+  );
+}

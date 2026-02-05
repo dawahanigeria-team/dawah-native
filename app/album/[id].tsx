@@ -461,6 +461,9 @@ const AlbumDetailScreen: React.FC = () => {
         }
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        initialNumToRender={10}
+        maxToRenderPerBatch={5}
+        windowSize={5}
       />
 
       {/* Back Button */}

@@ -1,10 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FlashList } from "@shopify/flash-list";
 import {
   ActivityIndicator,
   FlatList,
-  Platform,
   RefreshControl,
   ScrollView,
   Text,
@@ -22,7 +22,6 @@ import tw from "../src/theme/twrnc";
 import { getLanguageName } from "../src/utils/languages";
 
 export default function LecturersScreen() {
-  const shouldClipSubviews = Platform.OS !== "android";
   const { colors } = useTheme();
   const [lecturers, setLecturers] = useState<Lecturer[]>([]);
   const [filteredLecturers, setFilteredLecturers] = useState<Lecturer[]>([]);
@@ -650,13 +649,12 @@ export default function LecturersScreen() {
           showsVerticalScrollIndicator={false}
         />
       ) : (
-        <FlatList
+        <FlashList
           data={filteredLecturers}
           keyExtractor={(item) => String(item.id)}
           renderItem={renderLecturer}
           numColumns={2}
           contentContainerStyle={tw`px-3 pb-10`}
-          columnWrapperStyle={tw`justify-between`}
           ListEmptyComponent={renderEmptyState}
           ListFooterComponent={renderFooter}
           onEndReached={handleLoadMore}
@@ -668,10 +666,6 @@ export default function LecturersScreen() {
               tintColor={colors.brand.primary}
             />
           }
-          initialNumToRender={10}
-          maxToRenderPerBatch={5}
-          windowSize={11}
-          removeClippedSubviews={shouldClipSubviews}
           showsVerticalScrollIndicator={false}
           accessibilityLabel="List of scholars"
         />

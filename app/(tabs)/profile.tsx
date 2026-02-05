@@ -6,6 +6,7 @@ import { Alert, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { Text } from "../../src/components/atoms";
+import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
 import { userService } from "../../src/services/user.service";
 import { useAuthStore } from "../../src/stores";
@@ -508,4 +509,10 @@ const ProfileScreen = () => {
   );
 };
 
-export default ProfileScreen;
+export default function ProfileScreenWithBoundary() {
+  return (
+    <ErrorBoundary>
+      <ProfileScreen />
+    </ErrorBoundary>
+  );
+}

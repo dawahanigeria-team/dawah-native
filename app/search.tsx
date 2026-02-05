@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../src/components/atoms";
+import { ErrorBoundary } from "../src/components/atoms/ErrorBoundary";
 import { Dropdown } from "../src/components/atoms/Dropdown";
 import { Card } from "../src/components/molecules/Card";
 import { CardSkeleton } from "../src/components/molecules/Card.skeleton";
@@ -55,7 +56,15 @@ const sortOptions = [
   { label: "Z-A", value: "z-a" as SortOption },
 ];
 
-export default function SearchScreen() {
+export default function SearchScreenWithBoundary() {
+  return (
+    <ErrorBoundary>
+      <SearchScreen />
+    </ErrorBoundary>
+  );
+}
+
+function SearchScreen() {
   const { colors } = useTheme();
   const searchParams = useLocalSearchParams();
   const initialQuery = (searchParams.q as string) || "";
@@ -542,6 +551,9 @@ export default function SearchScreen() {
             loadMore();
           }
         }}
+        initialNumToRender={10}
+        maxToRenderPerBatch={5}
+        windowSize={5}
       />
     </SafeAreaView>
   );

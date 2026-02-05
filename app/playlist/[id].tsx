@@ -3,9 +3,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
+import { FlashList } from "@shopify/flash-list";
 import {
   ActivityIndicator,
-  FlatList,
   TouchableOpacity,
   View
 } from "react-native";
@@ -237,14 +237,13 @@ const PlaylistDetailScreen: React.FC = () => {
           <Text style={[tw`mt-4`, { color: colors.system.label.secondary }]}>This playlist is empty.</Text>
         </View>
       ) : (
-        <FlatList
+        <FlashList
           data={playlistContents}
           keyExtractor={(item: SearchLecture) => item.id || item.nid?.toString() || ''}
           renderItem={({ item }: { item: SearchLecture }) => (
             <TouchableOpacity
               style={[tw`flex-row items-center p-4 border-b`, { borderColor: colors.system.separator.primary }]}
               onPress={() => {
-                // Navigate to lecture detail or play audio
                 router.push(`/lecture/${item.id || item.nid}`);
               }}
             >

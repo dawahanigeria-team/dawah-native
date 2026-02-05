@@ -43,6 +43,9 @@ export const initializeAuth = async () => {
     authListenerRegistered = true;
   }
 
+  // Migrate tokens from AsyncStorage to SecureStore on first launch after upgrade
+  await authApi.migrateTokensToSecureStore();
+
   const [storedUser, accessToken] = await Promise.all([
     authApi.getStoredUser(),
     authApi.getAccessToken(),

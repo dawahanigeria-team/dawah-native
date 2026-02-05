@@ -3,6 +3,7 @@ import { Image as ExpoImage } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { FlashList } from "@shopify/flash-list";
 import {
   Dimensions,
   FlatList,
@@ -22,6 +23,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../../src/components/atoms";
+import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
 import { Card } from "../../src/components/molecules/Card";
 import { CardSkeleton } from "../../src/components/molecules/Card.skeleton";
 import { useUnreadAnnouncementsCount } from "../../src/hooks/useAnnouncements";
@@ -91,7 +93,15 @@ const QUICK_ACTIONS = [
   },
 ];
 
-export default function HomeScreen() {
+export default function HomeScreenWithBoundary() {
+  return (
+    <ErrorBoundary>
+      <HomeScreen />
+    </ErrorBoundary>
+  );
+}
+
+function HomeScreen() {
   const { playEpisode } = usePlayerActions();
   const { colors } = useTheme();
   const [greeting] = useState(getGreeting());
@@ -645,13 +655,14 @@ export default function HomeScreen() {
             {recentlyPlayedLoading ? (
               renderSkeletons(3)
             ) : (
-              <FlatList
+              <FlashList
                 data={recentlyPlayed}
                 renderItem={renderLectureCard}
                 keyExtractor={(item) => `recent-${item.id}`}
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={tw`px-4`}
+
               />
             )}
           </View>
@@ -667,7 +678,7 @@ export default function HomeScreen() {
           {trendingLoading ? (
             renderSkeletons(3)
           ) : trendingLectures.length > 0 ? (
-            <FlatList
+            <FlashList
               data={trendingLectures}
               renderItem={renderLectureCard}
               keyExtractor={(item) => `trending-${item.id}`}
@@ -688,7 +699,7 @@ export default function HomeScreen() {
           {quranLoading ? (
             renderSkeletons(4, "square")
           ) : quranAlbums.length > 0 ? (
-            <FlatList
+            <FlashList
               data={quranAlbums}
               renderItem={renderQuranCard}
               keyExtractor={(item) => `quran-${item.id}`}
@@ -707,7 +718,7 @@ export default function HomeScreen() {
           {trendingLoading ? (
             renderSkeletons(3)
           ) : trendingLectures.length > 0 ? (
-            <FlatList
+            <FlashList
               data={[...trendingLectures].reverse()}
               renderItem={renderLectureCard}
               keyExtractor={(item) => `popular-${item.id}`}

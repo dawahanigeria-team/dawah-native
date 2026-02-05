@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Chip, Text } from "../../src/components/atoms";
+import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
 import { Card } from "../../src/components/molecules/Card";
 import { SearchBar } from "../../src/components/molecules/SearchBar";
 import { useQuranAlbums } from "../../src/hooks/useQuranAlbums";
@@ -107,7 +108,15 @@ const getSectionInfo = (type: string) => {
 type SortOption = "recent" | "most-played" | "downloads";
 type LanguageFilter = "all" | "hausa" | "english" | "yoruba" | "arabic";
 
-export default function SectionScreen() {
+export default function SectionScreenWithBoundary() {
+  return (
+    <ErrorBoundary>
+      <SectionScreen />
+    </ErrorBoundary>
+  );
+}
+
+function SectionScreen() {
   const { colors } = useTheme();
   const { type } = useLocalSearchParams<{ type: string }>();
   const canUseFlashList = Boolean(
@@ -1026,7 +1035,6 @@ export default function SectionScreen() {
         ListFooterComponent={renderFooter}
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
-        {...(canUseFlashList ? { estimatedItemSize: 160 } : {})}
         contentContainerStyle={[
           tw`px-6 pb-20`,
           {

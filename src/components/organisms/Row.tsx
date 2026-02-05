@@ -1,5 +1,6 @@
+import { FlashList, ListRenderItem } from "@shopify/flash-list";
 import React, { memo } from "react";
-import { ScrollView, View, ViewStyle, FlatList, ListRenderItem } from "react-native";
+import { ScrollView, View, ViewStyle } from "react-native";
 import { designTokens } from "../../theme/designTokens";
 import { Icon, Text, Touchable } from "../atoms";
 
@@ -115,7 +116,7 @@ const RowComponent = <T,>({
       return (
         <View style={containerStyle}>
           {Header}
-          <FlatList
+          <FlashList
             horizontal
             data={data}
             renderItem={renderItem}
@@ -128,9 +129,7 @@ const RowComponent = <T,>({
             bounces={true}
             scrollEventThrottle={16}
             accessibilityLabel={`Horizontal scrollable list of ${title.toLowerCase()}`}
-            initialNumToRender={4}
-            windowSize={5}
-            maxToRenderPerBatch={4}
+
           />
         </View>
       );

@@ -1,8 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { FlatList, Text, TouchableOpacity, View, Alert, ActivityIndicator, Platform } from "react-native";
+import { FlashList } from "@shopify/flash-list";
+import { Text, TouchableOpacity, View, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../../src/components/molecules/Card";
+import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
 import { useRouter } from "expo-router";
 import { usePlayerActions, useDownloadsStore, useFavoritesStore } from "../../src/stores";
 import { useAuthStore } from "../../src/stores/authStore";
@@ -35,8 +37,15 @@ const downloadToEpisode = (download: DownloadMetadata): Episode => ({
   createdAt: download.downloadedAt,
 });
 
-export default function LibraryScreen() {
-  const shouldClipSubviews = Platform.OS !== "android";
+export default function LibraryScreenWithBoundary() {
+  return (
+    <ErrorBoundary>
+      <LibraryScreen />
+    </ErrorBoundary>
+  );
+}
+
+function LibraryScreen() {
   const router = useRouter();
   const { playEpisode } = usePlayerActions();
   const { downloads, deleteLecture, getTotalStorageUsed, refreshDownloads } = useDownloadsStore();
@@ -477,21 +486,14 @@ export default function LibraryScreen() {
       </View>
 
       {/* Content */}
-      <FlatList
+      <FlashList
         data={loading ? [] : data}
         renderItem={renderListItem}
         keyExtractor={(item) => String(item.id)}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          tw`pb-40 px-4`,
-          (loading || data.length === 0) ? { flexGrow: 1 } : null,
-        ]}
+        contentContainerStyle={tw`pb-40 px-4`}
         ListEmptyComponent={renderListEmpty}
         accessibilityLabel="Library content"
-        removeClippedSubviews={shouldClipSubviews}
-        initialNumToRender={8}
-        windowSize={10}
-        maxToRenderPerBatch={8}
       />
     </SafeAreaView>
   );

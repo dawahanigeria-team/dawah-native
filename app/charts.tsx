@@ -233,6 +233,9 @@ const ChartsScreen: React.FC = memo(() => {
             />
           )}
           contentContainerStyle={[styles.listContent, { paddingBottom: listPaddingBottom }]}
+          initialNumToRender={10}
+          maxToRenderPerBatch={5}
+          windowSize={5}
         />
       </View>
     </SafeAreaView>

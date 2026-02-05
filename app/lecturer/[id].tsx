@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../../src/components/atoms";
+import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
 import { TabView } from "../../src/components/molecules/TabView";
 import { useDebounce } from "../../src/hooks/useDebounce";
 import { useTheme } from "../../src/hooks/useTheme";
@@ -80,7 +81,15 @@ const buildLecturerDetails = (
 // Pagination constants
 const PAGE_SIZE = 10;
 
-export default function LecturerDetailScreen() {
+export default function LecturerDetailScreenWithBoundary() {
+  return (
+    <ErrorBoundary>
+      <LecturerDetailScreen />
+    </ErrorBoundary>
+  );
+}
+
+function LecturerDetailScreen() {
   const shouldClipSubviews = Platform.OS !== "android";
   const { id, name, autoFollow } = useLocalSearchParams<{
     id: string;
@@ -1112,6 +1121,9 @@ export default function LecturerDetailScreen() {
         keyboardDismissMode="on-drag"
         ListHeaderComponent={headerContent}
         ListFooterComponent={renderPlaylistFooter}
+        initialNumToRender={10}
+        maxToRenderPerBatch={5}
+        windowSize={5}
       />
     );
   };
@@ -1359,6 +1371,7 @@ export default function LecturerDetailScreen() {
           );
         }}
         removeClippedSubviews={shouldClipSubviews}
+        initialNumToRender={10}
         maxToRenderPerBatch={20}
         windowSize={10}
       />
@@ -1378,6 +1391,9 @@ export default function LecturerDetailScreen() {
         keyboardDismissMode="on-drag"
         ListHeaderComponent={headerContent}
         ListFooterComponent={renderAlbumFooter}
+        initialNumToRender={10}
+        maxToRenderPerBatch={5}
+        windowSize={5}
         ListEmptyComponent={() => {
           if (albumsLoading) {
             return (

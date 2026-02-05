@@ -549,6 +549,9 @@ export default function RamadanYearScreen() {
         contentContainerStyle={tw`px-4 pb-32`}
         columnWrapperStyle={tw`justify-between`}
         showsVerticalScrollIndicator={false}
+        initialNumToRender={10}
+        maxToRenderPerBatch={5}
+        windowSize={5}
         ListEmptyComponent={
           <View style={tw`flex-1 items-center justify-center py-20`}>
             <Ionicons

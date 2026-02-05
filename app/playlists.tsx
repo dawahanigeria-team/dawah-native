@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, FlatList, Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
+import { Alert, Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../src/components/atoms';
 import { CardSkeleton } from '../src/components/molecules';
@@ -118,7 +119,7 @@ export default function PlaylistsScreen() {
             <TouchableOpacity onPress={() => setModalVisible(true)} style={{ marginTop: spacing.lg, padding: spacing.md, backgroundColor: colors.brand.primary, borderRadius: borderRadius.md }}>
               <Text style={{ color: colors.fixed.white, textAlign: 'center' }}>Create New Playlist</Text>
             </TouchableOpacity>
-            <FlatList
+            <FlashList
               data={playlists}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
@@ -129,7 +130,7 @@ export default function PlaylistsScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              style={{ marginTop: spacing.lg }}
+              contentContainerStyle={{ paddingTop: spacing.lg }}
             />
           </>
         )}
