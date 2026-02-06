@@ -191,6 +191,8 @@ function HomeScreen() {
             lecture.lecturer_name ||
             (lectureRecord.LecturerName as string) ||
             undefined,
+          rpname: lecture.rpname,
+          reciter_name: (lectureRecord as any).reciter_name,
         } as Episode;
       });
     },

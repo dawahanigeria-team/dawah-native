@@ -110,10 +110,14 @@ type AddEventListenerReturn = {
   remove: () => void
 }
 
+type AddOptions = {
+  activate?: boolean
+}
+
 const listeners = new Map<string, Set<Listener>>()
 
 let player: AudioPlayer | null = null
-let playerStatusSubscription: AddEventListenerReturn | null = null
+let _playerStatusSubscription: AddEventListenerReturn | null = null
 
 let queue: Track[] = []
 let activeTrackIndex = -1
@@ -184,7 +188,7 @@ const ensurePlayer = (): AudioPlayer => {
   if (player) return player
 
   player = createAudioPlayer(null, { updateInterval: 250, keepAudioSessionActive: true })
-  playerStatusSubscription = player.addListener('playbackStatusUpdate', (audioStatus: AudioStatus) => {
+  _playerStatusSubscription = player.addListener('playbackStatusUpdate', (audioStatus: AudioStatus) => {
     setProgress({
       position: Number.isFinite(audioStatus.currentTime) ? audioStatus.currentTime : 0,
       duration: Number.isFinite(audioStatus.duration) ? audioStatus.duration : 0,
@@ -200,17 +204,6 @@ const ensurePlayer = (): AudioPlayer => {
   })
 
   return player
-}
-
-const disposePlayer = (): void => {
-  if (playerStatusSubscription) {
-    playerStatusSubscription.remove()
-    playerStatusSubscription = null
-  }
-  if (player) {
-    player.remove()
-    player = null
-  }
 }
 
 const setLockScreenState = (active: boolean, track?: Track) => {
@@ -340,9 +333,8 @@ const TrackPlayer = {
       // Ignore seek failures when no media is loaded.
     }
     currentPlayer.clearLockScreenControls()
-    // Expo SDK 55 preview may reject `replace(null)` at runtime.
-    // Dispose and lazily recreate the player instead of clearing with a null source.
-    disposePlayer()
+    // Keep the same player instance to avoid re-initialization cost on every track change.
+    // We only clear queue/index state and let the next activation call replace the source.
     queue = []
     activeTrackIndex = -1
     playlistKey = null
@@ -350,7 +342,7 @@ const TrackPlayer = {
     setPlaybackState(State.None)
   },
 
-  async add(tracks: Track | Track[]): Promise<void> {
+  async add(tracks: Track | Track[], options?: AddOptions): Promise<void> {
     const normalizedTracks = Array.isArray(tracks) ? tracks : [tracks]
     if (!normalizedTracks.length) return
     queue.push(...normalizedTracks)
@@ -358,7 +350,7 @@ const TrackPlayer = {
       playlistKey = buildDefaultPlaylistKey(queue)
     }
 
-    if (activeTrackIndex === -1) {
+    if (options?.activate !== false && activeTrackIndex === -1) {
       await activateTrack(0, false)
     }
   },

@@ -80,6 +80,7 @@ jest.mock('expo-audio', () => {
   return {
     createAudioPlayer: jest.fn(() => player),
     setAudioModeAsync: jest.fn().mockResolvedValue(undefined),
+    __player: player,
   }
 })
 
@@ -106,6 +107,19 @@ describe('expoTrackPlayerCompat', () => {
     subscription.remove()
   })
 
+  test('can add queue without initial activation to avoid double source replace', async () => {
+    const createAudioPlayerMock = createAudioPlayer as jest.Mock
+    const expoAudioMock = jest.requireMock('expo-audio') as { __player: { replace: jest.Mock } }
+    const callsBeforeAdd = createAudioPlayerMock.mock.calls.length
+    const track = { id: 'a', url: 'https://example.com/a.mp3', title: 'A' }
+
+    await (TrackPlayer as any).add([track], { activate: false })
+    expect(createAudioPlayerMock.mock.calls.length).toBe(callsBeforeAdd)
+
+    await TrackPlayer.skip(0)
+    expect(expoAudioMock.__player.replace).toHaveBeenCalledTimes(1)
+  })
+
   test('returns playing state after play', async () => {
     await TrackPlayer.add({ id: 'a', url: 'https://example.com/a.mp3', title: 'A' })
     await TrackPlayer.skip(0)
@@ -115,7 +129,7 @@ describe('expoTrackPlayerCompat', () => {
     expect(playbackState.state).toBe(State.Playing)
   })
 
-  test('reset disposes player instead of replacing with null source', async () => {
+  test('reset clears queue state without recreating the audio player', async () => {
     const createAudioPlayerMock = createAudioPlayer as jest.Mock
     await TrackPlayer.add({ id: 'a', url: 'https://example.com/a.mp3', title: 'A' })
     const callsBeforeReset = createAudioPlayerMock.mock.calls.length
@@ -123,10 +137,13 @@ describe('expoTrackPlayerCompat', () => {
     await TrackPlayer.reset()
     await TrackPlayer.add({ id: 'b', url: 'https://example.com/b.mp3', title: 'B' })
 
-    expect(createAudioPlayerMock.mock.calls.length).toBe(callsBeforeReset + 1)
+    expect(createAudioPlayerMock.mock.calls.length).toBe(callsBeforeReset)
   })
 
   test('updates now-playing metadata for active track and lock screen', async () => {
+    const expoAudioMock = jest.requireMock('expo-audio') as {
+      __player: { updateLockScreenMetadata: jest.Mock }
+    }
     await TrackPlayer.add({ id: 'a', url: 'https://example.com/a.mp3', title: 'A', artist: 'Old' })
     await (TrackPlayer as any).updateNowPlayingMetadata({
       title: 'Updated Title',
@@ -139,8 +156,7 @@ describe('expoTrackPlayerCompat', () => {
     expect(activeTrack?.artist).toBe('Updated Artist')
     expect(activeTrack?.artwork).toBe('https://example.com/artwork.jpg')
 
-    const playerInstance = (createAudioPlayer as jest.Mock).mock.results.at(-1)?.value
-    expect(playerInstance.updateLockScreenMetadata).toHaveBeenCalled()
+    expect(expoAudioMock.__player.updateLockScreenMetadata).toHaveBeenCalled()
   })
 
   test('exposes playlist key and clears it on reset', async () => {

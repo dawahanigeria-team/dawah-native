@@ -85,7 +85,9 @@ const detailToEpisode = (detail: {
   downloads: detail.downloads ?? 0,
   createdAt: detail.postedDate ?? detail.updatedDate ?? new Date().toISOString(),
   lecturerName: detail.lecturerName ?? detail.reciter?.name,
-})
+  rpname: (detail as any).raw?.rpname,
+  reciter_name: (detail as any).raw?.reciter_name ?? detail.reciter?.name,
+} as Episode)
 
 const downloadMetadataToEpisode = (metadata: {
   lectureId: string
@@ -239,7 +241,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
             }
 
             await TrackPlayer.reset()
-            await TrackPlayer.add(tracks)
+            await TrackPlayer.add(tracks, { activate: false })
             await TrackPlayer.setPlaylistKey(buildPlaylistKey(filteredQueue))
 
             const snapshotTrackId = snapshot.trackIds[snapshot.currentIndex]

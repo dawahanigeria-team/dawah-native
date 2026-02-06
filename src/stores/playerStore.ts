@@ -88,13 +88,36 @@ export const setPlayNextRef = (fn: (() => Promise<void>) | null) => {
  */
 export const getPlayNextRef = () => playNextRef;
 
+const PLACEHOLDER_ARTIST_NAMES = new Set([
+  'dawahnigeria',
+  'unknown',
+  'unknown lecturer',
+  'unknown scholar',
+  'n/a',
+]);
+
+const normalizeArtistCandidate = (value: string | undefined | null): string => {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  if (PLACEHOLDER_ARTIST_NAMES.has(trimmed.toLowerCase())) {
+    return '';
+  }
+
+  return trimmed;
+};
+
 const firstNonEmptyString = (values: Array<string | undefined | null>): string => {
   for (const value of values) {
-    if (typeof value === 'string') {
-      const trimmed = value.trim();
-      if (trimmed.length > 0) {
-        return trimmed;
-      }
+    const normalized = normalizeArtistCandidate(value);
+    if (normalized.length > 0) {
+      return normalized;
     }
   }
 
@@ -277,7 +300,7 @@ const playEpisode = async (episode: Episode) => {
       if (requestId !== currentPlayRequestId) return;
 
       await TrackPlayer.reset();
-      await TrackPlayer.add(tracks);
+      await TrackPlayer.add(tracks, { activate: false });
       await TrackPlayer.setPlaylistKey(buildPlaylistKey(queue));
       await TrackPlayer.skip(0);
 
@@ -547,7 +570,7 @@ const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: b
 
     await ensureTrackPlayerReady();
     await TrackPlayer.reset();
-    await TrackPlayer.add(tracks);
+    await TrackPlayer.add(tracks, { activate: false });
     await TrackPlayer.setPlaylistKey(buildPlaylistKey(filteredQueue));
     await TrackPlayer.skip(safeFilteredStartIndex);
     await TrackPlayer.play();
@@ -799,7 +822,7 @@ const addToQueue = async (episodes: Episode | Episode[]) => {
 
   try {
     await ensureTrackPlayerReady();
-    await TrackPlayer.add(tracks);
+    await TrackPlayer.add(tracks, { activate: false });
     await TrackPlayer.setPlaylistKey(buildPlaylistKey(queue));
   } catch (error) {
     logger.error('Failed to add tracks to queue', error as Error);
@@ -883,7 +906,7 @@ const toggleShuffle = async () => {
     try {
       await ensureTrackPlayerReady();
       await TrackPlayer.reset();
-      await TrackPlayer.add(tracks);
+      await TrackPlayer.add(tracks, { activate: false });
       await TrackPlayer.setPlaylistKey(buildPlaylistKey(newQueue));
       await TrackPlayer.skip(0);
       if (currentState.isPlaying) {

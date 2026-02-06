@@ -30,7 +30,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLectureDetail } from "../../hooks/useLectureDetail";
 import { useTheme } from "../../hooks/useTheme";
 import { useDownloadsStore } from "../../stores";
-import { usePlayerStore } from "../../stores/playerStore";
+import { usePlayerStore, resolveEpisodeArtistName } from "../../stores/playerStore";
 import { designTokens } from "../../theme/designTokens";
 import { getTabBarHeight } from "../../utils";
 import { getInitials, getPlaceholderStyle } from "../../utils/colorPlaceholder";
@@ -110,6 +110,11 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
     );
 
     const contentTypeLabel = isRecitation ? "Quran Recitation" : "Islamic Lecture";
+
+    const artistName = useMemo(
+      () => (currentEpisode ? resolveEpisodeArtistName(currentEpisode) : ''),
+      [currentEpisode],
+    );
 
     const downloadStatus = currentEpisode ? getDownloadStatus(currentEpisode.id) : null;
     const downloadProgress = currentEpisode ? getDownloadProgress(currentEpisode.id) : 0;
@@ -228,7 +233,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       if (!currentEpisode) return;
 
       const webLink = linkingService.createLectureLink(currentEpisode.id);
-      const baseMessage = `🎧 ${currentEpisode.title}\n👤 ${currentEpisode.lecturerName || 'dawahnigeria'}\n\n${webLink}`;
+      const baseMessage = `🎧 ${currentEpisode.title}${artistName ? `\n👤 ${artistName}` : ''}\n\n${webLink}`;
       const message = appendShareSignature(baseMessage);
 
       try {
@@ -353,7 +358,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
               {currentEpisode.title}
             </Text>
             <Text variant="caption1" color="secondaryLabel" numberOfLines={1}>
-              {currentEpisode.lecturerName ? `${currentEpisode.lecturerName} • ` : ""}{formatDuration(progress)}/{formatDuration(duration)}
+              {artistName ? `${artistName} • ` : ""}{formatDuration(progress)}/{formatDuration(duration)}
             </Text>
           </View>
 
@@ -481,7 +486,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                 color="secondaryLabel"
                 style={{ textAlign: "center", marginBottom: 4 }}
               >
-                {currentEpisode.lecturerName || ""}
+                {artistName}
               </Text>
               <Text
                 variant="caption1"

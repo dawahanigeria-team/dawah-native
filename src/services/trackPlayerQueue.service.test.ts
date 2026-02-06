@@ -30,3 +30,16 @@ test('buildQueue preserves order', () => {
   )
   expect(queue.map((track) => track.id)).toEqual(['10', '11'])
 })
+
+test('buildTrack ignores placeholder artist and falls back to reciter fields', () => {
+  const track = buildTrack(
+    {
+      ...episode,
+      lecturerName: 'DawahNigeria',
+      reciter_name: 'Shaykh Reciter',
+    } as any,
+    'file:///local.mp3'
+  )
+
+  expect(track.artist).toBe('Shaykh Reciter')
+})

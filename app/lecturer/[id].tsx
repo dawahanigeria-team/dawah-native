@@ -542,7 +542,9 @@ function LecturerDetailScreen() {
       language: lecture.lang || "Unknown",
       downloads: lecture.downloads || 0,
       createdAt: new Date().toISOString(),
-      lecturerName: lecture.rpname || lecturerName, // Include lecturer name from the lecture data
+      lecturerName: lecture.rpname || lecturerName,
+      rpname: lecture.rpname,
+      reciter_name: (lecture as any).reciter_name,
     };
   };
 

@@ -8,6 +8,25 @@ import { SearchLecture } from '../types/api.types';
 import { Episode } from '../types/types';
 import { ApiError } from '../services/api/base.api';
 
+const PLACEHOLDER_SPEAKER_NAMES = new Set([
+  'dawahnigeria',
+  'unknown',
+  'unknown lecturer',
+  'unknown scholar',
+  'n/a',
+]);
+
+const pickSpeakerName = (candidates: Array<string | undefined | null>): string | undefined => {
+  for (const value of candidates) {
+    if (typeof value !== 'string') continue;
+    const trimmed = value.trim();
+    if (!trimmed) continue;
+    if (PLACEHOLDER_SPEAKER_NAMES.has(trimmed.toLowerCase())) continue;
+    return trimmed;
+  }
+  return undefined;
+};
+
 export interface UseTrendingResult {
   lectures: Episode[];
   loading: boolean;
@@ -75,20 +94,35 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
           }
           return hasRequiredFields;
         })
-        .map((lecture: SearchLecture) => ({
-          id: lecture.nid!.toString(),
-          title: lecture.Title!,
-          durationSec: parseDuration(lecture.duration || lecture.mp3_duration || '0:00:00'),
-          coverUrl: lecture.img || lecture.CoverUrl || '',
-          audioUrl: lecture.audio || lecture.mp3_url || lecture.AudioUrl || '',
-          seriesId: lecture.keyword || '',
-          plays: parseInt(lecture.favorites?.toString() || '0') || 0,
-          liked: false,
-          language: lecture.lang || lecture.language || lecture.Language || '',
-          downloads: parseInt(lecture.share?.toString() || '0') || 0,
-          createdAt: lecture.created_at || '',
-          lecturerName: lecture.rpname || lecture.lecturer_name || lecture.ResourcePerson || (lecture as any).reciter_name || '',
-        }));
+        .map((lecture: SearchLecture) => {
+          const reciterName =
+            (lecture as SearchLecture & { reciter_name?: string; reciterName?: string }).reciter_name
+            || (lecture as SearchLecture & { reciter_name?: string; reciterName?: string }).reciterName
+            || (lecture as any).reciter_name
+            || undefined;
+
+          return {
+            id: lecture.nid!.toString(),
+            title: lecture.Title!,
+            durationSec: parseDuration(lecture.duration || lecture.mp3_duration || '0:00:00'),
+            coverUrl: lecture.img || lecture.CoverUrl || '',
+            audioUrl: lecture.audio || lecture.mp3_url || lecture.AudioUrl || '',
+            seriesId: lecture.keyword || '',
+            plays: parseInt(lecture.favorites?.toString() || '0') || 0,
+            liked: false,
+            language: lecture.lang || lecture.language || lecture.Language || '',
+            downloads: parseInt(lecture.share?.toString() || '0') || 0,
+            createdAt: lecture.created_at || '',
+            lecturerName:
+              pickSpeakerName([
+                lecture.lecturer_name,
+                lecture.rpname,
+                reciterName,
+                lecture.ResourcePerson,
+                (lecture as any).LecturerName,
+              ]) || '',
+          };
+        });
 
       // Append or replace lectures based on pagination
       if (append) {

@@ -180,4 +180,22 @@ test('resolveEpisodeArtistName prefers lecturer name then reciter fields', () =>
       reciter: { name: 'Qari Reciter' },
     } as any)
   ).toBe('Qari Reciter')
+
+  expect(
+    resolveEpisodeArtistName({
+      id: '3',
+      title: 'Recitation',
+      audioUrl: 'https://example.com/audio.mp3',
+      lecturerName: 'DawahNigeria',
+      coverUrl: 'cover.png',
+      durationSec: 120,
+      seriesId: '',
+      plays: 0,
+      liked: false,
+      language: 'Unknown',
+      downloads: 0,
+      createdAt: new Date().toISOString(),
+      reciter_name: 'Shaykh Fallback',
+    } as any)
+  ).toBe('Shaykh Fallback')
 })

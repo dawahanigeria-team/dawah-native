@@ -64,7 +64,9 @@ const createEpisodeFromDetail = (detail: LectureDetail | null): Episode | null =
     downloads: detail.downloads || 0,
     createdAt: detail.postedDate || new Date().toISOString(),
     lecturerName: detail.lecturerName || detail.reciter?.name || "",
-  };
+    rpname: detail.raw?.rpname,
+    reciter_name: detail.raw?.reciter_name ?? detail.reciter?.name,
+  } as Episode;
 };
 
 const LectureDetailScreen: React.FC = () => {
