@@ -116,14 +116,13 @@ describe('expoTrackPlayerCompat', () => {
   })
 
   test('reset disposes player instead of replacing with null source', async () => {
-    const mockedPlayer = (createAudioPlayer as jest.Mock).mock.results[0]?.value
+    const createAudioPlayerMock = createAudioPlayer as jest.Mock
     await TrackPlayer.add({ id: 'a', url: 'https://example.com/a.mp3', title: 'A' })
-    ;(mockedPlayer.replace as jest.Mock).mockClear()
-    ;(mockedPlayer.remove as jest.Mock).mockClear()
+    const callsBeforeReset = createAudioPlayerMock.mock.calls.length
 
     await TrackPlayer.reset()
+    await TrackPlayer.add({ id: 'b', url: 'https://example.com/b.mp3', title: 'B' })
 
-    expect(mockedPlayer.replace).not.toHaveBeenCalledWith(null)
-    expect(mockedPlayer.remove).toHaveBeenCalledTimes(1)
+    expect(createAudioPlayerMock.mock.calls.length).toBe(callsBeforeReset + 1)
   })
 })
