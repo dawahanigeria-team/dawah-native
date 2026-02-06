@@ -190,6 +190,17 @@ const ensurePlayer = (): AudioPlayer => {
   return player
 }
 
+const disposePlayer = (): void => {
+  if (playerStatusSubscription) {
+    playerStatusSubscription.remove()
+    playerStatusSubscription = null
+  }
+  if (player) {
+    player.remove()
+    player = null
+  }
+}
+
 const setLockScreenState = (active: boolean, track?: Track) => {
   const currentPlayer = ensurePlayer()
   const metadata = metadataForTrack(track)
@@ -316,12 +327,14 @@ const TrackPlayer = {
     } catch {
       // Ignore seek failures when no media is loaded.
     }
-    currentPlayer.replace(null)
+    currentPlayer.clearLockScreenControls()
+    // Expo SDK 55 preview may reject `replace(null)` at runtime.
+    // Dispose and lazily recreate the player instead of clearing with a null source.
+    disposePlayer()
     queue = []
     activeTrackIndex = -1
     setProgress({ position: 0, duration: 0, buffered: 0 })
     setPlaybackState(State.None)
-    setLockScreenState(false)
   },
 
   async add(tracks: Track | Track[]): Promise<void> {

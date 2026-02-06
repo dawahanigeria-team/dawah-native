@@ -1,4 +1,5 @@
 import TrackPlayer, { Event, State } from './expoTrackPlayerCompat'
+import { createAudioPlayer } from 'expo-audio'
 
 jest.mock('expo-audio', () => {
   const listeners = new Map<string, Set<(payload: unknown) => void>>()
@@ -112,5 +113,17 @@ describe('expoTrackPlayerCompat', () => {
 
     const playbackState = await TrackPlayer.getPlaybackState()
     expect(playbackState.state).toBe(State.Playing)
+  })
+
+  test('reset disposes player instead of replacing with null source', async () => {
+    const mockedPlayer = (createAudioPlayer as jest.Mock).mock.results[0]?.value
+    await TrackPlayer.add({ id: 'a', url: 'https://example.com/a.mp3', title: 'A' })
+    ;(mockedPlayer.replace as jest.Mock).mockClear()
+    ;(mockedPlayer.remove as jest.Mock).mockClear()
+
+    await TrackPlayer.reset()
+
+    expect(mockedPlayer.replace).not.toHaveBeenCalledWith(null)
+    expect(mockedPlayer.remove).toHaveBeenCalledTimes(1)
   })
 })
