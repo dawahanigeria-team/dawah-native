@@ -27,9 +27,6 @@ module.exports = defineConfig([
       '@typescript-eslint': tsPlugin,
     },
     rules: {
-      // Work around resolver false positives for RNTP's package layout
-      'import/no-unresolved': ['error', { ignore: ['react-native-track-player'] }],
-
       // React Native specific rules
       'react-native/no-unused-styles': 'error',
       'react-native/split-platform-components': 'warn',

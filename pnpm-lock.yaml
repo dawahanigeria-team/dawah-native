@@ -122,9 +122,6 @@ importers:
       react-native-svg:
         specifier: 15.15.1
         version: 15.15.1(react-native@0.83.1(@babel/core@7.28.5)(@types/react@19.2.13)(react@19.2.0))(react@19.2.0)
-      react-native-track-player:
-        specifier: 5.0.0-alpha0
-        version: 5.0.0-alpha0(react-native@0.83.1(@babel/core@7.28.5)(@types/react@19.2.13)(react@19.2.0))(react@19.2.0)
       react-native-web:
         specifier: ^0.21.0
         version: 0.21.2(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -4471,16 +4468,6 @@ packages:
     peerDependencies:
       react: '*'
       react-native: '*'
-
-  react-native-track-player@5.0.0-alpha0:
-    resolution: {integrity: sha512-dxMI8aX75wS9S5/DM7dWN060uGjEitX3fhvLGtrQ96AgIKvOorKy3HkBU7DgvCF/6YDAMxez2PaZA+4A3DQWAQ==}
-    peerDependencies:
-      react: '*'
-      react-native: '*'
-      shaka-player: ^4.7.9
-    peerDependenciesMeta:
-      shaka-player:
-        optional: true
 
   react-native-web@0.21.2:
     resolution: {integrity: sha512-SO2t9/17zM4iEnFvlu2DA9jqNbzNhoUP+AItkoCOyFmDMOhUnBBznBDCYN92fGdfAkfQlWzPoez6+zLxFNsZEg==}
@@ -10635,11 +10622,6 @@ snapshots:
       react: 19.2.0
       react-native: 0.83.1(@babel/core@7.28.5)(@types/react@19.2.13)(react@19.2.0)
       warn-once: 0.1.1
-
-  react-native-track-player@5.0.0-alpha0(react-native@0.83.1(@babel/core@7.28.5)(@types/react@19.2.13)(react@19.2.0))(react@19.2.0):
-    dependencies:
-      react: 19.2.0
-      react-native: 0.83.1(@babel/core@7.28.5)(@types/react@19.2.13)(react@19.2.0)
 
   react-native-web@0.21.2(react-dom@19.2.0(react@19.2.0))(react@19.2.0):
     dependencies:

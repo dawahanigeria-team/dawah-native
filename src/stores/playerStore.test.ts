@@ -1,10 +1,10 @@
-import TrackPlayer from 'react-native-track-player'
+import TrackPlayer from '../services/expoTrackPlayerCompat'
 import { playerStore, setAudioControls, usePlayerActions } from './playerStore'
 import { downloadsService } from '../services/downloads.service'
 import { historyService } from '../services/history.service'
 import { ensureTrackPlayerReady } from '../services/trackPlayerReady.service'
 
-jest.mock('react-native-track-player', () => ({
+jest.mock('../services/expoTrackPlayerCompat', () => ({
   reset: jest.fn(),
   add: jest.fn(),
   skip: jest.fn(),

@@ -14,7 +14,7 @@ import TrackPlayer, {
   IOSCategoryOptions,
   RepeatMode,
   useTrackPlayerEvents,
-} from 'react-native-track-player'
+} from '../../services/expoTrackPlayerCompat'
 import React, { useEffect, useRef } from 'react'
 import { Platform } from 'react-native'
 import { useAudioPlayback } from '../../hooks/useAudioPlayback'

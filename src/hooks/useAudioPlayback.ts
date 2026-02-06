@@ -10,8 +10,8 @@ import TrackPlayer, {
   usePlaybackState,
   useProgress,
   useTrackPlayerEvents,
-} from 'react-native-track-player'
-import type { PlaybackState, Progress } from 'react-native-track-player'
+} from '../services/expoTrackPlayerCompat'
+import type { PlaybackState, Progress } from '../services/expoTrackPlayerCompat'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ensureTrackPlayerReady } from '../services/trackPlayerReady.service'
 
@@ -111,8 +111,8 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
   const [isReady, setIsReady] = useState(false)
   const volumeRef = useRef(1)
   const rateRef = useRef(1)
-  const onStatusUpdateRef = useRef<AudioPlaybackConfig['onPlaybackStatusUpdate']>()
-  const onPlaybackFinishedRef = useRef<AudioPlaybackConfig['onPlaybackFinished']>()
+  const onStatusUpdateRef = useRef<AudioPlaybackConfig['onPlaybackStatusUpdate']>(undefined)
+  const onPlaybackFinishedRef = useRef<AudioPlaybackConfig['onPlaybackFinished']>(undefined)
 
   const playbackState = usePlaybackState()
   const progress = useProgress(500)

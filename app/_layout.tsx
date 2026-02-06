@@ -210,7 +210,6 @@ function RootLayout() {
       if (initialUrl) {
         console.log('🔗 App opened with URL:', initialUrl);
         const isPlayerNotification =
-          initialUrl.startsWith('trackplayer://notification.click') ||
           initialUrl.startsWith('dawahnigeria://notification.click');
         if (isPlayerNotification) {
           navigateToPlayer();
@@ -230,7 +229,6 @@ function RootLayout() {
     const subscription = Linking.addEventListener('url', (event) => {
       console.log('🔗 Deep link received:', event.url);
       const isPlayerNotification =
-        event.url?.startsWith('trackplayer://notification.click') ||
         event.url?.startsWith('dawahnigeria://notification.click');
       if (isPlayerNotification) {
         navigateToPlayer();

@@ -1,4 +1,4 @@
-import TrackPlayer, { type SetupPlayerOptions } from 'react-native-track-player'
+import TrackPlayer, { type SetupPlayerOptions } from './expoTrackPlayerCompat'
 
 let setupPromise: Promise<void> | null = null
 let isReady = false

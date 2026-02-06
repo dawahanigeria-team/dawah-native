@@ -1,6 +1,6 @@
 import AsyncStorage from "expo-sqlite/kv-store";
 import NetInfo from '@react-native-community/netinfo';
-import TrackPlayer, { RepeatMode, State } from 'react-native-track-player';
+import TrackPlayer, { RepeatMode, State } from '../services/expoTrackPlayerCompat';
 import { entity } from "simpler-state";
 import type { AudioPlaybackControls } from "../hooks/useAudioPlayback";
 import { addSentryBreadcrumb, captureSentryException } from "../services/config/sentry.config";
