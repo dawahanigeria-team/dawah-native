@@ -1,4 +1,4 @@
-import React, { memo, useCallback } from 'react';
+import React, { memo, useCallback, useState } from 'react';
 import { Pressable, PressableProps, ViewStyle } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -31,6 +31,7 @@ export const Touchable: React.FC<TouchableProps> = memo(({
   ...props
 }) => {
   const scale = useSharedValue(1);
+  const [pressed, setPressed] = useState(false);
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
@@ -38,12 +39,14 @@ export const Touchable: React.FC<TouchableProps> = memo(({
   const springConfig = { damping: 15, stiffness: 150 };
 
   const handlePressIn = useCallback(() => {
+    setPressed(true);
     if (scaleOnPress && !disabled) {
       scale.value = withSpring(scaleValue, springConfig);
     }
   }, [scaleOnPress, disabled, scaleValue]);
 
   const handlePressOut = useCallback(() => {
+    setPressed(false);
     if (scaleOnPress && !disabled) {
       scale.value = withSpring(1, springConfig);
     }
@@ -63,13 +66,13 @@ export const Touchable: React.FC<TouchableProps> = memo(({
     minWidth: minHitTarget ? designTokens.hitTargets.minimum : undefined,
   };
 
-  const flatStyle: ViewStyle = typeof style === 'function'
-    ? { ...baseStyle, ...style({ pressed: false }) }
+  const resolvedStyle: ViewStyle = typeof style === 'function'
+    ? { ...baseStyle, ...style({ pressed }) }
     : { ...baseStyle, ...(style as ViewStyle) };
 
   return (
     <AnimatedPressable
-      style={[flatStyle, animatedStyle]}
+      style={[resolvedStyle, animatedStyle]}
       onPress={handlePress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
