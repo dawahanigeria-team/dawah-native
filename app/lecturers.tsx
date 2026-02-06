@@ -326,7 +326,7 @@ export default function LecturersScreen() {
 
   const renderLecturer = useCallback(
     ({ item }: { item: Lecturer }) => (
-      <View style={tw`w-1/2 px-2 mb-6`}>
+      <View style={tw`flex-1 px-2 mb-6`}>
         <LecturerCard
           id={String(item.id)}
           name={item.name}
@@ -639,7 +639,7 @@ export default function LecturersScreen() {
           data={Array.from({ length: 10 })}
           keyExtractor={(_, index) => `skeleton-${index}`}
           renderItem={() => (
-            <View style={tw`w-1/2 px-2 mb-6`}>
+            <View style={tw`flex-1 px-2 mb-6`}>
               <LecturerCardSkeleton />
             </View>
           )}
