@@ -233,12 +233,7 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
 
     void (async () => {
       try {
-        const trackIndex = await TrackPlayer.getActiveTrackIndex()
-        if (trackIndex === null || trackIndex < 0) {
-          return
-        }
-
-        await TrackPlayer.updateMetadataForTrack(trackIndex, {
+        await TrackPlayer.updateNowPlayingMetadata({
           title: info.title,
           artist: info.artist || '',
           artwork: info.artwork || '',

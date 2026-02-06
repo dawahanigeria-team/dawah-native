@@ -125,4 +125,29 @@ describe('expoTrackPlayerCompat', () => {
 
     expect(createAudioPlayerMock.mock.calls.length).toBe(callsBeforeReset + 1)
   })
+
+  test('updates now-playing metadata for active track and lock screen', async () => {
+    await TrackPlayer.add({ id: 'a', url: 'https://example.com/a.mp3', title: 'A', artist: 'Old' })
+    await (TrackPlayer as any).updateNowPlayingMetadata({
+      title: 'Updated Title',
+      artist: 'Updated Artist',
+      artwork: 'https://example.com/artwork.jpg',
+    })
+
+    const activeTrack = await TrackPlayer.getActiveTrack()
+    expect(activeTrack?.title).toBe('Updated Title')
+    expect(activeTrack?.artist).toBe('Updated Artist')
+    expect(activeTrack?.artwork).toBe('https://example.com/artwork.jpg')
+
+    const playerInstance = (createAudioPlayer as jest.Mock).mock.results.at(-1)?.value
+    expect(playerInstance.updateLockScreenMetadata).toHaveBeenCalled()
+  })
+
+  test('exposes playlist key and clears it on reset', async () => {
+    await (TrackPlayer as any).setPlaylistKey('playlist:scholars:yoruba')
+    expect(await (TrackPlayer as any).getPlaylistKey()).toBe('playlist:scholars:yoruba')
+
+    await TrackPlayer.reset()
+    expect(await (TrackPlayer as any).getPlaylistKey()).toBeNull()
+  })
 })

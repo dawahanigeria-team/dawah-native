@@ -22,3 +22,6 @@ export const buildQueue = (
   episodes: Episode[],
   resolveUrl: (episode: Episode) => string
 ): TrackPlayerTrack[] => episodes.map((episode) => buildTrack(episode, resolveUrl(episode)))
+
+export const buildPlaylistKey = (episodes: Episode[]): string =>
+  episodes.map((episode) => String(episode.id)).join('|')

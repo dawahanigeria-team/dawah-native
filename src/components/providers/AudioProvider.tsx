@@ -26,8 +26,8 @@ import {
   ensureTrackPlayerReady,
   setTrackPlayerSetupConfig,
 } from '../../services/trackPlayerReady.service'
-import { buildQueue } from '../../services/trackPlayerQueue.service'
-import { playerStore, setAudioControls } from '../../stores/playerStore'
+import { buildPlaylistKey, buildQueue } from '../../services/trackPlayerQueue.service'
+import { playerStore, resolveEpisodeArtistName, setAudioControls } from '../../stores/playerStore'
 import type { Episode, PlayerState } from '../../types/types'
 
 interface AudioProviderProps {
@@ -128,7 +128,7 @@ const buildQueueSnapshotFromState = (state: PlayerState) => {
       ? {
         id: String(currentEpisode.id),
         title: currentEpisode.title,
-        artist: currentEpisode.lecturerName,
+        artist: resolveEpisodeArtistName(currentEpisode),
         artwork: currentEpisode.coverUrl,
       }
       : undefined,
@@ -240,6 +240,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
 
             await TrackPlayer.reset()
             await TrackPlayer.add(tracks)
+            await TrackPlayer.setPlaylistKey(buildPlaylistKey(filteredQueue))
 
             const snapshotTrackId = snapshot.trackIds[snapshot.currentIndex]
             const matchedIndex = snapshotTrackId
@@ -428,7 +429,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
 
     audioControls.setLockScreenInfo({
       title: nextEpisode.title,
-      artist: nextEpisode.lecturerName || 'dawahnigeria',
+      artist: resolveEpisodeArtistName(nextEpisode),
       artwork: nextEpisode.coverUrl || '',
     })
   })

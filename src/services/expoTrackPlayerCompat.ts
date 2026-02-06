@@ -95,6 +95,12 @@ type Track = {
   duration?: number
 }
 
+type LockScreenMetadata = {
+  title?: string
+  artist?: string
+  artwork?: string
+}
+
 type ActiveTrackChangedEvent = {
   index: number
   track?: Track
@@ -118,6 +124,7 @@ let progress: Progress = { position: 0, duration: 0, buffered: 0 }
 let lockScreenOptions: AudioLockScreenOptions | undefined
 let jumpForwardInterval = 15
 let jumpBackwardInterval = 15
+let playlistKey: string | null = null
 
 const emit = (event: string, payload: unknown) => {
   const eventListeners = listeners.get(event)
@@ -166,6 +173,11 @@ const metadataForTrack = (track: Track | undefined) => {
 const getActiveTrack = (): Track | undefined => {
   if (activeTrackIndex < 0 || activeTrackIndex >= queue.length) return undefined
   return queue[activeTrackIndex]
+}
+
+const buildDefaultPlaylistKey = (tracks: Track[]): string | null => {
+  if (!tracks.length) return null
+  return tracks.map((track) => track.id).join('|')
 }
 
 const ensurePlayer = (): AudioPlayer => {
@@ -333,6 +345,7 @@ const TrackPlayer = {
     disposePlayer()
     queue = []
     activeTrackIndex = -1
+    playlistKey = null
     setProgress({ position: 0, duration: 0, buffered: 0 })
     setPlaybackState(State.None)
   },
@@ -341,6 +354,9 @@ const TrackPlayer = {
     const normalizedTracks = Array.isArray(tracks) ? tracks : [tracks]
     if (!normalizedTracks.length) return
     queue.push(...normalizedTracks)
+    if (!playlistKey) {
+      playlistKey = buildDefaultPlaylistKey(queue)
+    }
 
     if (activeTrackIndex === -1) {
       await activateTrack(0, false)
@@ -462,6 +478,7 @@ const TrackPlayer = {
     if (index < 0 || index >= queue.length) return
     const wasPlaying = state === State.Playing
     queue.splice(index, 1)
+    playlistKey = buildDefaultPlaylistKey(queue)
 
     if (!queue.length) {
       await TrackPlayer.reset()
@@ -494,6 +511,34 @@ const TrackPlayer = {
       currentPlayer.updateLockScreenMetadata(metadataForTrack(queue[index]) ?? {})
       setLockScreenState(true, queue[index])
     }
+  },
+
+  async updateNowPlayingMetadata(metadata: LockScreenMetadata): Promise<void> {
+    if (activeTrackIndex < 0 || activeTrackIndex >= queue.length) return
+
+    queue[activeTrackIndex] = {
+      ...queue[activeTrackIndex],
+      ...(metadata.title ? { title: metadata.title } : {}),
+      ...(metadata.artist !== undefined ? { artist: metadata.artist } : {}),
+      ...(metadata.artwork !== undefined ? { artwork: metadata.artwork } : {}),
+    }
+
+    const currentPlayer = ensurePlayer()
+    currentPlayer.updateLockScreenMetadata(metadataForTrack(queue[activeTrackIndex]) ?? {})
+    setLockScreenState(true, queue[activeTrackIndex])
+    emit(Event.PlaybackActiveTrackChanged, {
+      index: activeTrackIndex,
+      track: queue[activeTrackIndex],
+    } satisfies ActiveTrackChangedEvent)
+  },
+
+  async setPlaylistKey(key: string | null): Promise<void> {
+    const normalizedKey = typeof key === 'string' ? key.trim() : ''
+    playlistKey = normalizedKey.length > 0 ? normalizedKey : null
+  },
+
+  async getPlaylistKey(): Promise<string | null> {
+    return playlistKey
   },
 }
 
