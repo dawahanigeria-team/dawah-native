@@ -11,6 +11,8 @@
     "test": "jest",
     "lint": "expo lint",
     "lint:fix": "expo lint --fix",
+    "android:build:preview:local": "eas build -p android --profile preview --local --output builds/app-preview.apk",
+    "android:build:production:local": "eas build -p android --profile production --local --output builds/app-production.aab",
     "build:android": "expo run:android --variant release",
     "build:android:apk": "cd android && ./gradlew assembleRelease && cd ..",
     "build:android:aab": "cd android && ./gradlew bundleRelease && cd ..",
