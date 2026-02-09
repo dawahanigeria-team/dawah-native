@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import YoutubePlayer from "react-native-youtube-iframe";
 import { videoApi } from "../../src/services/api/video.api";
+import { logger } from "../../src/utils/logger";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Video } from "../../src/types/types";
@@ -45,7 +46,7 @@ export default function VideoPlayerScreen() {
       setLoading(true);
       setError(null);
 
-      console.log("🎥 Fetching video detail for ID:", id);
+      logger.debug("Fetching video detail for ID:", id);
       const response = await videoApi.getVideoDetail({ id });
 
       // Transform API response to Video type
@@ -104,7 +105,7 @@ export default function VideoPlayerScreen() {
       };
 
       setVideo(transformedVideo);
-      console.log("✅ Video detail fetched successfully:", transformedVideo.title);
+      logger.debug("Video detail fetched successfully:", transformedVideo.title);
     } catch (err: any) {
       console.error("❌ Error fetching video detail:", err);
       setError(err.message || "Failed to load video");

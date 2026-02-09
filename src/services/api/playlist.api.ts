@@ -12,6 +12,7 @@ import {
 } from "../config/sentry.config";
 import { userService } from "../user.service";
 import { apiClient, ApiError } from "./base.api";
+import { logger } from '@/utils/logger';
 
 class PlaylistApiService {
   private async getUserId(): Promise<string> {
@@ -38,7 +39,7 @@ class PlaylistApiService {
         request
       );
 
-      console.log("✅ Playlist created successfully:", response.data);
+      logger.debug("Playlist created successfully:", response.data);
 
       // Clear cache for user playlists to ensure the list is refreshed
       await apiClient.clearCache("user_playlists");
@@ -83,7 +84,7 @@ class PlaylistApiService {
         request
       );
 
-      console.log("✅ Audio added to playlist successfully:", response.data);
+      logger.debug("Audio added to playlist successfully:", response.data);
       return response.data;
     } catch (error) {
       console.error("❌ Failed to add audio to playlist:", error);
@@ -117,7 +118,7 @@ class PlaylistApiService {
         params
       );
 
-      console.log("✅ User playlists fetched successfully:", response.data);
+      logger.debug("User playlists fetched successfully:", response.data);
       return { ...response.data, playlists: response.data.data || [] };
     } catch (error) {
       console.error("❌ Failed to fetch user playlists:", error);
@@ -172,7 +173,7 @@ class PlaylistApiService {
         params
       );
 
-      console.log("✅ Playlist data fetched successfully:", response.data);
+      logger.debug("Playlist data fetched successfully:", response.data);
       return response.data;
     } catch (error) {
       console.error("❌ Failed to fetch playlist data:", error);

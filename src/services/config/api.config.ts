@@ -3,14 +3,17 @@
  * Central configuration for all API-related settings
  */
 
+import Constants from 'expo-constants';
 import { ENV } from '@/config/env';
+
+const appVersion = Constants.expoConfig?.version || '1.0.0';
 
 export const API_CONFIG = {
   BASE_URL: ENV.API_BASE_URL,
   X_PROJECT_KEY: ENV.API_PROJECT_KEY,
   ORIGIN: 'https://dawahnigeria.com',
   REFERER: 'https://dawahnigeria.com/',
-  USER_AGENT: 'DawahNigeria/1.0.0 (Mobile App)',
+  USER_AGENT: `DawahNigeria/${appVersion} (Mobile App)`,
 
   // Timeout settings (in milliseconds)
   TIMEOUTS: {

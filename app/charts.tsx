@@ -15,6 +15,7 @@ import {
   fetchPlaylistCharts,
 } from '../src/services/api/charts.api';
 import { addSentryBreadcrumb, captureSentryException } from '../src/services/config/sentry.config';
+import { logger } from '../src/utils/logger';
 import { useTheme } from '../src/hooks/useTheme';
 import { getTabBarPaddingBottom } from '../src/utils';
 
@@ -89,28 +90,23 @@ const ChartsScreen: React.FC = memo(() => {
       // Navigate based on chart type
       switch (selectedChartType) {
         case 'lecture':
-          console.log('📊 Navigating to lecture:', item.id);
+          logger.debug('Navigating to lecture:', item.id);
           router.push(`/lecture/${item.id}`);
           break;
 
         case 'lecturer':
-          console.log('📊 Navigating to lecturer:', item.rp_id || item.id);
+          logger.debug('Navigating to lecturer:', item.rp_id || item.id);
           router.push(`/lecturer/${item.rp_id || item.id}`);
           break;
 
         case 'album':
-          console.log('📊 Navigating to album:', item.id);
+          logger.debug('Navigating to album:', item.id);
           router.push(`/album/${item.id}`);
           break;
 
         case 'playlist':
-          // TODO: Implement playlist detail page navigation
-          console.log('📊 Playlist pressed:', item.id);
-          Alert.alert(
-            'Coming Soon',
-            'Playlist detail page is coming soon!',
-            [{ text: 'OK' }]
-          );
+          logger.debug('Navigating to playlist:', item.id);
+          router.push(`/playlist/${item.id}`);
           break;
 
         default:

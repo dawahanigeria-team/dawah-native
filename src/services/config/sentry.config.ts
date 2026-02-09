@@ -6,6 +6,7 @@
 import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import { shouldSendSentryEvent } from './sentry.filters';
 
 const SENTRY_DSN = 'https://fa9ba76768be824dd073b24308221777@o4508901298929664.ingest.us.sentry.io/4509860969512960';
 
@@ -20,7 +21,12 @@ export const initSentry = () => {
   }
 
   const isDevelopment = __DEV__;
+  const devSentryFlagValue = process.env.EXPO_PUBLIC_SENTRY_DEV_ENABLED;
   const environment = isDevelopment ? 'development' : 'production';
+  const sendSentryEvents = shouldSendSentryEvent({
+    isDevelopment,
+    devFlagValue: devSentryFlagValue,
+  });
   const enableMobileReplay = Platform.OS !== 'android';
   const replaySessionSampleRate = enableMobileReplay ? (isDevelopment ? 1.0 : 0.1) : 0.0;
   const replayOnErrorSampleRate = enableMobileReplay ? 1.0 : 0.0;
@@ -70,14 +76,9 @@ export const initSentry = () => {
 
     // Before sending events
     beforeSend(event) {
-      // Filter out errors in development if needed
-      if (isDevelopment) {
-        console.log('🔍 Sentry Event:', event);
+      if (!sendSentryEvents) {
+        return null;
       }
-
-      // Don't send events in development if you prefer
-      // return isDevelopment ? null : event;
-
       return event;
     },
 
@@ -130,7 +131,12 @@ export const initSentry = () => {
     environment,
     dsn: SENTRY_DSN.substring(0, 50) + '...',
     debug: isDevelopment,
+    sendEvents: sendSentryEvents,
   });
+
+  if (isDevelopment && !sendSentryEvents) {
+    console.log('⚠️ Sentry dev events are disabled. Set EXPO_PUBLIC_SENTRY_DEV_ENABLED=true to send events locally.');
+  }
 };
 
 /**

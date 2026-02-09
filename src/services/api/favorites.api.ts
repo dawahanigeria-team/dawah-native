@@ -8,6 +8,7 @@ import { apiClient, ApiError } from './base.api';
 import { API_CONFIG } from '../config/api.config';
 import { addSentryBreadcrumb, captureSentryException } from '../config/sentry.config';
 import { userService } from '../user.service';
+import { logger } from '@/utils/logger';
 
 export interface ToggleFavoriteRequest {
   user_id: string;
@@ -81,12 +82,12 @@ class FavoritesApiService {
           }
         );
 
-        console.log('✅ Synced favorite to backend:', response.data.message);
+        logger.debug('Synced favorite to backend:', response.data.message);
         return response.data;
       } catch (networkError: any) {
         // If offline or network error, that's OK - we already updated locally
         if (networkError.isNetworkError || networkError.statusCode === 404) {
-          console.log('📱 Favorite saved locally (offline mode)');
+          logger.debug('Favorite saved locally (offline mode)');
           return {
             success: true,
             message: isCurrentlyFavorited
@@ -142,7 +143,7 @@ class FavoritesApiService {
       const ids = response.data[type] || [];
       const lectureIds = ids.map(id => String(id));
 
-      console.log(`✅ Fetched ${lectureIds.length} favorite ${type} IDs from API`);
+      logger.debug(`Fetched ${lectureIds.length} favorite ${type} IDs from API`);
 
       // Cache the IDs locally
       await this.cacheIds(lectureIds);
@@ -151,7 +152,7 @@ class FavoritesApiService {
     } catch (error: any) {
       // Silently handle network errors - offline is normal
       if (error.isNetworkError) {
-        console.log('📱 Offline mode: Using cached favorites');
+        logger.debug('Offline mode: Using cached favorites');
       } else if (error.statusCode === 404) {
         console.warn('⚠️ Favorites API not available (404). Using local storage only.');
       } else {
@@ -170,7 +171,7 @@ class FavoritesApiService {
 
       // Always return cached IDs (works offline)
       const cachedIds = await this.getCachedIds();
-      console.log(`📦 Using ${cachedIds.length} locally cached favorite IDs`);
+      logger.debug(`Using ${cachedIds.length} locally cached favorite IDs`);
       return cachedIds;
     }
   }

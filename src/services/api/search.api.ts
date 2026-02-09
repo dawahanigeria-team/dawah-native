@@ -6,6 +6,7 @@
 import { getLanguageId } from '../../utils/languages';
 import { API_CONFIG } from '../config/api.config';
 import { apiClient, ApiError } from './base.api';
+import { logger } from '@/utils/logger';
 import {
   SearchType,
   SearchResponse,
@@ -105,7 +106,7 @@ class SearchApiService {
       }
 
       // Log the API call details
-      console.log('🔍 Search API Call:', {
+      logger.debug('Search API Call:', {
         endpoint: API_CONFIG.ENDPOINTS.SEARCH,
         baseUrl: API_CONFIG.BASE_URL,
         params: requestParams,
@@ -125,7 +126,7 @@ class SearchApiService {
       );
 
       // Log response summary (without sensitive data)
-      console.log('📥 Search API Response:', {
+      logger.debug('Search API Response:', {
         status: 'success',
         dataReceived: response.data ? 'Yes' : 'No',
         dataLength: Array.isArray(response.data) ? response.data.length :
@@ -141,7 +142,7 @@ class SearchApiService {
       const normalizedResponse = this.normalizeSearchResponse<T>(response.data, params);
 
       // Log normalized response summary
-      console.log('✅ Normalized Search Response:', {
+      logger.debug('Normalized Search Response:', {
         success: normalizedResponse.success,
         total: normalizedResponse.total,
         dataLength: normalizedResponse.data.length,

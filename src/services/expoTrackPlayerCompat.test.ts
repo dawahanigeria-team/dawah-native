@@ -1,5 +1,6 @@
 import TrackPlayer, { Event, State } from './expoTrackPlayerCompat'
 import { createAudioPlayer } from 'expo-audio'
+import { logger } from '../utils/logger'
 
 jest.mock('expo-audio', () => {
   const listeners = new Map<string, Set<(payload: unknown) => void>>()
@@ -159,11 +160,42 @@ describe('expoTrackPlayerCompat', () => {
     expect(expoAudioMock.__player.updateLockScreenMetadata).toHaveBeenCalled()
   })
 
+  test('lock screen activation debug log omits method type internals', async () => {
+    const debugSpy = jest.spyOn(logger, 'debug')
+
+    await TrackPlayer.add({ id: 'a', url: 'https://example.com/a.mp3', title: 'A' })
+
+    const activationLogCall = debugSpy.mock.calls.find((call) => call[0] === '[LockScreen] Activating lock screen controls')
+    expect(activationLogCall).toBeDefined()
+    expect(String(activationLogCall?.[1])).not.toContain('methodTypes')
+
+    debugSpy.mockRestore()
+  })
+
   test('exposes playlist key and clears it on reset', async () => {
     await (TrackPlayer as any).setPlaylistKey('playlist:scholars:yoruba')
     expect(await (TrackPlayer as any).getPlaylistKey()).toBe('playlist:scholars:yoruba')
 
     await TrackPlayer.reset()
     expect(await (TrackPlayer as any).getPlaylistKey()).toBeNull()
+  })
+
+  test('reset continues cleanup when clearing lock screen controls throws', async () => {
+    const expoAudioMock = jest.requireMock('expo-audio') as {
+      __player: { clearLockScreenControls: jest.Mock }
+    }
+
+    await TrackPlayer.add({ id: 'a', url: 'https://example.com/a.mp3', title: 'A' })
+    await TrackPlayer.skip(0)
+    await (TrackPlayer as any).setPlaylistKey('playlist:resilience')
+    expoAudioMock.__player.clearLockScreenControls.mockImplementationOnce(() => {
+      throw new Error('lock-screen failure')
+    })
+
+    await expect(TrackPlayer.reset()).resolves.toBeUndefined()
+    await expect(TrackPlayer.getActiveTrackIndex()).resolves.toBeNull()
+    await expect(TrackPlayer.getActiveTrack()).resolves.toBeNull()
+    await expect((TrackPlayer as any).getPlaylistKey()).resolves.toBeNull()
+    await expect(TrackPlayer.getPlaybackState()).resolves.toEqual({ state: State.None })
   })
 })

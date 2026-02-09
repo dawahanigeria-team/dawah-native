@@ -1,4 +1,5 @@
 import { Alert, Linking, Platform } from "react-native";
+import { logger } from '@/utils/logger';
 
 /**
  * Requests permission to write to external storage.
@@ -14,7 +15,7 @@ import { Alert, Linking, Platform } from "react-native";
 export const requestStoragePermission = async (): Promise<boolean> => {
   if (Platform.OS !== "android") {
     // On iOS or web, permission is handled by the system or not needed.
-    console.log("ℹ️ Storage permission not required on this platform.");
+    logger.debug("Storage permission not required on this platform.");
     return true;
   }
 
@@ -26,14 +27,14 @@ export const requestStoragePermission = async (): Promise<boolean> => {
     if (isAndroid10OrHigher) {
       // Android 10+ uses scoped storage - no permission needed for app-specific directories
       // expo-file-system handles this automatically
-      console.log("ℹ️ Android 10+ detected - no storage permission required for app-specific directories");
+      logger.debug("Android 10+ detected - no storage permission required for app-specific directories");
       return true;
     }
 
     // For Android 9 and below, we may need WRITE_EXTERNAL_STORAGE
     // However, since expo-file-system uses app-specific directories, this might not be needed
     // But we'll check if we can access the file system
-    console.log("📱 Checking storage access for Android < 10...");
+    logger.debug("Checking storage access for Android < 10...");
 
     // Try to check if we can write - expo-file-system should handle this
     // For now, we'll assume it works since we're using app-specific directories
@@ -41,7 +42,7 @@ export const requestStoragePermission = async (): Promise<boolean> => {
     
     // On older Android, the system should allow writing to app-specific directories
     // without explicit permission. If there are issues, they'll surface as file write errors.
-    console.log("✅ Storage access available for app-specific directory");
+    logger.debug("Storage access available for app-specific directory");
     return true;
 
   } catch (error) {
