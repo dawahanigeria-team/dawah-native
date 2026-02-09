@@ -30,7 +30,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLectureDetail } from "../../hooks/useLectureDetail";
 import { useTheme } from "../../hooks/useTheme";
 import { useDownloadsStore } from "../../stores";
-import { usePlayerStore } from "../../stores/playerStore";
+import { resolveEpisodeArtistName, usePlayerStore } from "../../stores/playerStore";
 import { designTokens } from "../../theme/designTokens";
 import { getTabBarHeight } from "../../utils";
 import { getInitials, getPlaceholderStyle } from "../../utils/colorPlaceholder";
@@ -102,14 +102,8 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       .filter(Boolean)
       .join(", ");
 
-    const isRecitation = Boolean(
-      lectureDetail?.isReciter ||
-      lectureDetail?.reciter?.isReciter ||
-      lectureDetail?.reciter?.id ||
-      lectureDetail?.raw?.reciter_id
-    );
-
-    const contentTypeLabel = isRecitation ? "Quran Recitation" : "Islamic Lecture";
+    // Build content-type label from actual API categories instead of hardcoding
+    const contentTypeLabel = topicsLabel || "";
 
     const downloadStatus = currentEpisode ? getDownloadStatus(currentEpisode.id) : null;
     const downloadProgress = currentEpisode ? getDownloadProgress(currentEpisode.id) : 0;
@@ -239,6 +233,10 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       return null;
     }
 
+    // Resolve the display name: filters out placeholders like "DawahNigeria"
+    // and picks the best available name (rpname, reciter_name, etc.)
+    const displayArtistName = resolveEpisodeArtistName(currentEpisode);
+
     const handleExpand = () => {
       expandPlayer();
       onExpand?.();
@@ -259,7 +257,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       if (!currentEpisode) return;
 
       const webLink = linkingService.createLectureLink(currentEpisode.id);
-      const baseMessage = `🎧 ${currentEpisode.title}\n👤 ${currentEpisode.lecturerName || 'dawahnigeria'}\n\n${webLink}`;
+      const baseMessage = `🎧 ${currentEpisode.title}\n👤 ${displayArtistName || currentEpisode.lecturerName || 'Unknown'}\n\n${webLink}`;
       const message = appendShareSignature(baseMessage);
 
       try {
@@ -377,7 +375,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
               {currentEpisode.title}
             </Text>
             <Text variant="caption1" color="secondaryLabel" numberOfLines={1}>
-              {currentEpisode.lecturerName ? `${currentEpisode.lecturerName} • ` : ""}{formatDuration(progress)}/{formatDuration(duration)}
+              {displayArtistName ? `${displayArtistName} • ` : ""}{formatDuration(progress)}/{formatDuration(duration)}
             </Text>
           </View>
 
@@ -505,14 +503,14 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                 color="secondaryLabel"
                 style={{ textAlign: "center", marginBottom: 4 }}
               >
-                {currentEpisode.lecturerName || ""}
+                {displayArtistName}
               </Text>
               <Text
                 variant="caption1"
                 color="tertiaryLabel"
                 style={{ textAlign: "center" }}
               >
-                {`${contentTypeLabel}${languageLabel ? ` • ${languageLabel}` : ""}`}
+                {[contentTypeLabel, languageLabel].filter(Boolean).join(" • ")}
               </Text>
             </View>
 

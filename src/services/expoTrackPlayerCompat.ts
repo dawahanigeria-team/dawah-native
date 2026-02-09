@@ -1,6 +1,5 @@
+import type { AudioLockScreenOptions, AudioPlayer, AudioStatus } from 'expo-audio'
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio'
-import type { AudioLockScreenOptions } from 'expo-audio'
-import type { AudioPlayer, AudioStatus } from 'expo-audio'
 import { useEffect, useMemo, useState } from 'react'
 
 export const State = {
@@ -211,11 +210,40 @@ const ensurePlayer = (): AudioPlayer => {
 const setLockScreenState = (active: boolean, track?: Track) => {
   const currentPlayer = ensurePlayer()
   const metadata = metadataForTrack(track)
+  const playerWithLockScreen = currentPlayer as AudioPlayer & {
+    setActiveForLockScreen?: (
+      active: boolean,
+      metadata?: LockScreenMetadata,
+      options?: AudioLockScreenOptions
+    ) => void
+  }
   if (active) {
-    currentPlayer.setActiveForLockScreen(true, metadata, lockScreenOptions)
+    if (typeof playerWithLockScreen.setActiveForLockScreen === 'function') {
+      playerWithLockScreen.setActiveForLockScreen(true, metadata, lockScreenOptions)
+    }
     return
   }
-  currentPlayer.clearLockScreenControls()
+  clearLockScreenControls(currentPlayer)
+}
+
+const clearLockScreenControls = (currentPlayer: AudioPlayer) => {
+  const playerWithLockScreen = currentPlayer as AudioPlayer & {
+    clearLockScreenControls?: () => void
+    setActiveForLockScreen?: (
+      active: boolean,
+      metadata?: LockScreenMetadata,
+      options?: AudioLockScreenOptions
+    ) => void
+  }
+
+  if (typeof playerWithLockScreen.clearLockScreenControls === 'function') {
+    playerWithLockScreen.clearLockScreenControls()
+    return
+  }
+
+  if (typeof playerWithLockScreen.setActiveForLockScreen === 'function') {
+    playerWithLockScreen.setActiveForLockScreen(false, undefined, lockScreenOptions)
+  }
 }
 
 const activateTrack = async (index: number, autoPlay: boolean): Promise<void> => {
@@ -342,7 +370,7 @@ const TrackPlayer = {
     } catch {
       // Ignore seek failures when no media is loaded.
     }
-    currentPlayer.clearLockScreenControls()
+    clearLockScreenControls(currentPlayer)
     // Keep the same player instance to avoid re-initialization cost on every track change.
     // We only clear queue/index state and let the next activation call replace the source.
     queue = []
