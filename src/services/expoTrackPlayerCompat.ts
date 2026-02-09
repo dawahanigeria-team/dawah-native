@@ -1,6 +1,7 @@
 import type { AudioLockScreenOptions, AudioPlayer, AudioStatus } from 'expo-audio'
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio'
 import { useEffect, useMemo, useState } from 'react'
+import { logger } from '../utils/logger'
 
 export const State = {
   None: 'none',
@@ -204,10 +205,29 @@ const ensurePlayer = (): AudioPlayer => {
 const setLockScreenState = (active: boolean, track?: Track) => {
   const currentPlayer = ensurePlayer()
   if (active) {
-    currentPlayer.setActiveForLockScreen(true, metadataForTrack(track), lockScreenOptions)
+    const metadata = metadataForTrack(track)
+    console.warn('[LockScreen] Activating lock screen controls', JSON.stringify({
+      hasPlayer: !!currentPlayer,
+      metadata,
+      options: lockScreenOptions,
+      methodTypes: {
+        setActiveForLockScreen: typeof currentPlayer.setActiveForLockScreen,
+        clearLockScreenControls: typeof currentPlayer.clearLockScreenControls,
+      },
+    }))
+    try {
+      currentPlayer.setActiveForLockScreen(true, metadata, lockScreenOptions)
+      console.warn('[LockScreen] setActiveForLockScreen call succeeded')
+    } catch (error) {
+      console.warn('[LockScreen] setActiveForLockScreen FAILED:', (error as Error).message)
+    }
     return
   }
-  currentPlayer.clearLockScreenControls()
+  try {
+    currentPlayer.clearLockScreenControls()
+  } catch (error) {
+    console.warn('[LockScreen] clearLockScreenControls FAILED:', (error as Error).message)
+  }
 }
 
 const activateTrack = async (index: number, autoPlay: boolean): Promise<void> => {
