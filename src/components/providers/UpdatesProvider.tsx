@@ -12,6 +12,13 @@ import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { logger } from '../../utils/logger';
 import { captureSentryException, addSentryBreadcrumb } from '../../services/config/sentry.config';
+import { getLastCheckAfterAttempt, shouldThrottleUpdateCheck } from './UpdatesProvider.checks';
+import {
+  getDismissedUpdateId,
+  getUpdateIdFromManifest,
+  isDismissedUpdate,
+  setDismissedUpdateId,
+} from './UpdatesProvider.dismissal';
 import { getUpdatesBannerTop } from './UpdatesProvider.layout';
 
 const CHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
@@ -21,33 +28,54 @@ export const UpdatesProvider: React.FC = () => {
   const [updateReady, setUpdateReady] = useState(false);
   const lastCheckRef = useRef(0);
   const checkingRef = useRef(false);
+  const pendingUpdateIdRef = useRef<string | null>(null);
 
   const checkForUpdate = useCallback(async () => {
     if (__DEV__) return;
     if (checkingRef.current) return;
 
     const now = Date.now();
-    if (now - lastCheckRef.current < CHECK_INTERVAL_MS) return;
+    const previousLastCheckMs = lastCheckRef.current;
+    if (shouldThrottleUpdateCheck(now, previousLastCheckMs, CHECK_INTERVAL_MS)) return;
 
     checkingRef.current = true;
-    lastCheckRef.current = now;
+    let attemptSucceeded = false;
 
     try {
       const result = await Updates.checkForUpdateAsync();
       if (!result.isAvailable) {
-        checkingRef.current = false;
+        pendingUpdateIdRef.current = null;
+        attemptSucceeded = true;
         return;
+      }
+      const availableUpdateId = getUpdateIdFromManifest(result.manifest);
+      try {
+        const dismissedUpdateId = await getDismissedUpdateId();
+        if (isDismissedUpdate(availableUpdateId, dismissedUpdateId)) {
+          pendingUpdateIdRef.current = null;
+          attemptSucceeded = true;
+          return;
+        }
+      } catch (storageError) {
+        captureSentryException(storageError as Error, { action: 'read_update_banner_dismissal' });
       }
 
       logger.debug('OTA update available, downloading...');
       addSentryBreadcrumb('OTA update available', 'updates');
 
       await Updates.fetchUpdateAsync();
+      pendingUpdateIdRef.current = availableUpdateId;
       setUpdateReady(true);
       logger.debug('OTA update downloaded, ready to reload');
+      attemptSucceeded = true;
     } catch (error) {
       captureSentryException(error as Error, { action: 'check_for_update' });
     } finally {
+      lastCheckRef.current = getLastCheckAfterAttempt({
+        previousLastCheckMs,
+        nowMs: now,
+        attemptSucceeded,
+      });
       checkingRef.current = false;
     }
   }, []);
@@ -83,6 +111,16 @@ export const UpdatesProvider: React.FC = () => {
 
   const handleDismiss = useCallback(() => {
     setUpdateReady(false);
+    const pendingUpdateId = pendingUpdateIdRef.current;
+    if (!pendingUpdateId) {
+      return;
+    }
+    void setDismissedUpdateId(pendingUpdateId).catch((error) => {
+      captureSentryException(error as Error, {
+        action: 'persist_update_banner_dismissal',
+        updateId: pendingUpdateId,
+      });
+    });
   }, []);
 
   if (!updateReady) return null;
