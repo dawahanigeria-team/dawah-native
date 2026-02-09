@@ -48,10 +48,10 @@ const TRACK_PLAYER_SETUP_CONFIG = {
   androidAudioContentType: AndroidAudioContentType.Music,
   autoHandleInterruptions: true,
   autoUpdateMetadata: true,
-  // Buffer tuning for smoother seeks and fewer stalls on long audio
-  minBuffer: 30,
+  // Buffer tuning: keep seek stability without delaying initial playback start.
+  minBuffer: 15,
   maxBuffer: 120,
-  playBuffer: 5,
+  playBuffer: 2,
   backBuffer: 60,
   maxCacheSize: 51200, // 50 MB in KB
 }

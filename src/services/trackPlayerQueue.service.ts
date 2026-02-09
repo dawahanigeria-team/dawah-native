@@ -1,4 +1,5 @@
 import type { Episode } from '../types/types'
+import { extractSpeakerFromTitle, pickSpeakerName } from '../utils/speakerName'
 
 export type TrackPlayerTrack = {
   id: string
@@ -7,22 +8,6 @@ export type TrackPlayerTrack = {
   artist?: string
   artwork?: string
   duration?: number
-}
-
-const PLACEHOLDER_ARTIST_NAMES = new Set([
-  'dawahnigeria',
-  'unknown',
-  'unknown lecturer',
-  'unknown scholar',
-  'n/a',
-])
-
-const normalizeArtist = (value: string | undefined | null): string => {
-  if (typeof value !== 'string') return ''
-  const trimmed = value.trim()
-  if (!trimmed) return ''
-  if (PLACEHOLDER_ARTIST_NAMES.has(trimmed.toLowerCase())) return ''
-  return trimmed
 }
 
 const pickArtist = (episode: Episode): string => {
@@ -34,22 +19,16 @@ const pickArtist = (episode: Episode): string => {
     raw?: { rpname?: string; reciter_name?: string }
   }
 
-  const candidates = [
-    episode.lecturerName,
+  return pickSpeakerName([
     extendedEpisode.rpname,
-    extendedEpisode.reciterName,
-    extendedEpisode.reciter_name,
-    extendedEpisode.reciter?.name,
     extendedEpisode.raw?.rpname,
+    extendedEpisode.reciter_name,
+    extendedEpisode.reciterName,
+    extendedEpisode.reciter?.name,
     extendedEpisode.raw?.reciter_name,
-  ]
-
-  for (const candidate of candidates) {
-    const artist = normalizeArtist(candidate)
-    if (artist) return artist
-  }
-
-  return ''
+    episode.lecturerName,
+    extractSpeakerFromTitle(episode.title),
+  ])
 }
 
 export const buildTrack = (episode: Episode, url: string): TrackPlayerTrack => ({

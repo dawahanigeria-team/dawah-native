@@ -169,9 +169,9 @@ const metadataForTrack = (track: Track | undefined) => {
   if (!track) return undefined
   return {
     title: track.title,
-    // Android MediaSession falls back to audio file ID3 tags when artist is empty.
-    // A single space forces the override so embedded metadata (e.g. "DawahNigeria") is hidden.
-    artist: track.artist || ' ',
+    // Android MediaSession may fallback to app/source metadata when artist is empty.
+    // Non-breaking space avoids auto-fallback while remaining visually blank when needed.
+    artist: track.artist || '\u00A0',
     artworkUrl: track.artwork,
   }
 }
@@ -228,8 +228,16 @@ const activateTrack = async (index: number, autoPlay: boolean): Promise<void> =>
 
   const currentPlayer = ensurePlayer()
   const track = queue[index]
+  const source = typeof track.url === 'string' ? track.url.trim() : ''
+  if (!source) {
+    const error = new Error(`Track ${track.id} has no playable URL`)
+    setPlaybackState(State.Error)
+    emit(Event.PlaybackError, { code: 'missing-track-url', message: error.message })
+    throw error
+  }
 
-  currentPlayer.replace(track.url)
+  setPlaybackState(State.Loading)
+  await currentPlayer.replace(source)
   activeTrackIndex = index
   setProgress({
     position: 0,
@@ -347,7 +355,14 @@ const TrackPlayer = {
   async add(tracks: Track | Track[], options?: AddOptions): Promise<void> {
     const normalizedTracks = Array.isArray(tracks) ? tracks : [tracks]
     if (!normalizedTracks.length) return
-    queue.push(...normalizedTracks)
+    const validTracks = normalizedTracks.filter((track) => {
+      const source = typeof track.url === 'string' ? track.url.trim() : ''
+      return source.length > 0
+    })
+    if (!validTracks.length) {
+      throw new Error('No playable tracks to add')
+    }
+    queue.push(...validTracks)
     if (!playlistKey) {
       playlistKey = buildDefaultPlaylistKey(queue)
     }

@@ -14,6 +14,7 @@ const PLACEHOLDER_SPEAKER_NAMES = new Set([
   'unknown scholar',
   'n/a',
 ]);
+const DAWAH_NIGERIA_PATTERN = /\bdawah\s*nigeria\b/i;
 
 const pickSpeakerName = (candidates: Array<string | undefined | null>): string | undefined => {
   for (const value of candidates) {
@@ -21,6 +22,7 @@ const pickSpeakerName = (candidates: Array<string | undefined | null>): string |
     const trimmed = value.trim();
     if (!trimmed) continue;
     if (PLACEHOLDER_SPEAKER_NAMES.has(trimmed.toLowerCase())) continue;
+    if (DAWAH_NIGERIA_PATTERN.test(trimmed)) continue;
     return trimmed;
   }
   return undefined;

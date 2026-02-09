@@ -20,11 +20,13 @@ interface LectureDetailCacheEntry {
 class LectureDetailApiService {
   private cache = new Map<string, LectureDetailCacheEntry>();
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+  private readonly DAWAH_NIGERIA_PATTERN = /\bdawah\s*nigeria\b/i;
 
   private isPlaceholderSpeakerName(name: unknown): boolean {
     if (typeof name !== 'string') return false;
     const normalized = name.trim().toLowerCase();
     return (
+      this.DAWAH_NIGERIA_PATTERN.test(normalized) ||
       normalized === 'dawahnigeria' ||
       normalized === 'unknown' ||
       normalized === 'unknown lecturer' ||
