@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { usePathname } from "expo-router";
-import React, { memo, useEffect, useMemo, useState } from "react";
+import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
   Dimensions,
+  GestureResponderEvent,
   Pressable,
   ScrollView,
   Share,
@@ -14,7 +15,6 @@ import {
   Gesture,
   GestureDetector,
   GestureHandlerRootView,
-  PanGestureHandler,
 } from "react-native-gesture-handler";
 import Animated, {
   Extrapolate,
@@ -118,6 +118,8 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       downloadStatus === DownloadStatus.QUEUED;
 
     const [imageError, setImageError] = useState(false);
+    const [miniProgressTrackWidth, setMiniProgressTrackWidth] = useState(screenWidth);
+    const [expandedProgressTrackWidth, setExpandedProgressTrackWidth] = useState(280);
     const translateY = useSharedValue(0);
     const opacity = useSharedValue(1);
     const dragY = useSharedValue(0);
@@ -268,46 +270,68 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
 
     const progressPercentage = duration > 0 ? (progress / duration) * 100 : 0;
 
+    const updateProgressFromTouch = useCallback(
+      (event: GestureResponderEvent, trackWidth: number) => {
+        if (!duration || trackWidth <= 0) return;
+        const touchX = event.nativeEvent.locationX;
+        const nextProgress = Math.max(
+          0,
+          Math.min(duration, (touchX / trackWidth) * duration)
+        );
+        setProgress(nextProgress);
+      },
+      [duration, setProgress]
+    );
+
+    const handleMiniProgressTouch = useCallback(
+      (event: GestureResponderEvent) => {
+        updateProgressFromTouch(event, miniProgressTrackWidth);
+      },
+      [miniProgressTrackWidth, updateProgressFromTouch]
+    );
+
+    const handleExpandedProgressTouch = useCallback(
+      (event: GestureResponderEvent) => {
+        updateProgressFromTouch(event, expandedProgressTrackWidth);
+      },
+      [expandedProgressTrackWidth, updateProgressFromTouch]
+    );
+
     const renderMiniPlayer = () => (
       <View style={styles.miniPlayerContainer}>
         {/* Progress Bar with Draggable Thumb */}
         <View style={styles.progressContainer}>
-          <PanGestureHandler
-            onGestureEvent={(event) => {
-              const containerWidth = screenWidth; // Full screen width for mini player
-              const newProgress = Math.max(
-                0,
-                Math.min(
-                  duration,
-                  (event.nativeEvent.x / containerWidth) * duration
-                )
-              );
-              setProgress(newProgress);
+          <View
+            style={[styles.progressTrack, { backgroundColor: colors.system.fill.quaternary }]}
+            onLayout={(event) => {
+              setMiniProgressTrackWidth(event.nativeEvent.layout.width);
             }}
+            onStartShouldSetResponder={() => true}
+            onMoveShouldSetResponder={() => true}
+            onResponderGrant={handleMiniProgressTouch}
+            onResponderMove={handleMiniProgressTouch}
           >
-            <View style={[styles.progressTrack, { backgroundColor: colors.system.fill.quaternary }]}>
-              <View
-                style={[
-                  styles.progressFill,
-                  {
-                    width: `${progressPercentage}%`,
-                    backgroundColor: colors.brand.primary,
-                  },
-                ]}
-              />
-              {/* Draggable Progress Thumb */}
-              <View
-                style={[
-                  styles.miniProgressThumb,
-                  {
-                    left: `${progressPercentage}%`,
-                    backgroundColor: colors.brand.primary,
-                    shadowColor: colors.system.label.primary,
-                  },
-                ]}
-              />
-            </View>
-          </PanGestureHandler>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  width: `${progressPercentage}%`,
+                  backgroundColor: colors.brand.primary,
+                },
+              ]}
+            />
+            {/* Draggable Progress Thumb */}
+            <View
+              style={[
+                styles.miniProgressThumb,
+                {
+                  left: `${progressPercentage}%`,
+                  backgroundColor: colors.brand.primary,
+                  shadowColor: colors.system.label.primary,
+                },
+              ]}
+            />
+          </View>
         </View>
 
         {/* Main Content */}
@@ -495,38 +519,33 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
             {/* Progress Slider */}
             <View style={styles.progressSliderContainer}>
               <View style={styles.progressSlider}>
-                <PanGestureHandler
-                  onGestureEvent={(event) => {
-                    const trackWidth = 280; // Approximate track width
-                    const newProgress = Math.max(
-                      0,
-                      Math.min(
-                        duration,
-                        (event.nativeEvent.x / trackWidth) * duration
-                      )
-                    );
-                    setProgress(newProgress);
+                <View
+                  style={[styles.progressSliderTrack, { backgroundColor: colors.system.fill.quaternary }]}
+                  onLayout={(event) => {
+                    setExpandedProgressTrackWidth(event.nativeEvent.layout.width);
                   }}
+                  onStartShouldSetResponder={() => true}
+                  onMoveShouldSetResponder={() => true}
+                  onResponderGrant={handleExpandedProgressTouch}
+                  onResponderMove={handleExpandedProgressTouch}
                 >
-                  <View style={[styles.progressSliderTrack, { backgroundColor: colors.system.fill.quaternary }]}>
-                    <View
-                      style={[
-                        styles.progressSliderFill,
-                        {
-                          width: `${progressPercentage}%`,
-                          backgroundColor: colors.brand.primary,
-                        },
-                      ]}
-                    />
-                    <View
-                      style={{
-                        ...styles.progressThumb,
-                        left: `${progressPercentage}%`,
+                  <View
+                    style={[
+                      styles.progressSliderFill,
+                      {
+                        width: `${progressPercentage}%`,
                         backgroundColor: colors.brand.primary,
-                      }}
-                    />
-                  </View>
-                </PanGestureHandler>
+                      },
+                    ]}
+                  />
+                  <View
+                    style={{
+                      ...styles.progressThumb,
+                      left: `${progressPercentage}%`,
+                      backgroundColor: colors.brand.primary,
+                    }}
+                  />
+                </View>
               </View>
               <View style={styles.timeLabels}>
                 <Text variant="caption2" color="secondaryLabel">
@@ -653,11 +672,9 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                         ? "checkmark-circle"
                         : downloadStatus === DownloadStatus.PAUSED
                           ? "play-circle-outline"
-                          : downloadStatus === DownloadStatus.QUEUED
-                            ? "time-outline"
-                            : downloadStatus === DownloadStatus.FAILED
-                              ? "alert-circle-outline"
-                              : "download-outline"
+                          : downloadStatus === DownloadStatus.FAILED
+                            ? "alert-circle-outline"
+                            : "download-outline"
                     }
                     size={24}
                     color={

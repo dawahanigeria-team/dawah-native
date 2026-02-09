@@ -5,6 +5,7 @@
 
 import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 const SENTRY_DSN = 'https://fa9ba76768be824dd073b24308221777@o4508901298929664.ingest.us.sentry.io/4509860969512960';
 
@@ -20,6 +21,20 @@ export const initSentry = () => {
 
   const isDevelopment = __DEV__;
   const environment = isDevelopment ? 'development' : 'production';
+  const enableMobileReplay = Platform.OS !== 'android';
+  const replaySessionSampleRate = enableMobileReplay ? (isDevelopment ? 1.0 : 0.1) : 0.0;
+  const replayOnErrorSampleRate = enableMobileReplay ? 1.0 : 0.0;
+  const integrations = [
+    ...(enableMobileReplay
+      ? [
+        Sentry.mobileReplayIntegration({
+          maskAllText: false,
+          maskAllImages: false,
+        }),
+      ]
+      : []),
+    Sentry.reactNativeTracingIntegration(),
+  ];
 
   Sentry.init({
     dsn: SENTRY_DSN,
@@ -44,23 +59,14 @@ export const initSentry = () => {
     profilesSampleRate: isDevelopment ? 1.0 : 0.1, // 100% in dev, 10% in production
 
     // Session Replay
-    replaysOnErrorSampleRate: 1.0, // 100% of errors
-    replaysSessionSampleRate: isDevelopment ? 1.0 : 0.1, // 100% in dev, 10% in production
+    replaysOnErrorSampleRate: replayOnErrorSampleRate,
+    replaysSessionSampleRate: replaySessionSampleRate,
 
     // User Interaction Tracing (button taps, scrolls, etc.)
     enableUserInteractionTracing: true,
 
     // Integrations
-    integrations: [
-      // Mobile Session Replay
-      Sentry.mobileReplayIntegration({
-        maskAllText: false,
-        maskAllImages: false,
-      }),
-
-      // React Native tracing integration for performance monitoring
-      Sentry.reactNativeTracingIntegration(),
-    ],
+    integrations,
 
     // Before sending events
     beforeSend(event) {
