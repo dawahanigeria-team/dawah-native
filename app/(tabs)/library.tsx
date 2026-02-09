@@ -18,6 +18,7 @@ import { historyService } from "../../src/services/history.service";
 import { lectureDetailApi } from "../../src/services/api/lectureDetail.api";
 import { playlistApi } from "../../src/services/api/playlist.api";
 import type { UserPlaylist } from "../../src/types/api.types";
+import { resolveFavoriteIdsForLoad } from "./library.favorites";
 
 type LibraryTab = "Downloads" | "History" | "Liked" | "Playlists";
 
@@ -120,14 +121,11 @@ function LibraryScreen() {
       setLoadingLiked(true);
       logger.debug('Loading favorites...');
 
-      // Fetch favorite IDs if not loaded
-      if (favoriteIds.length === 0) {
-        await fetchFavorites();
-      }
+      const favoriteIdsToLoad = await resolveFavoriteIdsForLoad(favoriteIds, fetchFavorites);
 
       // Fetch lecture details for each favorite ID
       const episodes: Episode[] = [];
-      for (const lectureId of favoriteIds) {
+      for (const lectureId of favoriteIdsToLoad) {
         try {
           const lecture = await lectureDetailApi.getLectureDetail({ lectureId });
           if (lecture) {

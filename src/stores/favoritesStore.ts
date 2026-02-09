@@ -25,7 +25,7 @@ const favoritesStore = entity(initialState);
 /**
  * Fetch favorite lecture IDs (works offline)
  */
-export const fetchFavorites = async (): Promise<void> => {
+export const fetchFavorites = async (): Promise<string[]> => {
   const currentState = favoritesStore.get() || initialState;
 
   try {
@@ -44,6 +44,7 @@ export const fetchFavorites = async (): Promise<void> => {
     });
 
     logger.debug(`Loaded ${ids.length} favorites into store`);
+    return ids;
   } catch (error: any) {
     // Network errors are normal - don't show as errors
     if (error.isNetworkError) {
@@ -66,6 +67,7 @@ export const fetchFavorites = async (): Promise<void> => {
       loading: false,
       error: error.isNetworkError ? null : (error.message || 'Failed to load favorites'),
     });
+    return Array.isArray(currentState.favoriteIds) ? currentState.favoriteIds : [];
   }
 };
 
