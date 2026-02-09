@@ -9,12 +9,15 @@ import {
   View,
 } from 'react-native';
 import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { logger } from '../../utils/logger';
 import { captureSentryException, addSentryBreadcrumb } from '../../services/config/sentry.config';
+import { getUpdatesBannerTop } from './UpdatesProvider.layout';
 
 const CHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 
 export const UpdatesProvider: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const [updateReady, setUpdateReady] = useState(false);
   const lastCheckRef = useRef(0);
   const checkingRef = useRef(false);
@@ -88,7 +91,7 @@ export const UpdatesProvider: React.FC = () => {
     <Animated.View
       entering={FadeInUp.duration(300)}
       exiting={FadeOutUp.duration(200)}
-      style={styles.banner}
+      style={[styles.banner, { top: getUpdatesBannerTop(insets.top) }]}
     >
       <View style={styles.bannerContent}>
         <Text style={styles.bannerText}>A new version is available</Text>
@@ -108,7 +111,6 @@ export const UpdatesProvider: React.FC = () => {
 const styles = StyleSheet.create({
   banner: {
     position: 'absolute',
-    top: 54,
     left: 16,
     right: 16,
     zIndex: 9999,
