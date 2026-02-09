@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { popularApi } from '../services/api/popular.api';
 import { SearchLecture } from '../types/api.types';
 import { Episode } from '../types/types';
+import { logger } from '@/utils/logger';
 
 const PLACEHOLDER_SPEAKER_NAMES = new Set([
   'dawahnigeria',
@@ -97,7 +98,7 @@ export function usePopularLectures(limit = 10) {
 
       const lecturesData = await popularApi.getPopularForCarousel(limit);
 
-      console.log(`🎯 Fetched ${lecturesData.length} popular lectures`);
+      logger.debug(`Fetched ${lecturesData.length} popular lectures`);
 
       setLectures(lecturesData);
 

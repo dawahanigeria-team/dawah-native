@@ -13,6 +13,7 @@ import tw from "../../src/theme/twrnc";
 import { Episode, Series } from "../../src/types/types";
 import type { DownloadMetadata } from "../../src/services/downloads.service";
 import { captureSentryException, addSentryBreadcrumb } from "../../src/services/config/sentry.config";
+import { logger } from "../../src/utils/logger";
 import { historyService } from "../../src/services/history.service";
 import { lectureDetailApi } from "../../src/services/api/lectureDetail.api";
 import { playlistApi } from "../../src/services/api/playlist.api";
@@ -64,7 +65,7 @@ function LibraryScreen() {
 
   // Refresh downloads when screen loads
   useEffect(() => {
-    console.log('📚 Library: Refreshing downloads...');
+    logger.debug('Library: Refreshing downloads...');
     refreshDownloads().catch(err => {
       console.error('📚 Library: Failed to refresh downloads:', err);
       captureSentryException(err, {
@@ -99,10 +100,10 @@ function LibraryScreen() {
   const loadHistory = async () => {
     try {
       setLoadingHistory(true);
-      console.log('📚 Loading history...');
+      logger.debug('Loading history...');
       const episodes = await historyService.getHistoryAsEpisodes();
       setHistoryEpisodes(episodes);
-      console.log(`✅ Loaded ${episodes.length} history items`);
+      logger.debug(`Loaded ${episodes.length} history items`);
     } catch (err) {
       console.error('Failed to load history:', err);
       captureSentryException(err as Error, {
@@ -117,7 +118,7 @@ function LibraryScreen() {
   const loadFavorites = async () => {
     try {
       setLoadingLiked(true);
-      console.log('📚 Loading favorites...');
+      logger.debug('Loading favorites...');
 
       // Fetch favorite IDs if not loaded
       if (favoriteIds.length === 0) {
@@ -151,7 +152,7 @@ function LibraryScreen() {
       }
 
       setLikedEpisodes(episodes);
-      console.log(`✅ Loaded ${episodes.length} liked lectures`);
+      logger.debug(`Loaded ${episodes.length} liked lectures`);
     } catch (err) {
       console.error('Failed to load favorites:', err);
       captureSentryException(err as Error, {
@@ -192,9 +193,9 @@ function LibraryScreen() {
 
   // Convert downloads to Episodes
   const downloadedEpisodes = useMemo(() => {
-    console.log('📚 Library: Total downloads:', downloads.length);
+    logger.debug('Library: Total downloads:', downloads.length);
     downloads.forEach((d, i) => {
-      console.log(`  ${i + 1}. ${d.title} (${d.lectureId})`);
+      logger.debug(`  ${i + 1}. ${d.title} (${d.lectureId})`);
     });
     return downloads.map(downloadToEpisode);
   }, [downloads]);
@@ -270,7 +271,7 @@ function LibraryScreen() {
       if (activeTab === "Playlists") {
         router.push(`/playlist/${item.id}` as any);
       } else {
-        console.log("Series/Playlist pressed:", item.title);
+        logger.debug("Series/Playlist pressed:", item.title);
       }
     }
   };

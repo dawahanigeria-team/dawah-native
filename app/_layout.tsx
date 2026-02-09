@@ -10,6 +10,7 @@ import { PostHogProvider, usePostHog } from "posthog-react-native";
 
 import { useStorageState } from "../src/hooks/useStorageState";
 import { useTheme } from "../src/hooks/useTheme";
+import { logger } from "../src/utils/logger";
 
 import { ErrorBoundary } from "../src/components/atoms";
 import { Loading } from "../src/components/atoms/Loading";
@@ -130,11 +131,9 @@ function RootLayout() {
   }, [fontError]);
 
   useEffect(() => {
-    if (!__DEV__) return;
-    // Helps confirm whether RootLayout is truly remounting during navigation.
-    console.log("🧩 RootLayout mounted");
+    logger.debug("RootLayout mounted");
     return () => {
-      console.log("🧩 RootLayout unmounted");
+      logger.debug("RootLayout unmounted");
     };
   }, []);
 
@@ -153,27 +152,27 @@ function RootLayout() {
         // Initialize authentication state
         await initializeAuth();
         if (!isMounted) return;
-        console.log('✅ Auth initialized');
+        logger.debug('Auth initialized');
 
         // Ensure user ID exists (creates guest ID if needed)
         await userService.getUserId();
         if (!isMounted) return;
-        console.log("✅ User initialized");
+        logger.debug("User initialized");
 
         // Load favorites from API
         await fetchFavorites();
         if (!isMounted) return;
-        console.log('✅ Favorites loaded');
+        logger.debug('Favorites loaded');
 
         // Ensure downloads service is initialized
         await downloadsService.ensureInitialized();
         if (!isMounted) return;
-        console.log('✅ Downloads service initialized');
+        logger.debug('Downloads service initialized');
 
         // Warm up essential cached data (popular lectures, lecturers list)
         await offlineFirstApi.warmupEssentialData();
         if (!isMounted) return;
-        console.log('✅ Offline cache warmed');
+        logger.debug('Offline cache warmed');
       } catch (error) {
         if (!isMounted) return;
         console.error("Failed to initialize app:", error);
@@ -208,7 +207,7 @@ function RootLayout() {
       // Check if app was opened with a URL
       const initialUrl = await linkingService.getInitialURL();
       if (initialUrl) {
-        console.log('🔗 App opened with URL:', initialUrl);
+        logger.debug('App opened with URL:', initialUrl);
         const isPlayerNotification =
           initialUrl.startsWith('trackplayer://notification.click') ||
           initialUrl.startsWith('dawahnigeria://notification.click');
@@ -218,7 +217,7 @@ function RootLayout() {
         }
         const parsed = linkingService.parseURL(initialUrl);
         if (parsed && parsed.path) {
-          console.log('🔗 Navigating to:', parsed.path);
+          logger.debug('Navigating to:', parsed.path);
           router.push(`/${parsed.path}` as any);
         }
       }
@@ -228,7 +227,7 @@ function RootLayout() {
 
     // Listen for deep links while app is running
     const subscription = Linking.addEventListener('url', (event) => {
-      console.log('🔗 Deep link received:', event.url);
+      logger.debug('Deep link received:', event.url);
       const isPlayerNotification =
         event.url?.startsWith('trackplayer://notification.click') ||
         event.url?.startsWith('dawahnigeria://notification.click');
@@ -238,7 +237,7 @@ function RootLayout() {
       }
       const parsed = linkingService.parseURL(event.url);
       if (parsed && parsed.path) {
-        console.log('🔗 Navigating to:', parsed.path);
+        logger.debug('Navigating to:', parsed.path);
         router.push(`/${parsed.path}` as any);
       }
     });
@@ -277,51 +276,47 @@ function RootLayout() {
   return (
     <SafeAreaProvider>
       <ErrorBoundary>
-        <UpdatesProvider>
-          <AudioProvider>
-            <StatusBar style={isDark ? "light" : "dark"} />
-            <View style={{ flex: 1 }}>
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen
-                  name="charts"
-                  options={{
-                    headerShown: false,
-                    presentation: "modal",
-                    animation: "slide_from_bottom",
-                  }}
-                />
-                <Stack.Screen
-                  name="sign-in"
-                  options={{
-                    presentation: "modal",
-                    animation: "slide_from_bottom",
-                  }}
-                />
-                <Stack.Screen
-                  name="sign-up"
-                  options={{
-                    presentation: "modal",
-                    animation: "slide_from_bottom",
-                  }}
-                />
-              </Stack>
-              {/* Mini Player - hidden on lecture detail page */}
-              {shouldShowMiniPlayer && <MiniPlayer />}
+        <AudioProvider>
+          <StatusBar style={isDark ? "light" : "dark"} />
+          <View style={{ flex: 1 }}>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen
+                name="charts"
+                options={{
+                  headerShown: false,
+                  presentation: "modal",
+                  animation: "slide_from_bottom",
+                }}
+              />
+              <Stack.Screen
+                name="sign-in"
+                options={{
+                  presentation: "modal",
+                  animation: "slide_from_bottom",
+                }}
+              />
+              <Stack.Screen
+                name="sign-up"
+                options={{
+                  presentation: "modal",
+                  animation: "slide_from_bottom",
+                }}
+              />
+            </Stack>
+            {shouldShowMiniPlayer && <MiniPlayer />}
+            <UpdatesProvider />
 
-              {/* Keep the app tree mounted while AsyncStorage hydration happens.
-                This prevents MiniPlayer/provider unmounts which look like "reloads". */}
-              {isHydrating && (
-                <View
-                  style={StyleSheet.absoluteFill}
-                  onStartShouldSetResponder={() => true}
-                >
-                  <Loading fullScreen />
-                </View>
-              )}
-            </View>
-          </AudioProvider>
-        </UpdatesProvider>
+            {isHydrating && (
+              <View
+                style={StyleSheet.absoluteFill}
+                onStartShouldSetResponder={() => true}
+              >
+                <Loading fullScreen />
+              </View>
+            )}
+          </View>
+        </AudioProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
   );

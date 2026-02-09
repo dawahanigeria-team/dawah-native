@@ -5,6 +5,7 @@
 
 import { API_CONFIG } from '../config/api.config';
 import { apiClient, ApiError } from './base.api';
+import { logger } from '@/utils/logger';
 
 export interface VideoListParams {
   page?: number;
@@ -129,7 +130,7 @@ class VideoApiService {
         requestParams.limit = params.limit;
       }
 
-      console.log('🎥 Video List API Call:', {
+      logger.debug('Video List API Call:', {
         endpoint: '/api/video_listingApi.php',
         params: requestParams,
       });
@@ -144,7 +145,7 @@ class VideoApiService {
         }
       );
 
-      console.log('📥 Video List Response:', {
+      logger.debug('Video List Response:', {
         status: 'success',
         dataLength: Array.isArray(response.data) ? response.data.length : 0,
       });
@@ -169,7 +170,7 @@ class VideoApiService {
         id: params.id,
       };
 
-      console.log('🎥 Video Detail API Call:', {
+      logger.debug('Video Detail API Call:', {
         endpoint: '/api/video_listingApi.php',
         params: requestParams,
       });
@@ -183,7 +184,7 @@ class VideoApiService {
         }
       );
 
-      console.log('📥 Video Detail Response:', {
+      logger.debug('Video Detail Response:', {
         status: 'success',
         videoId: params.id,
       });
@@ -210,7 +211,7 @@ class VideoApiService {
         formData.append('user_id', params.user_id);
       }
 
-      console.log('📤 Video Share API Call:', {
+      logger.debug('Video Share API Call:', {
         endpoint: '/api/shareApi.php',
         params,
       });
@@ -246,7 +247,7 @@ class VideoApiService {
         formData.append('user_id', params.user_id);
       }
 
-      console.log('❤️ Video Favorite API Call:', {
+      logger.debug('Video Favorite API Call:', {
         endpoint: '/api/leclisting_fates.php',
         params,
       });
@@ -282,7 +283,7 @@ class VideoApiService {
         formData.append('user_id', params.user_id);
       }
 
-      console.log('💬 Video Comment API Call:', {
+      logger.debug('Video Comment API Call:', {
         endpoint: '/api/commentApi.php',
         params: { ...params, comment: '[hidden for logs]' },
       });
@@ -323,7 +324,7 @@ class VideoApiService {
         requestParams.page = params.page;
       }
 
-      console.log('💬 Video Comments List API Call:', {
+      logger.debug('Video Comments List API Call:', {
         endpoint: '/api/commentApi.php',
         params: requestParams,
       });

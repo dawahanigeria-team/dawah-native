@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { lecturersApi , Lecturer } from '../services/api/lecturers.api';
 import { ApiError } from '../services/api/base.api';
+import { logger } from '@/utils/logger';
 
 export interface LecturerCard {
   id: string;
@@ -62,7 +63,7 @@ export function useLecturers(limit = 12) {
 
       const lecturersData = await lecturersApi.getLecturersForSlider(limit);
 
-      console.log(`👥 Fetched ${lecturersData.length} lecturers`);
+      logger.debug(`Fetched ${lecturersData.length} lecturers`);
 
       if (!isMountedRef.current || requestIdRef.current !== requestId) {
         return;

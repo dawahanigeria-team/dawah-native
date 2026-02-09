@@ -21,14 +21,13 @@ export const ENV: EnvConfig = {
   PUSH_NOTIFICATIONS_REGISTER_URL: process.env.EXPO_PUBLIC_PUSH_REGISTER_URL || '',
   POSTHOG_KEY: process.env.EXPO_PUBLIC_POSTHOG_KEY || '',
   POSTHOG_HOST: process.env.EXPO_PUBLIC_POSTHOG_HOST || 'https://eu.i.posthog.com',
-  NODE_ENV: (process.env.EXPO_PUBLIC_NODE_ENV || 'development') as EnvConfig['NODE_ENV'],
+  NODE_ENV: (__DEV__ ? 'development' : 'production') as EnvConfig['NODE_ENV'],
 };
 
-export const isDevelopment = ENV.NODE_ENV === 'development';
-export const isProduction = ENV.NODE_ENV === 'production';
+export const isDevelopment = __DEV__;
+export const isProduction = !__DEV__;
 
-// Log configuration in development
-if (isDevelopment) {
+if (__DEV__) {
   console.log('Environment Configuration:', {
     API_BASE_URL: ENV.API_BASE_URL,
     MEDIA_BASE_URL: ENV.MEDIA_BASE_URL,

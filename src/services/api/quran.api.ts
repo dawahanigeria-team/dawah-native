@@ -6,6 +6,7 @@
 import { API_CONFIG } from '../config/api.config';
 import { apiClient, ApiError } from './base.api';
 import { addSentryBreadcrumb, captureSentryException } from '../config/sentry.config';
+import { logger } from '@/utils/logger';
 
 export interface QuranAlbum {
   id: string;
@@ -94,7 +95,7 @@ class QuranApiService {
         charts: item.charts || { daily: 0, monthly: 0, weekly: 0 },
       }));
 
-      console.log(`✅ Fetched ${albums.length} Quran albums`);
+      logger.debug(`Fetched ${albums.length} Quran albums`);
 
       return {
         albums,
@@ -157,7 +158,7 @@ class QuranApiService {
    */
   async getQuranAlbumDetails(albumId: string): Promise<QuranAlbumDetail> {
     try {
-      console.log('📖 Fetching Quran album details:', albumId);
+      logger.debug('Fetching Quran album details:', albumId);
 
       addSentryBreadcrumb('Fetching Quran album details', 'http', {
         albumId,
@@ -211,7 +212,7 @@ class QuranApiService {
         surahNumber: lecture.surah_number || undefined,
       }));
 
-      console.log(`✅ Fetched Quran album: ${album.name} with ${recitations.length} recitations`);
+      logger.debug(`Fetched Quran album: ${album.name} with ${recitations.length} recitations`);
 
       return { album, recitations };
     } catch (error) {

@@ -5,6 +5,7 @@
 
 import { API_CONFIG } from '../config/api.config';
 import { apiClient, ApiError } from './base.api';
+import { logger } from '@/utils/logger';
 
 export interface AnnouncementApiResponse {
   id: string;
@@ -40,7 +41,7 @@ class AnnouncementsApiService {
         params.user_id = userId;
       }
 
-      console.log('📢 Announcements API Call:', {
+      logger.debug('Announcements API Call:', {
         endpoint: '/api/announcements.php',
         params,
       });
@@ -55,7 +56,7 @@ class AnnouncementsApiService {
         }
       );
 
-      console.log('📥 Announcements Response:', {
+      logger.debug('Announcements Response:', {
         status: 'success',
         dataLength: Array.isArray(response.data) ? response.data.length : 0,
       });
@@ -85,7 +86,7 @@ class AnnouncementsApiService {
         formData.append('user_id', userId);
       }
 
-      console.log('✅ Mark as Read API Call:', {
+      logger.debug('Mark as Read API Call:', {
         endpoint: '/api/mark_announcement_read.php',
         announcementId,
       });

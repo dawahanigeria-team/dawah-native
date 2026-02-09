@@ -8,6 +8,7 @@ import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
 import type { Episode } from '../../types/types';
 import { addSentryBreadcrumb, captureSentryException } from '../config/sentry.config';
 import { DownloadProgress, downloadsService, ResumableDownload } from '../downloads.service';
+import { logger } from '@/utils/logger';
 
 const DOWNLOAD_QUEUE_KEY = 'download_queue_v1';
 
@@ -60,7 +61,7 @@ class DownloadQueueService {
   private unsubscribeNetInfo: (() => void) | null = null;
 
   private constructor() {
-    console.log('📥 Download Queue Service initialized');
+    logger.debug('Download Queue Service initialized');
     this._initialize();
   }
 
@@ -114,7 +115,7 @@ class DownloadQueueService {
           }
           this.queue.set(item.id, item);
         });
-        console.log(`📥 Loaded ${this.queue.size} items from download queue`);
+        logger.debug(`Loaded ${this.queue.size} items from download queue`);
         this.notify();
       }
     } catch (error) {
@@ -185,7 +186,7 @@ class DownloadQueueService {
   private async processQueue(): Promise<void> {
     // Prevent concurrent processing
     if (this.isProcessing) {
-      console.log('⏸️ Queue processing already in progress, skipping');
+      logger.debug('Queue processing already in progress, skipping');
       return;
     }
 
@@ -196,13 +197,13 @@ class DownloadQueueService {
       const isWifi = netState.type === 'wifi';
 
       if (!isConnected) {
-        console.log('No network connection, pausing active downloads.');
+        logger.debug('No network connection, pausing active downloads.');
         await this.pauseAll(); // Pause all active downloads if no network
         return;
       }
 
       if (this.config.wifiOnly && !isWifi) {
-        console.log('WiFi-only mode enabled, but not on WiFi. Pausing active downloads.');
+        logger.debug('WiFi-only mode enabled, but not on WiFi. Pausing active downloads.');
         await this.pauseAll(); // Pause all active downloads if wifiOnly and not on WiFi
         return;
       }

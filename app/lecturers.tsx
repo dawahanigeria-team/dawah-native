@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { logger } from "../src/utils/logger";
 import { LecturerCard } from "../src/components/molecules/LecturerCard";
 import { LecturerCardSkeleton } from "../src/components/molecules/LecturerCard.skeleton";
 import { Lecturer, lecturersApi } from "../src/services/api/lecturers.api";
@@ -273,7 +274,7 @@ export default function LecturersScreen() {
   useEffect(() => {
     let result = [...lecturers];
 
-    console.log('🔍 Filtering with:', {
+    logger.debug('Filtering with:', {
       totalLecturers: lecturers.length,
       searchQuery,
       sortBy

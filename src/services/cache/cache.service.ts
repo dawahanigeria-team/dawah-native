@@ -12,6 +12,7 @@
 
 import AsyncStorage from 'expo-sqlite/kv-store';
 import { captureSentryException, addSentryBreadcrumb } from '../config/sentry.config';
+import { logger } from '@/utils/logger';
 
 // Cache configuration
 export const CACHE_CONFIG = {
@@ -96,7 +97,7 @@ class CacheService {
    */
   public setOfflineMode(offline: boolean): void {
     // this.isOffline = offline;
-    console.log(`📡 Cache: ${offline ? 'Offline' : 'Online'} mode`);
+    logger.debug(`Cache: ${offline ? 'Offline' : 'Online'} mode`);
   }
 
   /**
@@ -108,7 +109,7 @@ class CacheService {
       if (index) {
         const stats = JSON.parse(index);
         this.stats = { ...this.stats, ...stats };
-        console.log('📦 Cache Index loaded:', this.stats);
+        logger.debug('Cache Index loaded:', this.stats);
       }
     } catch (error) {
       console.error('Failed to load cache index:', error);
@@ -143,7 +144,7 @@ class CacheService {
       if (memoryEntry) {
         if (this.isEntryValid(memoryEntry)) {
           this.stats.memoryHits++;
-          console.log(`🎯 Memory cache HIT: ${key}`);
+          logger.debug(`Memory cache HIT: ${key}`);
           return memoryEntry.data as T;
         } else {
           // Expired - remove from memory and update size tracking
@@ -160,7 +161,7 @@ class CacheService {
 
         if (this.isEntryValid(entry)) {
           this.stats.storageHits++;
-          console.log(`💾 Storage cache HIT: ${key}`);
+          logger.debug(`Storage cache HIT: ${key}`);
 
           // Promote to memory cache
           this.setMemoryCache(key, entry);
@@ -174,7 +175,7 @@ class CacheService {
 
       // Cache miss
       this.stats.misses++;
-      console.log(`❌ Cache MISS: ${key}`);
+      logger.debug(`Cache MISS: ${key}`);
       return null;
     } catch (error: any) {
       console.error(`Cache get error for ${key}:`, error);
@@ -212,7 +213,7 @@ class CacheService {
 
       await this.saveCacheIndex();
 
-      console.log(`✅ Cached: ${key} (${this.formatBytes(dataSize)}, TTL: ${ttl}s)`);
+      logger.debug(`Cached: ${key} (${this.formatBytes(dataSize)}, TTL: ${ttl}s)`);
 
       // Add breadcrumb
       addSentryBreadcrumb(`Cached data: ${key}`, 'cache', { ttl, size: dataSize });
@@ -242,7 +243,7 @@ class CacheService {
           this.memoryCacheSize -= oldSize;
         }
         this.memoryCache.delete(oldestKey);
-        console.log(`🧹 Memory cache: Evicted ${oldestKey} (size limit)`);
+        logger.debug(`Memory cache: Evicted ${oldestKey} (size limit)`);
       } else {
         break;
       }
@@ -258,7 +259,7 @@ class CacheService {
           this.memoryCacheSize -= oldSize;
         }
         this.memoryCache.delete(oldestKey);
-        console.log(`🧹 Memory cache: Evicted ${oldestKey} (count limit)`);
+        logger.debug(`Memory cache: Evicted ${oldestKey} (count limit)`);
       }
     }
 
@@ -290,7 +291,7 @@ class CacheService {
 
       this.memoryCache.delete(key);
       await AsyncStorage.removeItem(key);
-      console.log(`🗑️ Removed cache: ${key}`);
+      logger.debug(`Removed cache: ${key}`);
     } catch (error: any) {
       console.error(`Cache remove error for ${key}:`, error);
     }
@@ -323,7 +324,7 @@ class CacheService {
 
       await this.saveCacheIndex();
 
-      console.log('🧹 Cleared all cache');
+      logger.debug('Cleared all cache');
       addSentryBreadcrumb('Cleared all cache', 'cache');
     } catch (error: any) {
       console.error('Cache clear error:', error);
@@ -365,7 +366,7 @@ class CacheService {
         }
       }
 
-      console.log(`🧹 Cleared ${clearedCount} expired cache entries`);
+      logger.debug(`Cleared ${clearedCount} expired cache entries`);
     } catch (error: any) {
       console.error('Clear expired error:', error);
     }
@@ -399,7 +400,7 @@ class CacheService {
    */
   public async warmupCache(popularLectures: any[], lecturers: any[], series: any[]): Promise<void> {
     try {
-      console.log('🔥 Warming up cache...');
+      logger.debug('Warming up cache...');
 
       // Cache popular lectures (first 20)
       const limitedLectures = popularLectures.slice(0, CACHE_CONFIG.LIMITS.POPULAR_LECTURES);
@@ -423,7 +424,7 @@ class CacheService {
         CACHE_CONFIG.TTL.SERIES
       );
 
-      console.log('✅ Cache warmed up successfully');
+      logger.debug('Cache warmed up successfully');
       addSentryBreadcrumb('Cache warmup complete', 'cache', {
         lectures: limitedLectures.length,
         lecturers: lecturers.length,

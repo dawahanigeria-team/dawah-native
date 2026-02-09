@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import tw from '../../theme/twrnc';
 import { useTheme } from '../../hooks/useTheme';
 import { getInitials, getPlaceholderColor } from '../../utils/colorPlaceholder';
+import { logger } from '@/utils/logger';
 
 export interface LecturerCardProps {
   id: string;
@@ -33,11 +34,11 @@ export const LecturerCard: React.FC<LecturerCardProps> = ({
   const placeholderColor = getPlaceholderColor(id);
 
   const handlePress = () => {
-    console.log('LecturerCard pressed:', name, id);
+    logger.debug('LecturerCard pressed:', name, id);
     if (onPress) {
       onPress();
     } else {
-      console.log('No onPress handler provided');
+      logger.debug('No onPress handler provided');
     }
   };
 

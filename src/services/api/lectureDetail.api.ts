@@ -6,6 +6,7 @@
 import type { LectureDetail, LectureDetailApiItem } from '../../types/api.types';
 import { API_CONFIG } from '../config/api.config';
 import { apiClient, ApiError } from './base.api';
+import { logger } from '@/utils/logger';
 
 export interface LectureDetailParams {
   lectureId: string | number;
@@ -66,7 +67,7 @@ class LectureDetailApiService {
     }
 
     try {
-      console.log('🎯 LectureDetailApi: Fetching lecture detail', { lectureId });
+      logger.debug('LectureDetailApi: Fetching lecture detail', { lectureId });
 
       const response = await apiClient.get<any>(
         '/api/leclistingapi.php',

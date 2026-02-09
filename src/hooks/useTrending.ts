@@ -7,6 +7,7 @@ import { trendingApi, TrendingLecturesParams } from '../services/api/trending.ap
 import { SearchLecture } from '../types/api.types';
 import { Episode } from '../types/types';
 import { ApiError } from '../services/api/base.api';
+import { logger } from '@/utils/logger';
 
 const PLACEHOLDER_SPEAKER_NAMES = new Set([
   'dawahnigeria',
@@ -73,10 +74,10 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
       setError(null);
 
       const params = { ...paramsRef.current, page, limit: paramsRef.current.limit || 20 };
-      console.log('🔥 Fetching trending lectures with params:', params);
+      logger.debug('Fetching trending lectures with params:', params);
       const response = await trendingApi.getTrendingLectures(params);
 
-      console.log('✅ Trending lectures fetched successfully:', {
+      logger.debug('Trending lectures fetched successfully:', {
         count: response.data.length,
         page: response.page,
         total: response.total
@@ -138,11 +139,11 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
             console.warn('⚠️ All items were duplicates - this should not happen with client-side pagination');
           }
 
-          console.log(`📊 Loading more: Got ${transformedLectures.length} items, ${newLectures.length} are new, total now: ${prev.length + newLectures.length}`);
+          logger.debug(`Loading more: Got ${transformedLectures.length} items, ${newLectures.length} are new, total now: ${prev.length + newLectures.length}`);
           return [...prev, ...newLectures];
         });
       } else {
-        console.log(`📊 Initial load: Got ${transformedLectures.length} items`);
+        logger.debug(`Initial load: Got ${transformedLectures.length} items`);
         setLectures(transformedLectures);
       }
 
@@ -151,7 +152,7 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
       const totalPages = response.total_pages;
       const hasMorePages = page < totalPages;
 
-      console.log(`📊 Pagination status: Page ${page}/${totalPages}, Total items: ${totalItems}, Has more: ${hasMorePages}`);
+      logger.debug(`Pagination status: Page ${page}/${totalPages}, Total items: ${totalItems}, Has more: ${hasMorePages}`);
 
       setHasMore(hasMorePages);
       setCurrentPage(page);
@@ -192,10 +193,10 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
 
   // Fetch initial data on mount and when params change (using serialized key for stable comparison)
   useEffect(() => {
-    console.log('🎯 useTrending mount/update - initialParams:', initialParams);
+    logger.debug('useTrending mount/update - initialParams:', initialParams);
 
     if (!initialParams) {
-      console.log('⚠️ useTrending: initialParams is undefined/null, skipping fetch');
+      logger.debug('useTrending: initialParams is undefined/null, skipping fetch');
       setLoading(false);
       setHasMore(false);
       return;
@@ -203,13 +204,13 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
 
     const paramKeys = Object.keys(initialParams);
     if (paramKeys.length === 0) {
-      console.log('⚠️ useTrending: initialParams is empty object, skipping fetch');
+      logger.debug('useTrending: initialParams is empty object, skipping fetch');
       setLoading(false);
       setHasMore(false);
       return;
     }
 
-    console.log('✅ useTrending: Fetching data with params:', initialParams);
+    logger.debug('useTrending: Fetching data with params:', initialParams);
     fetchTrending(1, false);
   }, [paramsKey, fetchTrending]); // eslint-disable-line react-hooks/exhaustive-deps
 

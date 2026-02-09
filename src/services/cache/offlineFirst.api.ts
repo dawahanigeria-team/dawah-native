@@ -12,6 +12,7 @@
 import { apiClient } from '../api/base.api';
 import { cacheService, CACHE_CONFIG } from './cache.service';
 import { addSentryBreadcrumb, captureSentryException } from '../config/sentry.config';
+import { logger } from '@/utils/logger';
 
 export interface OfflineApiOptions {
   /**
@@ -86,7 +87,7 @@ class OfflineFirstApi {
       if (!forceFresh) {
         const cachedData = await cacheService.get<T>(cacheKey);
         if (cachedData) {
-          console.log(`📦 Offline-First: Serving from cache: ${endpoint}`);
+          logger.debug(`Offline-First: Serving from cache: ${endpoint}`);
           addSentryBreadcrumb(`Cache served: ${endpoint}`, 'api', { cacheKey });
 
           // Return cached data and fetch fresh in background
@@ -97,7 +98,7 @@ class OfflineFirstApi {
       }
 
       // Step 2: Fetch from API (let the request itself determine connectivity)
-      console.log(`🌐 Offline-First: Fetching from API: ${endpoint}`);
+      logger.debug(`Offline-First: Fetching from API: ${endpoint}`);
       const response = await apiClient.get<T>(endpoint, params);
 
       // Step 4: Cache the response
@@ -111,7 +112,7 @@ class OfflineFirstApi {
       if (allowStale) {
         const staleData = await cacheService.get<T>(cacheKey);
         if (staleData) {
-          console.log(`🔄 Offline-First: Returning stale cache after error: ${endpoint}`);
+          logger.debug(`Offline-First: Returning stale cache after error: ${endpoint}`);
           addSentryBreadcrumb(`Stale cache served (error): ${endpoint}`, 'api', {
             cacheKey,
             error: error.message,
@@ -143,7 +144,7 @@ class OfflineFirstApi {
   ): Promise<void> {
     // Check if already refreshing this cache key
     if (this.activeRefreshes.has(cacheKey)) {
-      console.log(`⏭️ Skipping background refresh (already in progress): ${endpoint}`);
+      logger.debug(`Skipping background refresh (already in progress): ${endpoint}`);
       return;
     }
 
@@ -154,11 +155,11 @@ class OfflineFirstApi {
       // Don't await - run in background
       apiClient.get(endpoint, params).then(async (response) => {
         await cacheService.set(cacheKey, response.data, ttl);
-        console.log(`🔄 Background refresh complete: ${endpoint}`);
+        logger.debug(`Background refresh complete: ${endpoint}`);
         this.activeRefreshes.delete(cacheKey);
       }).catch((err) => {
         // Silently fail background refresh
-        console.log(`⚠️ Background refresh failed: ${endpoint}`, err.message);
+        logger.debug(`Background refresh failed: ${endpoint}`, err.message);
         this.activeRefreshes.delete(cacheKey);
       });
     } catch {
@@ -194,7 +195,7 @@ class OfflineFirstApi {
    * Each call is wrapped independently so one failure doesn't block others
    */
   public async warmupEssentialData(): Promise<void> {
-    console.log('🔥 Warming up essential data...');
+    logger.debug('Warming up essential data...');
 
     // Fetch and cache popular lectures
     // Uses the same endpoint as usePopularLecturesWithCache hook
@@ -207,7 +208,7 @@ class OfflineFirstApi {
           ttl: CACHE_CONFIG.TTL.LECTURES,
         }
       );
-      console.log('✅ Popular lectures cached');
+      logger.debug('Popular lectures cached');
     } catch (error: any) {
       console.warn('⚠️ Failed to warm popular lectures:', error.message);
       captureSentryException(error as Error, { operation: 'warmup_popular_lectures' });
@@ -224,13 +225,13 @@ class OfflineFirstApi {
           ttl: CACHE_CONFIG.TTL.LECTURERS,
         }
       );
-      console.log('✅ Lecturers list cached');
+      logger.debug('Lecturers list cached');
     } catch (error: any) {
       console.warn('⚠️ Failed to warm lecturers list:', error.message);
       captureSentryException(error as Error, { operation: 'warmup_lecturers_list' });
     }
 
-    console.log('✅ Essential data warmup complete');
+    logger.debug('Essential data warmup complete');
     addSentryBreadcrumb('Essential data warmup complete', 'cache');
   }
 
@@ -240,7 +241,7 @@ class OfflineFirstApi {
   public async invalidateCache(endpoint: string, params?: Record<string, any>): Promise<void> {
     const cacheKey = this.buildCacheKey('GET', endpoint, params);
     await cacheService.remove(cacheKey);
-    console.log(`🗑️ Invalidated cache: ${endpoint}`);
+    logger.debug(`Invalidated cache: ${endpoint}`);
   }
 
   /**
@@ -248,7 +249,7 @@ class OfflineFirstApi {
    */
   public async clearAllCache(): Promise<void> {
     await cacheService.clearAll();
-    console.log('🧹 Cleared all API cache');
+    logger.debug('Cleared all API cache');
   }
 }
 

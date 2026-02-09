@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { videoApi, VideoListParams, VideoApiResponse } from '../services/api/video.api';
 import { Video } from '../types/types';
+import { logger } from '@/utils/logger';
 
 export interface UseVideosResult {
   videos: Video[];
@@ -137,11 +138,11 @@ export const useVideos = (initialParams: VideoListParams = {}): UseVideosResult 
       setError(null);
 
       const params = { ...paramsRef.current, page, limit: paramsRef.current.limit || 20 };
-      console.log('🎥 Fetching videos with params:', params);
+      logger.debug('Fetching videos with params:', params);
 
       const response = await videoApi.getVideos(params);
 
-      console.log('✅ Videos fetched successfully:', {
+      logger.debug('Videos fetched successfully:', {
         count: response.data.length,
         page: response.page,
         total: response.total,
@@ -152,7 +153,7 @@ export const useVideos = (initialParams: VideoListParams = {}): UseVideosResult 
         .map(transformVideo)
         .filter((video): video is Video => video !== null);
 
-      console.log(`📊 Transformed ${response.data.length} API videos into ${transformedVideos.length} valid videos`);
+      logger.debug(`Transformed ${response.data.length} API videos into ${transformedVideos.length} valid videos`);
 
       // Append or replace videos based on pagination
       if (append) {
@@ -164,11 +165,11 @@ export const useVideos = (initialParams: VideoListParams = {}): UseVideosResult 
             console.warn('⚠️ All items were duplicates');
           }
 
-          console.log(`📊 Loading more: Got ${transformedVideos.length} items, ${newVideos.length} are new, total now: ${prev.length + newVideos.length}`);
+          logger.debug(`Loading more: Got ${transformedVideos.length} items, ${newVideos.length} are new, total now: ${prev.length + newVideos.length}`);
           return [...prev, ...newVideos];
         });
       } else {
-        console.log(`📊 Initial load: Got ${transformedVideos.length} items`);
+        logger.debug(`Initial load: Got ${transformedVideos.length} items`);
         setVideos(transformedVideos);
       }
 
@@ -176,7 +177,7 @@ export const useVideos = (initialParams: VideoListParams = {}): UseVideosResult 
       const totalPages = response.total_pages;
       const hasMorePages = page < totalPages;
 
-      console.log(`📊 Pagination status: Page ${page}/${totalPages}, Has more: ${hasMorePages}`);
+      logger.debug(`Pagination status: Page ${page}/${totalPages}, Has more: ${hasMorePages}`);
 
       setHasMore(hasMorePages);
       setCurrentPage(page);
@@ -207,16 +208,16 @@ export const useVideos = (initialParams: VideoListParams = {}): UseVideosResult 
 
   // Fetch initial data on mount and when params change (using serialized key for stable comparison)
   useEffect(() => {
-    console.log('🎯 useVideos mount/update - initialParams:', initialParams);
+    logger.debug('useVideos mount/update - initialParams:', initialParams);
 
     if (!initialParams || Object.keys(initialParams).length === 0) {
-      console.log('⚠️ useVideos: No params provided, skipping fetch');
+      logger.debug('useVideos: No params provided, skipping fetch');
       setLoading(false);
       setHasMore(false);
       return;
     }
 
-    console.log('✅ useVideos: Fetching data with params:', initialParams);
+    logger.debug('useVideos: Fetching data with params:', initialParams);
     fetchVideos(1, false);
   }, [paramsKey, fetchVideos]); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -70,14 +70,9 @@ export const initSentry = () => {
 
     // Before sending events
     beforeSend(event) {
-      // Filter out errors in development if needed
       if (isDevelopment) {
-        console.log('🔍 Sentry Event:', event);
+        return null;
       }
-
-      // Don't send events in development if you prefer
-      // return isDevelopment ? null : event;
-
       return event;
     },
 
