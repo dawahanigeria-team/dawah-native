@@ -103,7 +103,8 @@
       "expo-sqlite",
       "expo-localization",
       "@sentry/react-native",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,

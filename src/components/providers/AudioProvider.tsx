@@ -14,7 +14,7 @@ import TrackPlayer, {
   IOSCategoryOptions,
   RepeatMode,
   useTrackPlayerEvents,
-} from 'react-native-track-player'
+} from '../../services/expoTrackPlayerCompat'
 import React, { useEffect, useRef } from 'react'
 import { Platform } from 'react-native'
 import { useAudioPlayback } from '../../hooks/useAudioPlayback'
@@ -26,8 +26,8 @@ import {
   ensureTrackPlayerReady,
   setTrackPlayerSetupConfig,
 } from '../../services/trackPlayerReady.service'
-import { buildQueue } from '../../services/trackPlayerQueue.service'
-import { playerStore, setAudioControls } from '../../stores/playerStore'
+import { buildPlaylistKey, buildQueue } from '../../services/trackPlayerQueue.service'
+import { playerStore, resolveEpisodeArtistName, setAudioControls } from '../../stores/playerStore'
 import type { Episode, PlayerState } from '../../types/types'
 
 interface AudioProviderProps {
@@ -85,7 +85,9 @@ const detailToEpisode = (detail: {
   downloads: detail.downloads ?? 0,
   createdAt: detail.postedDate ?? detail.updatedDate ?? new Date().toISOString(),
   lecturerName: detail.lecturerName ?? detail.reciter?.name,
-})
+  rpname: (detail as any).raw?.rpname,
+  reciter_name: (detail as any).raw?.reciter_name ?? detail.reciter?.name,
+} as Episode)
 
 const downloadMetadataToEpisode = (metadata: {
   lectureId: string
@@ -128,7 +130,7 @@ const buildQueueSnapshotFromState = (state: PlayerState) => {
       ? {
         id: String(currentEpisode.id),
         title: currentEpisode.title,
-        artist: currentEpisode.lecturerName,
+        artist: resolveEpisodeArtistName(currentEpisode),
         artwork: currentEpisode.coverUrl,
       }
       : undefined,
@@ -239,7 +241,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
             }
 
             await TrackPlayer.reset()
-            await TrackPlayer.add(tracks)
+            await TrackPlayer.add(tracks, { activate: false })
+            await TrackPlayer.setPlaylistKey(buildPlaylistKey(filteredQueue))
 
             const snapshotTrackId = snapshot.trackIds[snapshot.currentIndex]
             const matchedIndex = snapshotTrackId
@@ -428,7 +431,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
 
     audioControls.setLockScreenInfo({
       title: nextEpisode.title,
-      artist: nextEpisode.lecturerName || 'dawahnigeria',
+      artist: resolveEpisodeArtistName(nextEpisode),
       artwork: nextEpisode.coverUrl || '',
     })
   })

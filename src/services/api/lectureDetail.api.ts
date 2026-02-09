@@ -21,6 +21,33 @@ class LectureDetailApiService {
   private cache = new Map<string, LectureDetailCacheEntry>();
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
+  private isPlaceholderSpeakerName(name: unknown): boolean {
+    if (typeof name !== 'string') return false;
+    const normalized = name.trim().toLowerCase();
+    return (
+      normalized === 'dawahnigeria' ||
+      normalized === 'unknown' ||
+      normalized === 'unknown lecturer' ||
+      normalized === 'unknown scholar' ||
+      normalized === 'n/a'
+    );
+  }
+
+  private pickSpeakerName(item: LectureDetailApiItem): string {
+    const rpName = typeof item.rpname === 'string' ? item.rpname.trim() : '';
+    const reciterName = typeof item.reciter_name === 'string' ? item.reciter_name.trim() : '';
+
+    if (item.is_reciter === true) {
+      return reciterName || (this.isPlaceholderSpeakerName(rpName) ? '' : rpName);
+    }
+
+    if (!this.isPlaceholderSpeakerName(rpName) && rpName) {
+      return rpName;
+    }
+
+    return reciterName;
+  }
+
   /**
    * Fetch lecture detail
    */
@@ -107,6 +134,7 @@ class LectureDetailApiService {
     })();
 
     const lecturerImage = item.reciter_image || item.lec_img || item.img || '';
+    const speakerName = this.pickSpeakerName(item);
 
     const lecture: LectureDetail = {
       id: String(item.nid ?? lectureId),
@@ -131,7 +159,7 @@ class LectureDetailApiService {
       comments,
       language: item.lang ?? '',
       lecturerId,
-      lecturerName: item.rpname || item.reciter_name || '',
+      lecturerName: speakerName,
       lecturerImage,
       isReciter: item.is_reciter ?? false,
       updatedDate: item.updated_date ?? '',

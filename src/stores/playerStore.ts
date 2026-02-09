@@ -1,6 +1,6 @@
 import AsyncStorage from "expo-sqlite/kv-store";
 import NetInfo from '@react-native-community/netinfo';
-import TrackPlayer, { RepeatMode, State } from 'react-native-track-player';
+import TrackPlayer, { RepeatMode, State } from '../services/expoTrackPlayerCompat';
 import { entity } from "simpler-state";
 import type { AudioPlaybackControls } from "../hooks/useAudioPlayback";
 import { addSentryBreadcrumb, captureSentryException } from "../services/config/sentry.config";
@@ -8,7 +8,7 @@ import { downloadsService } from "../services/downloads.service";
 import { historyService } from "../services/history.service";
 import { clearQueueSnapshot, saveQueueSnapshot } from "../services/playerQueue.service";
 import { ensureTrackPlayerReady } from "../services/trackPlayerReady.service";
-import { buildQueue } from "../services/trackPlayerQueue.service";
+import { buildPlaylistKey, buildQueue } from "../services/trackPlayerQueue.service";
 import { Episode, PlayerState } from "../types/types";
 import { logger } from "../utils/logger";
 
@@ -88,13 +88,69 @@ export const setPlayNextRef = (fn: (() => Promise<void>) | null) => {
  */
 export const getPlayNextRef = () => playNextRef;
 
+const PLACEHOLDER_ARTIST_NAMES = new Set([
+  'dawahnigeria',
+  'unknown',
+  'unknown lecturer',
+  'unknown scholar',
+  'n/a',
+]);
+
+const normalizeArtistCandidate = (value: string | undefined | null): string => {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  if (PLACEHOLDER_ARTIST_NAMES.has(trimmed.toLowerCase())) {
+    return '';
+  }
+
+  return trimmed;
+};
+
+const firstNonEmptyString = (values: Array<string | undefined | null>): string => {
+  for (const value of values) {
+    const normalized = normalizeArtistCandidate(value);
+    if (normalized.length > 0) {
+      return normalized;
+    }
+  }
+
+  return '';
+};
+
+export const resolveEpisodeArtistName = (episode: Episode): string => {
+  const extendedEpisode = episode as Episode & {
+    rpname?: string;
+    reciterName?: string;
+    reciter_name?: string;
+    reciter?: { name?: string };
+    raw?: { rpname?: string; reciter_name?: string };
+  };
+
+  return firstNonEmptyString([
+    episode.lecturerName,
+    extendedEpisode.rpname,
+    extendedEpisode.reciterName,
+    extendedEpisode.reciter_name,
+    extendedEpisode.reciter?.name,
+    extendedEpisode.raw?.rpname,
+    extendedEpisode.raw?.reciter_name,
+  ]);
+};
+
 /**
  * Build lock screen info from an episode
  */
 function buildLockScreenInfo(episode: Episode): { title: string; artist: string; artwork: string } {
   return {
     title: episode.title,
-    artist: episode.lecturerName || 'dawahnigeria',
+    artist: resolveEpisodeArtistName(episode),
     artwork: episode.coverUrl || '',
   };
 }
@@ -150,7 +206,7 @@ const persistQueueSnapshot = (state: PlayerState) => {
       ? {
         id: String(currentEpisode.id),
         title: currentEpisode.title,
-        artist: currentEpisode.lecturerName,
+        artist: resolveEpisodeArtistName(currentEpisode),
         artwork: currentEpisode.coverUrl,
       }
       : undefined,
@@ -244,7 +300,8 @@ const playEpisode = async (episode: Episode) => {
       if (requestId !== currentPlayRequestId) return;
 
       await TrackPlayer.reset();
-      await TrackPlayer.add(tracks);
+      await TrackPlayer.add(tracks, { activate: false });
+      await TrackPlayer.setPlaylistKey(buildPlaylistKey(queue));
       await TrackPlayer.skip(0);
 
       if (requestId !== currentPlayRequestId) return;
@@ -513,7 +570,8 @@ const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: b
 
     await ensureTrackPlayerReady();
     await TrackPlayer.reset();
-    await TrackPlayer.add(tracks);
+    await TrackPlayer.add(tracks, { activate: false });
+    await TrackPlayer.setPlaylistKey(buildPlaylistKey(filteredQueue));
     await TrackPlayer.skip(safeFilteredStartIndex);
     await TrackPlayer.play();
 
@@ -764,7 +822,8 @@ const addToQueue = async (episodes: Episode | Episode[]) => {
 
   try {
     await ensureTrackPlayerReady();
-    await TrackPlayer.add(tracks);
+    await TrackPlayer.add(tracks, { activate: false });
+    await TrackPlayer.setPlaylistKey(buildPlaylistKey(queue));
   } catch (error) {
     logger.error('Failed to add tracks to queue', error as Error);
   }
@@ -847,7 +906,8 @@ const toggleShuffle = async () => {
     try {
       await ensureTrackPlayerReady();
       await TrackPlayer.reset();
-      await TrackPlayer.add(tracks);
+      await TrackPlayer.add(tracks, { activate: false });
+      await TrackPlayer.setPlaylistKey(buildPlaylistKey(newQueue));
       await TrackPlayer.skip(0);
       if (currentState.isPlaying) {
         await TrackPlayer.play();

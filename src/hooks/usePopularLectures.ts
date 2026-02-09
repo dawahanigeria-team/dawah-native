@@ -7,6 +7,25 @@ import { popularApi } from '../services/api/popular.api';
 import { SearchLecture } from '../types/api.types';
 import { Episode } from '../types/types';
 
+const PLACEHOLDER_SPEAKER_NAMES = new Set([
+  'dawahnigeria',
+  'unknown',
+  'unknown lecturer',
+  'unknown scholar',
+  'n/a',
+]);
+
+const pickSpeakerName = (candidates: Array<string | undefined | null>): string | undefined => {
+  for (const value of candidates) {
+    if (typeof value !== 'string') continue;
+    const trimmed = value.trim();
+    if (!trimmed) continue;
+    if (PLACEHOLDER_SPEAKER_NAMES.has(trimmed.toLowerCase())) continue;
+    return trimmed;
+  }
+  return undefined;
+};
+
 export function usePopularLectures(limit = 10) {
   const [lectures, setLectures] = useState<SearchLecture[]>([]);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
@@ -38,7 +57,17 @@ export function usePopularLectures(limit = 10) {
     const language = lecture.lang || lecture.language || lecture.language_name || lecture.Language || "Unknown";
     const downloads = parseInt(String(lecture.downloads || lecture.Downloads || "0")) || 0;
     const createdAt = lecture.created_at || lecture.CreatedAt || new Date().toISOString();
-    const lecturerName = lecture.rpname || lecture.lecturer_name || lecture.LecturerName || undefined;
+    const reciterName = (lecture as SearchLecture & { reciter_name?: string; reciterName?: string }).reciter_name
+      || (lecture as SearchLecture & { reciter_name?: string; reciterName?: string }).reciterName
+      || (lecture as any).reciter_name
+      || undefined;
+    const lecturerName = pickSpeakerName([
+      lecture.lecturer_name,
+      lecture.rpname,
+      reciterName,
+      (lecture as any).LecturerName,
+      lecture.ResourcePerson,
+    ]);
 
     return {
       id,

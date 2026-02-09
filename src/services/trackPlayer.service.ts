@@ -1,4 +1,4 @@
-import TrackPlayer, { Event } from 'react-native-track-player'
+import TrackPlayer, { Event } from './expoTrackPlayerCompat'
 import { addSentryBreadcrumb, captureSentryException } from './config/sentry.config'
 
 const safeCall = async (action: () => Promise<void> | void): Promise<void> => {

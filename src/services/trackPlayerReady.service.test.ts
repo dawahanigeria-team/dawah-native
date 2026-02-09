@@ -1,8 +1,8 @@
-jest.mock('react-native-track-player', () => ({
+jest.mock('./expoTrackPlayerCompat', () => ({
   setupPlayer: jest.fn().mockResolvedValue(undefined),
 }))
 
-import TrackPlayer from 'react-native-track-player'
+import TrackPlayer from './expoTrackPlayerCompat'
 import {
   ensureTrackPlayerReady,
   setTrackPlayerSetupPromise,

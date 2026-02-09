@@ -2,7 +2,7 @@ jest.mock('../services/trackPlayerReady.service', () => ({
   ensureTrackPlayerReady: jest.fn().mockResolvedValue(undefined),
 }))
 
-jest.mock('react-native-track-player', () => ({
+jest.mock('../services/expoTrackPlayerCompat', () => ({
   State: {
     None: 'none',
     Ready: 'ready',
@@ -33,7 +33,7 @@ jest.mock('react-native-track-player', () => ({
   },
 }))
 
-import { State } from 'react-native-track-player'
+import { State } from '../services/expoTrackPlayerCompat'
 import { buildPlaybackStatus } from './useAudioPlayback'
 
 const baseProgress = { position: 10, duration: 100, buffered: 25 }
