@@ -1,5 +1,6 @@
 import TrackPlayer, { Event, State } from './expoTrackPlayerCompat'
 import { createAudioPlayer } from 'expo-audio'
+import { logger } from '../utils/logger'
 
 jest.mock('expo-audio', () => {
   const listeners = new Map<string, Set<(payload: unknown) => void>>()
@@ -157,6 +158,18 @@ describe('expoTrackPlayerCompat', () => {
     expect(activeTrack?.artwork).toBe('https://example.com/artwork.jpg')
 
     expect(expoAudioMock.__player.updateLockScreenMetadata).toHaveBeenCalled()
+  })
+
+  test('lock screen activation debug log omits method type internals', async () => {
+    const debugSpy = jest.spyOn(logger, 'debug')
+
+    await TrackPlayer.add({ id: 'a', url: 'https://example.com/a.mp3', title: 'A' })
+
+    const activationLogCall = debugSpy.mock.calls.find((call) => call[0] === '[LockScreen] Activating lock screen controls')
+    expect(activationLogCall).toBeDefined()
+    expect(String(activationLogCall?.[1])).not.toContain('methodTypes')
+
+    debugSpy.mockRestore()
   })
 
   test('exposes playlist key and clears it on reset', async () => {

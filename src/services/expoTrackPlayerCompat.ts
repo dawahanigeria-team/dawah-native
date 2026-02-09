@@ -206,18 +206,18 @@ const setLockScreenState = (active: boolean, track?: Track) => {
   const currentPlayer = ensurePlayer()
   if (active) {
     const metadata = metadataForTrack(track)
-    logger.debug('[LockScreen] Activating lock screen controls', JSON.stringify({
-      hasPlayer: !!currentPlayer,
-      metadata,
-      options: lockScreenOptions,
-      methodTypes: {
-        setActiveForLockScreen: typeof currentPlayer.setActiveForLockScreen,
-        clearLockScreenControls: typeof currentPlayer.clearLockScreenControls,
-      },
-    }))
+    if (__DEV__) {
+      logger.debug('[LockScreen] Activating lock screen controls', {
+        hasPlayer: !!currentPlayer,
+        metadata,
+        options: lockScreenOptions,
+      })
+    }
     try {
       currentPlayer.setActiveForLockScreen(true, metadata, lockScreenOptions)
-      logger.debug('[LockScreen] setActiveForLockScreen call succeeded')
+      if (__DEV__) {
+        logger.debug('[LockScreen] setActiveForLockScreen call succeeded')
+      }
     } catch (error) {
       console.warn('[LockScreen] setActiveForLockScreen FAILED:', (error as Error).message)
     }
