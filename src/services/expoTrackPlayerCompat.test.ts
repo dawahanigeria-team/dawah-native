@@ -166,4 +166,23 @@ describe('expoTrackPlayerCompat', () => {
     await TrackPlayer.reset()
     expect(await (TrackPlayer as any).getPlaylistKey()).toBeNull()
   })
+
+  test('reset continues cleanup when clearing lock screen controls throws', async () => {
+    const expoAudioMock = jest.requireMock('expo-audio') as {
+      __player: { clearLockScreenControls: jest.Mock }
+    }
+
+    await TrackPlayer.add({ id: 'a', url: 'https://example.com/a.mp3', title: 'A' })
+    await TrackPlayer.skip(0)
+    await (TrackPlayer as any).setPlaylistKey('playlist:resilience')
+    expoAudioMock.__player.clearLockScreenControls.mockImplementationOnce(() => {
+      throw new Error('lock-screen failure')
+    })
+
+    await expect(TrackPlayer.reset()).resolves.toBeUndefined()
+    await expect(TrackPlayer.getActiveTrackIndex()).resolves.toBeNull()
+    await expect(TrackPlayer.getActiveTrack()).resolves.toBeNull()
+    await expect((TrackPlayer as any).getPlaylistKey()).resolves.toBeNull()
+    await expect(TrackPlayer.getPlaybackState()).resolves.toEqual({ state: State.None })
+  })
 })

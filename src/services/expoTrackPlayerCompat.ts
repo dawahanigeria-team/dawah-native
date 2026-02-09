@@ -206,7 +206,7 @@ const setLockScreenState = (active: boolean, track?: Track) => {
   const currentPlayer = ensurePlayer()
   if (active) {
     const metadata = metadataForTrack(track)
-    console.warn('[LockScreen] Activating lock screen controls', JSON.stringify({
+    logger.debug('[LockScreen] Activating lock screen controls', JSON.stringify({
       hasPlayer: !!currentPlayer,
       metadata,
       options: lockScreenOptions,
@@ -217,7 +217,7 @@ const setLockScreenState = (active: boolean, track?: Track) => {
     }))
     try {
       currentPlayer.setActiveForLockScreen(true, metadata, lockScreenOptions)
-      console.warn('[LockScreen] setActiveForLockScreen call succeeded')
+      logger.debug('[LockScreen] setActiveForLockScreen call succeeded')
     } catch (error) {
       console.warn('[LockScreen] setActiveForLockScreen FAILED:', (error as Error).message)
     }
@@ -354,7 +354,11 @@ const TrackPlayer = {
     } catch {
       // Ignore seek failures when no media is loaded.
     }
-    currentPlayer.clearLockScreenControls()
+    try {
+      currentPlayer.clearLockScreenControls()
+    } catch {
+      // Ignore lock screen cleanup failures to keep reset state consistent.
+    }
     // Keep the same player instance to avoid re-initialization cost on every track change.
     // We only clear queue/index state and let the next activation call replace the source.
     queue = []
