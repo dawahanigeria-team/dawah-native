@@ -52,8 +52,8 @@ export const FilterSection: React.FC<FilterSectionProps> = memo(({
     <View style={containerStyle}>
       <View style={headerStyle}>
         <Text
-          variant="bodySmall"
-          color="muted"
+          variant="footnote"
+          color="secondaryLabel"
           weight="semibold"
           style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}
         >
@@ -85,8 +85,6 @@ export const FilterSection: React.FC<FilterSectionProps> = memo(({
                 size="medium"
                 selected={selectedValue === option}
                 onPress={() => onSelect(option)}
-                accessibilityLabel={`Filter by ${option}`}
-                accessibilityState={{ selected: selectedValue === option }}
               />
             </View>
           ))}

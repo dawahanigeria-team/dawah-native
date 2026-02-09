@@ -95,7 +95,7 @@ export default function SignInScreen() {
 
       await login(credentials);
       if (returnToRoute) {
-        router.replace(returnToRoute as `/${string}`);
+        router.replace(returnToRoute as any);
       } else {
         handleBack();
       }

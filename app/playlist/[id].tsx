@@ -225,7 +225,7 @@ const PlaylistDetailScreen: React.FC = () => {
           <Button variant="filled" size="large" style={tw`flex-1`} onPress={handlePlayAll}>
             Play All
           </Button>
-          <Button variant="outline" size="large" style={tw`flex-1`} onPress={handleShuffle}>
+          <Button variant="plain" size="large" style={tw`flex-1`} onPress={handleShuffle}>
             Shuffle
           </Button>
         </View>

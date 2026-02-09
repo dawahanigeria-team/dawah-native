@@ -205,6 +205,35 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       };
     });
 
+    const progressPercentage = duration > 0 ? (progress / duration) * 100 : 0;
+
+    const updateProgressFromTouch = useCallback(
+      (event: GestureResponderEvent, trackWidth: number) => {
+        if (!duration || trackWidth <= 0) return;
+        const touchX = event.nativeEvent.locationX;
+        const nextProgress = Math.max(
+          0,
+          Math.min(duration, (touchX / trackWidth) * duration)
+        );
+        setProgress(nextProgress);
+      },
+      [duration, setProgress]
+    );
+
+    const handleMiniProgressTouch = useCallback(
+      (event: GestureResponderEvent) => {
+        updateProgressFromTouch(event, miniProgressTrackWidth);
+      },
+      [miniProgressTrackWidth, updateProgressFromTouch]
+    );
+
+    const handleExpandedProgressTouch = useCallback(
+      (event: GestureResponderEvent) => {
+        updateProgressFromTouch(event, expandedProgressTrackWidth);
+      },
+      [expandedProgressTrackWidth, updateProgressFromTouch]
+    );
+
     // Don't render if no episode is playing
     if (!currentEpisode) {
       return null;
@@ -267,35 +296,6 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       const secs = Math.floor(seconds % 60);
       return `${mins}:${secs.toString().padStart(2, "0")}`;
     };
-
-    const progressPercentage = duration > 0 ? (progress / duration) * 100 : 0;
-
-    const updateProgressFromTouch = useCallback(
-      (event: GestureResponderEvent, trackWidth: number) => {
-        if (!duration || trackWidth <= 0) return;
-        const touchX = event.nativeEvent.locationX;
-        const nextProgress = Math.max(
-          0,
-          Math.min(duration, (touchX / trackWidth) * duration)
-        );
-        setProgress(nextProgress);
-      },
-      [duration, setProgress]
-    );
-
-    const handleMiniProgressTouch = useCallback(
-      (event: GestureResponderEvent) => {
-        updateProgressFromTouch(event, miniProgressTrackWidth);
-      },
-      [miniProgressTrackWidth, updateProgressFromTouch]
-    );
-
-    const handleExpandedProgressTouch = useCallback(
-      (event: GestureResponderEvent) => {
-        updateProgressFromTouch(event, expandedProgressTrackWidth);
-      },
-      [expandedProgressTrackWidth, updateProgressFromTouch]
-    );
 
     const renderMiniPlayer = () => (
       <View style={styles.miniPlayerContainer}>

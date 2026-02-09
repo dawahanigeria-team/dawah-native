@@ -11,7 +11,7 @@
 import { useState, useEffect } from 'react';
 import { offlineFirstApi } from '../services/cache/offlineFirst.api';
 import { CACHE_CONFIG } from '../services/cache/cache.service';
-import { SearchLecture } from '../types/types';
+import { SearchLecture } from '../types/api.types';
 import { captureSentryException } from '../services/config/sentry.config';
 import { logger } from '../utils/logger';
 

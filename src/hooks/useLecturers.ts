@@ -45,7 +45,7 @@ export function useLecturers(limit = 12) {
       totalAlbums: 0, // Not provided by API
       followers: lecturer.followers || lecturer.views || 0,
       language: lecturer.language,
-      verified: lecturer.verified || (lecturer.views && lecturer.views > 1000), // Verified if > 1000 views
+      verified: lecturer.verified || Boolean(lecturer.views && lecturer.views > 1000), // Verified if > 1000 views
     };
   }, []);
 

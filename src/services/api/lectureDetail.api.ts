@@ -206,7 +206,7 @@ class LectureDetailApiService {
     return 0;
   }
 
-  private parseCategories(cats?: string): string[] {
+  private parseCategories(cats?: string | string[]): string[] {
     if (!cats) return [];
     if (Array.isArray(cats)) return cats;
     return cats.split(',').map(cat => cat.trim()).filter(Boolean);

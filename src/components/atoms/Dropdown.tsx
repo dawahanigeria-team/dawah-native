@@ -135,7 +135,7 @@ export const Dropdown: React.FC<DropdownProps> = memo(
                   <Touchable
                     style={
                       item.value === selectedValue
-                        ? [optionStyle, selectedOptionStyle]
+                        ? { ...optionStyle, ...selectedOptionStyle }
                         : optionStyle
                     }
                     onPress={() => handleSelect(item.value)}

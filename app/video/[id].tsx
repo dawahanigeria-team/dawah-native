@@ -58,7 +58,7 @@ export default function VideoPlayerScreen() {
       // Extract YouTube ID - if we have youtubeKey directly, use it
       let youtubeId = youtubeKey;
       if (!youtubeId && youtubeUrl) {
-        youtubeId = videoApi.extractYouTubeId(youtubeUrl);
+        youtubeId = videoApi.extractYouTubeId(youtubeUrl) ?? undefined;
       }
 
       if (!youtubeId) {

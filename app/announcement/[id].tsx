@@ -67,7 +67,7 @@ export default function AnnouncementDetailScreen() {
     [colors.system.background.secondary],
   );
   const heroGradientColors = useMemo(
-    () => [`${accentColor}26`, `${colors.system.background.secondary}00`],
+    () => [`${accentColor}26`, `${colors.system.background.secondary}00`] as const,
     [accentColor, colors.system.background.secondary],
   );
   const iconWrapStyle = useMemo(

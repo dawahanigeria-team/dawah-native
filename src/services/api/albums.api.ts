@@ -95,22 +95,23 @@ class AlbumsApiService {
 
       console.log('✅ Albums fetched:', albums.length);
 
+      const responseAny = response as any;
       addSentryBreadcrumb('Albums by lecturer loaded successfully', 'info', {
         lecturerId,
         albumCount: albums.length,
         page,
-        total: response.total || albums.length,
+        total: responseAny.total || albums.length,
       });
 
       return {
         data: albums,
-        total: response.total || albums.length,
-        total_pages: response.total_pages || Math.ceil((response.total || albums.length) / limit),
+        total: responseAny.total || albums.length,
+        total_pages: responseAny.total_pages || Math.ceil((responseAny.total || albums.length) / limit),
       };
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to fetch albums by lecturer:', error);
 
-      captureSentryException(error, {
+      captureSentryException(error instanceof Error ? error : new Error(String(error)), {
         service: 'AlbumsApiService',
         action: 'getAlbumsByLecturer',
         lecturerId,
@@ -189,10 +190,10 @@ class AlbumsApiService {
       });
 
       return { album, tracks };
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to fetch album details:', error);
 
-      captureSentryException(error, {
+      captureSentryException(error instanceof Error ? error : new Error(String(error)), {
         service: 'AlbumsApiService',
         action: 'getAlbumDetails',
         albumId,
@@ -235,7 +236,8 @@ class AlbumsApiService {
         }
       );
 
-      const tracks = this.normalizeAlbumTracks(response.data || response.tracks || []);
+      const responseAny = response as any;
+      const tracks = this.normalizeAlbumTracks(response.data || responseAny.tracks || []);
 
       console.log('✅ Album tracks fetched:', tracks.length);
 
@@ -247,12 +249,12 @@ class AlbumsApiService {
 
       return {
         data: tracks,
-        total: response.total || tracks.length,
+        total: responseAny.total || tracks.length,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to fetch album tracks:', error);
 
-      captureSentryException(error, {
+      captureSentryException(error instanceof Error ? error : new Error(String(error)), {
         service: 'AlbumsApiService',
         action: 'getAlbumTracks',
         albumId,

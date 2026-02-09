@@ -69,7 +69,7 @@ export const useAnnouncements = (userIdParam?: string): UseAnnouncementsResult =
   const [error, setError] = useState<string | null>(null);
   
   // Get authenticated user from auth store
-  const authUser = useAuthStore((state) => state.user);
+  const { user: authUser } = useAuthStore();
   const userId = userIdParam || authUser?.id;
   const isAuthenticated = isAuthenticatedUser(userId);
 
@@ -168,7 +168,7 @@ export const useUnreadAnnouncementsCount = (userIdParam?: string): number => {
   const [count, setCount] = useState(0);
   
   // Get authenticated user from auth store
-  const authUser = useAuthStore((state) => state.user);
+  const { user: authUser } = useAuthStore();
   const userId = userIdParam || authUser?.id;
   const isAuthenticated = isAuthenticatedUser(userId);
 
