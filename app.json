@@ -108,7 +108,7 @@
       "expo-localization",
       "@sentry/react-native",
       "expo-secure-store",
-      "expo-audio"
+      ["expo-audio", { "microphonePermission": false, "recordAudioAndroid": false }]
     ],
     "experiments": {
       "typedRoutes": true,

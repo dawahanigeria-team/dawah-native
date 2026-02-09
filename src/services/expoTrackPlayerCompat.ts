@@ -94,12 +94,6 @@ type Track = {
   duration?: number
 }
 
-type LockScreenMetadata = {
-  title?: string
-  artist?: string
-  artwork?: string
-}
-
 type ActiveTrackChangedEvent = {
   index: number
   track?: Track
@@ -209,41 +203,11 @@ const ensurePlayer = (): AudioPlayer => {
 
 const setLockScreenState = (active: boolean, track?: Track) => {
   const currentPlayer = ensurePlayer()
-  const metadata = metadataForTrack(track)
-  const playerWithLockScreen = currentPlayer as AudioPlayer & {
-    setActiveForLockScreen?: (
-      active: boolean,
-      metadata?: LockScreenMetadata,
-      options?: AudioLockScreenOptions
-    ) => void
-  }
   if (active) {
-    if (typeof playerWithLockScreen.setActiveForLockScreen === 'function') {
-      playerWithLockScreen.setActiveForLockScreen(true, metadata, lockScreenOptions)
-    }
+    currentPlayer.setActiveForLockScreen(true, metadataForTrack(track), lockScreenOptions)
     return
   }
-  clearLockScreenControls(currentPlayer)
-}
-
-const clearLockScreenControls = (currentPlayer: AudioPlayer) => {
-  const playerWithLockScreen = currentPlayer as AudioPlayer & {
-    clearLockScreenControls?: () => void
-    setActiveForLockScreen?: (
-      active: boolean,
-      metadata?: LockScreenMetadata,
-      options?: AudioLockScreenOptions
-    ) => void
-  }
-
-  if (typeof playerWithLockScreen.clearLockScreenControls === 'function') {
-    playerWithLockScreen.clearLockScreenControls()
-    return
-  }
-
-  if (typeof playerWithLockScreen.setActiveForLockScreen === 'function') {
-    playerWithLockScreen.setActiveForLockScreen(false, undefined, lockScreenOptions)
-  }
+  currentPlayer.clearLockScreenControls()
 }
 
 const activateTrack = async (index: number, autoPlay: boolean): Promise<void> => {
@@ -278,12 +242,12 @@ const activateTrack = async (index: number, autoPlay: boolean): Promise<void> =>
     track,
   } satisfies ActiveTrackChangedEvent)
 
+  setLockScreenState(true, track)
+
   if (autoPlay) {
     currentPlayer.play()
     setPlaybackState(State.Playing)
   }
-
-  setLockScreenState(true, track)
 }
 
 const handleTrackFinished = async (): Promise<void> => {
@@ -370,7 +334,7 @@ const TrackPlayer = {
     } catch {
       // Ignore seek failures when no media is loaded.
     }
-    clearLockScreenControls(currentPlayer)
+    currentPlayer.clearLockScreenControls()
     // Keep the same player instance to avoid re-initialization cost on every track change.
     // We only clear queue/index state and let the next activation call replace the source.
     queue = []
@@ -550,7 +514,7 @@ const TrackPlayer = {
     }
   },
 
-  async updateNowPlayingMetadata(metadata: LockScreenMetadata): Promise<void> {
+  async updateNowPlayingMetadata(metadata: { title?: string; artist?: string; artwork?: string }): Promise<void> {
     if (activeTrackIndex < 0 || activeTrackIndex >= queue.length) return
 
     queue[activeTrackIndex] = {

@@ -5,13 +5,7 @@
  */
 
 import TrackPlayer, {
-  AndroidAudioContentType,
-  AppKilledPlaybackBehavior,
-  Capability,
   Event,
-  IOSCategory,
-  IOSCategoryMode,
-  IOSCategoryOptions,
   RepeatMode,
   useTrackPlayerEvents,
 } from '../../services/expoTrackPlayerCompat'
@@ -22,10 +16,7 @@ import { lectureDetailApi } from '../../services/api/lectureDetail.api'
 import { addSentryBreadcrumb, captureSentryException } from '../../services/config/sentry.config'
 import { downloadsService } from '../../services/downloads.service'
 import { loadQueueSnapshot, saveQueueSnapshot } from '../../services/playerQueue.service'
-import {
-  ensureTrackPlayerReady,
-  setTrackPlayerSetupConfig,
-} from '../../services/trackPlayerReady.service'
+import { ensureTrackPlayerReady } from '../../services/trackPlayerReady.service'
 import { buildPlaylistKey, buildQueue } from '../../services/trackPlayerQueue.service'
 import { playerStore, resolveEpisodeArtistName, setAudioControls } from '../../stores/playerStore'
 import type { Episode, PlayerState } from '../../types/types'
@@ -38,25 +29,6 @@ const resolvePlaybackUri = (episode: Episode): string => {
   return downloadsService.getPlaybackUri(episode.id, episode.audioUrl)
 }
 
-const TRACK_PLAYER_SETUP_CONFIG = {
-  iosCategory: IOSCategory.Playback,
-  iosCategoryMode: IOSCategoryMode.Default,
-  iosCategoryOptions: [
-    IOSCategoryOptions.AllowBluetooth,
-    IOSCategoryOptions.AllowAirPlay,
-  ],
-  androidAudioContentType: AndroidAudioContentType.Music,
-  autoHandleInterruptions: true,
-  autoUpdateMetadata: true,
-  // Buffer tuning: keep seek stability without delaying initial playback start.
-  minBuffer: 15,
-  maxBuffer: 120,
-  playBuffer: 2,
-  backBuffer: 60,
-  maxCacheSize: 51200, // 50 MB in KB
-}
-
-setTrackPlayerSetupConfig(TRACK_PLAYER_SETUP_CONFIG)
 
 const detailToEpisode = (detail: {
   id: string
@@ -155,37 +127,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         await ensureTrackPlayerReady()
 
         await TrackPlayer.updateOptions({
-          android: {
-            appKilledPlaybackBehavior: AppKilledPlaybackBehavior.StopPlaybackAndRemoveNotification,
-            alwaysPauseOnInterruption: true,
-          },
-          progressUpdateEventInterval: 2,
           forwardJumpInterval: 15,
           backwardJumpInterval: 15,
-          capabilities: [
-            Capability.Play,
-            Capability.Pause,
-            Capability.Stop,
-            Capability.SeekTo,
-            Capability.SkipToNext,
-            Capability.SkipToPrevious,
-            Capability.JumpForward,
-            Capability.JumpBackward,
-          ],
-          notificationCapabilities: [
-            Capability.Play,
-            Capability.Pause,
-            Capability.SkipToNext,
-            Capability.SkipToPrevious,
-            Capability.JumpForward,
-            Capability.JumpBackward,
-            Capability.Stop,
-          ],
-          compactCapabilities: [
-            Capability.Play,
-            Capability.Pause,
-            Capability.SkipToNext,
-          ],
         })
 
         addSentryBreadcrumb('Track Player configured', 'info', {

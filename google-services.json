@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "739832430566",
+    "project_id": "dn-dawahcast-mobile",
+    "storage_bucket": "dn-dawahcast-mobile.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:739832430566:android:206a86c27ffe850f5b6027",
+        "android_client_info": {
+          "package_name": "com.dawahnigeria.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmzfhmpYPrADNdT--hyRAWl3iLpL03ASg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
