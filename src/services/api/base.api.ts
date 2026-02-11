@@ -63,12 +63,14 @@ class ApiClient {
   private requestTokens: Map<string, RequestToken> = new Map();
   private activeRequests = 0;
   private authToken: string | null = null;
+  private authTokenHydrationPromise: Promise<void> | null = null;
+  private hasHydratedAuthToken = false;
   private _authTokenChangeListener: ((token: string | null) => void) | null = null;
 
   private constructor() {
     // Only load auth token in React Native environment
     if (typeof window !== 'undefined') {
-      this.loadAuthToken();
+      void this.hydrateAuthTokenFromStorage();
     }
   }
 
@@ -88,16 +90,36 @@ class ApiClient {
   }
 
   /**
-   * Load auth token from storage
+   * Hydrate auth token from storage.
+   * Prefer access_token but fall back to legacy auth_token.
    */
-  private async loadAuthToken(): Promise<void> {
+  private async hydrateAuthTokenFromStorage(force: boolean = false): Promise<void> {
     if (typeof window === 'undefined') return;
+    if (!force && this.hasHydratedAuthToken) return;
+    if (this.authTokenHydrationPromise) {
+      await this.authTokenHydrationPromise;
+      return;
+    }
+
+    this.authTokenHydrationPromise = (async () => {
+      let token: string | null = null;
+      try {
+        const accessToken = await secureStoreCompat.getItemAsync('access_token');
+        token = accessToken ?? (await secureStoreCompat.getItemAsync('auth_token'));
+      } catch (error) {
+        console.error('Failed to load auth token:', error);
+      } finally {
+        this.authToken = token;
+        this._authTokenChangeListener?.(token);
+        this.hasHydratedAuthToken = true;
+        this.authTokenHydrationPromise = null;
+      }
+    })();
+
     try {
-      const token = await secureStoreCompat.getItemAsync('auth_token');
-      this.authToken = token;
-      this._authTokenChangeListener?.(token);
-    } catch (error) {
-      console.error('Failed to load auth token:', error);
+      await this.authTokenHydrationPromise;
+    } catch {
+      // No-op: handled above
     }
   }
 
@@ -106,6 +128,7 @@ class ApiClient {
    */
   public async setAuthToken(token: string | null): Promise<void> {
     this.authToken = token;
+    this.hasHydratedAuthToken = true;
     this._authTokenChangeListener?.(token);
     if (typeof window === 'undefined') return;
     try {
@@ -434,6 +457,7 @@ class ApiClient {
     try {
       // Enforce rate limiting
       await this.enforceRateLimit();
+      await this.hydrateAuthTokenFromStorage();
 
       url = this.buildUrl(endpoint, config.params);
       method = config.method || 'GET';
