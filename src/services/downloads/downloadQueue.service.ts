@@ -315,16 +315,21 @@ class DownloadQueueService {
 
   public async cancelDownload(downloadId: string): Promise<void> {
     const download = this.queue.get(downloadId);
+    // Always attempt cleanup in downloadsService even if queue state is stale.
+    await downloadsService.cancelDownload(downloadId);
+
     if (download) {
-      await downloadsService.cancelDownload(downloadId);
       this.queue.delete(downloadId);
-      this.activeDownloads.delete(downloadId);
-      this.speedTrackers.delete(downloadId);
       addSentryBreadcrumb(`Cancelled download: ${download.episode.title}`, 'download');
-      await this.saveQueue();
-      this.notify();
-      await this.processQueue();
+    } else {
+      addSentryBreadcrumb(`Cancelled download cleanup: ${downloadId}`, 'download');
     }
+
+    this.activeDownloads.delete(downloadId);
+    this.speedTrackers.delete(downloadId);
+    await this.saveQueue();
+    this.notify();
+    await this.processQueue();
   }
 
   public getQueue(): QueuedDownload[] {

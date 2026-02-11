@@ -626,8 +626,8 @@ function HomeScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={tw`px-4`}
               snapToInterval={SCREEN_WIDTH - 16}
+              snapToAlignment="start"
               decelerationRate="fast"
-              pagingEnabled
             />
           ) : null}
         </View>
