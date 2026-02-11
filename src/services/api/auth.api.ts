@@ -4,9 +4,9 @@
  */
 
 import AsyncStorage from 'expo-sqlite/kv-store';
-import * as SecureStore from 'expo-secure-store';
 import { API_CONFIG } from '../config/api.config';
 import { apiClient } from './base.api';
+import { secureStoreCompat } from '../storage/secureStoreCompat';
 
 export interface User {
   id: string;
@@ -103,12 +103,12 @@ class AuthApiService {
     try {
       const keys = [this.ACCESS_TOKEN_KEY, this.REFRESH_TOKEN_KEY, this.LEGACY_AUTH_TOKEN_KEY];
       for (const key of keys) {
-        const existing = await SecureStore.getItemAsync(key);
+        const existing = await secureStoreCompat.getItemAsync(key);
         if (existing) continue;
 
         const legacy = await AsyncStorage.getItem(key);
         if (legacy) {
-          await SecureStore.setItemAsync(key, legacy);
+          await secureStoreCompat.setItemAsync(key, legacy);
           await AsyncStorage.removeItem(key);
         }
       }
@@ -140,9 +140,9 @@ class AuthApiService {
       await AsyncStorage.setItem(this.USER_KEY, JSON.stringify(user));
 
       // Store tokens in SecureStore
-      await SecureStore.setItemAsync(this.ACCESS_TOKEN_KEY, response.data.data.tokens.access_token);
-      await SecureStore.setItemAsync(this.REFRESH_TOKEN_KEY, response.data.data.tokens.refresh_token);
-      await SecureStore.setItemAsync(this.LEGACY_AUTH_TOKEN_KEY, response.data.data.tokens.access_token);
+      await secureStoreCompat.setItemAsync(this.ACCESS_TOKEN_KEY, response.data.data.tokens.access_token);
+      await secureStoreCompat.setItemAsync(this.REFRESH_TOKEN_KEY, response.data.data.tokens.refresh_token);
+      await secureStoreCompat.setItemAsync(this.LEGACY_AUTH_TOKEN_KEY, response.data.data.tokens.access_token);
 
       return user;
     } catch (error) {
@@ -178,9 +178,9 @@ class AuthApiService {
       await AsyncStorage.setItem(this.USER_KEY, JSON.stringify(user));
 
       // Store tokens in SecureStore
-      await SecureStore.setItemAsync(this.ACCESS_TOKEN_KEY, response.data.data.tokens.access_token);
-      await SecureStore.setItemAsync(this.REFRESH_TOKEN_KEY, response.data.data.tokens.refresh_token);
-      await SecureStore.setItemAsync(this.LEGACY_AUTH_TOKEN_KEY, response.data.data.tokens.access_token);
+      await secureStoreCompat.setItemAsync(this.ACCESS_TOKEN_KEY, response.data.data.tokens.access_token);
+      await secureStoreCompat.setItemAsync(this.REFRESH_TOKEN_KEY, response.data.data.tokens.refresh_token);
+      await secureStoreCompat.setItemAsync(this.LEGACY_AUTH_TOKEN_KEY, response.data.data.tokens.access_token);
 
       return user;
     } catch (error) {
@@ -198,9 +198,9 @@ class AuthApiService {
       await AsyncStorage.removeItem(this.USER_KEY);
 
       // Remove tokens from SecureStore
-      await SecureStore.deleteItemAsync(this.ACCESS_TOKEN_KEY);
-      await SecureStore.deleteItemAsync(this.REFRESH_TOKEN_KEY);
-      await SecureStore.deleteItemAsync(this.LEGACY_AUTH_TOKEN_KEY);
+      await secureStoreCompat.deleteItemAsync(this.ACCESS_TOKEN_KEY);
+      await secureStoreCompat.deleteItemAsync(this.REFRESH_TOKEN_KEY);
+      await secureStoreCompat.deleteItemAsync(this.LEGACY_AUTH_TOKEN_KEY);
     } catch (error) {
       console.error('Failed to clear user data:', error);
     }
@@ -232,11 +232,11 @@ class AuthApiService {
    */
   async getAccessToken(): Promise<string | null> {
     try {
-      const accessToken = await SecureStore.getItemAsync(this.ACCESS_TOKEN_KEY);
+      const accessToken = await secureStoreCompat.getItemAsync(this.ACCESS_TOKEN_KEY);
       if (accessToken) {
         return accessToken;
       }
-      return await SecureStore.getItemAsync(this.LEGACY_AUTH_TOKEN_KEY);
+      return await secureStoreCompat.getItemAsync(this.LEGACY_AUTH_TOKEN_KEY);
     } catch (error) {
       console.error('Failed to get access token:', error);
       return null;
@@ -248,7 +248,7 @@ class AuthApiService {
    */
   async getRefreshToken(): Promise<string | null> {
     try {
-      return await SecureStore.getItemAsync(this.REFRESH_TOKEN_KEY);
+      return await secureStoreCompat.getItemAsync(this.REFRESH_TOKEN_KEY);
     } catch (error) {
       console.error('Failed to get refresh token:', error);
       return null;
@@ -260,8 +260,8 @@ class AuthApiService {
    */
   async setAccessToken(token: string): Promise<void> {
     try {
-      await SecureStore.setItemAsync(this.ACCESS_TOKEN_KEY, token);
-      await SecureStore.setItemAsync(this.LEGACY_AUTH_TOKEN_KEY, token);
+      await secureStoreCompat.setItemAsync(this.ACCESS_TOKEN_KEY, token);
+      await secureStoreCompat.setItemAsync(this.LEGACY_AUTH_TOKEN_KEY, token);
     } catch (error) {
       console.error('Failed to set access token:', error);
     }

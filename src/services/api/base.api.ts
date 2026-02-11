@@ -4,10 +4,10 @@
  */
 
 import AsyncStorage from 'expo-sqlite/kv-store';
-import * as SecureStore from 'expo-secure-store';
 import NetInfo from '@react-native-community/netinfo';
 import { API_CONFIG } from '../config/api.config';
 import { captureSentryException, addSentryBreadcrumb } from '../config/sentry.config';
+import { secureStoreCompat } from '../storage/secureStoreCompat';
 
 // Custom error class for API errors
 export class ApiError extends Error {
@@ -93,7 +93,7 @@ class ApiClient {
   private async loadAuthToken(): Promise<void> {
     if (typeof window === 'undefined') return;
     try {
-      const token = await SecureStore.getItemAsync('auth_token');
+      const token = await secureStoreCompat.getItemAsync('auth_token');
       this.authToken = token;
       this._authTokenChangeListener?.(token);
     } catch (error) {
@@ -110,9 +110,9 @@ class ApiClient {
     if (typeof window === 'undefined') return;
     try {
       if (token) {
-        await SecureStore.setItemAsync('auth_token', token);
+        await secureStoreCompat.setItemAsync('auth_token', token);
       } else {
-        await SecureStore.deleteItemAsync('auth_token');
+        await secureStoreCompat.deleteItemAsync('auth_token');
       }
     } catch (error) {
       console.error('Failed to set/remove auth token:', error);
