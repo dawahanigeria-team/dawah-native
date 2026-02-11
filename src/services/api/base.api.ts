@@ -34,6 +34,7 @@ export interface RequestConfig extends Omit<RequestInit, 'cache'> {
   cacheTTL?: number;
   params?: Record<string, any>;
   headers?: Record<string, string>;
+  skipTokenRefresh?: boolean;
 }
 
 // Response wrapper interface
@@ -66,6 +67,8 @@ class ApiClient {
   private authTokenHydrationPromise: Promise<void> | null = null;
   private hasHydratedAuthToken = false;
   private _authTokenChangeListener: ((token: string | null) => void) | null = null;
+  private _refreshPromise: Promise<boolean> | null = null;
+  private _onRefreshFailure: (() => void) | null = null;
 
   private constructor() {
     // Only load auth token in React Native environment
@@ -87,6 +90,10 @@ class ApiClient {
    */
   public setAuthTokenChangeListener(listener: (token: string | null) => void): void {
     this._authTokenChangeListener = listener;
+  }
+
+  public setOnRefreshFailure(callback: () => void): void {
+    this._onRefreshFailure = callback;
   }
 
   /**
@@ -140,6 +147,46 @@ class ApiClient {
     } catch (error) {
       console.error('Failed to set/remove auth token:', error);
     }
+  }
+
+  private isExpiredTokenError(errorData: any): boolean {
+    const text = (errorData?.message || errorData?.error || '').toLowerCase();
+    return text.includes('expired') && text.includes('token');
+  }
+
+  private async refreshAccessToken(): Promise<boolean> {
+    if (this._refreshPromise) {
+      return this._refreshPromise;
+    }
+
+    this._refreshPromise = (async () => {
+      try {
+        const refreshToken = await secureStoreCompat.getItemAsync('refresh_token');
+        if (!refreshToken) return false;
+
+        const response = await this.request<{
+          data: { tokens: { access_token: string; refresh_token: string } };
+        }>('/api/user_auth.php', {
+          method: 'POST',
+          body: JSON.stringify({ action: 'refresh_token', refresh_token: refreshToken }),
+          skipTokenRefresh: true,
+          retry: false,
+        });
+
+        const { access_token, refresh_token } = response.data.data.tokens;
+        await this.setAuthToken(access_token);
+        await secureStoreCompat.setItemAsync('access_token', access_token);
+        await secureStoreCompat.setItemAsync('refresh_token', refresh_token);
+        await secureStoreCompat.setItemAsync('auth_token', access_token);
+        return true;
+      } catch {
+        return false;
+      }
+    })().finally(() => {
+      this._refreshPromise = null;
+    });
+
+    return this._refreshPromise;
   }
 
   /**
@@ -557,6 +604,21 @@ class ApiClient {
       // Check response status
       if (!response.ok) {
         const errorData = isJson ? parsedBody : { message: responseText };
+
+        if (
+          response.status === 401 &&
+          !config.skipTokenRefresh &&
+          this.authToken &&
+          this.isExpiredTokenError(errorData)
+        ) {
+          const refreshed = await this.refreshAccessToken();
+          if (refreshed) {
+            return this.request<T>(endpoint, { ...config, skipTokenRefresh: true });
+          } else {
+            this._onRefreshFailure?.();
+          }
+        }
+
         console.error('❌ API Error:', {
           status: response.status,
           statusText: response.statusText,

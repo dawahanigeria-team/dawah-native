@@ -40,6 +40,11 @@ export const initializeAuth = async () => {
         isInitialized: true,
       }));
     });
+    apiClient.setOnRefreshFailure(async () => {
+      await authApi.logout();
+      await apiClient.setAuthToken(null);
+      authStore.set({ ...initialState, isLoading: false, isInitialized: true });
+    });
     authListenerRegistered = true;
   }
 
