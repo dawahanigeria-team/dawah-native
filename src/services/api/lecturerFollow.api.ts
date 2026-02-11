@@ -22,6 +22,7 @@ export interface LecturerFollowResponse {
   success: boolean;
   data: LecturerFollowResponseData;
   message?: string;
+  following?: boolean;
 }
 
 interface LecturerFollowPayload {

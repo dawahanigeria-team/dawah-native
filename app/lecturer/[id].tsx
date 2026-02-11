@@ -657,20 +657,24 @@ function LecturerDetailScreen() {
         }
 
         const response = await followLecturer(lecturerId, "rp");
-        if (!response?.success) {
-          throw new Error(response?.message || "Follow failed");
-        }
-        setIsFollowing(response.data?.following ?? true);
+        addSentryBreadcrumb("Follow response", "info", { response: JSON.stringify(response) });
+        const following = response?.data?.following ?? response?.following;
+        setIsFollowing(following ?? true);
       } else {
         const response = await unfollowLecturer(lecturerId, "rp");
-        if (!response?.success) {
-          throw new Error(response?.message || "Unfollow failed");
-        }
-        setIsFollowing(response.data?.following ?? false);
+        addSentryBreadcrumb("Unfollow response", "info", { response: JSON.stringify(response) });
+        const following = response?.data?.following ?? response?.following;
+        setIsFollowing(following ?? false);
       }
     } catch (err) {
-      console.error("Failed to update follow status:", err);
-      Alert.alert("Something went wrong", "Please try again.");
+      const error = err instanceof Error ? err : new Error("Follow toggle failed");
+      captureSentryException(error, {
+        component: "LecturerDetailScreen",
+        action: isFollowing ? "unfollow" : "follow",
+        lecturerId,
+      });
+      const message = error.message || "Please try again.";
+      Alert.alert("Something went wrong", message);
     } finally {
       setIsFollowLoading(false);
     }
