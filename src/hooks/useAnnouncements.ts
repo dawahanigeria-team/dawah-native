@@ -10,6 +10,24 @@ import { announcementsApi, AnnouncementApiResponse } from '../services/api/annou
 import { useAuthStore } from '../stores';
 
 const GUEST_READ_ANNOUNCEMENTS_KEY = 'guest_read_announcements';
+type UnreadCountListener = (count: number) => void;
+const unreadCountListeners = new Set<UnreadCountListener>();
+let sharedUnreadCount: number | null = null;
+
+const publishUnreadCount = (count: number): void => {
+  sharedUnreadCount = count;
+  unreadCountListeners.forEach((listener) => listener(count));
+};
+
+const subscribeUnreadCount = (listener: UnreadCountListener): (() => void) => {
+  unreadCountListeners.add(listener);
+  if (sharedUnreadCount !== null) {
+    listener(sharedUnreadCount);
+  }
+  return () => {
+    unreadCountListeners.delete(listener);
+  };
+};
 
 export interface UseAnnouncementsResult {
   announcements: AnnouncementApiResponse[];
@@ -117,6 +135,11 @@ export const useAnnouncements = (userIdParam?: string): UseAnnouncementsResult =
     fetchAnnouncements();
   }, [fetchAnnouncements]);
 
+  // Publish unread updates after commit to avoid setState during render warnings.
+  useEffect(() => {
+    publishUnreadCount(unreadCount);
+  }, [unreadCount]);
+
   const refetch = useCallback(async () => {
     await fetchAnnouncements();
   }, [fetchAnnouncements]);
@@ -126,19 +149,7 @@ export const useAnnouncements = (userIdParam?: string): UseAnnouncementsResult =
     const announcement = announcements.find(a => a.id === announcementId);
     const wasUnread = announcement && !announcement.read;
 
-    if (isAuthenticated && userId) {
-      // For authenticated users, call the API
-      try {
-        await announcementsApi.markAsRead(announcementId, userId);
-      } catch (error) {
-        console.error('Failed to mark as read on server:', error);
-      }
-    } else {
-      // For guests, save locally
-      await saveGuestReadId(announcementId);
-    }
-
-    // Update local state - only if announcement exists
+    // Update local state immediately for responsive UI.
     if (announcement) {
       setAnnouncements(prev => 
         prev.map(a => a.id === announcementId ? { ...a, read: true } : a)
@@ -147,6 +158,18 @@ export const useAnnouncements = (userIdParam?: string): UseAnnouncementsResult =
       if (wasUnread) {
         setUnreadCount(prev => Math.max(0, prev - 1));
       }
+    }
+
+    if (isAuthenticated && userId) {
+      // For authenticated users, sync to server in the background.
+      try {
+        await announcementsApi.markAsRead(announcementId, userId);
+      } catch (error) {
+        console.error('Failed to mark as read on server:', error);
+      }
+    } else {
+      // For guests, persist local read state.
+      await saveGuestReadId(announcementId);
     }
   }, [isAuthenticated, userId, announcements]);
 
@@ -199,6 +222,10 @@ export const useUnreadAnnouncementsCount = (userIdParam?: string): number => {
 
     return () => clearInterval(interval);
   }, [userId, isAuthenticated]);
+
+  useEffect(() => {
+    return subscribeUnreadCount(setCount);
+  }, []);
 
   return count;
 };

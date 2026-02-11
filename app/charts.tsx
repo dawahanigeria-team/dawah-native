@@ -1,9 +1,10 @@
 import { Stack, useRouter } from 'expo-router';
 import React, { memo, useCallback, useEffect, useState } from 'react';
-import { Alert, FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../src/components/atoms';
 import { Text } from '../src/components/atoms/Text';
+import { FlashList } from '../src/components/adapters/flashListCompat';
 import { ChartItem } from '../src/components/molecules/ChartItem';
 import { ChartItemSkeleton } from '../src/components/molecules/ChartItem.skeleton';
 import {
@@ -131,15 +132,38 @@ const ChartsScreen: React.FC = memo(() => {
   };
 
   const renderHeader = () => (
-    <>
+    <View
+      style={[
+        styles.header,
+        {
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.sm,
+          backgroundColor: colors.system.background.primary,
+          borderBottomColor: colors.system.separator.primary,
+        },
+      ]}
+    >
       <Stack.Screen options={{ title: getTitle() }} />
-      <TouchableOpacity 
-        onPress={() => router.back()} 
-        style={[styles.backButton, { top: spacing.lg, left: spacing.lg, padding: spacing.sm }]}
+      <TouchableOpacity
+        onPress={() => router.back()}
+        style={[
+          styles.backButton,
+          {
+            backgroundColor: colors.system.background.secondary,
+            borderColor: colors.system.separator.primary,
+          },
+        ]}
+        accessibilityLabel="Go back"
+        accessibilityRole="button"
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
         <Icon name="arrow-back" size="lg" color="label" />
       </TouchableOpacity>
-    </>
+      <Text variant="title3" weight="semibold" color="label">
+        Charts
+      </Text>
+      <View style={styles.headerSpacer} />
+    </View>
   );
 
   const renderFilters = () => (
@@ -190,9 +214,9 @@ const ChartsScreen: React.FC = memo(() => {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.system.background.primary }]} edges={['top', 'bottom']}>
         {renderHeader()}
-        <View style={[styles.content, { paddingTop: spacing['4xl'] }]}>
+        <View style={styles.content}>
           {renderFilters()}
-          <FlatList
+          <FlashList
             data={Array.from({ length: 10 })}
             keyExtractor={(_, index) => `skeleton-${index}`}
             renderItem={() => <ChartItemSkeleton />}
@@ -214,9 +238,9 @@ const ChartsScreen: React.FC = memo(() => {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.system.background.primary }]} edges={['top', 'bottom']}>
       {renderHeader()}
-      <View style={[styles.content, { paddingTop: spacing['4xl'] }]}>
+      <View style={styles.content}>
         {renderFilters()}
-        <FlatList
+        <FlashList
           data={chartData}
           keyExtractor={(item) => item.id.toString()}
           renderItem={({ item, index }) => (
@@ -229,9 +253,6 @@ const ChartsScreen: React.FC = memo(() => {
             />
           )}
           contentContainerStyle={[styles.listContent, { paddingBottom: listPaddingBottom }]}
-          initialNumToRender={10}
-          maxToRenderPerBatch={5}
-          windowSize={5}
         />
       </View>
     </SafeAreaView>
@@ -300,9 +321,22 @@ const styles = StyleSheet.create({
   segmentedControlOptionSelected: {
     borderBottomWidth: 2,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
   backButton: {
-    position: 'absolute',
-    zIndex: 1,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  headerSpacer: {
+    width: 40,
+    height: 40,
   },
 });
 
