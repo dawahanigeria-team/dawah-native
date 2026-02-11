@@ -3,7 +3,7 @@ import { Image as ExpoImage } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FlashList } from "@shopify/flash-list";
+import { FlashList } from "../../src/components/adapters/flashListCompat";
 import {
   Dimensions,
   FlatList,

@@ -1,4 +1,4 @@
-import { FlashList, ListRenderItem } from "@shopify/flash-list";
+import { FlashList, ListRenderItem } from "../adapters/flashListCompat";
 import React, { memo } from "react";
 import { ScrollView, View, ViewStyle } from "react-native";
 import { designTokens } from "../../theme/designTokens";

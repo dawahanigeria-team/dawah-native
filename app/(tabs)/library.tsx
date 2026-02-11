@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { FlashList } from "@shopify/flash-list";
+import { FlashList } from "../../src/components/adapters/flashListCompat";
 import { Text, TouchableOpacity, View, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../../src/components/molecules/Card";
@@ -18,7 +18,7 @@ import { historyService } from "../../src/services/history.service";
 import { lectureDetailApi } from "../../src/services/api/lectureDetail.api";
 import { playlistApi } from "../../src/services/api/playlist.api";
 import type { UserPlaylist } from "../../src/types/api.types";
-import { resolveFavoriteIdsForLoad } from "./library.favorites";
+import { resolveFavoriteIdsForLoad } from "../../src/features/library/resolveFavoriteIdsForLoad";
 
 type LibraryTab = "Downloads" | "History" | "Liked" | "Playlists";
 

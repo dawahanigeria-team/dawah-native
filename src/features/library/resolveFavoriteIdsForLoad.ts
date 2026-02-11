@@ -1,6 +1,6 @@
 export const resolveFavoriteIdsForLoad = async (
   currentFavoriteIds: string[],
-  fetchFavorites: () => Promise<string[]>
+  fetchFavorites: () => Promise<string[]>,
 ): Promise<string[]> => {
   if (currentFavoriteIds.length > 0) {
     return currentFavoriteIds;

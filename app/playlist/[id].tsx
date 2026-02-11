@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
-import { FlashList } from "@shopify/flash-list";
+import { FlashList } from "../../src/components/adapters/flashListCompat";
 import {
   ActivityIndicator,
   TouchableOpacity,

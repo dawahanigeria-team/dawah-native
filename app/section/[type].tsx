@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { FlashList } from "@shopify/flash-list";
+import { FlashList } from "../../src/components/adapters/flashListCompat";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
@@ -119,10 +119,11 @@ export default function SectionScreenWithBoundary() {
 function SectionScreen() {
   const { colors } = useTheme();
   const { type } = useLocalSearchParams<{ type: string }>();
-  const canUseFlashList = Boolean(
+  const supportsAutoLayoutView = Boolean(
     UIManager.getViewManagerConfig?.("AutoLayoutView"),
   );
-  const ListComponent = canUseFlashList ? FlashList : FlatList;
+  // Guard against runtime module/export issues; always keep FlatList as a safe fallback.
+  const canUseFlashList = supportsAutoLayoutView && Boolean(FlashList);
 
   // Fetch trending data if this is the trending or recently-posted section
   const trendingParams =
@@ -1027,24 +1028,45 @@ function SectionScreen() {
       </View>
 
       {/* Content with Dynamic Spacing */}
-      <ListComponent
-        data={filteredData}
-        renderItem={renderItem}
-        keyExtractor={(item, index) => `${item.id}-${index}`}
-        ListEmptyComponent={renderEmpty}
-        ListFooterComponent={renderFooter}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.5}
-        contentContainerStyle={[
-          tw`px-6 pb-20`,
-          {
-            paddingTop: showFilters
-              ? designTokens.spacing.md
-              : designTokens.spacing.lg,
-          },
-        ]}
-        showsVerticalScrollIndicator={false}
-      />
+      {canUseFlashList ? (
+        <FlashList
+          data={filteredData}
+          renderItem={renderItem}
+          keyExtractor={(item, index) => `${item.id}-${index}`}
+          ListEmptyComponent={renderEmpty}
+          ListFooterComponent={renderFooter}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          contentContainerStyle={[
+            tw`px-6 pb-20`,
+            {
+              paddingTop: showFilters
+                ? designTokens.spacing.md
+                : designTokens.spacing.lg,
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+        />
+      ) : (
+        <FlatList
+          data={filteredData}
+          renderItem={renderItem}
+          keyExtractor={(item, index) => `${item.id}-${index}`}
+          ListEmptyComponent={renderEmpty}
+          ListFooterComponent={renderFooter}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          contentContainerStyle={[
+            tw`px-6 pb-20`,
+            {
+              paddingTop: showFilters
+                ? designTokens.spacing.md
+                : designTokens.spacing.lg,
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </SafeAreaView>
   );
 }

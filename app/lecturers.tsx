@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FlashList } from "@shopify/flash-list";
+import { FlashList } from "../src/components/adapters/flashListCompat";
 import {
   ActivityIndicator,
   FlatList,
