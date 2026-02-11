@@ -12,6 +12,7 @@ import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { logger } from '../../utils/logger';
 import { captureSentryException, addSentryBreadcrumb } from '../../services/config/sentry.config';
+import { useTheme } from '../../hooks/useTheme';
 import { getLastCheckAfterAttempt, shouldThrottleUpdateCheck } from './UpdatesProvider.checks';
 import {
   getDismissedUpdateId,
@@ -25,6 +26,7 @@ const CHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 
 export const UpdatesProvider: React.FC = () => {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const [updateReady, setUpdateReady] = useState(false);
   const lastCheckRef = useRef(0);
   const checkingRef = useRef(false);
@@ -137,8 +139,12 @@ export const UpdatesProvider: React.FC = () => {
           <Pressable onPress={handleDismiss} hitSlop={8}>
             <Text style={styles.dismissText}>Later</Text>
           </Pressable>
-          <Pressable onPress={handleReload} style={styles.reloadButton} hitSlop={8}>
-            <Text style={styles.reloadText}>Update</Text>
+          <Pressable
+            onPress={handleReload}
+            style={[styles.reloadButton, { backgroundColor: colors.brand.primary }]}
+            hitSlop={8}
+          >
+            <Text style={[styles.reloadText, { color: colors.fixed.black }]}>Update</Text>
           </Pressable>
         </View>
       </View>
@@ -185,13 +191,11 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   reloadButton: {
-    backgroundColor: '#007AFF',
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 16,
   },
   reloadText: {
-    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '600',
   },
