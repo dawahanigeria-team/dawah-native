@@ -6,7 +6,6 @@
 import { apiClient, ApiError } from './base.api';
 import { API_CONFIG } from '../config/api.config';
 import { addSentryBreadcrumb, captureSentryException } from '../config/sentry.config';
-import { userService } from '../user.service';
 
 export type LecturerFollowType = 'rp' | 'reciter';
 export type LecturerFollowAction = 'follow' | 'unfollow';
@@ -26,8 +25,7 @@ export interface LecturerFollowResponse {
 }
 
 interface LecturerFollowPayload {
-  user_id: string;
-  lecturer_id: string;
+  lecturerId: number;
   type: LecturerFollowType;
   action: LecturerFollowAction;
 }
@@ -38,18 +36,14 @@ const toggleLecturerFollow = async (
   type: LecturerFollowType = 'rp',
 ): Promise<LecturerFollowResponse> => {
   try {
-    const userId = await userService.getUserId();
-
     const payload: LecturerFollowPayload = {
-      user_id: userId,
-      lecturer_id: String(lecturerId),
+      lecturerId: Number(lecturerId),
       type,
       action,
     };
 
     addSentryBreadcrumb('Lecturer follow toggle', 'user', {
-      lecturerId: payload.lecturer_id,
-      userId,
+      lecturerId: payload.lecturerId,
       type,
       action,
     });

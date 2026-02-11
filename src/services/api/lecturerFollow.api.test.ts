@@ -1,7 +1,6 @@
 import { API_CONFIG } from '../config/api.config';
 import { apiClient } from './base.api';
 import { followLecturer, unfollowLecturer } from './lecturerFollow.api';
-import { userService } from '../user.service';
 
 jest.mock('./base.api', () => ({
   apiClient: {
@@ -10,22 +9,13 @@ jest.mock('./base.api', () => ({
   ApiError: class ApiError extends Error {},
 }));
 
-jest.mock('../user.service', () => ({
-  userService: {
-    getUserId: jest.fn(),
-  },
-}));
-
 const mockPost = apiClient.post as jest.Mock;
-const mockGetUserId = userService.getUserId as jest.Mock;
 
 beforeEach(() => {
   mockPost.mockReset();
-  mockGetUserId.mockReset();
 });
 
 test('followLecturer posts follow with default type', async () => {
-  mockGetUserId.mockResolvedValue('guest_123');
   mockPost.mockResolvedValue({
     data: {
       success: true,
@@ -43,8 +33,7 @@ test('followLecturer posts follow with default type', async () => {
   expect(mockPost).toHaveBeenCalledWith(
     API_CONFIG.ENDPOINTS.LECTURER_FOLLOW,
     {
-      user_id: 'guest_123',
-      lecturer_id: '456',
+      lecturerId: 456,
       type: 'rp',
       action: 'follow',
     },
@@ -66,7 +55,6 @@ test('followLecturer posts follow with default type', async () => {
 });
 
 test('unfollowLecturer posts unfollow with explicit type', async () => {
-  mockGetUserId.mockResolvedValue('guest_456');
   mockPost.mockResolvedValue({
     data: {
       success: true,
@@ -84,8 +72,7 @@ test('unfollowLecturer posts unfollow with explicit type', async () => {
   expect(mockPost).toHaveBeenCalledWith(
     API_CONFIG.ENDPOINTS.LECTURER_FOLLOW,
     {
-      user_id: 'guest_456',
-      lecturer_id: '789',
+      lecturerId: 789,
       type: 'reciter',
       action: 'unfollow',
     },
