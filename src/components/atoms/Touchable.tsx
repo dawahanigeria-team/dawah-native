@@ -1,11 +1,11 @@
-import React, { memo, useCallback, useState } from 'react';
+import * as Haptics from 'expo-haptics';
+import React, { memo, useCallback } from 'react';
 import { Pressable, PressableProps, ViewStyle } from 'react-native';
 import Animated, {
-  useSharedValue,
   useAnimatedStyle,
+  useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
 import { designTokens } from '../../theme/designTokens';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -31,7 +31,6 @@ export const Touchable: React.FC<TouchableProps> = memo(({
   ...props
 }) => {
   const scale = useSharedValue(1);
-  const [pressed, setPressed] = useState(false);
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
@@ -39,14 +38,12 @@ export const Touchable: React.FC<TouchableProps> = memo(({
   const springConfig = { damping: 15, stiffness: 150 };
 
   const handlePressIn = useCallback(() => {
-    setPressed(true);
     if (scaleOnPress && !disabled) {
       scale.value = withSpring(scaleValue, springConfig);
     }
   }, [scaleOnPress, disabled, scaleValue]);
 
   const handlePressOut = useCallback(() => {
-    setPressed(false);
     if (scaleOnPress && !disabled) {
       scale.value = withSpring(1, springConfig);
     }
@@ -66,13 +63,16 @@ export const Touchable: React.FC<TouchableProps> = memo(({
     minWidth: minHitTarget ? designTokens.hitTargets.minimum : undefined,
   };
 
-  const resolvedStyle: ViewStyle = typeof style === 'function'
-    ? { ...baseStyle, ...style({ pressed }) }
-    : { ...baseStyle, ...(style as ViewStyle) };
+  // Pass a style function to Pressable so the consumer's function-based style
+  // receives the synchronous { pressed } state on every render frame,
+  // matching the native Pressable contract.
+  const combinedStyle = typeof style === 'function'
+    ? ({ pressed }: { pressed: boolean }) => [{ ...baseStyle, ...style({ pressed }) }, animatedStyle]
+    : [{ ...baseStyle, ...(style as ViewStyle) }, animatedStyle];
 
   return (
     <AnimatedPressable
-      style={[resolvedStyle, animatedStyle]}
+      style={combinedStyle as any}
       onPress={handlePress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
