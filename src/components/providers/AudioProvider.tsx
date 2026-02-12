@@ -4,20 +4,21 @@
  * Syncs audio status with the playerStore
  */
 
-import TrackPlayer, {
-  Event,
-  RepeatMode,
-  useTrackPlayerEvents,
-} from '../../services/expoTrackPlayerCompat'
 import React, { useEffect, useRef } from 'react'
 import { Platform } from 'react-native'
 import { useAudioPlayback } from '../../hooks/useAudioPlayback'
 import { lectureDetailApi } from '../../services/api/lectureDetail.api'
 import { addSentryBreadcrumb, captureSentryException } from '../../services/config/sentry.config'
 import { downloadsService } from '../../services/downloads.service'
+import TrackPlayer, {
+  Event,
+  RepeatMode,
+  releasePlayer,
+  useTrackPlayerEvents,
+} from '../../services/expoTrackPlayerCompat'
 import { loadQueueSnapshot, saveQueueSnapshot } from '../../services/playerQueue.service'
-import { ensureTrackPlayerReady } from '../../services/trackPlayerReady.service'
 import { buildPlaylistKey, buildQueue } from '../../services/trackPlayerQueue.service'
+import { ensureTrackPlayerReady } from '../../services/trackPlayerReady.service'
 import { playerStore, resolveEpisodeArtistName, setAudioControls } from '../../stores/playerStore'
 import type { Episode, PlayerState } from '../../types/types'
 
@@ -391,6 +392,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     return () => {
       setAudioControls(null)
       isInitializedRef.current = false
+      releasePlayer()
     }
   }, [])
 

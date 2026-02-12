@@ -347,20 +347,29 @@ const TrackPlayer = {
   addEventListener,
 
   async reset(): Promise<void> {
-    const currentPlayer = ensurePlayer()
-    currentPlayer.pause()
-    try {
-      await currentPlayer.seekTo(0)
-    } catch {
-      // Ignore seek failures when no media is loaded.
+    if (player) {
+      player.pause()
+      try {
+        await player.seekTo(0)
+      } catch {
+        // Ignore seek failures when no media is loaded.
+      }
+      try {
+        player.clearLockScreenControls()
+      } catch {
+        // Ignore lock screen cleanup failures to keep reset state consistent.
+      }
+
+      // Release the native player to free MediaCodec buffers on Android.
+      // A fresh player will be lazily created by ensurePlayer() on next use.
+      if (_playerStatusSubscription) {
+        _playerStatusSubscription.remove()
+        _playerStatusSubscription = null
+      }
+      player.remove()
+      player = null
     }
-    try {
-      currentPlayer.clearLockScreenControls()
-    } catch {
-      // Ignore lock screen cleanup failures to keep reset state consistent.
-    }
-    // Keep the same player instance to avoid re-initialization cost on every track change.
-    // We only clear queue/index state and let the next activation call replace the source.
+
     queue = []
     activeTrackIndex = -1
     playlistKey = null
@@ -561,6 +570,29 @@ const TrackPlayer = {
   async getPlaylistKey(): Promise<string | null> {
     return playlistKey
   },
+}
+
+/**
+ * Fully release the native audio player and reset all internal state.
+ * Call this when the audio system is being torn down (e.g. AudioProvider unmount)
+ * to ensure MediaCodec resources are freed on Android.
+ */
+export const releasePlayer = () => {
+  if (_playerStatusSubscription) {
+    _playerStatusSubscription.remove()
+    _playerStatusSubscription = null
+  }
+  if (player) {
+    try { player.pause() } catch { /* ignore */ }
+    try { player.clearLockScreenControls() } catch { /* ignore */ }
+    player.remove()
+    player = null
+  }
+  queue = []
+  activeTrackIndex = -1
+  playlistKey = null
+  state = State.None
+  progress = { position: 0, duration: 0, buffered: 0 }
 }
 
 export const usePlaybackState = (): PlaybackState => {
