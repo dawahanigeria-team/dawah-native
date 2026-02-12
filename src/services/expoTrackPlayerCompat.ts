@@ -347,26 +347,31 @@ const TrackPlayer = {
   addEventListener,
 
   async reset(): Promise<void> {
-    if (player) {
-      player.pause()
+    // Capture local refs before any await to prevent race conditions
+    // with concurrent releasePlayer() calls nulling out the globals.
+    const currentPlayer = player
+    const currentSubscription = _playerStatusSubscription
+
+    if (currentPlayer) {
+      currentPlayer.pause()
       try {
-        await player.seekTo(0)
+        await currentPlayer.seekTo(0)
       } catch {
         // Ignore seek failures when no media is loaded.
       }
       try {
-        player.clearLockScreenControls()
+        currentPlayer.clearLockScreenControls()
       } catch {
         // Ignore lock screen cleanup failures to keep reset state consistent.
       }
 
       // Release the native player to free MediaCodec buffers on Android.
       // A fresh player will be lazily created by ensurePlayer() on next use.
-      if (_playerStatusSubscription) {
-        _playerStatusSubscription.remove()
-        _playerStatusSubscription = null
+      if (currentSubscription) {
+        currentSubscription.remove()
       }
-      player.remove()
+      _playerStatusSubscription = null
+      currentPlayer.remove()
       player = null
     }
 
