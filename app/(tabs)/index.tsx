@@ -3,7 +3,6 @@ import { Image as ExpoImage } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FlashList } from "../../src/components/adapters/flashListCompat";
 import {
   Dimensions,
   FlatList,
@@ -22,6 +21,7 @@ import Animated, {
   FadeInRight,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { FlashList } from "../../src/components/adapters/flashListCompat";
 import { Text } from "../../src/components/atoms";
 import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
 import { Card } from "../../src/components/molecules/Card";
@@ -180,6 +180,7 @@ function HomeScreen() {
             lecture.lang ||
             lecture.language ||
             (lectureRecord.language_name as string) ||
+            lecture.Language ||
             "Unknown",
           downloads:
             parseInt(String(lecture.downloads || lecture.Downloads || "0")) ||
@@ -210,7 +211,7 @@ function HomeScreen() {
       const uris = popularEpisodes.map((e) => e.coverUrl).filter(Boolean);
       const uniqueUris = Array.from(new Set(uris)).slice(0, PREFETCH_LIMIT);
       uniqueUris.forEach((uri) => {
-        ExpoImage.prefetch(uri as string).catch(() => {});
+        ExpoImage.prefetch(uri as string).catch(() => { });
       });
     });
     return () => task.cancel?.();
@@ -389,10 +390,10 @@ function HomeScreen() {
     ({ item, index }: { item: Episode; index: number }) => {
       if (!item?.id) return null;
       return (
-      <Animated.View
-        entering={IS_ANDROID ? undefined : FadeInRight.delay(index * 50).duration(300)}
-        style={{ width: CARD_WIDTH, marginRight: CARD_SPACING }}
-      >
+        <Animated.View
+          entering={IS_ANDROID ? undefined : FadeInRight.delay(index * 50).duration(300)}
+          style={{ width: CARD_WIDTH, marginRight: CARD_SPACING }}
+        >
           <Card
             variant="landscape"
             data={item}
@@ -413,10 +414,10 @@ function HomeScreen() {
     ({ item, index }: { item: QuranAlbum; index: number }) => {
       if (!item?.id) return null;
       return (
-      <Animated.View
-        entering={IS_ANDROID ? undefined : FadeInRight.delay(index * 50).duration(300)}
-        style={styles.quranCardWrapper}
-      >
+        <Animated.View
+          entering={IS_ANDROID ? undefined : FadeInRight.delay(index * 50).duration(300)}
+          style={styles.quranCardWrapper}
+        >
           <TouchableOpacity
             onPress={() => handleAlbumPress(item)}
             activeOpacity={0.8}
