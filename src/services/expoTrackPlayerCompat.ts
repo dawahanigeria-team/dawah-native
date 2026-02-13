@@ -1,6 +1,7 @@
 import type { AudioLockScreenOptions, AudioPlayer, AudioStatus } from 'expo-audio'
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio'
 import { useEffect, useMemo, useState } from 'react'
+import { Platform } from 'react-native'
 import { logger } from '../utils/logger'
 
 export const State = {
@@ -123,6 +124,7 @@ let lockScreenOptions: AudioLockScreenOptions | undefined
 let jumpForwardInterval = 15
 let jumpBackwardInterval = 15
 let playlistKey: string | null = null
+let isLockScreenActive = false
 
 const emit = (event: string, payload: unknown) => {
   const eventListeners = listeners.get(event)
@@ -202,6 +204,17 @@ const ensurePlayer = (): AudioPlayer => {
   return player
 }
 
+const clearLockScreenControlsSafely = (currentPlayer: AudioPlayer): void => {
+  // Android 14 devices can crash with
+  // ForegroundServiceDidNotStartInTimeException when clearing controls.
+  // Keeping this call iOS-only avoids fatal background crashes.
+  if (Platform.OS === 'android') {
+    return
+  }
+
+  currentPlayer.clearLockScreenControls()
+}
+
 const setLockScreenState = (active: boolean, track?: Track) => {
   const currentPlayer = ensurePlayer()
   if (active) {
@@ -214,7 +227,12 @@ const setLockScreenState = (active: boolean, track?: Track) => {
       })
     }
     try {
-      currentPlayer.setActiveForLockScreen(true, metadata, lockScreenOptions)
+      if (!isLockScreenActive) {
+        currentPlayer.setActiveForLockScreen(true, metadata, lockScreenOptions)
+        isLockScreenActive = true
+      } else if (metadata) {
+        currentPlayer.updateLockScreenMetadata(metadata)
+      }
       if (__DEV__) {
         logger.debug('[LockScreen] setActiveForLockScreen call succeeded')
       }
@@ -223,11 +241,15 @@ const setLockScreenState = (active: boolean, track?: Track) => {
     }
     return
   }
+  if (!isLockScreenActive) {
+    return
+  }
   try {
-    currentPlayer.clearLockScreenControls()
+    clearLockScreenControlsSafely(currentPlayer)
   } catch (error) {
     console.warn('[LockScreen] clearLockScreenControls FAILED:', (error as Error).message)
   }
+  isLockScreenActive = false
 }
 
 const activateTrack = async (index: number, autoPlay: boolean): Promise<void> => {
@@ -262,9 +284,12 @@ const activateTrack = async (index: number, autoPlay: boolean): Promise<void> =>
     track,
   } satisfies ActiveTrackChangedEvent)
 
-  setLockScreenState(true, track)
+  if (isLockScreenActive) {
+    setLockScreenState(true, track)
+  }
 
   if (autoPlay) {
+    setLockScreenState(true, track)
     currentPlayer.play()
     setPlaybackState(State.Playing)
   }
@@ -360,10 +385,11 @@ const TrackPlayer = {
         // Ignore seek failures when no media is loaded.
       }
       try {
-        currentPlayer.clearLockScreenControls()
+        clearLockScreenControlsSafely(currentPlayer)
       } catch {
         // Ignore lock screen cleanup failures to keep reset state consistent.
       }
+      isLockScreenActive = false
 
       // Release the native player to free MediaCodec buffers on Android.
       // A fresh player will be lazily created by ensurePlayer() on next use.
@@ -378,6 +404,7 @@ const TrackPlayer = {
     queue = []
     activeTrackIndex = -1
     playlistKey = null
+    isLockScreenActive = false
     setProgress({ position: 0, duration: 0, buffered: 0 })
     setPlaybackState(State.None)
   },
@@ -411,6 +438,7 @@ const TrackPlayer = {
     if (activeTrackIndex < 0) {
       await activateTrack(0, false)
     }
+    setLockScreenState(true, getActiveTrack())
     const currentPlayer = ensurePlayer()
     currentPlayer.play()
     setPlaybackState(State.Playing)
@@ -545,9 +573,7 @@ const TrackPlayer = {
       ...metadata,
     }
 
-    if (index === activeTrackIndex) {
-      const currentPlayer = ensurePlayer()
-      currentPlayer.updateLockScreenMetadata(metadataForTrack(queue[index]) ?? {})
+    if (index === activeTrackIndex && isLockScreenActive) {
       setLockScreenState(true, queue[index])
     }
   },
@@ -562,9 +588,9 @@ const TrackPlayer = {
       ...(metadata.artwork !== undefined ? { artwork: metadata.artwork } : {}),
     }
 
-    const currentPlayer = ensurePlayer()
-    currentPlayer.updateLockScreenMetadata(metadataForTrack(queue[activeTrackIndex]) ?? {})
-    setLockScreenState(true, queue[activeTrackIndex])
+    if (isLockScreenActive) {
+      setLockScreenState(true, queue[activeTrackIndex])
+    }
   },
 
   async setPlaylistKey(key: string | null): Promise<void> {
@@ -589,13 +615,15 @@ export const releasePlayer = () => {
   }
   if (player) {
     try { player.pause() } catch { /* ignore */ }
-    try { player.clearLockScreenControls() } catch { /* ignore */ }
+    try { clearLockScreenControlsSafely(player) } catch { /* ignore */ }
+    isLockScreenActive = false
     player.remove()
     player = null
   }
   queue = []
   activeTrackIndex = -1
   playlistKey = null
+  isLockScreenActive = false
   state = State.None
   progress = { position: 0, duration: 0, buffered: 0 }
 }

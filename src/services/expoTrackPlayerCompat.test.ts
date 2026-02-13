@@ -153,6 +153,7 @@ describe('expoTrackPlayerCompat', () => {
       __player: { updateLockScreenMetadata: jest.Mock }
     }
     await TrackPlayer.add({ id: 'a', url: 'https://example.com/a.mp3', title: 'A', artist: 'Old' })
+    await TrackPlayer.play()
     await (TrackPlayer as any).updateNowPlayingMetadata({
       title: 'Updated Title',
       artist: 'Updated Artist',
@@ -171,6 +172,7 @@ describe('expoTrackPlayerCompat', () => {
     const debugSpy = jest.spyOn(logger, 'debug')
 
     await TrackPlayer.add({ id: 'a', url: 'https://example.com/a.mp3', title: 'A' })
+    await TrackPlayer.play()
 
     const activationLogCall = debugSpy.mock.calls.find((call) => call[0] === '[LockScreen] Activating lock screen controls')
     expect(activationLogCall).toBeDefined()
