@@ -8,6 +8,7 @@ import { Directory, File, FileHandle, Paths } from "expo-file-system";
 
 import { fetch } from "expo/fetch";
 import type { Episode } from "../types/types";
+import { copyWithOverwrite } from "../utils/fileCopy";
 import { logger } from "../utils/logger";
 import { requestStoragePermission } from "../utils/permissions";
 import { downloadsApi } from "./api/downloads.api";
@@ -752,9 +753,17 @@ class DownloadsService {
       if (!resumableDownload.isPaused && (totalBytes === 0 || bytesDownloaded === totalBytes)) {
         const finalFile = this.getDownloadFile(id);
 
-        // Copy to final location
-        file.copy(finalFile);
-        file.delete();
+        // Ensure all bytes are flushed before promoting partial file to final file.
+        if (fileHandle) {
+          fileHandle.close();
+          fileHandle = null;
+        }
+
+        // Copy to final location, replacing an existing stale target if needed.
+        copyWithOverwrite(file, finalFile);
+        if (file.exists) {
+          file.delete();
+        }
 
         // Save metadata
         const metadata: DownloadMetadata = {

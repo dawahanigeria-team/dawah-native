@@ -16,10 +16,13 @@
       "bundleIdentifier": "com.dawahnigeria.app",
       "infoPlist": {
         "UIBackgroundModes": [
+          "audio",
           "audio"
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       },
       "associatedDomains": [
+        "applinks:dawahnigeria.com",
         "applinks:dawahnigeria.com"
       ]
     },
@@ -36,7 +39,8 @@
         "INTERNET",
         "WAKE_LOCK",
         "FOREGROUND_SERVICE",
-        "FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+        "FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
       "intentFilters": [
         {
@@ -108,7 +112,13 @@
       "expo-localization",
       "@sentry/react-native",
       "expo-secure-store",
-      ["expo-audio", { "microphonePermission": false, "recordAudioAndroid": false }]
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
