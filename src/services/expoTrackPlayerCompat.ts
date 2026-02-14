@@ -217,7 +217,13 @@ const clearLockScreenControlsSafely = (currentPlayer: AudioPlayer): void => {
 
 const setLockScreenState = (active: boolean, track?: Track) => {
   const currentPlayer = ensurePlayer()
+  const canActivateOnAndroid =
+    Platform.OS !== 'android' || state === State.Playing || state === State.Buffering
+
   if (active) {
+    if (!canActivateOnAndroid) {
+      return
+    }
     const metadata = metadataForTrack(track)
     if (__DEV__) {
       logger.debug('[LockScreen] Activating lock screen controls', {
@@ -289,9 +295,9 @@ const activateTrack = async (index: number, autoPlay: boolean): Promise<void> =>
   }
 
   if (autoPlay) {
-    setLockScreenState(true, track)
     currentPlayer.play()
     setPlaybackState(State.Playing)
+    setLockScreenState(true, track)
   }
 }
 
@@ -438,16 +444,17 @@ const TrackPlayer = {
     if (activeTrackIndex < 0) {
       await activateTrack(0, false)
     }
-    setLockScreenState(true, getActiveTrack())
     const currentPlayer = ensurePlayer()
     currentPlayer.play()
     setPlaybackState(State.Playing)
+    setLockScreenState(true, getActiveTrack())
   },
 
   async pause(): Promise<void> {
     const currentPlayer = ensurePlayer()
     currentPlayer.pause()
     setPlaybackState(State.Paused)
+    setLockScreenState(false)
   },
 
   async stop(): Promise<void> {
@@ -459,6 +466,7 @@ const TrackPlayer = {
       position: 0,
     })
     setPlaybackState(State.Stopped)
+    setLockScreenState(false)
   },
 
   async seekTo(positionSeconds: number): Promise<void> {

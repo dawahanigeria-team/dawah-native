@@ -30,6 +30,8 @@ export const initSentry = () => {
   const enableMobileReplay = Platform.OS !== 'android';
   const replaySessionSampleRate = enableMobileReplay ? (isDevelopment ? 1.0 : 0.1) : 0.0;
   const replayOnErrorSampleRate = enableMobileReplay ? 1.0 : 0.0;
+  // Keep fatal flush waits short on Android to reduce ANR risk on low-end devices.
+  const shutdownTimeout = Platform.OS === 'android' ? 1000 : 2000;
   const integrations = [
     ...(enableMobileReplay
       ? [
@@ -118,6 +120,9 @@ export const initSentry = () => {
 
     // Attach stack trace to messages
     attachStacktrace: true,
+
+    // Controls the fatal flush wait in ReactNativeErrorHandlers.
+    shutdownTimeout,
   });
 
   // Set user context if available (can be updated later with actual user data)
