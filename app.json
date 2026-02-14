@@ -16,13 +16,11 @@
       "bundleIdentifier": "com.dawahnigeria.app",
       "infoPlist": {
         "UIBackgroundModes": [
-          "audio",
           "audio"
         ],
         "ITSAppUsesNonExemptEncryption": false
       },
       "associatedDomains": [
-        "applinks:dawahnigeria.com",
         "applinks:dawahnigeria.com"
       ]
     },
