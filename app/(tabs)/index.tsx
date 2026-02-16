@@ -44,6 +44,10 @@ const CARD_SPACING = 12;
 const HERO_HEIGHT = 200;
 const PREFETCH_LIMIT = 5;
 const IS_ANDROID = Platform.OS === "android";
+const HOME_SECTION_LIMIT = IS_ANDROID ? 6 : 10;
+const HOME_HERO_LIMIT = IS_ANDROID ? 3 : 5;
+const HOME_SKELETON_COUNT = IS_ANDROID ? 2 : 3;
+const HOME_QURAN_SKELETON_COUNT = IS_ANDROID ? 2 : 4;
 
 // Get greeting based on time of day (Arabic greetings)
 const getGreeting = (): string => {
@@ -128,11 +132,11 @@ function HomeScreen() {
     usePopularLecturesWithCache();
 
   const { lectures: trendingLectures, loading: trendingLoading } = useTrending({
-    limit: 10,
+    limit: HOME_SECTION_LIMIT,
   });
 
   const { albums: quranAlbumsRaw, loading: quranLoading } = useQuranAlbums({
-    limit: 10,
+    limit: HOME_SECTION_LIMIT,
   });
 
   const quranAlbums = useMemo(() => {
@@ -146,7 +150,7 @@ function HomeScreen() {
   }, [quranAlbumsRaw]);
 
   const { lectures: recentlyPlayed, loading: recentlyPlayedLoading } =
-    useRecentlyPlayedLectures(10);
+    useRecentlyPlayedLectures(HOME_SECTION_LIMIT);
 
   const [popularEpisodes, setPopularEpisodes] = useState<Episode[]>([]);
 
@@ -453,7 +457,7 @@ function HomeScreen() {
 
   // Render skeleton loaders
   const renderSkeletons = (
-    count: number = 3,
+    count: number = HOME_SKELETON_COUNT,
     variant: "landscape" | "square" = "landscape",
   ) => {
     const getSkeletonCardStyle = () => [
@@ -620,7 +624,7 @@ function HomeScreen() {
             />
           ) : popularEpisodes.length > 0 ? (
             <FlatList
-              data={popularEpisodes.slice(0, 5)}
+              data={popularEpisodes.slice(0, HOME_HERO_LIMIT)}
               renderItem={renderHeroItem}
               keyExtractor={(item) => `hero-${item.id}`}
               horizontal
@@ -654,7 +658,7 @@ function HomeScreen() {
               () => router.push("/section/recently-played"),
             )}
             {recentlyPlayedLoading ? (
-              renderSkeletons(3)
+              renderSkeletons()
             ) : (
               <FlashList
                 data={recentlyPlayed}
@@ -677,7 +681,7 @@ function HomeScreen() {
             () => router.push("/section/recently-posted"),
           )}
           {trendingLoading ? (
-            renderSkeletons(3)
+            renderSkeletons()
           ) : trendingLectures.length > 0 ? (
             <FlashList
               data={trendingLectures}
@@ -698,7 +702,7 @@ function HomeScreen() {
             () => router.push("/section/quran-recitations"),
           )}
           {quranLoading ? (
-            renderSkeletons(4, "square")
+            renderSkeletons(HOME_QURAN_SKELETON_COUNT, "square")
           ) : quranAlbums.length > 0 ? (
             <FlashList
               data={quranAlbums}
@@ -717,7 +721,7 @@ function HomeScreen() {
             router.push("/section/trending"),
           )}
           {trendingLoading ? (
-            renderSkeletons(3)
+            renderSkeletons()
           ) : trendingLectures.length > 0 ? (
             <FlashList
               data={[...trendingLectures].reverse()}
