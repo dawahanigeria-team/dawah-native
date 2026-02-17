@@ -53,7 +53,11 @@
     }
   },
   "submit": {
-    "production": {},
+    "production": {
+      "ios": {
+        "appleTeamId": "Y26B3N2A8U"
+      }
+    },
     "internal": {
       "android": {
         "serviceAccountKeyPath": "./google-service-account.json",
