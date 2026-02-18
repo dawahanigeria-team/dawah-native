@@ -154,6 +154,14 @@ function HomeScreen() {
 
   const [popularEpisodes, setPopularEpisodes] = useState<Episode[]>([]);
 
+  const trendingNowLectures = useMemo(() => {
+    const remainingAfterHero = popularEpisodes.slice(HOME_HERO_LIMIT);
+    if (remainingAfterHero.length > 0) {
+      return remainingAfterHero.slice(0, HOME_SECTION_LIMIT);
+    }
+    return popularEpisodes.slice(0, HOME_SECTION_LIMIT);
+  }, [popularEpisodes]);
+
   const parseDuration = useCallback((duration: string | undefined): number => {
     if (!duration) return 0;
     const parts = duration.split(":").map(Number);
@@ -720,11 +728,11 @@ function HomeScreen() {
           {renderSectionHeader("Trending Now", "Most popular this week", () =>
             router.push("/section/trending"),
           )}
-          {trendingLoading ? (
+          {popularLoading ? (
             renderSkeletons()
-          ) : trendingLectures.length > 0 ? (
+          ) : trendingNowLectures.length > 0 ? (
             <FlashList
-              data={[...trendingLectures].reverse()}
+              data={trendingNowLectures}
               renderItem={renderLectureCard}
               keyExtractor={(item) => `popular-${item.id}`}
               horizontal

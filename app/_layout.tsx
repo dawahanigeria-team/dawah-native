@@ -38,6 +38,7 @@ const NAVIGATION_PERSISTENCE_KEY = "NAVIGATION_STATE";
 const PLAYER_STATE_KEY = "PLAYER_STATE";
 const NAVIGATION_DEDUPE_WINDOW_MS = 1500;
 const IMAGE_CACHE_CLEANUP_THROTTLE_MS = 15000;
+const PLAYER_NAVIGATION_PENDING_TIMEOUT_MS = 10000;
 const recentNavigationState = {
   route: "",
   timestamp: 0,
@@ -174,7 +175,15 @@ function RootLayout() {
   const { currentEpisode } = usePlayerStore();
   const currentEpisodeRef = useRef<typeof currentEpisode | null>(null);
   const pendingPlayerNavigationRef = useRef(false);
+  const pendingPlayerNavigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [fontsLoaded, fontError] = useFonts(Ionicons.font);
+
+  const clearPendingPlayerNavigationTimeout = useCallback(() => {
+    const timeout = pendingPlayerNavigationTimeoutRef.current;
+    if (!timeout) return;
+    clearTimeout(timeout);
+    pendingPlayerNavigationTimeoutRef.current = null;
+  }, []);
 
   usePushNotifications();
   useNotificationObserver();
@@ -279,11 +288,18 @@ function RootLayout() {
       expandPlayer();
       const episodeId = currentEpisodeRef.current?.id;
       if (episodeId) {
+        clearPendingPlayerNavigationTimeout();
         pendingPlayerNavigationRef.current = false;
         safePush(`/lecture/${episodeId}`, "player_notification");
         return;
       }
+
       pendingPlayerNavigationRef.current = true;
+      clearPendingPlayerNavigationTimeout();
+      pendingPlayerNavigationTimeoutRef.current = setTimeout(() => {
+        pendingPlayerNavigationRef.current = false;
+        pendingPlayerNavigationTimeoutRef.current = null;
+      }, PLAYER_NAVIGATION_PENDING_TIMEOUT_MS);
     };
 
     const handleDeepLink = async () => {
@@ -326,9 +342,10 @@ function RootLayout() {
     });
 
     return () => {
+      clearPendingPlayerNavigationTimeout();
       subscription.remove();
     };
-  }, [expandPlayer, safePush]);
+  }, [clearPendingPlayerNavigationTimeout, expandPlayer, safePush]);
 
   useEffect(() => {
     if (!pendingPlayerNavigationRef.current) {
@@ -338,10 +355,17 @@ function RootLayout() {
     if (!episodeId) {
       return;
     }
+    clearPendingPlayerNavigationTimeout();
     pendingPlayerNavigationRef.current = false;
     expandPlayer();
     safePush(`/lecture/${episodeId}`, "pending_player_navigation");
-  }, [currentEpisode?.id, expandPlayer, safePush]);
+  }, [clearPendingPlayerNavigationTimeout, currentEpisode?.id, expandPlayer, safePush]);
+
+  useEffect(() => {
+    return () => {
+      clearPendingPlayerNavigationTimeout();
+    };
+  }, [clearPendingPlayerNavigationTimeout]);
 
   // Hide mini player on lecture detail page since it has full playback controls
   const shouldShowMiniPlayer = !pathname.startsWith("/lecture/");
