@@ -115,7 +115,8 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
   const onPlaybackFinishedRef = useRef<AudioPlaybackConfig['onPlaybackFinished']>(undefined)
 
   const playbackState = usePlaybackState()
-  const progress = useProgress(500)
+  // 1s progress cadence reduces Fabric prop churn on low-end Android devices.
+  const progress = useProgress(1000)
   const activeTrack = useActiveTrack()
 
   const status = useMemo(

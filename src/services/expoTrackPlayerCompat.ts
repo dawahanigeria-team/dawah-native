@@ -436,7 +436,9 @@ const TrackPlayer = {
   },
 
   async skip(index: number): Promise<void> {
-    await activateTrack(index, false)
+    const shouldAutoPlay =
+      state === State.Playing || state === State.Buffering || state === State.Loading
+    await activateTrack(index, shouldAutoPlay)
   },
 
   async play(): Promise<void> {
@@ -519,12 +521,14 @@ const TrackPlayer = {
     if (!queue.length) {
       throw new Error('Queue is empty')
     }
+    const shouldAutoPlay =
+      state === State.Playing || state === State.Buffering || state === State.Loading
     if (activeTrackIndex + 1 < queue.length) {
-      await activateTrack(activeTrackIndex + 1, false)
+      await activateTrack(activeTrackIndex + 1, shouldAutoPlay)
       return
     }
     if (repeatMode === RepeatMode.Queue) {
-      await activateTrack(0, false)
+      await activateTrack(0, shouldAutoPlay)
       return
     }
     throw new Error('No next track')
@@ -534,12 +538,14 @@ const TrackPlayer = {
     if (!queue.length) {
       throw new Error('Queue is empty')
     }
+    const shouldAutoPlay =
+      state === State.Playing || state === State.Buffering || state === State.Loading
     if (activeTrackIndex > 0) {
-      await activateTrack(activeTrackIndex - 1, false)
+      await activateTrack(activeTrackIndex - 1, shouldAutoPlay)
       return
     }
     if (repeatMode === RepeatMode.Queue) {
-      await activateTrack(queue.length - 1, false)
+      await activateTrack(queue.length - 1, shouldAutoPlay)
       return
     }
     throw new Error('No previous track')

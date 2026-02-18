@@ -1,10 +1,11 @@
 import * as Notifications from "expo-notifications";
+import { Image as ExpoImage } from "expo-image";
 import { Stack, usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useFonts } from "expo-font";
-import { useEffect, useRef } from "react";
-import { Linking, StyleSheet, View } from "react-native";
+import { useCallback, useEffect, useRef } from "react";
+import { AppState, Linking, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { PostHogProvider, usePostHog } from "posthog-react-native";
 
@@ -35,16 +36,74 @@ initSentry();
 
 const NAVIGATION_PERSISTENCE_KEY = "NAVIGATION_STATE";
 const PLAYER_STATE_KEY = "PLAYER_STATE";
+const NAVIGATION_DEDUPE_WINDOW_MS = 1500;
+const IMAGE_CACHE_CLEANUP_THROTTLE_MS = 15000;
+const recentNavigationState = {
+  route: "",
+  timestamp: 0,
+};
+const imageCacheCleanupState = {
+  timestamp: 0,
+};
+
+const normalizeInternalRoute = (route: string | null | undefined): string | null => {
+  if (!route) return null;
+
+  const trimmed = route.trim();
+  if (!trimmed.startsWith("/")) return null;
+
+  const [pathOnly] = trimmed.split(/[?#]/);
+  const normalizedPath = pathOnly.replace(/^\/+/, "").replace(/\/+$/, "");
+  if (!normalizedPath) {
+    return "/";
+  }
+
+  return `/${normalizedPath}`;
+};
+
+function useSafeRoutePush() {
+  const pathname = usePathname();
+  const router = useRouter();
+
+  return useCallback(
+    (rawRoute: string, source: string) => {
+      const route = normalizeInternalRoute(rawRoute);
+      if (!route) {
+        logger.debug("Ignoring invalid internal route", { rawRoute, source });
+        return;
+      }
+
+      const currentRoute = normalizeInternalRoute(pathname);
+      if (currentRoute === route) {
+        return;
+      }
+
+      const now = Date.now();
+      if (
+        recentNavigationState.route === route &&
+        now - recentNavigationState.timestamp < NAVIGATION_DEDUPE_WINDOW_MS
+      ) {
+        logger.debug("Ignoring duplicate navigation event", { route, source });
+        return;
+      }
+
+      recentNavigationState.route = route;
+      recentNavigationState.timestamp = now;
+      router.push(route as any);
+    },
+    [pathname, router],
+  );
+}
 
 function useNotificationObserver() {
-  const router = useRouter();
+  const safePush = useSafeRoutePush();
 
   useEffect(() => {
     const redirect = (notification: Notifications.Notification) => {
       const data = notification.request.content.data as Record<string, unknown>;
       const url = getNotificationRouteFromData(data);
       if (url) {
-        router.push(url as any);
+        safePush(url, "notification");
       }
     };
 
@@ -63,7 +122,7 @@ function useNotificationObserver() {
     return () => {
       subscription.remove();
     };
-  }, [router]);
+  }, [safePush]);
 }
 
 function PostHogAnalytics() {
@@ -106,7 +165,7 @@ function PostHogAnalytics() {
 
 function RootLayout() {
   const pathname = usePathname();
-  const router = useRouter();
+  const safePush = useSafeRoutePush();
   const [isNavigationLoading] = useStorageState(NAVIGATION_PERSISTENCE_KEY);
   const [isPlayerStateLoading] = useStorageState(PLAYER_STATE_KEY);
   const hasInitializedApp = useRef(false);
@@ -140,6 +199,26 @@ function RootLayout() {
   useEffect(() => {
     addSentryBreadcrumb("Route changed", "navigation", { pathname });
   }, [pathname]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") return;
+
+      const now = Date.now();
+      if (now - imageCacheCleanupState.timestamp < IMAGE_CACHE_CLEANUP_THROTTLE_MS) {
+        return;
+      }
+
+      imageCacheCleanupState.timestamp = now;
+      ExpoImage.clearMemoryCache().catch(() => {
+        logger.debug("Failed to clear image memory cache");
+      });
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   // Initialize user, auth, and favorites on app start
   useEffect(() => {
@@ -201,7 +280,7 @@ function RootLayout() {
       const episodeId = currentEpisodeRef.current?.id;
       if (episodeId) {
         pendingPlayerNavigationRef.current = false;
-        router.push(`/lecture/${episodeId}` as any);
+        safePush(`/lecture/${episodeId}`, "player_notification");
         return;
       }
       pendingPlayerNavigationRef.current = true;
@@ -222,7 +301,7 @@ function RootLayout() {
         const parsed = linkingService.parseURL(initialUrl);
         if (parsed && parsed.path) {
           logger.debug('Navigating to:', parsed.path);
-          router.push(`/${parsed.path}` as any);
+          safePush(`/${parsed.path}`, "deep_link_initial");
         }
       }
     };
@@ -242,14 +321,14 @@ function RootLayout() {
       const parsed = linkingService.parseURL(event.url);
       if (parsed && parsed.path) {
         logger.debug('Navigating to:', parsed.path);
-        router.push(`/${parsed.path}` as any);
+        safePush(`/${parsed.path}`, "deep_link_runtime");
       }
     });
 
     return () => {
       subscription.remove();
     };
-  }, [expandPlayer, router]);
+  }, [expandPlayer, safePush]);
 
   useEffect(() => {
     if (!pendingPlayerNavigationRef.current) {
@@ -261,8 +340,8 @@ function RootLayout() {
     }
     pendingPlayerNavigationRef.current = false;
     expandPlayer();
-    router.push(`/lecture/${episodeId}` as any);
-  }, [currentEpisode?.id, expandPlayer, router]);
+    safePush(`/lecture/${episodeId}`, "pending_player_navigation");
+  }, [currentEpisode?.id, expandPlayer, safePush]);
 
   // Hide mini player on lecture detail page since it has full playback controls
   const shouldShowMiniPlayer = !pathname.startsWith("/lecture/");

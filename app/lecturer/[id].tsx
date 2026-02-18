@@ -1,11 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Image,
   Platform,
   StyleSheet,
   TextInput,
@@ -61,6 +61,29 @@ type LecturerDetails = Lecturer & {
 
 type LecturerLectureWithId = LecturerLecture & { _uniqueId: string };
 
+const buildLectureItemKey = (
+  lecture: LecturerLecture,
+  page: number,
+  index: number,
+): string => {
+  if (lecture.nid !== undefined && lecture.nid !== null && String(lecture.nid).trim()) {
+    return String(lecture.nid);
+  }
+
+  const titlePart = (lecture.title || "untitled")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .slice(0, 40);
+  const audioPart = (lecture.audio || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+    .slice(-24);
+
+  return `fallback-${page}-${index}-${titlePart}-${audioPart}`;
+};
+
 const buildLecturerDetails = (
   data: Lecturer | null,
   overrides?: { id: string | number; name: string; img?: string },
@@ -80,6 +103,16 @@ const buildLecturerDetails = (
 
 // Pagination constants
 const PAGE_SIZE = 10;
+const IS_ANDROID = Platform.OS === "android";
+const IMAGE_CACHE_POLICY: "disk" | "memory-disk" = IS_ANDROID
+  ? "disk"
+  : "memory-disk";
+const PRIMARY_LIST_INITIAL_NUM_TO_RENDER = IS_ANDROID ? 6 : 10;
+const PRIMARY_LIST_MAX_TO_RENDER_PER_BATCH = IS_ANDROID ? 8 : 20;
+const PRIMARY_LIST_WINDOW_SIZE = IS_ANDROID ? 5 : 10;
+const SECONDARY_LIST_INITIAL_NUM_TO_RENDER = IS_ANDROID ? 6 : 10;
+const SECONDARY_LIST_MAX_TO_RENDER_PER_BATCH = IS_ANDROID ? 4 : 5;
+const SECONDARY_LIST_WINDOW_SIZE = IS_ANDROID ? 4 : 5;
 
 export default function LecturerDetailScreenWithBoundary() {
   return (
@@ -265,7 +298,7 @@ function LecturerDetailScreen() {
       // Add unique ID to each lecture to prevent key collisions
       const lecturesWithUniqueIds = response.data.map((lecture, idx) => ({
         ...lecture,
-        _uniqueId: `${lecture.nid}-${page}-${idx}-${Date.now()}`,
+        _uniqueId: buildLectureItemKey(lecture, page, idx),
       }));
 
       if (appendData) {
@@ -523,7 +556,7 @@ function LecturerDetailScreen() {
       return 0;
     };
 
-    const id = String(lecture.nid || `lecture-${Date.now()}`);
+    const id = buildLectureItemKey(lecture, 1, 0);
     const title = lecture.title || "Untitled Lecture";
     const duration = lecture.duration;
     const audioUrl = lecture.audio || "";
@@ -840,6 +873,10 @@ function LecturerDetailScreen() {
           <Image
             source={{ uri: item.coverUrl }}
             style={tw`w-16 h-16 rounded-lg`}
+            contentFit="cover"
+            cachePolicy={IMAGE_CACHE_POLICY}
+            allowDownscaling
+            recyclingKey={`album-${item.id}`}
           />
         ) : (
           <View
@@ -883,7 +920,6 @@ function LecturerDetailScreen() {
 
   const renderLectureItem = (lecture: LecturerLecture, index: number) => (
     <TouchableOpacity
-      key={lecture.nid || index}
       style={[
         tw`flex-row items-center py-3 border-b`,
         { borderColor: colors.system.separator.primary },
@@ -902,7 +938,14 @@ function LecturerDetailScreen() {
 
       {/* Thumbnail */}
       {lecture.img ? (
-        <Image source={{ uri: lecture.img }} style={tw`w-12 h-12 rounded`} />
+        <Image
+          source={{ uri: lecture.img }}
+          style={tw`w-12 h-12 rounded`}
+          contentFit="cover"
+          cachePolicy={IMAGE_CACHE_POLICY}
+          allowDownscaling
+          recyclingKey={`lecture-${lecture.nid || index}`}
+        />
       ) : (
         <View
           style={[
@@ -1048,6 +1091,10 @@ function LecturerDetailScreen() {
           <Image
             source={{ uri: item.coverUrl }}
             style={tw`w-16 h-16 rounded-lg`}
+            contentFit="cover"
+            cachePolicy={IMAGE_CACHE_POLICY}
+            allowDownscaling
+            recyclingKey={`playlist-${item.id}`}
           />
         ) : (
           <View
@@ -1125,9 +1172,9 @@ function LecturerDetailScreen() {
         keyboardDismissMode="on-drag"
         ListHeaderComponent={headerContent}
         ListFooterComponent={renderPlaylistFooter}
-        initialNumToRender={10}
-        maxToRenderPerBatch={5}
-        windowSize={5}
+        initialNumToRender={SECONDARY_LIST_INITIAL_NUM_TO_RENDER}
+        maxToRenderPerBatch={SECONDARY_LIST_MAX_TO_RENDER_PER_BATCH}
+        windowSize={SECONDARY_LIST_WINDOW_SIZE}
       />
     );
   };
@@ -1150,6 +1197,10 @@ function LecturerDetailScreen() {
             <Image
               source={{ uri: lecturerImage }}
               style={tw`w-32 h-32 rounded-2xl shadow-lg`}
+              contentFit="cover"
+              cachePolicy={IMAGE_CACHE_POLICY}
+              allowDownscaling
+              recyclingKey={`lecturer-${lecturerId}`}
             />
           ) : (
             <View
@@ -1338,7 +1389,7 @@ function LecturerDetailScreen() {
       <FlatList<LecturerLectureWithId>
         data={filteredLectures}
         renderItem={({ item, index }) => renderLectureItem(item, index)}
-        keyExtractor={(item, index) => item._uniqueId || `${item.nid}-${index}`}
+        keyExtractor={(item) => item._uniqueId}
         stickyHeaderIndices={[0]}
         contentContainerStyle={tw`pb-20`}
         onEndReached={loadMoreLectures}
@@ -1375,9 +1426,9 @@ function LecturerDetailScreen() {
           );
         }}
         removeClippedSubviews={shouldClipSubviews}
-        initialNumToRender={10}
-        maxToRenderPerBatch={20}
-        windowSize={10}
+        initialNumToRender={PRIMARY_LIST_INITIAL_NUM_TO_RENDER}
+        maxToRenderPerBatch={PRIMARY_LIST_MAX_TO_RENDER_PER_BATCH}
+        windowSize={PRIMARY_LIST_WINDOW_SIZE}
       />
     );
   };
@@ -1395,9 +1446,9 @@ function LecturerDetailScreen() {
         keyboardDismissMode="on-drag"
         ListHeaderComponent={headerContent}
         ListFooterComponent={renderAlbumFooter}
-        initialNumToRender={10}
-        maxToRenderPerBatch={5}
-        windowSize={5}
+        initialNumToRender={SECONDARY_LIST_INITIAL_NUM_TO_RENDER}
+        maxToRenderPerBatch={SECONDARY_LIST_MAX_TO_RENDER_PER_BATCH}
+        windowSize={SECONDARY_LIST_WINDOW_SIZE}
         ListEmptyComponent={() => {
           if (albumsLoading) {
             return (

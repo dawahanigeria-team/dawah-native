@@ -10,6 +10,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import { registerPushToken } from './api/notifications.api';
+import { linkingService } from './linking.service';
 import { userService } from './user.service';
 import { designTokens } from '../theme/designTokens';
 
@@ -235,6 +236,50 @@ export const updatePushTokenAsync = async (expoPushToken: string): Promise<void>
   await syncPushTokenAsync(expoPushToken);
 };
 
+const VALID_ROUTE_SEGMENT = /^[A-Za-z0-9_-]{1,120}$/;
+const VALID_NOTIFICATION_ROUTE = /^\/(lecture|lecturer|playlist)\/[A-Za-z0-9_-]{1,120}$/;
+
+const normalizeRouteSegment = (value: unknown): string | null => {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return VALID_ROUTE_SEGMENT.test(trimmed) ? trimmed : null;
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  return null;
+};
+
+const normalizeNotificationRoute = (rawRoute: string): string | null => {
+  const trimmedRoute = rawRoute.trim();
+  if (!trimmedRoute) return null;
+
+  let candidatePath: string | null = null;
+  const isFullDeepLink =
+    trimmedRoute.startsWith('https://') ||
+    trimmedRoute.startsWith('dawahnigeria://');
+
+  if (isFullDeepLink) {
+    const parsed = linkingService.parseURL(trimmedRoute);
+    candidatePath = parsed?.path ?? null;
+  } else {
+    candidatePath = trimmedRoute;
+  }
+
+  if (!candidatePath) return null;
+
+  const withoutQuery = candidatePath.split(/[?#]/)[0] || '';
+  const normalized = `/${withoutQuery.replace(/^\/+/, '').replace(/\/+$/, '')}`;
+
+  if (!VALID_NOTIFICATION_ROUTE.test(normalized)) {
+    return null;
+  }
+
+  return normalized;
+};
+
 export const getNotificationRouteFromData = (
   data: Record<string, unknown> | null | undefined,
 ): string | null => {
@@ -242,21 +287,22 @@ export const getNotificationRouteFromData = (
 
   const url = data.url;
   if (typeof url === 'string' && url.length > 0) {
-    return url;
+    const normalizedRoute = normalizeNotificationRoute(url);
+    if (normalizedRoute) return normalizedRoute;
   }
 
-  const lectureId = data.lectureId;
-  if (typeof lectureId === 'string' && lectureId.length > 0) {
+  const lectureId = normalizeRouteSegment(data.lectureId);
+  if (lectureId) {
     return `/lecture/${lectureId}`;
   }
 
-  const lecturerId = data.lecturerId;
-  if (typeof lecturerId === 'string' && lecturerId.length > 0) {
+  const lecturerId = normalizeRouteSegment(data.lecturerId);
+  if (lecturerId) {
     return `/lecturer/${lecturerId}`;
   }
 
-  const playlistId = data.playlistId;
-  if (typeof playlistId === 'string' && playlistId.length > 0) {
+  const playlistId = normalizeRouteSegment(data.playlistId);
+  if (playlistId) {
     return `/playlist/${playlistId}`;
   }
 

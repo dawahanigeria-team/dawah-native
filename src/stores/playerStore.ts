@@ -366,6 +366,7 @@ const playNext = async () => {
   const currentState = playerStore.get();
   const queue = Array.isArray(currentState.queue) ? currentState.queue : [];
   const { repeatMode } = currentState;
+  const shouldResumePlayback = currentState.isPlaying;
 
   logger.debug('⏭️ PlayerStore: playNext called, currentIndex:', currentState.currentQueueIndex, 'queueLength:', queue.length);
 
@@ -397,6 +398,9 @@ const playNext = async () => {
   try {
     await ensureTrackPlayerReady();
     await TrackPlayer.skipToNext();
+    if (shouldResumePlayback) {
+      await TrackPlayer.play();
+    }
     const nextIndex = await TrackPlayer.getActiveTrackIndex();
 
     if (nextIndex !== null && queue[nextIndex]) {
@@ -404,7 +408,7 @@ const playNext = async () => {
         ...currentState,
         currentQueueIndex: nextIndex,
         currentEpisode: queue[nextIndex],
-        isPlaying: true,
+        isPlaying: shouldResumePlayback,
         progress: 0,
       };
       setAndPersistPlayerState(nextState);
@@ -418,12 +422,14 @@ const playNext = async () => {
   if (repeatMode === 'all' && queue.length > 0) {
     try {
       await TrackPlayer.skip(0);
-      await TrackPlayer.play();
+      if (shouldResumePlayback) {
+        await TrackPlayer.play();
+      }
       const nextState = {
         ...currentState,
         currentQueueIndex: 0,
         currentEpisode: queue[0],
-        isPlaying: true,
+        isPlaying: shouldResumePlayback,
         progress: 0,
       };
       setAndPersistPlayerState(nextState);
@@ -447,6 +453,7 @@ const playNext = async () => {
 const playPrevious = async () => {
   const currentState = playerStore.get();
   const queue = Array.isArray(currentState.queue) ? currentState.queue : [];
+  const shouldResumePlayback = currentState.isPlaying;
 
   logger.debug('⏮️ PlayerStore: playPrevious called, currentIndex:', currentState.currentQueueIndex);
 
@@ -466,6 +473,9 @@ const playPrevious = async () => {
   try {
     await ensureTrackPlayerReady();
     await TrackPlayer.skipToPrevious();
+    if (shouldResumePlayback) {
+      await TrackPlayer.play();
+    }
     const prevIndex = await TrackPlayer.getActiveTrackIndex();
 
     if (prevIndex !== null && queue[prevIndex]) {
@@ -473,7 +483,7 @@ const playPrevious = async () => {
         ...currentState,
         currentQueueIndex: prevIndex,
         currentEpisode: queue[prevIndex],
-        isPlaying: true,
+        isPlaying: shouldResumePlayback,
         progress: 0,
       };
       setAndPersistPlayerState(nextState);

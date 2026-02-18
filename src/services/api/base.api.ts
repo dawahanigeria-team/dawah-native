@@ -25,6 +25,27 @@ export class ApiError extends Error {
   }
 }
 
+const isCancelledRequestError = (error: unknown): boolean => {
+  const maybeError = error as { name?: string; message?: string; code?: string | number } | null;
+  if (!maybeError) return false;
+
+  const name = typeof maybeError.name === "string" ? maybeError.name.toLowerCase() : "";
+  const message = typeof maybeError.message === "string" ? maybeError.message.toLowerCase() : "";
+  const code =
+    typeof maybeError.code === "string" ? maybeError.code.toLowerCase() : "";
+
+  if (name === "aborterror" || code === "err_canceled") {
+    return true;
+  }
+
+  return (
+    message.includes("fetch request has been canceled") ||
+    message.includes("request cancelled") ||
+    message.includes("request canceled") ||
+    message.includes("aborted")
+  );
+};
+
 // Request configuration interface
 export interface RequestConfig extends Omit<RequestInit, 'cache'> {
   timeout?: number;
@@ -401,7 +422,7 @@ class ApiClient {
         externalSignal.removeEventListener('abort', onExternalAbort);
       }
 
-      if (error.name === 'AbortError') {
+      if (isCancelledRequestError(error)) {
         if (didTimeout) {
           throw new ApiError(
             'The request is taking longer than usual. Please check your internet connection and try again.',
@@ -450,6 +471,9 @@ class ApiClient {
       // Check if error is retryable
       if (error instanceof ApiError && error.isCancelled) {
         throw error;
+      }
+      if (isCancelledRequestError(error)) {
+        throw new ApiError('Request cancelled', undefined, undefined, false, false, true);
       }
       if (error instanceof ApiError && error.isTimeout) {
         // Timeout errors are retryable
@@ -691,6 +715,9 @@ class ApiClient {
       }
       if (error instanceof ApiError && error.isCancelled) {
         throw error;
+      }
+      if (isCancelledRequestError(error)) {
+        throw new ApiError('Request cancelled', undefined, undefined, false, false, true);
       }
 
       if (__DEV__) console.log('Error caught in base.api.ts request method:', error);

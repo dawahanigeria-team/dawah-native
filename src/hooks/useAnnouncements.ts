@@ -5,7 +5,8 @@
  */
 
 import AsyncStorage from 'expo-sqlite/kv-store';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 import { announcementsApi, AnnouncementApiResponse } from '../services/api/announcements.api';
 import { useAuthStore } from '../stores';
 
@@ -189,6 +190,7 @@ export const useAnnouncements = (userIdParam?: string): UseAnnouncementsResult =
  */
 export const useUnreadAnnouncementsCount = (userIdParam?: string): number => {
   const [count, setCount] = useState(0);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   
   // Get authenticated user from auth store
   const { user: authUser } = useAuthStore();
@@ -196,31 +198,70 @@ export const useUnreadAnnouncementsCount = (userIdParam?: string): number => {
   const isAuthenticated = isAuthenticatedUser(userId);
 
   useEffect(() => {
+    let isMounted = true;
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    const setCountSafely = (nextCount: number) => {
+      if (isMounted) {
+        setCount(nextCount);
+      }
+    };
+
     const fetchCount = async () => {
+      if (appStateRef.current !== 'active') {
+        return;
+      }
+
       try {
         if (isAuthenticated && userId) {
           // For authenticated users, get count from server
           const unreadCount = await announcementsApi.getUnreadCount(userId);
-          setCount(unreadCount);
+          setCountSafely(unreadCount);
         } else {
           // For guests, fetch announcements and calculate locally
           const response = await announcementsApi.getAnnouncements();
           const readIds = await getGuestReadIds();
           const unreadCount = response.data.filter(a => !readIds.has(a.id)).length;
-          setCount(unreadCount);
+          setCountSafely(unreadCount);
         }
       } catch (err: unknown) {
         console.error('Failed to fetch unread count:', err);
-        setCount(0);
+        setCountSafely(0);
       }
     };
 
-    fetchCount();
+    const startPolling = () => {
+      if (interval) return;
+      interval = setInterval(() => {
+        void fetchCount();
+      }, 5 * 60 * 1000);
+    };
 
-    // Refresh count every 5 minutes
-    const interval = setInterval(fetchCount, 5 * 60 * 1000);
+    const stopPolling = () => {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
 
-    return () => clearInterval(interval);
+    void fetchCount();
+    startPolling();
+
+    const appStateSubscription = AppState.addEventListener('change', (nextState) => {
+      appStateRef.current = nextState;
+      if (nextState === 'active') {
+        void fetchCount();
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      stopPolling();
+      appStateSubscription.remove();
+    };
   }, [userId, isAuthenticated]);
 
   useEffect(() => {

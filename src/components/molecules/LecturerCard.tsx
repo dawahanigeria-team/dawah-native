@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Image, StyleProp, ViewStyle } from 'react-native';
+import { Image } from 'expo-image';
+import { View, Text, TouchableOpacity, StyleProp, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import tw from '../../theme/twrnc';
 import { useTheme } from '../../hooks/useTheme';
@@ -70,6 +71,10 @@ export const LecturerCard: React.FC<LecturerCardProps> = ({
               tw`w-20 h-20 rounded-full`,
               { backgroundColor: colors.system.fill.secondary }
             ]}
+            contentFit="cover"
+            cachePolicy="disk"
+            allowDownscaling
+            recyclingKey={`lecturer-card-${id}`}
           />
         ) : (
           <View

@@ -59,7 +59,6 @@ const CarouselItem = memo<CarouselItemProps>(({
           onItemPress?.(item);
         }}
         accessibilityLabel={`${item.title}, duration ${formatDuration(item.durationSec)}`}
-        accessibilityHint="Tap to play this episode"
         accessibilityRole="button"
       >
         <View
@@ -175,7 +174,6 @@ const CarouselItem = memo<CarouselItemProps>(({
               }}
               accessibilityLabel="Play episode"
               accessibilityRole="button"
-              accessibilityHint="Tap to play this episode immediately"
             >
               <Icon
                 name="play"

@@ -10,6 +10,9 @@ const WEB_URL = 'https://dawahnigeria.com'; // Your web URL
 const WEB_BASE_PATH = '/dawahcast'; // Base path for all content
 
 export class LinkingService {
+  private static readonly ALLOWED_DEEP_LINK_PATHS = ['lecture', 'album', 'playlist', 'lecturer', 'quran-reciter'];
+  private static readonly VALID_PATH_SEGMENT = /^[A-Za-z0-9_-]{1,120}$/;
+
   /**
    * Create a web URL for a lecture (universal link compatible)
    * Format: https://dawahnigeria.com/dawahcast/l/[id]
@@ -119,16 +122,21 @@ export class LinkingService {
         const parsed = Linking.parse(sanitizedUrl);
 
         // Validate allowed paths
-        const allowedPaths = ['lecture', 'album', 'playlist', 'lecturer', 'quran-reciter'];
         const pathBase = parsed.path?.split('/')[0];
 
-        if (!pathBase || !allowedPaths.includes(pathBase)) {
+        if (!pathBase || !this.ALLOWED_DEEP_LINK_PATHS.includes(pathBase)) {
           console.warn('Invalid app deep link path:', pathBase);
           return null;
         }
 
+        const validPath = this.normalizeAndValidateAppPath(parsed.path || '');
+        if (!validPath) {
+          console.warn('Invalid deep link route format:', parsed.path);
+          return null;
+        }
+
         return {
-          path: parsed.path || '',
+          path: validPath,
           queryParams: (parsed.queryParams as Record<string, string>) || {},
         };
       }
@@ -169,6 +177,12 @@ export class LinkingService {
         }
       }
 
+      const validPath = this.normalizeAndValidateAppPath(appPath);
+      if (!validPath) {
+        console.warn('Invalid web deep link path:', appPath);
+        return null;
+      }
+
       // Parse query parameters
       const queryParams: Record<string, string> = {};
       urlObj.searchParams.forEach((value, key) => {
@@ -176,13 +190,34 @@ export class LinkingService {
       });
 
       return {
-        path: appPath,
+        path: validPath,
         queryParams,
       };
     } catch (error) {
       console.error('Failed to parse web URL:', url, error);
       return null;
     }
+  }
+
+  private static normalizeAndValidateAppPath(path: string): string | null {
+    const normalizedPath = path.trim().replace(/^\/+/, '').replace(/\/+$/, '');
+    if (!normalizedPath) return null;
+
+    const segments = normalizedPath.split('/').filter(Boolean);
+    if (segments.length !== 2) {
+      return null;
+    }
+
+    const [base, id] = segments;
+    if (!this.ALLOWED_DEEP_LINK_PATHS.includes(base)) {
+      return null;
+    }
+
+    if (!this.VALID_PATH_SEGMENT.test(id)) {
+      return null;
+    }
+
+    return `${base}/${id}`;
   }
 
   /**

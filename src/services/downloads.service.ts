@@ -19,6 +19,26 @@ import {
 
 const DOWNLOADS_METADATA_KEY = "downloads_metadata";
 
+const isCancelledFetchError = (error: unknown): boolean => {
+  const maybeError = error as { name?: string; message?: string; code?: string } | null;
+  if (!maybeError) return false;
+
+  const name = (maybeError.name || "").toLowerCase();
+  const message = (maybeError.message || "").toLowerCase();
+  const code = (maybeError.code || "").toLowerCase();
+
+  if (name === "aborterror" || code === "err_canceled") {
+    return true;
+  }
+
+  return (
+    message.includes("fetch request has been canceled") ||
+    message.includes("request cancelled") ||
+    message.includes("request canceled") ||
+    message.includes("aborted")
+  );
+};
+
 export interface DownloadMetadata {
   lectureId: string;
   title: string;
@@ -791,7 +811,7 @@ class DownloadsService {
         });
       }
     } catch (error: any) {
-      if (error.name === "AbortError") {
+      if (isCancelledFetchError(error)) {
         logger.debug("Download was cancelled");
       } else {
         logger.error("Download failed", error);

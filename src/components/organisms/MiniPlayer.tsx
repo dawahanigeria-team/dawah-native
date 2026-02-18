@@ -866,7 +866,7 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    transform: [{ translateX: -5 }], // Center the thumb on the progress line
+    marginLeft: -5, // Center the thumb on the progress line
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.3,
     shadowRadius: 2,
@@ -964,7 +964,7 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    transform: [{ translateX: -8 }], // Center the thumb on the progress line
+    marginLeft: -8, // Center the thumb on the progress line
   },
   timeLabels: {
     flexDirection: "row",

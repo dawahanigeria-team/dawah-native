@@ -71,6 +71,12 @@ export const Card: React.FC<CardProps> = memo(
 
     // Safe access to coverUrl or thumbnailUrl
     const coverUrl = (data as any).coverUrl || (data as any).thumbnailUrl;
+    const sharedImageProps = {
+      contentFit: "cover" as const,
+      cachePolicy: "disk" as const,
+      allowDownscaling: true,
+      accessibilityIgnoresInvertColors: true,
+    };
 
     const getAccessibilityLabel = () => {
       let label = `${data.title}`;
@@ -135,7 +141,6 @@ export const Card: React.FC<CardProps> = memo(
           <Touchable
             onPress={handlePress}
             accessibilityLabel={getAccessibilityLabel()}
-            accessibilityHint="Tap to view details"
             accessibilityRole="button"
           >
             <View style={{ position: "relative", width: imageSize, height: imageSize }}>
@@ -147,8 +152,8 @@ export const Card: React.FC<CardProps> = memo(
                     height: imageSize,
                     borderRadius: designTokens.borderRadius[borderRadius],
                   }}
-                  contentFit="cover"
-                  accessibilityIgnoresInvertColors={true}
+                  {...sharedImageProps}
+                  recyclingKey={`card-square-${String(data.id)}`}
                   placeholder={require("../../../assets/placeholder.png")}
                   onError={() => {
                     setImageError(true);
@@ -284,7 +289,6 @@ export const Card: React.FC<CardProps> = memo(
           onPress={handlePress}
           onLongPress={onLongPress}
           accessibilityLabel={getAccessibilityLabel()}
-          accessibilityHint="Tap to view details"
           accessibilityRole="button"
         >
           {/* Album Art Container */}
@@ -302,8 +306,8 @@ export const Card: React.FC<CardProps> = memo(
                   height: 60,
                   borderRadius: designTokens.borderRadius.lg,
                 }}
-                contentFit="cover"
-                accessibilityIgnoresInvertColors={true}
+                {...sharedImageProps}
+                recyclingKey={`card-landscape-${String(data.id)}`}
                 onError={() => {
                   setImageError(true);
                 }}
@@ -519,7 +523,6 @@ export const Card: React.FC<CardProps> = memo(
           style={containerStyle}
           onPress={handlePress}
           accessibilityLabel={getAccessibilityLabel()}
-          accessibilityHint="Tap to view details"
           accessibilityRole="button"
         >
           {coverUrl && !imageError ? (
@@ -530,8 +533,8 @@ export const Card: React.FC<CardProps> = memo(
                 height: designTokens.spacing["5xl"],
                 borderRadius: designTokens.borderRadius.md,
               }}
-              contentFit="cover"
-              accessibilityIgnoresInvertColors={true}
+              {...sharedImageProps}
+              recyclingKey={`card-list-${String(data.id)}`}
               onError={() => {
                 setImageError(true);
               }}
@@ -608,7 +611,6 @@ export const Card: React.FC<CardProps> = memo(
         <Touchable
           onPress={handlePress}
           accessibilityLabel={getAccessibilityLabel()}
-          accessibilityHint={playOnPress ? "Tap to play" : "Tap to view details"}
           accessibilityRole="button"
           style={containerStyle}
         >
@@ -628,8 +630,8 @@ export const Card: React.FC<CardProps> = memo(
                     height: imageSize,
                     borderRadius: designTokens.borderRadius.xl,
                   }}
-                  contentFit="cover"
-                  accessibilityIgnoresInvertColors={true}
+                  {...sharedImageProps}
+                  recyclingKey={`card-section-${String(data.id)}`}
                   onError={() => {
                     setImageError(true);
                   }}

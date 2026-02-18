@@ -67,6 +67,250 @@ const createEpisodeFromDetail = (detail: LectureDetail | null): Episode | null =
   };
 };
 
+type ThemeColors = ReturnType<typeof useTheme>["colors"];
+
+interface LecturePlaybackControlsProps {
+  episode: Episode | null;
+  canPlay: boolean;
+  colors: ThemeColors;
+  downloadStatus: DownloadStatus | null;
+  downloadProgress: number;
+  onCancelDownload: () => void;
+  onDownloadPress: () => void | Promise<void>;
+  onOpenAddToPlaylist: () => void;
+  onShare: () => void;
+}
+
+const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
+  episode,
+  canPlay,
+  colors,
+  downloadStatus,
+  downloadProgress,
+  onCancelDownload,
+  onDownloadPress,
+  onOpenAddToPlaylist,
+  onShare,
+}) => {
+  const {
+    currentEpisode,
+    isPlaying,
+    progress: currentProgress,
+    playbackSpeed,
+    setPlaybackSpeed,
+    playEpisode,
+    togglePlayPause,
+  } = usePlayerStore();
+
+  const isCurrentLecture = Boolean(episode && currentEpisode?.id === episode.id);
+  const isCurrentlyPlaying = isCurrentLecture && isPlaying;
+  const progress = isCurrentLecture ? currentProgress : 0;
+  const duration = episode?.durationSec || 0;
+  const progressPercent = duration > 0 ? (progress / duration) * 100 : 0;
+
+  const handlePlayPress = useCallback(() => {
+    if (!episode || !canPlay) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+
+    if (isCurrentLecture) {
+      togglePlayPause();
+    } else {
+      playEpisode(episode);
+    }
+  }, [episode, canPlay, isCurrentLecture, togglePlayPause, playEpisode]);
+
+  const handleSpeedChange = useCallback(() => {
+    const speeds = [0.75, 1.0, 1.25, 1.5, 2.0];
+    const currentIndex = speeds.indexOf(playbackSpeed);
+    const nextIndex = (currentIndex + 1) % speeds.length;
+    const newSpeed = speeds[nextIndex];
+    setPlaybackSpeed(newSpeed);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [playbackSpeed, setPlaybackSpeed]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <View style={[tw`px-6 pb-8 pt-4`, { backgroundColor: colors.system.background.primary }]}>
+      {/* Progress Bar */}
+      <View style={tw`mb-2`}>
+        <View style={[tw`h-1 rounded-full overflow-hidden`, { backgroundColor: colors.system.fill.tertiary }]}>
+          <View
+            style={[
+              tw`h-full rounded-full`,
+              {
+                backgroundColor: colors.brand.primary,
+                width: `${progressPercent}%`
+              }
+            ]}
+          />
+        </View>
+        <View style={tw`flex-row justify-between mt-2`}>
+          <Text variant="caption2" color="tertiaryLabel">
+            {formatTime(progress)}
+          </Text>
+          <Text variant="caption2" color="tertiaryLabel">
+            {formatTime(duration)}
+          </Text>
+        </View>
+      </View>
+
+      {/* Main Playback Controls */}
+      <View style={tw`flex-row items-center justify-center mt-4 mb-4`}>
+        {/* Shuffle */}
+        <TouchableOpacity
+          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+          style={tw`w-12 h-12 items-center justify-center`}
+        >
+          <Ionicons name="shuffle" size={24} color={colors.system.label.secondary} />
+        </TouchableOpacity>
+
+        {/* Previous */}
+        <TouchableOpacity
+          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
+          style={tw`w-14 h-14 items-center justify-center mx-4`}
+        >
+          <Ionicons name="play-back" size={32} color={colors.system.label.primary} />
+        </TouchableOpacity>
+
+        {/* Play/Pause - Large Center Button */}
+        <TouchableOpacity
+          onPress={handlePlayPress}
+          disabled={!canPlay}
+          style={[
+            tw`w-20 h-20 rounded-full items-center justify-center mx-6`,
+            {
+              backgroundColor: canPlay ? colors.brand.primary : colors.system.fill.tertiary,
+              shadowColor: colors.brand.primary,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.3,
+              shadowRadius: 8,
+              elevation: 8,
+            }
+          ]}
+        >
+          <Ionicons
+            name={!canPlay ? "alert-circle" : isCurrentlyPlaying ? "pause" : "play"}
+            size={36}
+            color={canPlay ? colors.system.background.primary : colors.system.label.tertiary}
+            style={!canPlay ? {} : { marginLeft: isCurrentlyPlaying ? 0 : 3 }}
+          />
+        </TouchableOpacity>
+
+        {/* Next */}
+        <TouchableOpacity
+          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
+          style={tw`w-14 h-14 items-center justify-center mx-4`}
+        >
+          <Ionicons name="play-forward" size={32} color={colors.system.label.primary} />
+        </TouchableOpacity>
+
+        {/* Repeat */}
+        <TouchableOpacity
+          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+          style={tw`w-12 h-12 items-center justify-center`}
+        >
+          <Ionicons name="repeat" size={24} color={colors.system.label.secondary} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Secondary Actions */}
+      <View style={tw`flex-row items-center justify-between mt-2`}>
+        {/* Download Button Group */}
+        <View style={tw`flex-row items-center`}>
+        { (downloadStatus === DownloadStatus.DOWNLOADING ||
+          downloadStatus === DownloadStatus.PAUSED ||
+          downloadStatus === DownloadStatus.QUEUED) && (
+            <TouchableOpacity onPress={onCancelDownload} style={tw`mr-4`}>
+              <Ionicons name="close-circle-outline" size={24} color={colors.semantic.red} />
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            onPress={() => {
+              void onDownloadPress();
+            }}
+            disabled={episode === null}
+            style={tw`flex-row items-center`}
+          >
+            <Ionicons
+              name={
+                downloadStatus === DownloadStatus.COMPLETED
+                  ? "checkmark-circle"
+                  : downloadStatus === DownloadStatus.DOWNLOADING
+                    ? "pause-circle-outline"
+                    : downloadStatus === DownloadStatus.PAUSED
+                      ? "play-circle-outline"
+                      : downloadStatus === DownloadStatus.QUEUED
+                        ? "time-outline"
+                        : downloadStatus === DownloadStatus.FAILED
+                          ? "alert-circle-outline"
+                          : "arrow-down-circle-outline"
+              }
+              size={24}
+              color={
+                downloadStatus === DownloadStatus.COMPLETED
+                  ? colors.brand.primary
+                  : downloadStatus === DownloadStatus.FAILED
+                    ? colors.semantic.red
+                    : colors.system.label.secondary
+              }
+            />
+            <Text
+              variant="caption1"
+              color={
+                downloadStatus === DownloadStatus.COMPLETED
+                  ? "brand"
+                  : downloadStatus === DownloadStatus.FAILED
+                    ? "systemRed"
+                    : "secondaryLabel"
+              }
+              style={tw`ml-2`}
+            >
+              {downloadStatus === DownloadStatus.COMPLETED
+                ? "Downloaded"
+                : downloadStatus === DownloadStatus.DOWNLOADING
+                  ? `${Math.round(downloadProgress)}%`
+                  : downloadStatus === DownloadStatus.PAUSED
+                    ? "Paused"
+                    : downloadStatus === DownloadStatus.QUEUED
+                      ? "Queued"
+                      : downloadStatus === DownloadStatus.FAILED
+                        ? "Failed"
+                        : "Download"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity onPress={onShare} style={tw`flex-row items-center`}>
+          <Ionicons name="share-outline" size={24} color={colors.system.label.secondary} />
+          <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
+            Share
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={onOpenAddToPlaylist} style={tw`flex-row items-center`}>
+          <Ionicons name="add-circle-outline" size={24} color={colors.system.label.secondary} />
+          <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
+            Add to Playlist
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={handleSpeedChange} style={tw`flex-row items-center`}>
+          <Ionicons name="speedometer-outline" size={24} color={colors.system.label.secondary} />
+          <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
+            {playbackSpeed}x
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
 const LectureDetailScreen: React.FC = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -84,16 +328,6 @@ const LectureDetailScreen: React.FC = () => {
 
   // Store Hooks
   const {
-    playEpisode,
-    togglePlayPause,
-    currentEpisode,
-    isPlaying,
-    progress: currentProgress,
-    playbackSpeed,
-    setPlaybackSpeed,
-  } = usePlayerStore();
-
-  const {
     addToQueue,
     getDownloadProgress,
     getDownloadStatus,
@@ -107,9 +341,6 @@ const LectureDetailScreen: React.FC = () => {
   // Derived State
   const liked = isFavorited(lectureId);
   const episode = useMemo(() => createEpisodeFromDetail(lecture), [lecture]);
-  const isCurrentLecture = Boolean(
-    lecture && currentEpisode?.id === lecture.id,
-  );
   const isRecitation = Boolean(
     lecture?.isReciter ||
       lecture?.reciter?.isReciter ||
@@ -118,7 +349,6 @@ const LectureDetailScreen: React.FC = () => {
   );
   const aboutHeading = isRecitation ? "About this recitation" : "About this lecture";
   const canPlay = Boolean(episode?.audioUrl);
-  const isCurrentlyPlaying = isCurrentLecture && isPlaying;
 
   // Download state
 
@@ -166,19 +396,6 @@ const LectureDetailScreen: React.FC = () => {
       scrollY.value = event.contentOffset.y;
     },
   });
-
-  const handlePlayPress = useCallback(() => {
-    if (!episode || !canPlay) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-
-    // If this lecture is currently playing, toggle play/pause
-    // Otherwise, start playing this episode
-    if (isCurrentLecture) {
-      togglePlayPause();
-    } else {
-      playEpisode(episode);
-    }
-  }, [episode, canPlay, isCurrentLecture, togglePlayPause, playEpisode]);
 
   const handleDownloadPress = useCallback(async () => {
     if (!episode) return;
@@ -315,15 +532,6 @@ const LectureDetailScreen: React.FC = () => {
       });
     });
   }, [lecture, id]);
-
-  const handleSpeedChange = useCallback(() => {
-    const speeds = [0.75, 1.0, 1.25, 1.5, 2.0];
-    const currentIndex = speeds.indexOf(playbackSpeed);
-    const nextIndex = (currentIndex + 1) % speeds.length;
-    const newSpeed = speeds[nextIndex];
-    setPlaybackSpeed(newSpeed);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, [playbackSpeed, setPlaybackSpeed]);
 
   const formatNumber = (num?: number): string => {
     if (!num) return '0';
@@ -757,201 +965,6 @@ const LectureDetailScreen: React.FC = () => {
     );
   };
 
-  const renderPlaybackControls = () => {
-    const formatTime = (seconds: number) => {
-      const mins = Math.floor(seconds / 60);
-      const secs = Math.floor(seconds % 60);
-      return `${mins}:${secs.toString().padStart(2, '0')}`;
-    };
-
-    const duration = episode?.durationSec || 0;
-    const progress = isCurrentLecture ? currentProgress : 0;
-    const progressPercent = duration > 0 ? (progress / duration) * 100 : 0;
-
-    return (
-      <View style={[tw`px-6 pb-8 pt-4`, { backgroundColor: colors.system.background.primary }]}>
-        {/* Progress Bar */}
-        <View style={tw`mb-2`}>
-          <View style={[tw`h-1 rounded-full overflow-hidden`, { backgroundColor: colors.system.fill.tertiary }]}>
-            <View
-              style={[
-                tw`h-full rounded-full`,
-                {
-                  backgroundColor: colors.brand.primary,
-                  width: `${progressPercent}%`
-                }
-              ]}
-            />
-          </View>
-          <View style={tw`flex-row justify-between mt-2`}>
-            <Text variant="caption2" color="tertiaryLabel">
-              {formatTime(progress)}
-            </Text>
-            <Text variant="caption2" color="tertiaryLabel">
-              {formatTime(duration)}
-            </Text>
-          </View>
-        </View>
-
-        {/* Main Playback Controls */}
-        <View style={tw`flex-row items-center justify-center mt-4 mb-4`}>
-          {/* Shuffle */}
-          <TouchableOpacity
-            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-            style={tw`w-12 h-12 items-center justify-center`}
-          >
-            <Ionicons name="shuffle" size={24} color={colors.system.label.secondary} />
-          </TouchableOpacity>
-
-          {/* Previous */}
-          <TouchableOpacity
-            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
-            style={tw`w-14 h-14 items-center justify-center mx-4`}
-          >
-            <Ionicons name="play-back" size={32} color={colors.system.label.primary} />
-          </TouchableOpacity>
-
-          {/* Play/Pause - Large Center Button */}
-          <TouchableOpacity
-            onPress={handlePlayPress}
-            disabled={!canPlay}
-            style={[
-              tw`w-20 h-20 rounded-full items-center justify-center mx-6`,
-              {
-                backgroundColor: canPlay ? colors.brand.primary : colors.system.fill.tertiary,
-                shadowColor: colors.brand.primary,
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 8,
-                elevation: 8,
-              }
-            ]}
-          >
-            <Ionicons
-              name={!canPlay ? "alert-circle" : isCurrentlyPlaying ? "pause" : "play"}
-              size={36}
-              color={canPlay ? colors.system.background.primary : colors.system.label.tertiary}
-              style={!canPlay ? {} : { marginLeft: isCurrentlyPlaying ? 0 : 3 }}
-            />
-          </TouchableOpacity>
-
-          {/* Next */}
-          <TouchableOpacity
-            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
-            style={tw`w-14 h-14 items-center justify-center mx-4`}
-          >
-            <Ionicons name="play-forward" size={32} color={colors.system.label.primary} />
-          </TouchableOpacity>
-
-          {/* Repeat */}
-          <TouchableOpacity
-            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-            style={tw`w-12 h-12 items-center justify-center`}
-          >
-            <Ionicons name="repeat" size={24} color={colors.system.label.secondary} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Secondary Actions */}
-        <View style={tw`flex-row items-center justify-between mt-2`}>
-          {/* Download Button Group */}
-          <View style={tw`flex-row items-center`}>
-          { (downloadStatus === DownloadStatus.DOWNLOADING ||
-            downloadStatus === DownloadStatus.PAUSED ||
-            downloadStatus === DownloadStatus.QUEUED) && (
-              <TouchableOpacity onPress={handleCancelDownload} style={tw`mr-4`}>
-                <Ionicons name="close-circle-outline" size={24} color={colors.semantic.red} />
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              onPress={handleDownloadPress}
-              disabled={episode === null}
-              style={tw`flex-row items-center`}
-            >
-              <Ionicons
-                name={
-                  downloadStatus === DownloadStatus.COMPLETED
-                    ? "checkmark-circle"
-                    : downloadStatus === DownloadStatus.DOWNLOADING
-                      ? "pause-circle-outline"
-                      : downloadStatus === DownloadStatus.PAUSED
-                        ? "play-circle-outline"
-                        : downloadStatus === DownloadStatus.QUEUED
-                          ? "time-outline"
-                          : downloadStatus === DownloadStatus.FAILED
-                            ? "alert-circle-outline"
-                            : "arrow-down-circle-outline"
-                }
-                size={24}
-                color={
-                  downloadStatus === DownloadStatus.COMPLETED
-                    ? colors.brand.primary
-                    : downloadStatus === DownloadStatus.FAILED
-                      ? colors.semantic.red
-                      : colors.system.label.secondary
-                }
-              />
-              <Text
-                variant="caption1"
-                color={
-                  downloadStatus === DownloadStatus.COMPLETED
-                    ? "brand"
-                    : downloadStatus === DownloadStatus.FAILED
-                      ? "systemRed"
-                      : "secondaryLabel"
-                }
-                style={tw`ml-2`}
-              >
-                {downloadStatus === DownloadStatus.COMPLETED
-                  ? "Downloaded"
-                  : downloadStatus === DownloadStatus.DOWNLOADING
-                    ? `${Math.round(downloadProgress)}%`
-                    : downloadStatus === DownloadStatus.PAUSED
-                      ? "Paused"
-                      : downloadStatus === DownloadStatus.QUEUED
-                        ? "Queued"
-                        : downloadStatus === DownloadStatus.FAILED
-                          ? "Failed"
-                          : "Download"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity onPress={handleShare} style={tw`flex-row items-center`}>
-            <Ionicons name="share-outline" size={24} color={colors.system.label.secondary} />
-            <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
-              Share
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => {
-            if (!authStore.get().isAuthenticated) {
-              router.push({
-                pathname: "/sign-in",
-                params: { returnTo: `/lecture/${lecture.id}` },
-              });
-            } else {
-              setShowAddToPlaylistModal(true);
-            }
-          }} style={tw`flex-row items-center`}>
-            <Ionicons name="add-circle-outline" size={24} color={colors.system.label.secondary} />
-            <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
-              Add to Playlist
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={handleSpeedChange} style={tw`flex-row items-center`}>
-            <Ionicons name="speedometer-outline" size={24} color={colors.system.label.secondary} />
-            <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
-              {playbackSpeed}x
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  };
-
   return (
     <SafeAreaView
       style={[
@@ -962,7 +975,28 @@ const LectureDetailScreen: React.FC = () => {
     >
       {renderHeader()}
       <View style={tw`flex-1`}>{renderContent()}</View>
-      {lecture && renderPlaybackControls()}
+      {lecture && (
+        <LecturePlaybackControls
+          episode={episode}
+          canPlay={canPlay}
+          colors={colors}
+          downloadStatus={downloadStatus}
+          downloadProgress={downloadProgress}
+          onCancelDownload={handleCancelDownload}
+          onDownloadPress={handleDownloadPress}
+          onShare={handleShare}
+          onOpenAddToPlaylist={() => {
+            if (!authStore.get().isAuthenticated) {
+              router.push({
+                pathname: "/sign-in",
+                params: { returnTo: `/lecture/${lecture.id}` },
+              });
+            } else {
+              setShowAddToPlaylistModal(true);
+            }
+          }}
+        />
+      )}
 
       {lecture && (
         <AddToPlaylistModal

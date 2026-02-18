@@ -210,7 +210,7 @@ export const Button: React.FC<ButtonProps> = memo(
         disabled={disabled || loading}
         accessibilityRole="button"
         accessibilityLabel={finalAccessibilityLabel}
-        accessibilityHint={accessibilityHint || "Tap to activate"}
+        accessibilityHint={accessibilityHint}
         accessibilityState={{ disabled: disabled || loading }}
         {...props}
       >

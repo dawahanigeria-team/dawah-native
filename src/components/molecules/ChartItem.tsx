@@ -93,7 +93,16 @@ export const ChartItem: React.FC<ChartItemProps> = memo(({ item, index, selected
         <Text variant="headline" weight="bold" style={{ marginRight: spacing.md }}>
           {index + 1}.
         </Text>
-      {imageSource && <Image source={{ uri: imageSource }} style={imageStyle} contentFit="cover" />}
+      {imageSource && (
+        <Image
+          source={{ uri: imageSource }}
+          style={imageStyle}
+          contentFit="cover"
+          cachePolicy="disk"
+          allowDownscaling
+          recyclingKey={`chart-${selectedChartType}-${String(item.id ?? item.rp_id ?? item.user_id ?? index)}`}
+        />
+      )}
       <View style={{ flex: 1, marginLeft: spacing.md }}>
         <Text variant="body" weight="medium" numberOfLines={2}>
           {getTitle()}

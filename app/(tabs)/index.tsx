@@ -215,7 +215,7 @@ function HomeScreen() {
       const uris = popularEpisodes.map((e) => e.coverUrl).filter(Boolean);
       const uniqueUris = Array.from(new Set(uris)).slice(0, PREFETCH_LIMIT);
       uniqueUris.forEach((uri) => {
-        ExpoImage.prefetch(uri as string).catch(() => { });
+        ExpoImage.prefetch(uri as string, { cachePolicy: "disk" }).catch(() => { });
       });
     });
     return () => task.cancel?.();

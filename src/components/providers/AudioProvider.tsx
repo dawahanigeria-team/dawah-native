@@ -5,7 +5,7 @@
  */
 
 import React, { useEffect, useRef } from 'react'
-import { Platform } from 'react-native'
+import { AppState, Platform, type AppStateStatus } from 'react-native'
 import { useAudioPlayback } from '../../hooks/useAudioPlayback'
 import { lectureDetailApi } from '../../services/api/lectureDetail.api'
 import { addSentryBreadcrumb, captureSentryException } from '../../services/config/sentry.config'
@@ -13,6 +13,7 @@ import { downloadsService } from '../../services/downloads.service'
 import TrackPlayer, {
   Event,
   RepeatMode,
+  State,
   releasePlayer,
   useTrackPlayerEvents,
 } from '../../services/expoTrackPlayerCompat'
@@ -121,6 +122,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   const hasRestoredRef = useRef(false)
   const isRestoringRef = useRef(false)
   const lastSnapshotAtRef = useRef(0)
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState)
 
   useEffect(() => {
     const setupTrackPlayer = async () => {
@@ -245,8 +247,67 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     setupTrackPlayer()
   }, [])
 
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      const prevState = appStateRef.current
+      appStateRef.current = nextState
+
+      if (nextState !== 'active' || prevState === 'active') {
+        return
+      }
+
+      void (async () => {
+        const currentState = playerStore.get()
+        if (!currentState.currentEpisode) return
+
+        try {
+          const [progress, playbackState] = await Promise.all([
+            TrackPlayer.getProgress(),
+            TrackPlayer.getPlaybackState(),
+          ])
+
+          const rawState =
+            typeof playbackState === 'object' && playbackState !== null && 'state' in playbackState
+              ? playbackState.state
+              : playbackState
+
+          const nextStateSnapshot = {
+            ...currentState,
+            progress:
+              Number.isFinite(progress.position) && progress.position >= 0
+                ? progress.position
+                : currentState.progress,
+            duration:
+              Number.isFinite(progress.duration) && progress.duration > 0
+                ? progress.duration
+                : currentState.duration,
+            isPlaying: rawState === State.Playing,
+            isLoading: rawState === State.Buffering || rawState === State.Loading,
+          }
+
+          playerStore.set(nextStateSnapshot)
+          persistQueueSnapshot(nextStateSnapshot)
+        } catch (error) {
+          captureSentryException(error as Error, {
+            component: 'AudioProvider',
+            action: 'foregroundResync',
+            level: 'warning',
+          })
+        }
+      })()
+    })
+
+    return () => {
+      subscription.remove()
+    }
+  }, [])
+
   const audioControls = useAudioPlayback({
     onPlaybackStatusUpdate: (status) => {
+      if (appStateRef.current !== 'active') {
+        return
+      }
+
       const currentState = playerStore.get()
 
       if (!currentState.currentEpisode) return
