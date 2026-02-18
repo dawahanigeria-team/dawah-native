@@ -8,6 +8,12 @@ import NetInfo from '@react-native-community/netinfo';
 import { API_CONFIG } from '../config/api.config';
 import { captureSentryException, addSentryBreadcrumb } from '../config/sentry.config';
 import { secureStoreCompat } from '../storage/secureStoreCompat';
+import {
+  getErrorMessage,
+  isCancelledRequestError,
+  isTransientNetworkError,
+  isTransientNetworkErrorText,
+} from './networkErrors';
 
 // Custom error class for API errors
 export class ApiError extends Error {
@@ -24,27 +30,6 @@ export class ApiError extends Error {
     Object.setPrototypeOf(this, ApiError.prototype);
   }
 }
-
-const isCancelledRequestError = (error: unknown): boolean => {
-  const maybeError = error as { name?: string; message?: string; code?: string | number } | null;
-  if (!maybeError) return false;
-
-  const name = typeof maybeError.name === "string" ? maybeError.name.toLowerCase() : "";
-  const message = typeof maybeError.message === "string" ? maybeError.message.toLowerCase() : "";
-  const code =
-    typeof maybeError.code === "string" ? maybeError.code.toLowerCase() : "";
-
-  if (name === "aborterror" || code === "err_canceled") {
-    return true;
-  }
-
-  return (
-    message.includes("fetch request has been canceled") ||
-    message.includes("request cancelled") ||
-    message.includes("request canceled") ||
-    message.includes("aborted")
-  );
-};
 
 // Request configuration interface
 export interface RequestConfig extends Omit<RequestInit, 'cache'> {
@@ -669,8 +654,17 @@ class ApiClient {
 
       // Parse response
       if (!isJson) {
+        if (isTransientNetworkErrorText(responseText)) {
+          throw new ApiError(
+            'The network connection was interrupted while receiving data. Please try again.',
+            undefined,
+            { raw: responseText },
+            true,
+          );
+        }
+
         const apiError = new ApiError(
-          'Invalid JSON response',
+          responseText.trim().length > 0 ? 'Invalid JSON response' : 'Empty response from server',
           response.status,
           { raw: responseText },
         );
@@ -716,6 +710,9 @@ class ApiClient {
       if (error instanceof ApiError && error.isCancelled) {
         throw error;
       }
+      if (error instanceof ApiError && error.isNetworkError) {
+        throw error;
+      }
       if (isCancelledRequestError(error)) {
         throw new ApiError('Request cancelled', undefined, undefined, false, false, true);
       }
@@ -737,22 +734,23 @@ class ApiClient {
       } catch (netInfoError) {
         console.warn('NetInfo fetch failed:', netInfoError);
       }
+      const errorMessage = getErrorMessage(error);
 
-      if (error.message === 'Network request failed' || isOffline) {
+      if (
+        errorMessage === 'Network request failed' ||
+        isTransientNetworkError(error) ||
+        isOffline
+      ) {
         const networkError = new ApiError(
-          'No internet connection. Please check your network and try again.',
+          isOffline
+            ? 'No internet connection. Please check your network and try again.'
+            : 'The network connection was interrupted. Please try again.',
           undefined,
-          undefined,
+          {
+            originalError: getErrorMessage(error),
+          },
           true,
         );
-
-        // Report network errors to Sentry
-        captureSentryException(networkError, {
-          endpoint,
-          method: method || 'unknown',
-          url: url || endpoint,
-          errorType: 'network',
-        });
 
         throw networkError;
       }
@@ -764,7 +762,7 @@ class ApiClient {
 
       // Wrap unknown errors and report to Sentry
       const unknownError = new ApiError(
-        error.message || 'An unexpected error occurred',
+        errorMessage || 'An unexpected error occurred',
         undefined,
         error,
       );

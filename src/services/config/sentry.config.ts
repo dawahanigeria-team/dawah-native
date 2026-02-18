@@ -6,45 +6,33 @@
 import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import {
+  isCancelledErrorText,
+  isCancelledRequestError,
+  isTransientNetworkError,
+  isTransientNetworkErrorText,
+} from '../api/networkErrors';
 import { shouldSendSentryEvent } from './sentry.filters';
 
 const SENTRY_DSN = 'https://fa9ba76768be824dd073b24308221777@o4508901298929664.ingest.us.sentry.io/4509860969512960';
 
-const CANCELLED_ERROR_PATTERNS: RegExp[] = [
-  /\bfetch request has been canceled\b/i,
-  /\brequest(?: has been)? cancell?ed\b/i,
-  /\boperation was abort(?:ed)?\b/i,
-  /\baborterror\b/i,
-];
-
-const hasCancelledText = (value?: string | null): boolean => {
-  if (!value) return false;
-  return CANCELLED_ERROR_PATTERNS.some((pattern) => pattern.test(value));
-};
-
-const isBenignCancellationError = (error: unknown): boolean => {
+const isBenignNetworkOrCancellationError = (error: unknown): boolean => {
   const maybeError = error as {
-    message?: string;
-    name?: string;
-    code?: string | number;
     isCancelled?: boolean;
+    isNetworkError?: boolean;
   } | null;
 
-  if (!maybeError) return false;
-  if (maybeError.isCancelled === true) return true;
+  if (maybeError?.isCancelled === true) return true;
+  if (maybeError?.isNetworkError === true) return true;
+  if (isCancelledRequestError(error)) return true;
+  if (isTransientNetworkError(error)) return true;
 
-  const name = typeof maybeError.name === 'string' ? maybeError.name : '';
-  const message = typeof maybeError.message === 'string' ? maybeError.message : '';
-  const code = maybeError.code;
-
-  if (name.toLowerCase() === 'aborterror') return true;
-  if (typeof code === 'string' && code.toLowerCase() === 'err_canceled') return true;
-
-  return hasCancelledText(name) || hasCancelledText(message);
+  return false;
 };
 
-const shouldDropEventAsCancellation = (event: Sentry.Event): boolean => {
-  if (hasCancelledText(event.message)) {
+const shouldDropEventAsNetworkNoise = (event: Sentry.Event): boolean => {
+  const message = typeof event.message === 'string' ? event.message : '';
+  if (isCancelledErrorText(message) || isTransientNetworkErrorText(message)) {
     return true;
   }
 
@@ -56,7 +44,12 @@ const shouldDropEventAsCancellation = (event: Sentry.Event): boolean => {
   return values.some((value) => {
     const type = typeof value?.type === 'string' ? value.type : '';
     const message = typeof value?.value === 'string' ? value.value : '';
-    return hasCancelledText(type) || hasCancelledText(message);
+    return (
+      isCancelledErrorText(type) ||
+      isCancelledErrorText(message) ||
+      isTransientNetworkErrorText(type) ||
+      isTransientNetworkErrorText(message)
+    );
   });
 };
 
@@ -131,7 +124,7 @@ export const initSentry = () => {
       if (!sendSentryEvents) {
         return null;
       }
-      if (shouldDropEventAsCancellation(event)) {
+      if (shouldDropEventAsNetworkNoise(event)) {
         return null;
       }
       return event;
@@ -161,6 +154,14 @@ export const initSentry = () => {
       'Fetch request has been canceled',
       'Request cancelled',
       'Request canceled',
+      'Read error: ssl=',
+      'I/O error during system call',
+      'Software caused connection abort',
+      'Download failed',
+      'Unable to resolve host',
+      'Connection reset',
+      'Unexpected end of stream',
+      'Broken pipe',
 
       // Expo specific
       'ExpoModulesCore',
@@ -247,7 +248,7 @@ export const addSentryBreadcrumb = (message: string, category: string, data?: Re
  * Manually capture an exception
  */
 export const captureSentryException = (error: Error, context?: Record<string, any>) => {
-  if (isBenignCancellationError(error)) {
+  if (isBenignNetworkOrCancellationError(error)) {
     return;
   }
   const statusCode = (error as { statusCode?: number } | null)?.statusCode;
