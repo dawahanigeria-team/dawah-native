@@ -4,7 +4,7 @@
  * Syncs audio status with the playerStore
  */
 
-import React, { useEffect, useRef } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef } from 'react'
 import { AppState, Platform, type AppStateStatus } from 'react-native'
 import { useAudioPlayback } from '../../hooks/useAudioPlayback'
 import { lectureDetailApi } from '../../services/api/lectureDetail.api'
@@ -123,6 +123,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   const isRestoringRef = useRef(false)
   const lastSnapshotAtRef = useRef(0)
   const appStateRef = useRef<AppStateStatus>(AppState.currentState)
+  const audioControlsRef = useRef<ReturnType<typeof useAudioPlayback> | null>(null)
+  const playbackErrorEvents = useMemo(() => [Event.PlaybackError], [])
+  const activeTrackEvents = useMemo(() => [Event.PlaybackActiveTrackChanged], [])
 
   useEffect(() => {
     const setupTrackPlayer = async () => {
@@ -359,14 +362,18 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     },
   })
 
-  useTrackPlayerEvents([Event.PlaybackError], (event) => {
+  useEffect(() => {
+    audioControlsRef.current = audioControls
+  }, [audioControls])
+
+  const handlePlaybackError = useCallback((event: { code?: string; message?: string }) => {
     const currentState = playerStore.get()
     captureSentryException(new Error('TrackPlayer playback error'), {
       component: 'AudioProvider',
       action: 'playbackError',
       trackId: currentState.currentEpisode?.id,
-      errorCode: (event as { code?: string }).code,
-      errorMessage: (event as { message?: string }).message,
+      errorCode: event.code,
+      errorMessage: event.message,
       level: 'error',
     })
 
@@ -408,9 +415,14 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         isLoading: false,
       })
     })()
-  })
+  }, [])
 
-  useTrackPlayerEvents([Event.PlaybackActiveTrackChanged], (event) => {
+  useTrackPlayerEvents(playbackErrorEvents, handlePlaybackError)
+
+  const handlePlaybackActiveTrackChanged = useCallback((event: {
+    index?: number
+    track?: { id?: string | number }
+  }) => {
     const currentState = playerStore.get()
     if (!currentState.queue.length) return
 
@@ -434,12 +446,14 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     playerStore.set(nextState)
     persistQueueSnapshot(nextState)
 
-    audioControls.setLockScreenInfo({
+    audioControlsRef.current?.setLockScreenInfo({
       title: nextEpisode.title,
       artist: resolveEpisodeArtistName(nextEpisode),
       artwork: nextEpisode.coverUrl || '',
     })
-  })
+  }, [])
+
+  useTrackPlayerEvents(activeTrackEvents, handlePlaybackActiveTrackChanged)
 
   useEffect(() => {
     if (!isInitializedRef.current) {

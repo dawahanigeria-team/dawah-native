@@ -30,6 +30,10 @@ export interface FavoritesListResponse {
 class FavoritesApiService {
   private readonly FAVORITES_CACHE_KEY = 'favorites_cache';
 
+  private isGuestUserId(userId: string): boolean {
+    return userId.startsWith('guest_');
+  }
+
   /**
    * Get user ID (creates guest ID if none exists)
    */
@@ -66,6 +70,16 @@ class FavoritesApiService {
         type,
         isCurrentlyFavorited,
       });
+
+      // Guest users are local-only until authenticated user IDs are available.
+      if (this.isGuestUserId(userId)) {
+        return {
+          success: true,
+          message: isCurrentlyFavorited
+            ? `${type} removed from favorites (guest mode)`
+            : `${type} added to favorites (guest mode)`,
+        };
+      }
 
       // Try to sync with backend (but don't fail if offline)
       try {
@@ -120,6 +134,12 @@ class FavoritesApiService {
   async getFavoriteIds(type: 'audio' | 'video' = 'audio'): Promise<string[]> {
     try {
       const userId = await this.getUserId();
+
+      if (this.isGuestUserId(userId)) {
+        const cachedIds = await this.getCachedIds();
+        logger.debug(`Guest mode: using ${cachedIds.length} cached favorite ${type} IDs`);
+        return cachedIds;
+      }
 
       addSentryBreadcrumb('Fetching favorites', 'query', {
         userId,
