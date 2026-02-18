@@ -67,6 +67,44 @@ const createEpisodeFromDetail = (detail: LectureDetail | null): Episode | null =
   };
 };
 
+const parseApiDate = (rawDate?: string): Date | null => {
+  if (!rawDate) return null;
+  const trimmed = rawDate.trim();
+  if (!trimmed) return null;
+
+  if (/^\d+$/.test(trimmed)) {
+    const numeric = Number(trimmed);
+    const asMs = trimmed.length === 10 ? numeric * 1000 : numeric;
+    const timestampDate = new Date(asMs);
+    if (!Number.isNaN(timestampDate.getTime())) {
+      return timestampDate;
+    }
+  }
+
+  const directDate = new Date(trimmed);
+  if (!Number.isNaN(directDate.getTime())) {
+    return directDate;
+  }
+
+  // Backend often sends MySQL datetime (YYYY-MM-DD HH:mm:ss), which iOS Date parsing rejects.
+  const mysqlNormalizedDate = new Date(trimmed.replace(' ', 'T'));
+  if (!Number.isNaN(mysqlNormalizedDate.getTime())) {
+    return mysqlNormalizedDate;
+  }
+
+  return null;
+};
+
+const formatReleaseDate = (rawDate?: string): string => {
+  const date = parseApiDate(rawDate);
+  if (!date) return "";
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+};
+
 type ThemeColors = ReturnType<typeof useTheme>["colors"];
 
 interface LecturePlaybackControlsProps {
@@ -887,10 +925,11 @@ const LectureDetailScreen: React.FC = () => {
 
           {/* Details Section - User-friendly info only */}
           {(() => {
+            const releasedDateLabel = formatReleaseDate(lecture.postedDate);
             const meta = [
               lecture.durationLabel && { label: "Duration", value: lecture.durationLabel, icon: "time-outline" },
               lecture.albumName && { label: "Album", value: lecture.albumName, icon: "albums-outline" },
-              lecture.postedDate && { label: "Released", value: new Date(lecture.postedDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }), icon: "calendar-outline" },
+              releasedDateLabel && { label: "Released", value: releasedDateLabel, icon: "calendar-outline" },
             ].filter(Boolean);
 
             if (meta.length === 0) return null;
