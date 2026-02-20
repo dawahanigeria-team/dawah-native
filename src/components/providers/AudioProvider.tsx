@@ -45,7 +45,8 @@ const detailToEpisode = (detail: {
   postedDate?: string
   updatedDate?: string
   albumId?: string
-  reciter?: { name?: string }
+  isReciter?: boolean
+  reciter?: { name?: string; isReciter?: boolean }
 }): Episode => ({
   id: detail.id,
   title: detail.title,
@@ -61,6 +62,7 @@ const detailToEpisode = (detail: {
   lecturerName: detail.lecturerName ?? detail.reciter?.name,
   rpname: (detail as any).raw?.rpname,
   reciter_name: (detail as any).raw?.reciter_name ?? detail.reciter?.name,
+  isReciter: detail.isReciter ?? (detail as any).raw?.is_reciter ?? detail.reciter?.isReciter ?? false,
 } as Episode)
 
 const downloadMetadataToEpisode = (metadata: {

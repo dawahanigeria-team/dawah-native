@@ -29,6 +29,20 @@ export interface Episode {
   downloads: number;
   createdAt: string; // ISO date string
   lecturerName?: string; // Optional lecturer name
+  rpname?: string;
+  reciterName?: string;
+  reciter_name?: string;
+  isReciter?: boolean;
+  is_reciter?: boolean;
+  reciter?: {
+    name?: string;
+    isReciter?: boolean;
+  };
+  raw?: {
+    rpname?: string;
+    reciter_name?: string;
+    is_reciter?: boolean;
+  };
 }
 
 export interface Category {

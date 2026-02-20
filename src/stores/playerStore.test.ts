@@ -198,4 +198,42 @@ test('resolveEpisodeArtistName prefers lecturer name then reciter fields', () =>
       reciter_name: 'Shaykh Fallback',
     } as any)
   ).toBe('Shaykh Fallback')
+
+  expect(
+    resolveEpisodeArtistName({
+      id: '4',
+      title: 'Lecture',
+      audioUrl: 'https://example.com/audio.mp3',
+      lecturerName: 'Ustadh Lecture',
+      coverUrl: 'cover.png',
+      durationSec: 120,
+      seriesId: '',
+      plays: 0,
+      liked: false,
+      language: 'Unknown',
+      downloads: 0,
+      createdAt: new Date().toISOString(),
+      reciter_name: 'Qari Should Not Win',
+      isReciter: false,
+    } as any)
+  ).toBe('Ustadh Lecture')
+
+  expect(
+    resolveEpisodeArtistName({
+      id: '5',
+      title: 'Quran Recitation',
+      audioUrl: 'https://example.com/audio.mp3',
+      lecturerName: 'Ustadh Lecture',
+      coverUrl: 'cover.png',
+      durationSec: 120,
+      seriesId: '',
+      plays: 0,
+      liked: false,
+      language: 'Unknown',
+      downloads: 0,
+      createdAt: new Date().toISOString(),
+      reciter_name: 'Qari Preferred',
+      isReciter: true,
+    } as any)
+  ).toBe('Qari Preferred')
 })

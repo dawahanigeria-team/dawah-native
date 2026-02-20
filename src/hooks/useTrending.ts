@@ -124,6 +124,9 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
                 lecture.ResourcePerson,
                 (lecture as any).LecturerName,
               ]) || '',
+            rpname: lecture.rpname,
+            reciter_name: reciterName,
+            isReciter: Boolean((lecture as SearchLecture & { is_reciter?: boolean }).is_reciter),
           };
         });
 

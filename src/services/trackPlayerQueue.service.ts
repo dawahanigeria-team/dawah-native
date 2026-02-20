@@ -1,5 +1,5 @@
 import type { Episode } from '../types/types'
-import { extractSpeakerFromTitle, pickSpeakerName } from '../utils/speakerName'
+import { resolvePlaybackSpeakerName } from '../utils/speakerName'
 
 export type TrackPlayerTrack = {
   id: string
@@ -11,24 +11,7 @@ export type TrackPlayerTrack = {
 }
 
 const pickArtist = (episode: Episode): string => {
-  const extendedEpisode = episode as Episode & {
-    rpname?: string
-    reciterName?: string
-    reciter_name?: string
-    reciter?: { name?: string }
-    raw?: { rpname?: string; reciter_name?: string }
-  }
-
-  return pickSpeakerName([
-    extendedEpisode.rpname,
-    extendedEpisode.raw?.rpname,
-    extendedEpisode.reciter_name,
-    extendedEpisode.reciterName,
-    extendedEpisode.reciter?.name,
-    extendedEpisode.raw?.reciter_name,
-    episode.lecturerName,
-    extractSpeakerFromTitle(episode.title),
-  ])
+  return resolvePlaybackSpeakerName(episode)
 }
 
 export const buildTrack = (episode: Episode, url: string): TrackPlayerTrack => ({

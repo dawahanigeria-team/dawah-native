@@ -30,6 +30,10 @@ import {
   unfollowLecturer,
 } from "../../src/services/api/lecturerFollow.api";
 import {
+  getCachedLecturerFollowState,
+  setCachedLecturerFollowState,
+} from "../../src/services/lecturerFollowCache.service";
+import {
   addSentryBreadcrumb,
   captureSentryException,
 } from "../../src/services/config/sentry.config";
@@ -134,7 +138,7 @@ function LecturerDetailScreen() {
   const shouldAutoFollow = parseAutoFollowFlag(autoFollow);
   const { playEpisode } = usePlayerActions();
   const { colors } = useTheme();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
 
   // If we navigated here without a valid lecturer id (e.g., id=0), try resolving by name.
   useEffect(() => {
@@ -231,15 +235,52 @@ function LecturerDetailScreen() {
   // Follow state
   const [isFollowing, setIsFollowing] = useState(false);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
+  const [isFollowStateHydrating, setIsFollowStateHydrating] = useState(false);
   const followDisabled =
-    isFollowLoading || !lecturerId || String(lecturerId) === "0";
+    isFollowLoading ||
+    isFollowStateHydrating ||
+    !lecturerId ||
+    String(lecturerId) === "0";
   const autoFollowHandledRef = useRef(false);
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      setIsFollowing(false);
-    }
-  }, [isAuthenticated]);
+    let isActive = true;
+
+    const hydrateFollowState = async () => {
+      if (!lecturerId || String(lecturerId) === "0" || !isAuthenticated || !user?.id) {
+        if (isActive) {
+          setIsFollowing(false);
+          setIsFollowStateHydrating(false);
+        }
+        return;
+      }
+
+      if (isActive) {
+        setIsFollowStateHydrating(true);
+      }
+
+      try {
+        const following = await getCachedLecturerFollowState({
+          userId: user.id,
+          lecturerId,
+          type: "rp",
+        });
+        if (isActive) {
+          setIsFollowing(following);
+        }
+      } finally {
+        if (isActive) {
+          setIsFollowStateHydrating(false);
+        }
+      }
+    };
+
+    hydrateFollowState();
+
+    return () => {
+      isActive = false;
+    };
+  }, [isAuthenticated, lecturerId, user?.id]);
 
   const fetchLecturerDetails = useCallback(async () => {
     try {
@@ -419,7 +460,6 @@ function LecturerDetailScreen() {
 
   // Fetch lecturer details
   useEffect(() => {
-    setIsFollowing(false);
     setIsFollowLoading(false);
     autoFollowHandledRef.current = false;
     fetchLecturerDetails();
@@ -576,6 +616,8 @@ function LecturerDetailScreen() {
       downloads: lecture.downloads || 0,
       createdAt: new Date().toISOString(),
       lecturerName: lecture.rpname || lecturerName, // Include lecturer name from the lecture data
+      rpname: lecture.rpname,
+      isReciter: lecture.is_reciter ?? false,
     };
   };
 
@@ -691,13 +733,29 @@ function LecturerDetailScreen() {
 
         const response = await followLecturer(lecturerId, "rp");
         addSentryBreadcrumb("Follow response", "info", { response: JSON.stringify(response) });
-        const following = response?.data?.following ?? response?.following;
-        setIsFollowing(following ?? true);
+        const following = response.data.following;
+        setIsFollowing(following);
+        if (user?.id) {
+          await setCachedLecturerFollowState({
+            userId: user.id,
+            lecturerId,
+            type: "rp",
+            following,
+          });
+        }
       } else {
         const response = await unfollowLecturer(lecturerId, "rp");
         addSentryBreadcrumb("Unfollow response", "info", { response: JSON.stringify(response) });
-        const following = response?.data?.following ?? response?.following;
-        setIsFollowing(following ?? false);
+        const following = response.data.following;
+        setIsFollowing(following);
+        if (user?.id) {
+          await setCachedLecturerFollowState({
+            userId: user.id,
+            lecturerId,
+            type: "rp",
+            following,
+          });
+        }
       }
     } catch (err) {
       const error = err instanceof Error ? err : new Error("Follow toggle failed");
@@ -720,12 +778,14 @@ function LecturerDetailScreen() {
       navigateToSignIn,
       isFollowing,
       confirmEnableNotifications,
+      user?.id,
     ],
   );
 
   useEffect(() => {
     if (!shouldAutoFollow) return;
     if (!isAuthenticated) return;
+    if (isFollowStateHydrating) return;
     if (!lecturerId || String(lecturerId) === "0") return;
     if (isFollowing) {
       if (!autoFollowHandledRef.current) {
@@ -744,6 +804,7 @@ function LecturerDetailScreen() {
   }, [
     shouldAutoFollow,
     isAuthenticated,
+    isFollowStateHydrating,
     lecturerId,
     isFollowing,
     handleFollowPress,

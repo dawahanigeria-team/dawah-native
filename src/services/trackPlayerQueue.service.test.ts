@@ -43,3 +43,17 @@ test('buildTrack ignores placeholder artist and falls back to reciter fields', (
 
   expect(track.artist).toBe('Shaykh Reciter')
 })
+
+test('buildTrack keeps lecture speaker for non-recitation tracks even when reciter field exists', () => {
+  const track = buildTrack(
+    {
+      ...episode,
+      lecturerName: 'Ustadh Lecture',
+      reciter_name: 'Qari Should Not Win',
+      isReciter: false,
+    } as any,
+    'file:///local.mp3'
+  )
+
+  expect(track.artist).toBe('Ustadh Lecture')
+})

@@ -75,6 +75,9 @@ const lectureToEpisode = (lecture: SearchLecture, index: number = 0): Episode =>
     downloads,
     createdAt,
     lecturerName,
+    rpname: lecture.rpname,
+    reciter_name: (lecture as SearchLecture & { reciter_name?: string }).reciter_name,
+    isReciter: Boolean((lecture as SearchLecture & { is_reciter?: boolean }).is_reciter),
   };
 };
 

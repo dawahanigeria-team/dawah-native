@@ -92,3 +92,38 @@ test('unfollowLecturer posts unfollow with explicit type', async () => {
     },
   });
 });
+
+test('maps snake_case response fields to camelCase contract', async () => {
+  mockPost.mockResolvedValue({
+    data: {
+      success: true,
+      data: {
+        following: true,
+        lecturer_id: 654,
+        lecturer_type: 'rp',
+      },
+    },
+  });
+
+  const result = await followLecturer(654);
+
+  expect(result).toEqual({
+    success: true,
+    data: {
+      following: true,
+      lecturerId: 654,
+      lecturerType: 'rp',
+    },
+  });
+});
+
+test('throws when API returns unsuccessful payload', async () => {
+  mockPost.mockResolvedValue({
+    data: {
+      success: false,
+      message: 'Invalid action',
+    },
+  });
+
+  await expect(followLecturer(123)).rejects.toThrow('Invalid action');
+});

@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -14,19 +14,40 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Icon, Text } from '../../src/components/atoms';
 import { useTheme } from '../../src/hooks/useTheme';
+import {
+  followLecturer,
+  unfollowLecturer,
+} from '../../src/services/api/lecturerFollow.api';
 import { QuranAlbum, quranApi, QuranRecitation } from '../../src/services/api/quran.api';
 import { addSentryBreadcrumb, captureSentryException } from '../../src/services/config/sentry.config';
+import {
+  getStoredPushToken,
+  registerForPushNotificationsAsync,
+} from '../../src/services/notifications.service';
+import {
+  getCachedLecturerFollowState,
+  setCachedLecturerFollowState,
+} from '../../src/services/lecturerFollowCache.service';
 import { linkingService } from '../../src/services/linking.service';
-import { usePlayerStore } from '../../src/stores';
+import { useAuthStore, usePlayerStore } from '../../src/stores';
 import { designTokens } from '../../src/theme/designTokens';
 import { Episode } from '../../src/types/types';
+import {
+  buildReciterFollowReturnTo,
+  parseAutoFollowFlag,
+} from '../../src/utils/lecturerFollowAuth';
 import { appendShareSignature } from '../../src/utils/shareMessage';
 
 const QuranReciterScreen: React.FC = () => {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, autoFollow } = useLocalSearchParams<{
+    id: string;
+    autoFollow?: string;
+  }>();
   const albumId = Array.isArray(id) ? id[0] : id;
+  const shouldAutoFollow = parseAutoFollowFlag(autoFollow);
   const { playQueue, currentEpisode } = usePlayerStore();
+  const { isAuthenticated, user } = useAuthStore();
   const { colors } = useTheme();
   const navigation = useNavigation();
 
@@ -50,6 +71,15 @@ const QuranReciterScreen: React.FC = () => {
   const [recitations, setRecitations] = useState<QuranRecitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
+  const [isFollowStateHydrating, setIsFollowStateHydrating] = useState(false);
+  const autoFollowHandledRef = useRef(false);
+  const followDisabled =
+    isFollowLoading ||
+    isFollowStateHydrating ||
+    !albumId ||
+    String(albumId) === '0';
 
   const fetchReciterData = useCallback(async () => {
     try {
@@ -88,6 +118,226 @@ const QuranReciterScreen: React.FC = () => {
     fetchReciterData();
   }, [fetchReciterData]);
 
+  useEffect(() => {
+    let isActive = true;
+
+    const hydrateFollowState = async () => {
+      if (!albumId || String(albumId) === '0' || !isAuthenticated || !user?.id) {
+        if (isActive) {
+          setIsFollowing(false);
+          setIsFollowStateHydrating(false);
+        }
+        return;
+      }
+
+      if (isActive) {
+        setIsFollowStateHydrating(true);
+      }
+
+      try {
+        const following = await getCachedLecturerFollowState({
+          userId: user.id,
+          lecturerId: albumId,
+          type: 'reciter',
+        });
+        if (isActive) {
+          setIsFollowing(following);
+        }
+      } finally {
+        if (isActive) {
+          setIsFollowStateHydrating(false);
+        }
+      }
+    };
+
+    hydrateFollowState();
+
+    return () => {
+      isActive = false;
+    };
+  }, [albumId, isAuthenticated, user?.id]);
+
+  useEffect(() => {
+    setIsFollowLoading(false);
+    autoFollowHandledRef.current = false;
+  }, [albumId]);
+
+  const confirmEnableNotifications = useCallback((): Promise<boolean> => {
+    return new Promise((resolve) => {
+      Alert.alert(
+        'Enable notifications?',
+        'Enable notifications to follow this reciter and get new recitation alerts.',
+        [
+          {
+            text: 'Not now',
+            style: 'cancel',
+            onPress: () => resolve(false),
+          },
+          {
+            text: 'Enable',
+            onPress: () => resolve(true),
+          },
+        ],
+        { cancelable: true },
+      );
+    });
+  }, []);
+
+  const confirmSignIn = useCallback((): Promise<boolean> => {
+    return new Promise((resolve) => {
+      Alert.alert(
+        'Sign in required',
+        'Please sign in to follow this reciter.',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+            onPress: () => resolve(false),
+          },
+          {
+            text: 'Sign In',
+            onPress: () => resolve(true),
+          },
+        ],
+        { cancelable: true },
+      );
+    });
+  }, []);
+
+  const navigateToSignIn = useCallback(() => {
+    if (!albumId || String(albumId) === '0') return;
+    router.push({
+      pathname: '/sign-in',
+      params: { returnTo: buildReciterFollowReturnTo(albumId) },
+    });
+  }, [albumId, router]);
+
+  const handleFollowPress = useCallback(
+    async (options: { skipAuthCheck?: boolean; forceFollow?: boolean } = {}) => {
+      if (!albumId || String(albumId) === '0') {
+        Alert.alert('Please wait', 'Reciter details are still loading.');
+        return;
+      }
+
+      if (isFollowLoading) return;
+
+      if (!options.skipAuthCheck && !isAuthenticated) {
+        const shouldSignIn = await confirmSignIn();
+        if (shouldSignIn) {
+          navigateToSignIn();
+        }
+        return;
+      }
+
+      setIsFollowLoading(true);
+      try {
+        const shouldFollow = options.forceFollow ? true : !isFollowing;
+        if (shouldFollow) {
+          let token = await getStoredPushToken();
+
+          if (!token) {
+            const shouldEnable = await confirmEnableNotifications();
+            if (!shouldEnable) {
+              setIsFollowLoading(false);
+              return;
+            }
+
+            token = await registerForPushNotificationsAsync();
+            if (!token) {
+              Alert.alert(
+                'Notifications not enabled',
+                'Enable notifications to follow this reciter.',
+              );
+              setIsFollowLoading(false);
+              return;
+            }
+          }
+
+          const response = await followLecturer(albumId, 'reciter');
+          addSentryBreadcrumb('Follow reciter response', 'info', {
+            response: JSON.stringify(response),
+          });
+
+          const following = response.data.following;
+          setIsFollowing(following);
+          if (user?.id) {
+            await setCachedLecturerFollowState({
+              userId: user.id,
+              lecturerId: albumId,
+              type: 'reciter',
+              following,
+            });
+          }
+        } else {
+          const response = await unfollowLecturer(albumId, 'reciter');
+          addSentryBreadcrumb('Unfollow reciter response', 'info', {
+            response: JSON.stringify(response),
+          });
+
+          const following = response.data.following;
+          setIsFollowing(following);
+          if (user?.id) {
+            await setCachedLecturerFollowState({
+              userId: user.id,
+              lecturerId: albumId,
+              type: 'reciter',
+              following,
+            });
+          }
+        }
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error('Follow toggle failed');
+        captureSentryException(error, {
+          component: 'QuranReciterScreen',
+          action: isFollowing ? 'unfollow-reciter' : 'follow-reciter',
+          reciterId: albumId,
+        });
+        Alert.alert('Something went wrong', error.message || 'Please try again.');
+      } finally {
+        setIsFollowLoading(false);
+      }
+    },
+    [
+      albumId,
+      isFollowLoading,
+      isAuthenticated,
+      confirmSignIn,
+      navigateToSignIn,
+      isFollowing,
+      confirmEnableNotifications,
+      user?.id,
+    ],
+  );
+
+  useEffect(() => {
+    if (!shouldAutoFollow) return;
+    if (!isAuthenticated) return;
+    if (isFollowStateHydrating) return;
+    if (!albumId || String(albumId) === '0') return;
+
+    if (isFollowing) {
+      if (!autoFollowHandledRef.current) {
+        autoFollowHandledRef.current = true;
+        router.replace(`/quran-reciter/${albumId}`);
+      }
+      return;
+    }
+    if (autoFollowHandledRef.current) return;
+
+    autoFollowHandledRef.current = true;
+    handleFollowPress({ skipAuthCheck: true, forceFollow: true }).finally(() => {
+      router.replace(`/quran-reciter/${albumId}`);
+    });
+  }, [
+    shouldAutoFollow,
+    isAuthenticated,
+    isFollowStateHydrating,
+    albumId,
+    isFollowing,
+    handleFollowPress,
+    router,
+  ]);
+
   // Convert QuranRecitation to Episode for player
   const recitationToEpisode = useCallback((recitation: QuranRecitation, album: QuranAlbum): Episode => {
     return {
@@ -103,6 +353,8 @@ const QuranReciterScreen: React.FC = () => {
       downloads: 0,
       createdAt: album.post_date,
       lecturerName: album.name,
+      reciter_name: album.name,
+      isReciter: true,
     };
   }, []);
 
@@ -499,6 +751,25 @@ const QuranReciterScreen: React.FC = () => {
                 Shuffle
               </Button>
             </View>
+
+            <View style={styles.followActionContainer}>
+              <Button
+                variant={isFollowing ? 'gray' : 'filled'}
+                onPress={() => void handleFollowPress()}
+                loading={isFollowLoading}
+                disabled={followDisabled}
+                leftIcon={
+                  isFollowing ? <Icon name="checkmark" color="label" size="sm" /> : undefined
+                }
+                style={styles.followButton}
+                accessibilityLabel={isFollowing ? 'Following reciter' : 'Follow reciter'}
+                accessibilityHint={
+                  isFollowing ? 'Tap to unfollow this reciter' : 'Tap to follow this reciter'
+                }
+              >
+                {isFollowing ? 'Following' : 'Follow'}
+              </Button>
+            </View>
           </View>
         }
         contentContainerStyle={styles.listContent}
@@ -600,6 +871,14 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
+  },
+  followActionContainer: {
+    marginTop: designTokens.spacing.md,
+    width: '100%',
+    maxWidth: 400,
+  },
+  followButton: {
+    width: '100%',
   },
   recitationItem: {
     flexDirection: 'row',

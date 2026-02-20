@@ -85,6 +85,9 @@ export function usePopularLectures(limit = 10) {
       downloads,
       createdAt,
       lecturerName,
+      rpname: lecture.rpname,
+      reciter_name: reciterName,
+      isReciter: Boolean((lecture as SearchLecture & { is_reciter?: boolean }).is_reciter),
     };
   }, []);
 

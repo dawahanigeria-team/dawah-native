@@ -11,7 +11,7 @@ import { ensureTrackPlayerReady } from "../services/trackPlayerReady.service";
 import { buildPlaylistKey, buildQueue } from "../services/trackPlayerQueue.service";
 import { Episode, PlayerState } from "../types/types";
 import { logger } from "../utils/logger";
-import { extractSpeakerFromTitle, pickSpeakerName } from "../utils/speakerName";
+import { resolvePlaybackSpeakerName } from "../utils/speakerName";
 
 const initialState: PlayerState = {
   currentEpisode: null,
@@ -90,24 +90,7 @@ export const setPlayNextRef = (fn: (() => Promise<void>) | null) => {
 export const getPlayNextRef = () => playNextRef;
 
 export const resolveEpisodeArtistName = (episode: Episode): string => {
-  const extendedEpisode = episode as Episode & {
-    rpname?: string;
-    reciterName?: string;
-    reciter_name?: string;
-    reciter?: { name?: string };
-    raw?: { rpname?: string; reciter_name?: string };
-  };
-
-  return pickSpeakerName([
-    extendedEpisode.rpname,
-    extendedEpisode.raw?.rpname,
-    extendedEpisode.reciter_name,
-    extendedEpisode.reciterName,
-    extendedEpisode.reciter?.name,
-    extendedEpisode.raw?.reciter_name,
-    episode.lecturerName,
-    extractSpeakerFromTitle(episode.title),
-  ]);
+  return resolvePlaybackSpeakerName(episode);
 };
 
 /**
