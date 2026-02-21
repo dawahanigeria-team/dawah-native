@@ -75,6 +75,41 @@ export interface RegisterResponse {
   };
 }
 
+export interface SocialLoginCredentials {
+  provider: 'apple' | 'google';
+  identityToken: string;
+  email?: string | null;
+  fullName?: string | null;
+}
+
+export interface UpdateProfileData {
+  username?: string;
+  email?: string;
+  languageId?: number;
+}
+
+export interface UpdateProfileResponse {
+  success: boolean;
+  message: string;
+  timestamp: number;
+  data: {
+    user: {
+      id: number;
+      username: string;
+      email: string;
+      languageId: string;
+      user_type: string;
+      is_social: boolean;
+    };
+    tokens?: {
+      access_token: string;
+      refresh_token: string;
+      token_type: string;
+      expires_in: number;
+    };
+  };
+}
+
 export interface PasswordResetRequest {
   email: string;
 }
@@ -185,6 +220,89 @@ class AuthApiService {
       return user;
     } catch (error) {
       console.error('Registration error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Sign in with a social provider (Apple, Google)
+   */
+  async socialLogin(credentials: SocialLoginCredentials): Promise<User> {
+    try {
+      const payload: Record<string, unknown> = {
+        action: 'social_login',
+        provider: credentials.provider,
+        identity_token: credentials.identityToken,
+        is_social: true,
+      };
+
+      if (credentials.email) {
+        payload.email = credentials.email;
+      }
+      if (credentials.fullName) {
+        payload.full_name = credentials.fullName;
+      }
+
+      const response = await apiClient.post<LoginResponse>('/api/user_auth.php', payload);
+
+      const user: User = {
+        id: response.data.data.user.id.toString(),
+        username: response.data.data.user.username,
+        email: response.data.data.user.email,
+        token: response.data.data.tokens.access_token,
+      };
+
+      await AsyncStorage.setItem(this.USER_KEY, JSON.stringify(user));
+      await secureStoreCompat.setItemAsync(this.ACCESS_TOKEN_KEY, response.data.data.tokens.access_token);
+      await secureStoreCompat.setItemAsync(this.REFRESH_TOKEN_KEY, response.data.data.tokens.refresh_token);
+      await secureStoreCompat.setItemAsync(this.LEGACY_AUTH_TOKEN_KEY, response.data.data.tokens.access_token);
+
+      return user;
+    } catch (error) {
+      console.error('Social login error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update the authenticated user's profile
+   */
+  async updateProfile(data: UpdateProfileData): Promise<User> {
+    try {
+      const accessToken = await this.getAccessToken();
+      if (!accessToken) {
+        throw new Error('Not authenticated');
+      }
+
+      const payload: Record<string, unknown> = {
+        action: 'update_profile',
+      };
+      if (data.username !== undefined) payload.username = data.username;
+      if (data.email !== undefined) payload.email = data.email;
+      if (data.languageId !== undefined) payload.languageId = data.languageId;
+
+      const response = await apiClient.post<UpdateProfileResponse>('/api/user_auth.php', payload);
+
+      const user: User = {
+        id: response.data.data.user.id.toString(),
+        username: response.data.data.user.username,
+        email: response.data.data.user.email,
+        token: response.data.data.tokens?.access_token || accessToken,
+      };
+
+      // Update stored user data
+      await AsyncStorage.setItem(this.USER_KEY, JSON.stringify(user));
+
+      // Update tokens if returned (email/username change triggers new tokens)
+      if (response.data.data.tokens) {
+        await secureStoreCompat.setItemAsync(this.ACCESS_TOKEN_KEY, response.data.data.tokens.access_token);
+        await secureStoreCompat.setItemAsync(this.REFRESH_TOKEN_KEY, response.data.data.tokens.refresh_token);
+        await secureStoreCompat.setItemAsync(this.LEGACY_AUTH_TOKEN_KEY, response.data.data.tokens.access_token);
+      }
+
+      return user;
+    } catch (error) {
+      console.error('Update profile error:', error);
       throw error;
     }
   }

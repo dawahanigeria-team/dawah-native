@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "expo-sqlite/kv-store";
 import { useRouter } from "expo-router";
 import React from "react";
-import { Alert, ScrollView, TouchableOpacity, View } from "react-native";
+import { Alert, Linking, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { Text } from "../../src/components/atoms";
@@ -148,7 +148,7 @@ const ProfileScreen = () => {
       title: "Edit Profile",
       subtitle: "Update your information",
       icon: "person-outline",
-      onPress: () => Alert.alert("Coming Soon", "Profile editing will be available soon!"),
+      onPress: () => router.push("/edit-profile" as any),
       showChevron: true,
     },
   ] : [];
@@ -181,7 +181,7 @@ const ProfileScreen = () => {
       subtitle: "FAQs and contact us",
       icon: "help-circle-outline",
       iconColor: colors.semantic.blue,
-      onPress: () => Alert.alert("Coming Soon", "Help center will be available soon!"),
+      onPress: () => Linking.openURL("mailto:support@dawahnigeria.com?subject=Help%20%26%20Support"),
       showChevron: true,
     },
     {
@@ -190,7 +190,7 @@ const ProfileScreen = () => {
       subtitle: "Help us improve",
       icon: "chatbubble-outline",
       iconColor: colors.semantic.green,
-      onPress: () => Alert.alert("Coming Soon", "Feedback feature will be available soon!"),
+      onPress: () => Linking.openURL("mailto:support@dawahnigeria.com?subject=App%20Feedback"),
       showChevron: true,
     },
     {
@@ -199,7 +199,7 @@ const ProfileScreen = () => {
       subtitle: "Version 1.0.0",
       icon: "information-circle-outline",
       iconColor: colors.system.label.secondary,
-      onPress: () => Alert.alert("dawahnigeria", "Version 1.0.0\n\nReviving the Ummah byte by byte"),
+      onPress: () => router.push("/about" as any),
       showChevron: true,
     },
   ];
@@ -469,7 +469,7 @@ const ProfileScreen = () => {
           {renderSection("Account", accountItems, 200)}
           {renderSection("Preferences", settingsItems, 300)}
           {renderSection("Support", supportItems, 400)}
-          {renderSection("Developer", debugItems, 500)}
+          {__DEV__ && renderSection("Developer", debugItems, 500)}
         </View>
 
         {/* App Branding Footer */}

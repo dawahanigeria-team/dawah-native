@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -13,7 +14,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 import { Loading, Text } from "../src/components/atoms";
+import { ENV } from "../src/config/env";
 import { useTheme } from "../src/hooks/useTheme";
 import { addSentryBreadcrumb, captureSentryException } from "../src/services/config/sentry.config";
 import { useAuthStore } from "../src/stores";
@@ -22,7 +25,7 @@ import tw from "../src/theme/twrnc";
 export default function SignUpScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { register, isLoading, error, clearError } = useAuthStore();
+  const { register, socialLogin, isLoading, error, clearError } = useAuthStore();
 
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -40,6 +43,14 @@ export default function SignUpScreen() {
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [confirmPasswordFocused, setConfirmPasswordFocused] = useState(false);
+
+  useEffect(() => {
+    if (ENV.GOOGLE_WEB_CLIENT_ID) {
+      GoogleSignin.configure({
+        webClientId: ENV.GOOGLE_WEB_CLIENT_ID,
+      });
+    }
+  }, []);
 
   const validateUsername = (text: string): boolean => {
     if (!text) {
@@ -139,6 +150,95 @@ export default function SignUpScreen() {
 
   const handleSignIn = () => {
     router.back();
+  };
+
+  const handleAppleSignIn = async () => {
+    clearError();
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        throw new Error("No identity token received from Apple");
+      }
+
+      const fullName = credential.fullName
+        ? [credential.fullName.givenName, credential.fullName.familyName]
+            .filter(Boolean)
+            .join(" ")
+        : null;
+
+      await socialLogin({
+        provider: "apple",
+        identityToken: credential.identityToken,
+        email: credential.email,
+        fullName: fullName || null,
+      });
+
+      router.replace("/");
+    } catch (err: unknown) {
+      const error = err as Error & { code?: string };
+      if (error.code === "ERR_REQUEST_CANCELED") {
+        return;
+      }
+      captureSentryException(error, {
+        component: "SignUpScreen",
+        action: "handleAppleSignIn",
+        level: "warning",
+      });
+      Alert.alert(
+        "Apple Sign In Failed",
+        error.message || "Unable to sign in with Apple. Please try again.",
+        [{ text: "OK" }]
+      );
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    clearError();
+    try {
+      await GoogleSignin.hasPlayServices();
+      const response = await GoogleSignin.signIn();
+
+      const idToken = response.data?.idToken;
+      if (!idToken) {
+        throw new Error("No ID token received from Google");
+      }
+
+      const email = response.data?.user?.email || null;
+      const fullName = response.data?.user?.name || null;
+
+      await socialLogin({
+        provider: "google",
+        identityToken: idToken,
+        email,
+        fullName,
+      });
+
+      router.replace("/");
+    } catch (err: unknown) {
+      const error = err as Error & { code?: string };
+      if (
+        error.code === statusCodes.SIGN_IN_CANCELLED ||
+        error.code === "SIGN_IN_CANCELLED"
+      ) {
+        return;
+      }
+      captureSentryException(error, {
+        component: "SignUpScreen",
+        action: "handleGoogleSignIn",
+        level: "warning",
+      });
+      Alert.alert(
+        "Google Sign In Failed",
+        error.message || "Unable to sign in with Google. Please try again.",
+        [{ text: "OK" }]
+      );
+    }
   };
 
   const getInputBorderColor = (hasError: boolean, isFocused: boolean) => {
@@ -509,19 +609,15 @@ export default function SignUpScreen() {
           >
             {/* Google Sign Up */}
             <TouchableOpacity
-              onPress={() =>
-                Alert.alert(
-                  "Google Sign Up",
-                  "Google authentication coming soon!",
-                  [{ text: "OK" }]
-                )
-              }
+              onPress={handleGoogleSignIn}
+              disabled={isLoading}
               style={[
                 tw`flex-1 py-3 rounded-xl flex-row items-center justify-center`,
                 {
                   backgroundColor: colors.system.background.secondary,
                   borderWidth: 1,
                   borderColor: colors.system.separator.primary,
+                  opacity: isLoading ? 0.7 : 1,
                 },
               ]}
               activeOpacity={0.7}
@@ -538,34 +634,32 @@ export default function SignUpScreen() {
             </TouchableOpacity>
 
             {/* Apple Sign Up */}
-            <TouchableOpacity
-              onPress={() =>
-                Alert.alert(
-                  "Apple Sign Up",
-                  "Apple authentication coming soon!",
-                  [{ text: "OK" }]
-                )
-              }
-              style={[
-                tw`flex-1 py-3 rounded-xl flex-row items-center justify-center`,
-                {
-                  backgroundColor: colors.system.background.secondary,
-                  borderWidth: 1,
-                  borderColor: colors.system.separator.primary,
-                },
-              ]}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name="logo-apple"
-                size={18}
-                color={colors.system.label.primary}
-                style={{ marginRight: 6 }}
-              />
-              <Text variant="subheadline" weight="semibold" color="label">
-                Apple
-              </Text>
-            </TouchableOpacity>
+            {Platform.OS === "ios" && (
+              <TouchableOpacity
+                onPress={handleAppleSignIn}
+                disabled={isLoading}
+                style={[
+                  tw`flex-1 py-3 rounded-xl flex-row items-center justify-center`,
+                  {
+                    backgroundColor: colors.system.background.secondary,
+                    borderWidth: 1,
+                    borderColor: colors.system.separator.primary,
+                    opacity: isLoading ? 0.7 : 1,
+                  },
+                ]}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="logo-apple"
+                  size={18}
+                  color={colors.system.label.primary}
+                  style={{ marginRight: 6 }}
+                />
+                <Text variant="subheadline" weight="semibold" color="label">
+                  Apple
+                </Text>
+              </TouchableOpacity>
+            )}
           </Animated.View>
 
           {/* Sign In Link */}

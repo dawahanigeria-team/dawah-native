@@ -14,6 +14,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.dawahnigeria.app",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "UIBackgroundModes": [
           "audio"
@@ -110,6 +111,8 @@
       "expo-localization",
       "@sentry/react-native",
       "expo-secure-store",
+      "@react-native-google-signin/google-signin",
+      "expo-apple-authentication",
       [
         "expo-audio",
         {

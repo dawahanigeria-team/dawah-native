@@ -4,6 +4,8 @@ import {
   type User,
   type LoginCredentials,
   type RegisterCredentials,
+  type SocialLoginCredentials,
+  type UpdateProfileData,
 } from '../services/api/auth.api';
 import { userService } from '../services/user.service';
 import { apiClient } from '../services/api/base.api'; // Import apiClient
@@ -120,6 +122,38 @@ export const useAuthStore = () => {
   };
 
   /**
+   * Sign in with a social provider (Apple, Google)
+   */
+  const socialLogin = async (credentials: SocialLoginCredentials) => {
+    try {
+      authStore.set((prev) => ({ ...prev, isLoading: true, error: null }));
+
+      const user = await authApi.socialLogin(credentials);
+
+      await userService.setUserId(user.id);
+      await apiClient.setAuthToken(user.token ?? null);
+
+      authStore.set({
+        user,
+        isAuthenticated: true,
+        isLoading: false,
+        error: null,
+        isInitialized: true,
+      });
+
+      return user;
+    } catch (error: any) {
+      const errorMessage = error.message || 'Failed to sign in with social provider';
+      authStore.set((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: errorMessage,
+      }));
+      throw error;
+    }
+  };
+
+  /**
    * Register a new user
    */
   const register = async (credentials: RegisterCredentials) => {
@@ -186,6 +220,39 @@ export const useAuthStore = () => {
     authStore.set((prev) => ({ ...prev, error: null }));
   };
 
+  /**
+   * Update the authenticated user's profile
+   */
+  const updateProfile = async (data: UpdateProfileData) => {
+    try {
+      authStore.set((prev) => ({ ...prev, isLoading: true, error: null }));
+
+      const user = await authApi.updateProfile(data);
+
+      // Update token in apiClient if new tokens were issued
+      if (user.token) {
+        await apiClient.setAuthToken(user.token);
+      }
+
+      authStore.set((prev) => ({
+        ...prev,
+        user,
+        isLoading: false,
+        error: null,
+      }));
+
+      return user;
+    } catch (error: any) {
+      const errorMessage = error.message || 'Failed to update profile';
+      authStore.set((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: errorMessage,
+      }));
+      throw error;
+    }
+  };
+
   return {
     // State
     user: state.user,
@@ -196,9 +263,11 @@ export const useAuthStore = () => {
 
     // Actions
     login,
+    socialLogin,
     register,
       logout,
       clearError,
+      updateProfile,
       initializeAuth,
   };
 };
