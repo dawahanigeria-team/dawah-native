@@ -12,7 +12,12 @@
           "package_name": "com.dawahnigeria.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "739832430566-5prajbumn1so6557o1f95cgslutmaqum.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCmzfhmpYPrADNdT--hyRAWl3iLpL03ASg"
@@ -20,7 +25,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "739832430566-5prajbumn1so6557o1f95cgslutmaqum.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "739832430566-i4h4ftr4hedrg6anghbv2bnvvdlgrvus.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.dawahnigeria.app"
+              }
+            }
+          ]
         }
       }
     }
