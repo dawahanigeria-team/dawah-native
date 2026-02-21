@@ -15,6 +15,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.dawahnigeria.app",
       "usesAppleSignIn": true,
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "UIBackgroundModes": [
           "audio"
@@ -111,7 +112,12 @@
       "expo-localization",
       "@sentry/react-native",
       "expo-secure-store",
-      "@react-native-google-signin/google-signin",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.739832430566-i4h4ftr4hedrg6anghbv2bnvvdlgrvus"
+        }
+      ],
       "expo-apple-authentication",
       [
         "expo-audio",
