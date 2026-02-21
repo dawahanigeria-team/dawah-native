@@ -12,7 +12,9 @@
       },
       "env": {
         "EXPO_PUBLIC_PUSH_REGISTER_URL": "https://backend.dawahbox.com/api/register_push_token.php",
-        "EXPO_PUBLIC_POSTHOG_KEY": "phc_WZcuuwHzWZEmX4PKpoZhL2aQuuRaiVL07LHOs8KlBo6"
+        "EXPO_PUBLIC_POSTHOG_KEY": "phc_WZcuuwHzWZEmX4PKpoZhL2aQuuRaiVL07LHOs8KlBo6",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "739832430566-5prajbumn1so6557o1f95cgslutmaqum.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "739832430566-i4h4ftr4hedrg6anghbv2bnvvdlgrvus.apps.googleusercontent.com"
       },
       "channel": "development"
     },
@@ -24,7 +26,9 @@
       },
       "env": {
         "EXPO_PUBLIC_PUSH_REGISTER_URL": "https://backend.dawahbox.com/api/register_push_token.php",
-        "EXPO_PUBLIC_POSTHOG_KEY": "phc_WZcuuwHzWZEmX4PKpoZhL2aQuuRaiVL07LHOs8KlBo6"
+        "EXPO_PUBLIC_POSTHOG_KEY": "phc_WZcuuwHzWZEmX4PKpoZhL2aQuuRaiVL07LHOs8KlBo6",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "739832430566-5prajbumn1so6557o1f95cgslutmaqum.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "739832430566-i4h4ftr4hedrg6anghbv2bnvvdlgrvus.apps.googleusercontent.com"
       },
       "channel": "preview"
     },
@@ -38,7 +42,9 @@
       },
       "env": {
         "EXPO_PUBLIC_PUSH_REGISTER_URL": "https://backend.dawahbox.com/api/register_push_token.php",
-        "EXPO_PUBLIC_POSTHOG_KEY": "phc_WZcuuwHzWZEmX4PKpoZhL2aQuuRaiVL07LHOs8KlBo6"
+        "EXPO_PUBLIC_POSTHOG_KEY": "phc_WZcuuwHzWZEmX4PKpoZhL2aQuuRaiVL07LHOs8KlBo6",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "739832430566-5prajbumn1so6557o1f95cgslutmaqum.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "739832430566-i4h4ftr4hedrg6anghbv2bnvvdlgrvus.apps.googleusercontent.com"
       },
       "channel": "production"
     },
