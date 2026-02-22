@@ -284,11 +284,13 @@ const playEpisode = async (episode: Episode) => {
       const nextState = {
         ...playerStore.get(),
         queue,
+        originalQueue: [],
         currentQueueIndex: 0,
         currentEpisode: episode,
         isPlaying: true,
         isLoading: false,
         isDownloaded: isOffline,
+        isShuffled: false,
         errorMessage: null,
       };
       setAndPersistPlayerState(nextState);
@@ -576,6 +578,11 @@ const togglePlayPause = async () => {
     } else {
       await TrackPlayer.play();
     }
+
+    playerStore.set({
+      ...playerStore.get(),
+      isLoading: false,
+    });
   } catch (error) {
     logger.error('Failed to toggle play/pause', error as Error);
     playerStore.set({
