@@ -267,7 +267,7 @@ const playEpisode = async (episode: Episode) => {
 
       if (requestId !== currentPlayRequestId) return;
 
-      audioControls.setLockScreenInfo(buildLockScreenInfo(episode));
+      audioControls?.setLockScreenInfo(buildLockScreenInfo(episode));
 
       // Add to history
       try {
