@@ -366,13 +366,11 @@ const playNext = async () => {
 
   if (repeatMode === 'one' && currentState.currentEpisode) {
     logger.debug('🔂 PlayerStore: Repeat one, replaying current episode');
-    if (audioControls) {
-      try {
-        audioControls.seekTo(0);
-        audioControls.play();
-      } catch (error) {
-        logger.error('Failed to restart current episode', error as Error);
-      }
+    try {
+      await TrackPlayer.seekTo(0);
+      await TrackPlayer.play();
+    } catch (error) {
+      logger.error('Failed to restart current episode', error as Error);
     }
     const nextState = {
       ...currentState,
@@ -580,6 +578,10 @@ const togglePlayPause = async () => {
     }
   } catch (error) {
     logger.error('Failed to toggle play/pause', error as Error);
+    playerStore.set({
+      ...playerStore.get(),
+      isLoading: false,
+    });
   }
 };
 
