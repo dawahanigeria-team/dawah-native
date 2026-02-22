@@ -11,21 +11,21 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  ScrollView,
-  Share,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    ScrollView,
+    Share,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import Animated, {
-  Extrapolate,
-  interpolate,
-  useAnimatedScrollHandler,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
+    Extrapolate,
+    interpolate,
+    useAnimatedScrollHandler,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -33,11 +33,11 @@ import { Button, Chip, Text, Touchable } from "../../src/components/atoms";
 import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
 import AddToPlaylistModal from "../../src/components/organisms/AddToPlaylistModal";
 import { useLectureDetail } from "../../src/hooks/useLectureDetail";
+import { useTheme } from "../../src/hooks/useTheme";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
 import { DownloadStatus } from "../../src/services/downloads/downloadQueue.service";
 import { linkingService } from "../../src/services/linking.service";
 import { authStore, useDownloadsStore, useFavoritesStore, usePlayerStore } from "../../src/stores";
-import { useTheme } from "../../src/hooks/useTheme";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import type { LectureDetail } from "../../src/types/api.types";
@@ -90,7 +90,7 @@ const parseApiDate = (rawDate?: string): Date | null => {
   }
 
   // Backend often sends MySQL datetime (YYYY-MM-DD HH:mm:ss), which iOS Date parsing rejects.
-  const mysqlNormalizedDate = new Date(trimmed.replace(' ', 'T'));
+  const mysqlNormalizedDate = new Date(trimmed.replace(/\s+/g, 'T'));
   if (!Number.isNaN(mysqlNormalizedDate.getTime())) {
     return mysqlNormalizedDate;
   }

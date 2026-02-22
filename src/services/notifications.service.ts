@@ -3,16 +3,16 @@
  * Handles push notification registration and preferences
  */
 
-import AsyncStorage from 'expo-sqlite/kv-store';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
+import AsyncStorage from 'expo-sqlite/kv-store';
 import { Platform } from 'react-native';
 
+import { designTokens } from '../theme/designTokens';
 import { registerPushToken } from './api/notifications.api';
 import { linkingService } from './linking.service';
 import { userService } from './user.service';
-import { designTokens } from '../theme/designTokens';
 
 export type NotificationPrefs = {
   enabled: boolean;
