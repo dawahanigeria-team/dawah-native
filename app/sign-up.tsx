@@ -1,20 +1,20 @@
 import { Ionicons } from "@expo/vector-icons";
+import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
-import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Loading, Text } from "../src/components/atoms";
 import { ENV } from "../src/config/env";
 import { useTheme } from "../src/hooks/useTheme";
@@ -124,7 +124,7 @@ export default function SignUpScreen() {
         email,
         password,
       });
-      router.replace('/');
+      router.replace('/(tabs)');
     } catch (err: unknown) {
       const error = err as Error;
       captureSentryException(error, {
