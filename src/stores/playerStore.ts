@@ -1,14 +1,14 @@
-import AsyncStorage from "expo-sqlite/kv-store";
 import NetInfo from '@react-native-community/netinfo';
-import TrackPlayer, { RepeatMode, State } from '../services/expoTrackPlayerCompat';
+import AsyncStorage from "expo-sqlite/kv-store";
 import { entity } from "simpler-state";
 import type { AudioPlaybackControls } from "../hooks/useAudioPlayback";
 import { addSentryBreadcrumb, captureSentryException } from "../services/config/sentry.config";
 import { downloadsService } from "../services/downloads.service";
+import TrackPlayer, { RepeatMode, State } from '../services/expoTrackPlayerCompat';
 import { historyService } from "../services/history.service";
 import { clearQueueSnapshot, saveQueueSnapshot } from "../services/playerQueue.service";
-import { ensureTrackPlayerReady } from "../services/trackPlayerReady.service";
 import { buildPlaylistKey, buildQueue } from "../services/trackPlayerQueue.service";
+import { ensureTrackPlayerReady } from "../services/trackPlayerReady.service";
 import { Episode, PlayerState } from "../types/types";
 import { logger } from "../utils/logger";
 import { resolvePlaybackSpeakerName } from "../utils/speakerName";
@@ -27,6 +27,7 @@ const initialState: PlayerState = {
   downloadProgress: 0,
   errorMessage: null,
   queue: [],
+  originalQueue: [],
   currentQueueIndex: -1,
   isShuffled: false,
   repeatMode: 'off',
@@ -146,6 +147,9 @@ const persistQueueSnapshot = (state: PlayerState) => {
   const currentEpisode = state.currentEpisode ?? state.queue[state.currentQueueIndex];
   void saveQueueSnapshot({
     trackIds: state.queue.map((item) => String(item.id)),
+    originalTrackIds: state.originalQueue.length > 0
+      ? state.originalQueue.map((item) => String(item.id))
+      : undefined,
     currentIndex: state.currentQueueIndex,
     position: state.progress,
     playbackRate: state.playbackSpeed,
@@ -197,11 +201,13 @@ const playEpisode = async (episode: Episode) => {
     if (currentState.currentEpisode?.id === episode.id) {
       logger.debug('📱 PlayerStore: Same episode already loaded');
 
-      // If it's paused, just resume
+      // If it's paused, just resume using TrackPlayer (not audioControls)
       if (!currentState.isPlaying) {
         logger.debug('▶️ PlayerStore: Resuming playback...');
-        audioControls.play();
-        audioControls.setLockScreenInfo(buildLockScreenInfo(episode));
+        await TrackPlayer.play();
+        if (audioControls) {
+          audioControls.setLockScreenInfo(buildLockScreenInfo(episode));
+        }
         const nextState = {
           ...currentState,
           isPlaying: true,
@@ -492,6 +498,8 @@ const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: b
   }
 
   try {
+    // Store original queue order before any shuffling
+    const originalQueue = [...episodes];
     let queue = [...episodes];
     const safeStartIndex = Math.max(0, Math.min(startIndex, queue.length - 1));
 
@@ -510,6 +518,7 @@ const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: b
     }
 
     const filteredQueue = queue.filter((episode) => resolvePlaybackUri(episode));
+    const filteredOriginalQueue = originalQueue.filter((episode) => resolvePlaybackUri(episode));
     if (filteredQueue.length === 0) {
       logger.error('No valid tracks with audio URLs', new Error('No playable tracks'));
       return;
@@ -537,6 +546,7 @@ const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: b
     const nextState = {
       ...playerStore.get(),
       queue: filteredQueue,
+      originalQueue: filteredOriginalQueue,
       currentQueueIndex: safeFilteredStartIndex,
       currentEpisode: filteredQueue[safeFilteredStartIndex],
       isShuffled: shuffle,
@@ -552,12 +562,7 @@ const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: b
   }
 };
 
-const togglePlayPause = () => {
-  if (!audioControls) {
-    logger.error('❌ PlayerStore: Audio controls not initialized', new Error('Audio controls not initialized'));
-    return;
-  }
-
+const togglePlayPause = async () => {
   try {
     const currentState = playerStore.get();
     if (!currentState.currentEpisode) return;
@@ -567,18 +572,18 @@ const togglePlayPause = () => {
       isLoading: true,
     });
 
-    audioControls.togglePlayPause();
+    // Use TrackPlayer for playback control to ensure correct player instance
+    if (currentState.isPlaying) {
+      await TrackPlayer.pause();
+    } else {
+      await TrackPlayer.play();
+    }
   } catch (error) {
     logger.error('Failed to toggle play/pause', error as Error);
   }
 };
 
-const setProgress = (progress: number) => {
-  if (!audioControls) {
-    logger.error('❌ PlayerStore: Audio controls not initialized', new Error('Audio controls not initialized'));
-    return;
-  }
-
+const setProgress = async (progress: number) => {
   try {
     const nextState = {
       ...playerStore.get(),
@@ -586,7 +591,7 @@ const setProgress = (progress: number) => {
     };
     setAndPersistPlayerState(nextState);
     persistQueueSnapshot(nextState);
-    audioControls.seekTo(progress);
+    await TrackPlayer.seekTo(progress);
   } catch (error) {
     logger.error('Failed to set progress', error as Error);
   }
@@ -619,38 +624,27 @@ const likeEpisode = (episodeId: string) => {
   }
 };
 
-const seekForward = (seconds: number = 15) => {
-  if (!audioControls) {
-    logger.error('❌ PlayerStore: Audio controls not initialized', new Error('Audio controls not initialized'));
-    return;
-  }
-
+const seekForward = async (seconds: number = 15) => {
   try {
-    audioControls.seekForward(seconds);
+    const currentProgress = await TrackPlayer.getProgress();
+    const newPosition = Math.min(currentProgress.position + seconds, currentProgress.duration);
+    await TrackPlayer.seekTo(newPosition);
   } catch (error) {
     logger.error('Failed to seek forward', error as Error);
   }
 };
 
-const seekBackward = (seconds: number = 15) => {
-  if (!audioControls) {
-    logger.error('❌ PlayerStore: Audio controls not initialized', new Error('Audio controls not initialized'));
-    return;
-  }
-
+const seekBackward = async (seconds: number = 15) => {
   try {
-    audioControls.seekBackward(seconds);
+    const currentProgress = await TrackPlayer.getProgress();
+    const newPosition = Math.max(currentProgress.position - seconds, 0);
+    await TrackPlayer.seekTo(newPosition);
   } catch (error) {
     logger.error('Failed to seek backward', error as Error);
   }
 };
 
-const setPlaybackSpeed = (speed: number) => {
-  if (!audioControls) {
-    logger.error('❌ PlayerStore: Audio controls not initialized', new Error('Audio controls not initialized'));
-    return;
-  }
-
+const setPlaybackSpeed = async (speed: number) => {
   try {
     const nextState = {
       ...playerStore.get(),
@@ -658,25 +652,20 @@ const setPlaybackSpeed = (speed: number) => {
     };
     setAndPersistPlayerState(nextState);
     persistQueueSnapshot(nextState);
-    audioControls.setPlaybackRate(speed);
+    await TrackPlayer.setRate(speed);
   } catch (error) {
     logger.error('Failed to set playback speed', error as Error);
   }
 };
 
-const setVolume = (volume: number) => {
-  if (!audioControls) {
-    logger.error('❌ PlayerStore: Audio controls not initialized', new Error('Audio controls not initialized'));
-    return;
-  }
-
+const setVolume = async (volume: number) => {
   try {
     const clampedVolume = Math.max(0, Math.min(1, volume));
     setAndPersistPlayerState({
       ...playerStore.get(),
       volume: clampedVolume,
     });
-    audioControls.setVolume(clampedVolume);
+    await TrackPlayer.setVolume(clampedVolume);
   } catch (error) {
     logger.error('Failed to set volume', error as Error);
   }
@@ -829,11 +818,13 @@ const removeFromQueue = (index: number) => {
 const toggleShuffle = async () => {
   const currentState = playerStore.get();
   const queue = Array.isArray(currentState.queue) ? currentState.queue : [];
+  const originalQueue = Array.isArray(currentState.originalQueue) ? currentState.originalQueue : [];
   const newShuffleState = !currentState.isShuffled;
 
   logger.debug('🔀 PlayerStore: Toggle shuffle:', newShuffleState);
 
   if (newShuffleState && queue.length > 0) {
+    // SHUFFLE ON: Keep current track at position 0, shuffle the rest
     const safeIndex =
       currentState.currentQueueIndex >= 0 && currentState.currentQueueIndex < queue.length
         ? currentState.currentQueueIndex
@@ -841,6 +832,7 @@ const toggleShuffle = async () => {
     const currentEpisode = queue[safeIndex];
     const remaining = queue.filter((_, i) => i !== safeIndex);
 
+    // Fisher-Yates shuffle
     for (let i = remaining.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
@@ -854,9 +846,13 @@ const toggleShuffle = async () => {
       return;
     }
 
+    // Store original queue if not already stored
+    const originalToStore = originalQueue.length > 0 ? originalQueue : queue;
+
     const nextState = {
       ...currentState,
       queue: newQueue,
+      originalQueue: originalToStore,
       currentQueueIndex: 0,
       currentEpisode: newQueue[0],
       isShuffled: true,
@@ -877,7 +873,45 @@ const toggleShuffle = async () => {
     } catch (error) {
       logger.error('Failed to reshuffle queue', error as Error);
     }
+  } else if (originalQueue.length > 0) {
+    // SHUFFLE OFF: Restore original queue order, continue from current track
+    const currentEpisode = currentState.currentEpisode;
+    const newIndex = currentEpisode
+      ? originalQueue.findIndex((ep) => String(ep.id) === String(currentEpisode.id))
+      : 0;
+    const safeNewIndex = newIndex >= 0 ? newIndex : 0;
+
+    const tracks = buildQueue(originalQueue, resolvePlaybackUri).filter((track) => track.url);
+    if (tracks.length === 0) {
+      logger.error('No valid tracks to restore', new Error('No playable tracks'));
+      return;
+    }
+
+    const nextState = {
+      ...currentState,
+      queue: originalQueue,
+      currentQueueIndex: safeNewIndex,
+      currentEpisode: originalQueue[safeNewIndex],
+      isShuffled: false,
+    };
+
+    try {
+      await ensureTrackPlayerReady();
+      await TrackPlayer.reset();
+      await TrackPlayer.add(tracks, { activate: false });
+      await TrackPlayer.setPlaylistKey(buildPlaylistKey(originalQueue));
+      await TrackPlayer.skip(safeNewIndex);
+      if (currentState.isPlaying) {
+        await TrackPlayer.play();
+      }
+      await TrackPlayer.seekTo(currentState.progress);
+      setAndPersistPlayerState(nextState);
+      persistQueueSnapshot(nextState);
+    } catch (error) {
+      logger.error('Failed to restore original queue', error as Error);
+    }
   } else {
+    // No original queue to restore, just toggle the flag
     const nextState = {
       ...currentState,
       isShuffled: false,

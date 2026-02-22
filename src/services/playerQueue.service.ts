@@ -4,6 +4,7 @@ const QUEUE_SNAPSHOT_KEY = 'PLAYER_QUEUE_SNAPSHOT'
 
 export type QueueSnapshot = {
   trackIds: string[]
+  originalTrackIds?: string[] // Stores original order for shuffle restoration
   currentIndex: number
   position: number
   playbackRate: number

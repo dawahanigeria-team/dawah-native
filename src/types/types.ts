@@ -90,6 +90,7 @@ export interface PlayerState {
   errorMessage: string | null;
   // Queue management
   queue: Episode[];
+  originalQueue: Episode[]; // Stores unshuffled order for restoration
   currentQueueIndex: number;
   isShuffled: boolean;
   repeatMode: 'off' | 'all' | 'one';
