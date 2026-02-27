@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "739832430566-hkltjk9vvii1r0733epq37pfn6vdfb8m.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.dawahnigeria.app",
+            "certificate_hash": "485a0286985315cb67872173f677ad1fcc54124d"
+          }
+        },
+        {
           "client_id": "739832430566-5prajbumn1so6557o1f95cgslutmaqum.apps.googleusercontent.com",
           "client_type": 3
         }
