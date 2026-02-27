@@ -74,6 +74,7 @@ beforeEach(() => {
     downloadProgress: 0,
     errorMessage: null,
     queue: [],
+    originalQueue: [],
     currentQueueIndex: -1,
     isShuffled: false,
     repeatMode: 'off',

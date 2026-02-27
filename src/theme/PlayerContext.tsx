@@ -40,6 +40,7 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children }) => {
     downloadProgress: 0,
     errorMessage: null,
     queue: [],
+    originalQueue: [],
     currentQueueIndex: 0,
     isShuffled: false,
     repeatMode: 'off',
