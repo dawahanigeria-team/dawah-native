@@ -23,12 +23,15 @@ interface MenuItem {
   onPress: () => void;
   showChevron?: boolean;
   rightElement?: React.ReactNode;
+  destructive?: boolean;
+  disabled?: boolean;
 }
 
 const ProfileScreen = () => {
   const router = useRouter();
   const { colors, isDark, setTheme } = useTheme();
-  const { user, isAuthenticated, logout } = useAuthStore();
+  const { user, isAuthenticated, logout, deleteAccount } = useAuthStore();
+  const [isDeletingAccount, setIsDeletingAccount] = React.useState(false);
 
   // Get time-based greeting (Arabic)
   const getGreeting = () => {
@@ -99,6 +102,87 @@ const ProfileScreen = () => {
     );
   };
 
+  const getDeleteAccountErrorMessage = (error: unknown) => {
+    const statusCode =
+      typeof error === "object" &&
+      error !== null &&
+      "statusCode" in error &&
+      typeof (error as { statusCode?: unknown }).statusCode === "number"
+        ? (error as { statusCode: number }).statusCode
+        : undefined;
+
+    switch (statusCode) {
+      case 400:
+        return "Delete request was invalid. Please try again.";
+      case 401:
+        return "Your session is missing or expired. Please sign in and try again.";
+      case 403:
+        return "Account verification failed. Please contact support if this persists.";
+      case 500:
+        return "Server failed to delete your account. Please retry.";
+      default:
+        if (statusCode && statusCode >= 500) {
+          return "Server failed to delete your account. Please retry.";
+        }
+
+        if (error instanceof Error && error.message) {
+          return error.message;
+        }
+
+        return "Failed to delete account. Please try again.";
+    }
+  };
+
+  const handleDeleteAccountConfirm = async () => {
+    if (!user?.id || isDeletingAccount) {
+      return;
+    }
+
+    setIsDeletingAccount(true);
+    try {
+      addSentryBreadcrumb("User deleting account", "user", {
+        userId: user.id,
+      });
+
+      await deleteAccount();
+      router.replace("/sign-in");
+      Alert.alert("Success", "Account deleted successfully.");
+    } catch (err: unknown) {
+      const error = err as Error;
+      captureSentryException(error, {
+        component: "ProfileScreen",
+        action: "handleDeleteAccountConfirm",
+        userId: user.id,
+        level: "error",
+      });
+
+      Alert.alert("Delete Account Failed", getDeleteAccountErrorMessage(err), [
+        { text: "Close", style: "cancel" },
+        { text: "Retry", onPress: handleDeleteAccountConfirm },
+      ]);
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
+  const handleDeleteAccountPress = () => {
+    Alert.alert(
+      "Delete Account",
+      "This permanently deletes your account and data.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete Account",
+          style: "destructive",
+          onPress: handleDeleteAccountConfirm,
+        },
+      ]
+    );
+  };
+
   const handleResetUserId = () => {
     Alert.alert(
       "Reset User ID",
@@ -142,16 +226,31 @@ const ProfileScreen = () => {
   };
 
   // Menu items organized by section
-  const accountItems: MenuItem[] = isAuthenticated ? [
-    {
-      id: "edit-profile",
-      title: "Edit Profile",
-      subtitle: "Update your information",
-      icon: "person-outline",
-      onPress: () => router.push("/edit-profile" as any),
-      showChevron: true,
-    },
-  ] : [];
+  const accountItems: MenuItem[] = isAuthenticated
+    ? [
+        {
+          id: "edit-profile",
+          title: "Edit Profile",
+          subtitle: "Update your information",
+          icon: "person-outline",
+          onPress: () => router.push("/edit-profile" as any),
+          showChevron: true,
+        },
+        {
+          id: "delete-account",
+          title: "Delete Account",
+          subtitle: isDeletingAccount
+            ? "Deleting your account..."
+            : "Permanently delete your account and data",
+          icon: "trash-outline",
+          iconColor: colors.semantic.red,
+          onPress: handleDeleteAccountPress,
+          showChevron: false,
+          destructive: true,
+          disabled: isDeletingAccount,
+        },
+      ]
+    : [];
 
   const settingsItems: MenuItem[] = [
     {
@@ -230,12 +329,14 @@ const ProfileScreen = () => {
       key={item.id}
       style={[
         tw`flex-row items-center py-3 px-4`,
+        item.disabled && { opacity: 0.6 },
         !isLast && {
           borderBottomWidth: 0.5,
           borderBottomColor: colors.system.separator.primary,
         },
       ]}
       onPress={item.onPress}
+      disabled={item.disabled}
       activeOpacity={0.7}
       accessibilityLabel={item.title}
       accessibilityHint={item.subtitle}
@@ -259,7 +360,7 @@ const ProfileScreen = () => {
       <View style={tw`flex-1`}>
         <Text
           variant="body"
-          color="label"
+          color={item.destructive ? "systemRed" : "label"}
           weight="medium"
           style={{ fontSize: 15 }}
         >

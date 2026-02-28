@@ -132,7 +132,8 @@
             "reactNativeReleaseLevel": "experimental"
           }
         }
-      ]
+      ],
+      "./plugins/withExpo55MainApplicationHostFix"
     ],
     "experiments": {
       "typedRoutes": true,

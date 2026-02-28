@@ -5,7 +5,7 @@
 
 import AsyncStorage from 'expo-sqlite/kv-store';
 import { API_CONFIG } from '../config/api.config';
-import { apiClient } from './base.api';
+import { apiClient, ApiError } from './base.api';
 import { secureStoreCompat } from '../storage/secureStoreCompat';
 
 export interface User {
@@ -120,12 +120,29 @@ export interface PasswordResetConfirm {
   newPassword: string;
 }
 
+interface DeleteAccountPayload {
+  confirm: true;
+  userId: number | string;
+}
+
+interface DeleteAccountLegacyPayload extends DeleteAccountPayload {
+  action: 'delete_account';
+}
+
 class AuthApiService {
   private readonly USER_KEY = 'user_data';
   private readonly ACCESS_TOKEN_KEY = 'access_token';
   private readonly REFRESH_TOKEN_KEY = 'refresh_token';
   private readonly LEGACY_AUTH_TOKEN_KEY = 'auth_token';
   private migrationComplete = false;
+
+  private buildDeleteAccountPayload(userId: string): DeleteAccountPayload {
+    const numericUserId = Number(userId);
+    return {
+      confirm: true,
+      userId: Number.isFinite(numericUserId) ? numericUserId : userId,
+    };
+  }
 
   /**
    * Migrate tokens from AsyncStorage to SecureStore (one-time).
@@ -305,6 +322,45 @@ class AuthApiService {
       console.error('Update profile error:', error);
       throw error;
     }
+  }
+
+  /**
+   * Delete account (recommended endpoint with legacy fallback)
+   */
+  async deleteAccount(userId: string): Promise<void> {
+    if (!userId?.trim()) {
+      throw new Error('Missing user ID');
+    }
+
+    const payload = this.buildDeleteAccountPayload(userId);
+
+    try {
+      await apiClient.post('/api/delete_account.php', payload, {
+        timeout: API_CONFIG.TIMEOUTS.DEFAULT,
+        useCache: false,
+        retry: false,
+      });
+      return;
+    } catch (error) {
+      const shouldFallback =
+        error instanceof ApiError &&
+        (error.statusCode === 404 || error.statusCode === 405 || error.statusCode === 501);
+
+      if (!shouldFallback) {
+        throw error;
+      }
+    }
+
+    const fallbackPayload: DeleteAccountLegacyPayload = {
+      ...payload,
+      action: 'delete_account',
+    };
+
+    await apiClient.post('/api/user_auth.php', fallbackPayload, {
+      timeout: API_CONFIG.TIMEOUTS.DEFAULT,
+      useCache: false,
+      retry: false,
+    });
   }
 
   /**

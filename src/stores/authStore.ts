@@ -8,7 +8,10 @@ import {
   type UpdateProfileData,
 } from '../services/api/auth.api';
 import { userService } from '../services/user.service';
-import { apiClient } from '../services/api/base.api'; // Import apiClient
+import { cacheService } from '../services/cache/cache.service';
+import { historyService } from '../services/history.service';
+import { apiClient } from '../services/api/base.api';
+import { clearFavorites } from './favoritesStore';
 
 export interface AuthState {
   user: User | null;
@@ -75,6 +78,20 @@ export const initializeAuth = async () => {
     isLoading: false,
     isInitialized: true,
   }));
+};
+
+const clearLocalSessionData = async (): Promise<void> => {
+  apiClient.cancelAllRequests();
+
+  await Promise.allSettled([
+    authApi.logout(),
+    apiClient.setAuthToken(null),
+    clearFavorites(),
+    cacheService.clearAll(),
+    apiClient.clearCache(),
+    historyService.clearHistory(),
+    userService.clearUserId(),
+  ]);
 };
 
 export const useAuthStore = () => {
@@ -214,6 +231,37 @@ export const useAuthStore = () => {
   };
 
   /**
+   * Permanently delete the current user account
+   */
+  const deleteAccount = async () => {
+    try {
+      authStore.set((prev) => ({ ...prev, isLoading: true, error: null }));
+
+      const currentUser = (authStore.get() || initialState).user;
+      if (!currentUser?.id) {
+        throw new Error('You must be signed in to delete your account');
+      }
+
+      await authApi.deleteAccount(currentUser.id);
+      await clearLocalSessionData();
+
+      authStore.set({
+        ...initialState,
+        isLoading: false,
+        isInitialized: true,
+      });
+    } catch (error: any) {
+      const errorMessage = error.message || 'Failed to delete account';
+      authStore.set((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: errorMessage,
+      }));
+      throw error;
+    }
+  };
+
+  /**
    * Clear any error messages
    */
   const clearError = () => {
@@ -265,9 +313,10 @@ export const useAuthStore = () => {
     login,
     socialLogin,
     register,
-      logout,
-      clearError,
-      updateProfile,
-      initializeAuth,
+    logout,
+    deleteAccount,
+    clearError,
+    updateProfile,
+    initializeAuth,
   };
 };
