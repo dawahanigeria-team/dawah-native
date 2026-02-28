@@ -109,6 +109,26 @@ type AddOptions = {
   activate?: boolean
 }
 
+type ResetOptions = {
+  release?: boolean
+}
+
+const HTTP_URL_REGEX = /^https?:\/\//i
+
+const sanitizeAudioUri = (uri: string): string => {
+  if (!uri || !HTTP_URL_REGEX.test(uri)) {
+    return uri
+  }
+
+  const encode = (value: string) => encodeURI(value).replace(/'/g, '%27')
+
+  try {
+    return encode(decodeURI(uri))
+  } catch {
+    return encode(uri)
+  }
+}
+
 const listeners = new Map<string, Set<Listener>>()
 
 let player: AudioPlayer | null = null
@@ -125,6 +145,7 @@ let jumpForwardInterval = 15
 let jumpBackwardInterval = 15
 let playlistKey: string | null = null
 let isLockScreenActive = false
+let shouldResumeWhenLoaded = false
 
 const emit = (event: string, payload: unknown) => {
   const eventListeners = listeners.get(event)
@@ -187,6 +208,17 @@ const ensurePlayer = (): AudioPlayer => {
 
   player = createAudioPlayer(null, { updateInterval: 250, keepAudioSessionActive: true })
   _playerStatusSubscription = player.addListener('playbackStatusUpdate', (audioStatus: AudioStatus) => {
+    if (shouldResumeWhenLoaded && audioStatus.isLoaded && !audioStatus.playing) {
+      try {
+        player?.play()
+      } catch {
+        // Ignore and keep waiting for the next status update.
+      }
+    }
+    if (audioStatus.playing || audioStatus.didJustFinish) {
+      shouldResumeWhenLoaded = false
+    }
+
     setProgress({
       position: Number.isFinite(audioStatus.currentTime) ? audioStatus.currentTime : 0,
       duration: Number.isFinite(audioStatus.duration) ? audioStatus.duration : 0,
@@ -268,7 +300,7 @@ const activateTrack = async (index: number, autoPlay: boolean): Promise<void> =>
 
   const currentPlayer = ensurePlayer()
   const track = queue[index]
-  const source = typeof track.url === 'string' ? track.url.trim() : ''
+  const source = sanitizeAudioUri(typeof track.url === 'string' ? track.url.trim() : '')
   if (!source) {
     const error = new Error(`Track ${track.id} has no playable URL`)
     setPlaybackState(State.Error)
@@ -284,7 +316,6 @@ const activateTrack = async (index: number, autoPlay: boolean): Promise<void> =>
     duration: Number.isFinite(track.duration) ? (track.duration as number) : currentPlayer.duration,
     buffered: 0,
   })
-  setPlaybackState(State.Ready)
   emit(Event.PlaybackActiveTrackChanged, {
     index,
     track,
@@ -295,8 +326,9 @@ const activateTrack = async (index: number, autoPlay: boolean): Promise<void> =>
   }
 
   if (autoPlay) {
+    shouldResumeWhenLoaded = true
+    setPlaybackState(State.Buffering)
     currentPlayer.play()
-    setPlaybackState(State.Playing)
     setLockScreenState(true, track)
   }
 }
@@ -377,7 +409,9 @@ const TrackPlayer = {
 
   addEventListener,
 
-  async reset(): Promise<void> {
+  async reset(options?: ResetOptions): Promise<void> {
+    const shouldRelease = options?.release === true
+
     // Capture local refs before any await to prevent race conditions
     // with concurrent releasePlayer() calls nulling out the globals.
     const currentPlayer = player
@@ -396,15 +430,18 @@ const TrackPlayer = {
         // Ignore lock screen cleanup failures to keep reset state consistent.
       }
       isLockScreenActive = false
+      shouldResumeWhenLoaded = false
 
-      // Release the native player to free MediaCodec buffers on Android.
-      // A fresh player will be lazily created by ensurePlayer() on next use.
-      if (currentSubscription) {
-        currentSubscription.remove()
+      if (shouldRelease) {
+        // Release native resources only when explicitly requested (e.g. provider unmount).
+        // Normal queue resets keep the player warm for faster next-track startup.
+        if (currentSubscription) {
+          currentSubscription.remove()
+        }
+        _playerStatusSubscription = null
+        currentPlayer.remove()
+        player = null
       }
-      _playerStatusSubscription = null
-      currentPlayer.remove()
-      player = null
     }
 
     queue = []
@@ -447,13 +484,15 @@ const TrackPlayer = {
       await activateTrack(0, false)
     }
     const currentPlayer = ensurePlayer()
+    shouldResumeWhenLoaded = true
+    setPlaybackState(State.Buffering)
     currentPlayer.play()
-    setPlaybackState(State.Playing)
     setLockScreenState(true, getActiveTrack())
   },
 
   async pause(): Promise<void> {
     const currentPlayer = ensurePlayer()
+    shouldResumeWhenLoaded = false
     currentPlayer.pause()
     setPlaybackState(State.Paused)
     setLockScreenState(false)
@@ -461,6 +500,7 @@ const TrackPlayer = {
 
   async stop(): Promise<void> {
     const currentPlayer = ensurePlayer()
+    shouldResumeWhenLoaded = false
     currentPlayer.pause()
     await currentPlayer.seekTo(0)
     setProgress({
@@ -638,6 +678,7 @@ export const releasePlayer = () => {
   activeTrackIndex = -1
   playlistKey = null
   isLockScreenActive = false
+  shouldResumeWhenLoaded = false
   state = State.None
   progress = { position: 0, duration: 0, buffered: 0 }
 }

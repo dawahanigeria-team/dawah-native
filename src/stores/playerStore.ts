@@ -106,6 +106,7 @@ function buildLockScreenInfo(episode: Episode): { title: string; artist: string;
 }
 
 let currentPlayRequestId = 0;
+const PLAYBACK_START_TIMEOUT_MS = 20000;
 
 const resolvePlaybackUri = (episode: Episode): string => {
   if (!episode.audioUrl) {
@@ -115,18 +116,20 @@ const resolvePlaybackUri = (episode: Episode): string => {
   return downloadsService.getPlaybackUri(episode.id, episode.audioUrl);
 };
 
-const waitForPlaybackReady = async (timeoutMs: number, requestId: number) => {
+const waitForPlaybackReady = async (timeoutMs: number, requestId?: number) => {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    if (requestId !== currentPlayRequestId) {
+    if (requestId !== undefined && requestId !== currentPlayRequestId) {
       throw new Error('Playback superseded');
     }
     const playbackState = await TrackPlayer.getPlaybackState();
+    const progress = await TrackPlayer.getProgress();
     const state =
       typeof playbackState === 'object' && playbackState !== null && 'state' in playbackState
         ? playbackState.state
         : playbackState;
-    if (state === State.Playing || state === State.Buffering || state === State.Ready) {
+    const hasStarted = Number.isFinite(progress.position) && progress.position > 0;
+    if (state === State.Playing || hasStarted) {
       return;
     }
     if (state === State.Error) {
@@ -195,6 +198,13 @@ const playEpisode = async (episode: Episode) => {
   }
 
   try {
+    setAndPersistPlayerState({
+      ...playerStore.get(),
+      isLoading: true,
+      isPlaying: false,
+      errorMessage: null,
+    });
+
     const currentState = playerStore.get();
 
     // Check if we're already playing this episode
@@ -263,7 +273,7 @@ const playEpisode = async (episode: Episode) => {
 
       logger.debug('▶️ PlayerStore: Starting playback...');
       await TrackPlayer.play();
-      await waitForPlaybackReady(60000, requestId);
+      await waitForPlaybackReady(PLAYBACK_START_TIMEOUT_MS, requestId);
 
       if (requestId !== currentPlayRequestId) return;
 
@@ -542,6 +552,7 @@ const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: b
     await TrackPlayer.setPlaylistKey(buildPlaylistKey(filteredQueue));
     await TrackPlayer.skip(safeFilteredStartIndex);
     await TrackPlayer.play();
+    await waitForPlaybackReady(PLAYBACK_START_TIMEOUT_MS);
 
     const nextState = {
       ...playerStore.get(),
@@ -559,6 +570,12 @@ const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: b
   } catch (error) {
     logger.error('Failed to play queue', error as Error);
     captureSentryException(error as Error, { action: 'playQueue', episodeCount: episodes.length });
+    setAndPersistPlayerState({
+      ...playerStore.get(),
+      isPlaying: false,
+      isLoading: false,
+      errorMessage: 'Failed to play audio. Please try again.',
+    });
   }
 };
 

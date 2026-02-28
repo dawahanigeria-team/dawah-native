@@ -121,6 +121,16 @@ describe('expoTrackPlayerCompat', () => {
     expect(expoAudioMock.__player.replace).toHaveBeenCalledTimes(1)
   })
 
+  test('normalizes remote URLs before loading', async () => {
+    const expoAudioMock = jest.requireMock('expo-audio') as { __player: { replace: jest.Mock } }
+    await TrackPlayer.add({ id: 'a', url: 'https://example.com/audio with {tag}.mp3', title: 'A' })
+    await TrackPlayer.skip(0)
+
+    expect(expoAudioMock.__player.replace).toHaveBeenCalledWith(
+      'https://example.com/audio%20with%20%7Btag%7D.mp3'
+    )
+  })
+
   test('returns playing state after play', async () => {
     await TrackPlayer.add({ id: 'a', url: 'https://example.com/a.mp3', title: 'A' })
     await TrackPlayer.skip(0)
@@ -130,7 +140,7 @@ describe('expoTrackPlayerCompat', () => {
     expect(playbackState.state).toBe(State.Playing)
   })
 
-  test('reset releases native player resources', async () => {
+  test('reset keeps native player warm for faster startup', async () => {
     const expoAudioMock = jest.requireMock('expo-audio') as {
       createAudioPlayer: jest.Mock
       __player: { remove: jest.Mock }
@@ -139,13 +149,13 @@ describe('expoTrackPlayerCompat', () => {
 
     await TrackPlayer.reset()
 
-    // The old player should have been released
-    expect(expoAudioMock.__player.remove).toHaveBeenCalled()
+    // Normal reset should not destroy native player resources.
+    expect(expoAudioMock.__player.remove).not.toHaveBeenCalled()
 
-    // A new player should be lazily created when tracks are added again
+    // Re-adding tracks should reuse the same player instance.
     const callsBefore = expoAudioMock.createAudioPlayer.mock.calls.length
     await TrackPlayer.add({ id: 'b', url: 'https://example.com/b.mp3', title: 'B' })
-    expect(expoAudioMock.createAudioPlayer.mock.calls.length).toBeGreaterThan(callsBefore)
+    expect(expoAudioMock.createAudioPlayer.mock.calls.length).toBe(callsBefore)
   })
 
   test('updates now-playing metadata for active track and lock screen', async () => {

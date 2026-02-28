@@ -2,6 +2,7 @@ import type { AnnouncementApiResponse } from '../services/api/announcements.api'
 import {
   applyAnnouncementsCutoff,
   countUnreadAnnouncements,
+  markAnnouncementAsReadLocally,
 } from './useAnnouncements.filtering';
 
 const buildAnnouncement = (
@@ -65,5 +66,28 @@ describe('useAnnouncements filtering', () => {
     const unread = countUnreadAnnouncements(filtered);
 
     expect(unread).toBe(1);
+  });
+
+  test('marks a specific unread announcement as read only once', () => {
+    const initial = [
+      buildAnnouncement('a', '2026-02-21T12:00:00.000Z', false),
+      buildAnnouncement('b', '2026-02-21T13:00:00.000Z', true),
+    ];
+
+    const first = markAnnouncementAsReadLocally(initial, 'a');
+    expect(first.didMarkAsRead).toBe(true);
+    expect(first.announcements.find((item) => item.id === 'a')?.read).toBe(true);
+
+    const second = markAnnouncementAsReadLocally(first.announcements, 'a');
+    expect(second.didMarkAsRead).toBe(false);
+    expect(second.announcements).toBe(first.announcements);
+  });
+
+  test('returns original list when announcement is missing', () => {
+    const initial = [buildAnnouncement('a', '2026-02-21T12:00:00.000Z', false)];
+    const result = markAnnouncementAsReadLocally(initial, 'missing');
+
+    expect(result.didMarkAsRead).toBe(false);
+    expect(result.announcements).toBe(initial);
   });
 });

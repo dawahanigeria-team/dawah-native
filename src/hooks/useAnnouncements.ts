@@ -12,6 +12,7 @@ import { useAuthStore } from '../stores';
 import {
   applyAnnouncementsCutoff,
   countUnreadAnnouncements,
+  markAnnouncementAsReadLocally,
 } from './useAnnouncements.filtering';
 
 const GUEST_READ_ANNOUNCEMENTS_KEY = 'guest_read_announcements';
@@ -168,7 +169,6 @@ export const useAnnouncements = (userIdParam?: string): UseAnnouncementsResult =
       );
       
       let fetchedAnnouncements = response.data;
-      let calculatedUnreadCount = response.unread_count || 0;
 
       // For guests, calculate unread count locally
       if (!isAuthenticated) {
@@ -179,9 +179,6 @@ export const useAnnouncements = (userIdParam?: string): UseAnnouncementsResult =
           ...a,
           read: readIds.has(a.id),
         }));
-        
-        // Calculate unread count for guests
-        calculatedUnreadCount = countUnreadAnnouncements(fetchedAnnouncements);
       } else if (userId) {
         const cutoffTimestamp = await getOrCreateAnnouncementsCutoff(
           userId,
@@ -191,11 +188,9 @@ export const useAnnouncements = (userIdParam?: string): UseAnnouncementsResult =
           fetchedAnnouncements,
           cutoffTimestamp,
         );
-        calculatedUnreadCount = countUnreadAnnouncements(fetchedAnnouncements);
       }
 
       setAnnouncements(fetchedAnnouncements);
-      setUnreadCount(calculatedUnreadCount);
     } catch (err: unknown) {
       if (isCancelledApiError(err)) {
         return;
@@ -204,7 +199,6 @@ export const useAnnouncements = (userIdParam?: string): UseAnnouncementsResult =
       console.error('❌ Error fetching announcements:', errorMessage);
       setError(errorMessage);
       setAnnouncements([]);
-      setUnreadCount(0);
     } finally {
       setLoading(false);
     }
@@ -213,6 +207,12 @@ export const useAnnouncements = (userIdParam?: string): UseAnnouncementsResult =
   useEffect(() => {
     fetchAnnouncements();
   }, [fetchAnnouncements]);
+
+  // Keep unread count derived from current announcements to avoid stale closure issues.
+  useEffect(() => {
+    const nextUnreadCount = countUnreadAnnouncements(announcements);
+    setUnreadCount((prev) => (prev === nextUnreadCount ? prev : nextUnreadCount));
+  }, [announcements]);
 
   // Publish unread updates after commit to avoid setState during render warnings.
   useEffect(() => {
@@ -224,20 +224,7 @@ export const useAnnouncements = (userIdParam?: string): UseAnnouncementsResult =
   }, [fetchAnnouncements]);
 
   const markAsRead = useCallback(async (announcementId: string) => {
-    // Check if announcement exists and is currently unread
-    const announcement = announcements.find(a => a.id === announcementId);
-    const wasUnread = announcement && !announcement.read;
-
-    // Update local state immediately for responsive UI.
-    if (announcement) {
-      setAnnouncements(prev => 
-        prev.map(a => a.id === announcementId ? { ...a, read: true } : a)
-      );
-      // Only decrement if it was previously unread
-      if (wasUnread) {
-        setUnreadCount(prev => Math.max(0, prev - 1));
-      }
-    }
+    setAnnouncements((prev) => markAnnouncementAsReadLocally(prev, announcementId).announcements);
 
     if (isAuthenticated && userId) {
       // For authenticated users, sync to server in the background.
@@ -250,7 +237,7 @@ export const useAnnouncements = (userIdParam?: string): UseAnnouncementsResult =
       // For guests, persist local read state.
       await saveGuestReadId(announcementId);
     }
-  }, [isAuthenticated, userId, announcements]);
+  }, [isAuthenticated, userId]);
 
   return {
     announcements,

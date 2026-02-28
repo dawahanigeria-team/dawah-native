@@ -43,6 +43,11 @@ export interface RequestConfig extends Omit<RequestInit, 'cache'> {
   skipTokenRefresh?: boolean;
 }
 
+export const createTokenRefreshRetryConfig = (config: RequestConfig): RequestConfig => {
+  const { signal: _signal, ...retryConfig } = config;
+  return { ...retryConfig, skipTokenRefresh: true };
+};
+
 // Response wrapper interface
 export interface ApiResponse<T = any> {
   data: T;
@@ -622,7 +627,7 @@ class ApiClient {
         ) {
           const refreshed = await this.refreshAccessToken();
           if (refreshed) {
-            return this.request<T>(endpoint, { ...config, skipTokenRefresh: true });
+            return this.request<T>(endpoint, createTokenRefreshRetryConfig(config));
           } else {
             this._onRefreshFailure?.();
           }
