@@ -3,7 +3,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "../../src/components/atoms";
 import { useAnnouncements } from "../../src/hooks/useAnnouncements";
 import { useTheme } from "../../src/hooks/useTheme";
@@ -28,6 +28,7 @@ const getTypeLabel = (type?: string): string => {
 
 export default function AnnouncementDetailScreen() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const announcementId = Array.isArray(id) ? id[0] : id;
 
@@ -61,6 +62,15 @@ export default function AnnouncementDetailScreen() {
   const headerTitleStyle = useMemo(
     () => [styles.headerTitle, { color: colors.system.label.primary }],
     [colors.system.label.primary],
+  );
+  const headerStyle = useMemo(
+    () => [
+      styles.header,
+      {
+        paddingTop: insets.top + designTokens.spacing.sm,
+      },
+    ],
+    [insets.top],
   );
   const heroCardStyle = useMemo(
     () => [styles.heroCard, { backgroundColor: colors.system.background.secondary }],
@@ -122,6 +132,7 @@ export default function AnnouncementDetailScreen() {
     return (
       <SafeAreaView
         style={screenStyle}
+        edges={["left", "right", "bottom"]}
       >
         <View style={tw`flex-1 items-center justify-center`}>
           <ActivityIndicator size="large" color={colors.brand.primary} />
@@ -145,8 +156,9 @@ export default function AnnouncementDetailScreen() {
     return (
       <SafeAreaView
         style={screenStyle}
+        edges={["left", "right", "bottom"]}
       >
-        <View style={styles.header}>
+        <View style={headerStyle}>
           <TouchableOpacity
             onPress={() => router.back()}
             style={tw`mr-3`}
@@ -183,8 +195,9 @@ export default function AnnouncementDetailScreen() {
   return (
     <SafeAreaView
       style={screenStyle}
+      edges={["left", "right", "bottom"]}
     >
-      <View style={styles.header}>
+      <View style={headerStyle}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={tw`mr-3`}

@@ -14,7 +14,7 @@ import {
   View,
   Dimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import YoutubePlayer from "react-native-youtube-iframe";
 import { videoApi } from "../../src/services/api/video.api";
 import { logger } from "../../src/utils/logger";
@@ -27,6 +27,7 @@ const PLAYER_HEIGHT = (SCREEN_WIDTH * 9) / 16; // 16:9 aspect ratio
 
 export default function VideoPlayerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const insets = useSafeAreaInsets();
   const [video, setVideo] = useState<Video | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -150,6 +151,7 @@ export default function VideoPlayerScreen() {
     return (
       <SafeAreaView
         style={[tw`flex-1`, { backgroundColor: designTokens.colors.system.background.primary }]}
+        edges={["left", "right", "bottom"]}
       >
         <View style={tw`flex-1 items-center justify-center`}>
           <ActivityIndicator size="large" color={designTokens.colors.brand.primary} />
@@ -176,9 +178,15 @@ export default function VideoPlayerScreen() {
     return (
       <SafeAreaView
         style={[tw`flex-1`, { backgroundColor: designTokens.colors.system.background.primary }]}
+        edges={["left", "right", "bottom"]}
       >
         {/* Header */}
-        <View style={tw`px-4 py-3 flex-row items-center`}>
+        <View
+          style={[
+            tw`px-4 pb-3 flex-row items-center`,
+            { paddingTop: insets.top + designTokens.spacing.sm },
+          ]}
+        >
           <TouchableOpacity
             onPress={() => router.back()}
             style={tw`mr-4`}
@@ -260,10 +268,15 @@ export default function VideoPlayerScreen() {
   return (
     <SafeAreaView
       style={[tw`flex-1`, { backgroundColor: designTokens.colors.system.background.primary }]}
-      edges={["top"]}
+      edges={["left", "right", "bottom"]}
     >
       {/* Header */}
-      <View style={tw`px-4 py-3 flex-row items-center`}>
+      <View
+        style={[
+          tw`px-4 pb-3 flex-row items-center`,
+          { paddingTop: insets.top + designTokens.spacing.sm },
+        ]}
+      >
         <TouchableOpacity
           onPress={() => router.back()}
           style={tw`mr-4`}

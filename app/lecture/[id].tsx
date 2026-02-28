@@ -27,7 +27,7 @@ import Animated, {
     useSharedValue,
     withSpring,
 } from "react-native-reanimated";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button, Chip, Text, Touchable } from "../../src/components/atoms";
 import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
@@ -355,6 +355,7 @@ const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
 const LectureDetailScreen: React.FC = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const lectureId = id ?? "";
 
@@ -647,7 +648,7 @@ const LectureDetailScreen: React.FC = () => {
           left: 0,
           right: 0,
           zIndex: 10,
-          paddingTop: 50,
+          paddingTop: insets.top + designTokens.spacing.sm,
           paddingBottom: 12,
           paddingHorizontal: 16,
         },
@@ -1013,7 +1014,7 @@ const LectureDetailScreen: React.FC = () => {
         tw`flex-1`,
         { backgroundColor: colors.system.background.primary },
       ]}
-      edges={["top", "left", "right", "bottom"]}
+      edges={["left", "right", "bottom"]}
     >
       {renderHeader()}
       <View style={tw`flex-1`}>{renderContent()}</View>

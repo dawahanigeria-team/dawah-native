@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../../src/components/atoms';
 import { Text } from '../../src/components/atoms/Text';
 import { Album, albumsApi, AlbumTrack } from '../../src/services/api/albums.api';
@@ -24,6 +24,7 @@ import { appendShareSignature } from '../../src/utils/shareMessage';
 const AlbumDetailScreen: React.FC = () => {
   const router = useRouter();
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const albumId = Array.isArray(id) ? id[0] : id;
   const { playQueue, currentEpisode } = usePlayerStore();
@@ -485,7 +486,7 @@ const AlbumDetailScreen: React.FC = () => {
       {/* Back Button */}
       <TouchableOpacity
         onPress={handleBack}
-        style={styles.backButton}
+        style={[styles.backButton, { top: insets.top + designTokens.spacing.sm }]}
         activeOpacity={0.7}
       >
         <Icon name="arrow-back" size="lg" color="label" />
@@ -494,7 +495,7 @@ const AlbumDetailScreen: React.FC = () => {
       {/* Share Button */}
       <TouchableOpacity
         onPress={handleShare}
-        style={styles.shareButton}
+        style={[styles.shareButton, { top: insets.top + designTokens.spacing.sm }]}
         activeOpacity={0.7}
       >
         <Icon name="share-social" size="md" color="label" />
