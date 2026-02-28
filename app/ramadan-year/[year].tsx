@@ -21,6 +21,256 @@ import tw from "../../src/theme/twrnc";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = (SCREEN_WIDTH - 48 - 12) / 2;
+type ThemeColors = ReturnType<typeof useTheme>["colors"];
+
+interface RamadanYearHeaderProps {
+  colors: ThemeColors;
+  yearNum: number;
+  totalAlbums: number;
+  totalLectures: number;
+  languages: string[];
+  searchQuery: string;
+  selectedLanguage: string;
+  languageCounts: Record<string, number>;
+  filteredCount: number;
+  onSearchChange: (text: string) => void;
+  onSearchClear: () => void;
+  onLanguageSelect: (language: string) => void;
+}
+
+const RamadanYearHeader = React.memo(
+  ({
+    colors,
+    yearNum,
+    totalAlbums,
+    totalLectures,
+    languages,
+    searchQuery,
+    selectedLanguage,
+    languageCounts,
+    filteredCount,
+    onSearchChange,
+    onSearchClear,
+    onLanguageSelect,
+  }: RamadanYearHeaderProps) => (
+    <Animated.View entering={FadeIn.duration(500)}>
+      {/* Hero Section */}
+      <LinearGradient
+        colors={[colors.brand.primary + "15", colors.system.background.primary]}
+        style={tw`px-4 pt-4 pb-6`}
+      >
+        {/* Badge */}
+        <View
+          style={[
+            tw`self-center px-4 py-2 rounded-full mb-4 flex-row items-center`,
+            { backgroundColor: colors.brand.primary + "30" },
+          ]}
+        >
+          <Ionicons name="book" size={14} color={colors.brand.primary} />
+          <Text
+            variant="caption1"
+            weight="semibold"
+            style={[tw`ml-2`, { color: colors.brand.primary }]}
+          >
+            TAFSEER COLLECTION
+          </Text>
+        </View>
+
+        {/* Title */}
+        <Text
+          style={[
+            tw`text-center text-4xl mb-2`,
+            {
+              color: colors.system.label.primary,
+              fontFamily: "System",
+              fontWeight: "300",
+            },
+          ]}
+        >
+          Ramadan {yearNum}
+        </Text>
+
+        {/* Description */}
+        <Text
+          variant="body"
+          color="secondaryLabel"
+          style={tw`text-center mb-6`}
+        >
+          Explore the blessed month&apos;s teachings and reflections
+        </Text>
+
+        {/* Stats */}
+        <View style={tw`flex-row justify-center items-center`}>
+          <View
+            style={[
+              tw`px-5 py-3 rounded-2xl mr-2`,
+              { backgroundColor: colors.system.background.secondary },
+            ]}
+          >
+            <Text
+              style={[
+                tw`text-2xl text-center`,
+                { color: colors.brand.primary, fontWeight: "300" },
+              ]}
+            >
+              {totalAlbums}
+            </Text>
+            <Text
+              variant="caption2"
+              color="secondaryLabel"
+              style={tw`text-center`}
+            >
+              ALBUMS
+            </Text>
+          </View>
+
+          <View
+            style={[
+              tw`px-5 py-3 rounded-2xl mr-2`,
+              { backgroundColor: colors.system.background.secondary },
+            ]}
+          >
+            <Text
+              style={[
+                tw`text-2xl text-center`,
+                { color: colors.brand.primary, fontWeight: "300" },
+              ]}
+            >
+              {totalLectures}
+            </Text>
+            <Text
+              variant="caption2"
+              color="secondaryLabel"
+              style={tw`text-center`}
+            >
+              LECTURES
+            </Text>
+          </View>
+
+          <View
+            style={[
+              tw`px-5 py-3 rounded-2xl`,
+              { backgroundColor: colors.system.background.secondary },
+            ]}
+          >
+            <Text
+              style={[
+                tw`text-2xl text-center`,
+                { color: colors.brand.primary, fontWeight: "300" },
+              ]}
+            >
+              {languages.length}
+            </Text>
+            <Text
+              variant="caption2"
+              color="secondaryLabel"
+              style={tw`text-center`}
+            >
+              LANGUAGES
+            </Text>
+          </View>
+        </View>
+      </LinearGradient>
+
+      {/* Search Bar */}
+      <View style={tw`px-4 mb-4`}>
+        <View
+          style={[
+            tw`flex-row items-center px-4 py-3 rounded-2xl`,
+            { backgroundColor: colors.system.background.secondary },
+          ]}
+        >
+          <Ionicons
+            name="search"
+            size={20}
+            color={colors.system.label.tertiary}
+          />
+          <TextInput
+            placeholder="Search by title or lecturer..."
+            placeholderTextColor={colors.system.label.tertiary}
+            value={searchQuery}
+            onChangeText={onSearchChange}
+            style={[
+              tw`flex-1 ml-3 text-base`,
+              { color: colors.system.label.primary },
+            ]}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={onSearchClear}>
+              <Ionicons
+                name="close-circle"
+                size={20}
+                color={colors.system.label.tertiary}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      {/* Language Filters */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={tw`px-4 pb-4`}
+      >
+        {["All", ...languages].map((lang) => {
+          const isSelected = selectedLanguage === lang;
+          const count = languageCounts[lang] || 0;
+
+          return (
+            <TouchableOpacity
+              key={lang}
+              onPress={() => onLanguageSelect(lang)}
+              style={[
+                tw`mr-2 px-4 py-2 rounded-full flex-row items-center`,
+                {
+                  backgroundColor: isSelected
+                    ? colors.brand.primary
+                    : colors.system.background.secondary,
+                },
+              ]}
+              activeOpacity={0.8}
+            >
+              <Text
+                variant="subheadline"
+                weight={isSelected ? "semibold" : "regular"}
+                style={{
+                  color: isSelected
+                    ? colors.fixed.black
+                    : colors.system.label.primary,
+                }}
+              >
+                {lang}
+              </Text>
+              <Text
+                variant="caption1"
+                style={[
+                  tw`ml-1`,
+                  {
+                    color: isSelected
+                      ? colors.fixed.black + "80"
+                      : colors.system.label.secondary,
+                  },
+                ]}
+              >
+                ({count})
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      {/* Results count */}
+      <View style={tw`px-4 pb-4`}>
+        <Text variant="footnote" color="secondaryLabel">
+          Showing {filteredCount} of {totalAlbums} albums
+        </Text>
+      </View>
+    </Animated.View>
+  )
+);
+
+RamadanYearHeader.displayName = "RamadanYearHeader";
 
 export default function RamadanYearScreen() {
   const { colors } = useTheme();
@@ -204,221 +454,21 @@ export default function RamadanYearScreen() {
     [colors, handleAlbumPress]
   );
 
-  const renderHeader = () => (
-    <Animated.View entering={FadeIn.duration(500)}>
-      {/* Hero Section */}
-      <LinearGradient
-        colors={[colors.brand.primary + "15", colors.system.background.primary]}
-        style={tw`px-4 pt-4 pb-6`}
-      >
-        {/* Badge */}
-        <View
-          style={[
-            tw`self-center px-4 py-2 rounded-full mb-4 flex-row items-center`,
-            { backgroundColor: colors.brand.primary + "30" },
-          ]}
-        >
-          <Ionicons name="book" size={14} color={colors.brand.primary} />
-          <Text
-            variant="caption1"
-            weight="semibold"
-            style={[tw`ml-2`, { color: colors.brand.primary }]}
-          >
-            TAFSEER COLLECTION
-          </Text>
-        </View>
-
-        {/* Title */}
-        <Text
-          style={[
-            tw`text-center text-4xl mb-2`,
-            {
-              color: colors.system.label.primary,
-              fontFamily: "System",
-              fontWeight: "300",
-            },
-          ]}
-        >
-          Ramadan {yearNum}
-        </Text>
-
-        {/* Description */}
-        <Text
-          variant="body"
-          color="secondaryLabel"
-          style={tw`text-center mb-6`}
-        >
-          Explore the blessed month&apos;s teachings and reflections
-        </Text>
-
-        {/* Stats */}
-        <View style={tw`flex-row justify-center items-center`}>
-          <View
-            style={[
-              tw`px-5 py-3 rounded-2xl mr-2`,
-              { backgroundColor: colors.system.background.secondary },
-            ]}
-          >
-            <Text
-              style={[
-                tw`text-2xl text-center`,
-                { color: colors.brand.primary, fontWeight: "300" },
-              ]}
-            >
-              {totalAlbums}
-            </Text>
-            <Text
-              variant="caption2"
-              color="secondaryLabel"
-              style={tw`text-center`}
-            >
-              ALBUMS
-            </Text>
-          </View>
-
-          <View
-            style={[
-              tw`px-5 py-3 rounded-2xl mr-2`,
-              { backgroundColor: colors.system.background.secondary },
-            ]}
-          >
-            <Text
-              style={[
-                tw`text-2xl text-center`,
-                { color: colors.brand.primary, fontWeight: "300" },
-              ]}
-            >
-              {totalLectures}
-            </Text>
-            <Text
-              variant="caption2"
-              color="secondaryLabel"
-              style={tw`text-center`}
-            >
-              LECTURES
-            </Text>
-          </View>
-
-          <View
-            style={[
-              tw`px-5 py-3 rounded-2xl`,
-              { backgroundColor: colors.system.background.secondary },
-            ]}
-          >
-            <Text
-              style={[
-                tw`text-2xl text-center`,
-                { color: colors.brand.primary, fontWeight: "300" },
-              ]}
-            >
-              {languages.length}
-            </Text>
-            <Text
-              variant="caption2"
-              color="secondaryLabel"
-              style={tw`text-center`}
-            >
-              LANGUAGES
-            </Text>
-          </View>
-        </View>
-      </LinearGradient>
-
-      {/* Search Bar */}
-      <View style={tw`px-4 mb-4`}>
-        <View
-          style={[
-            tw`flex-row items-center px-4 py-3 rounded-2xl`,
-            { backgroundColor: colors.system.background.secondary },
-          ]}
-        >
-          <Ionicons
-            name="search"
-            size={20}
-            color={colors.system.label.tertiary}
-          />
-          <TextInput
-            placeholder="Search by title or lecturer..."
-            placeholderTextColor={colors.system.label.tertiary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            style={[
-              tw`flex-1 ml-3 text-base`,
-              { color: colors.system.label.primary },
-            ]}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery("")}>
-              <Ionicons
-                name="close-circle"
-                size={20}
-                color={colors.system.label.tertiary}
-              />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      {/* Language Filters */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={tw`px-4 pb-4`}
-      >
-        {["All", ...languages].map((lang) => {
-          const isSelected = selectedLanguage === lang;
-          const count = languageCounts[lang] || 0;
-
-          return (
-            <TouchableOpacity
-              key={lang}
-              onPress={() => setSelectedLanguage(lang)}
-              style={[
-                tw`mr-2 px-4 py-2 rounded-full flex-row items-center`,
-                {
-                  backgroundColor: isSelected
-                    ? colors.brand.primary
-                    : colors.system.background.secondary,
-                },
-              ]}
-              activeOpacity={0.8}
-            >
-              <Text
-                variant="subheadline"
-                weight={isSelected ? "semibold" : "regular"}
-                style={{
-                  color: isSelected
-                    ? colors.fixed.black
-                    : colors.system.label.primary,
-                }}
-              >
-                {lang}
-              </Text>
-              <Text
-                variant="caption1"
-                style={[
-                  tw`ml-1`,
-                  {
-                    color: isSelected
-                      ? colors.fixed.black + "80"
-                      : colors.system.label.secondary,
-                  },
-                ]}
-              >
-                ({count})
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-
-      {/* Results count */}
-      <View style={tw`px-4 pb-4`}>
-        <Text variant="footnote" color="secondaryLabel">
-          Showing {filteredAlbums.length} of {totalAlbums} albums
-        </Text>
-      </View>
-    </Animated.View>
+  const listHeader = (
+    <RamadanYearHeader
+      colors={colors}
+      yearNum={yearNum}
+      totalAlbums={totalAlbums}
+      totalLectures={totalLectures}
+      languages={languages}
+      searchQuery={searchQuery}
+      selectedLanguage={selectedLanguage}
+      languageCounts={languageCounts}
+      filteredCount={filteredAlbums.length}
+      onSearchChange={setSearchQuery}
+      onSearchClear={() => setSearchQuery("")}
+      onLanguageSelect={setSelectedLanguage}
+    />
   );
 
   const renderFooter = () => {
@@ -542,10 +592,12 @@ export default function RamadanYearScreen() {
         renderItem={renderAlbumCard}
         keyExtractor={(item) => item.id}
         numColumns={2}
-        ListHeaderComponent={renderHeader}
+        ListHeaderComponent={listHeader}
         ListFooterComponent={renderFooter}
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="none"
         contentContainerStyle={tw`px-4 pb-32`}
         columnWrapperStyle={tw`justify-between`}
         showsVerticalScrollIndicator={false}

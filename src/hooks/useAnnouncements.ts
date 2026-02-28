@@ -9,8 +9,13 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { announcementsApi, AnnouncementApiResponse } from '../services/api/announcements.api';
 import { useAuthStore } from '../stores';
+import {
+  applyAnnouncementsCutoff,
+  countUnreadAnnouncements,
+} from './useAnnouncements.filtering';
 
 const GUEST_READ_ANNOUNCEMENTS_KEY = 'guest_read_announcements';
+const AUTH_ANNOUNCEMENTS_CUTOFFS_KEY = 'auth_announcements_cutoffs_v1';
 type UnreadCountListener = (count: number) => void;
 const unreadCountListeners = new Set<UnreadCountListener>();
 let sharedUnreadCount: number | null = null;
@@ -81,6 +86,66 @@ const saveGuestReadId = async (announcementId: string): Promise<void> => {
   }
 };
 
+const isCancelledApiError = (error: unknown): boolean =>
+  typeof error === 'object' &&
+  error !== null &&
+  'isCancelled' in error &&
+  (error as { isCancelled?: unknown }).isCancelled === true;
+
+const parseCutoffTimestamp = (value?: string): number | undefined => {
+  if (!value) return undefined;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const getStoredCutoffs = async (): Promise<Record<string, number>> => {
+  try {
+    const raw = await AsyncStorage.getItem(AUTH_ANNOUNCEMENTS_CUTOFFS_KEY);
+    if (!raw) return {};
+
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const normalized: Record<string, number> = {};
+
+    Object.entries(parsed).forEach(([key, value]) => {
+      if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+        normalized[key] = value;
+      }
+    });
+
+    return normalized;
+  } catch {
+    return {};
+  }
+};
+
+const saveCutoffs = async (cutoffs: Record<string, number>): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(
+      AUTH_ANNOUNCEMENTS_CUTOFFS_KEY,
+      JSON.stringify(cutoffs),
+    );
+  } catch {
+    // Best effort persistence only.
+  }
+};
+
+const getOrCreateAnnouncementsCutoff = async (
+  userId: string,
+  fallbackDateString?: string,
+): Promise<number> => {
+  const cutoffs = await getStoredCutoffs();
+  const existing = cutoffs[userId];
+  if (existing && Number.isFinite(existing) && existing > 0) {
+    return existing;
+  }
+
+  const fallback = parseCutoffTimestamp(fallbackDateString);
+  const nextCutoff = fallback ?? Date.now();
+  cutoffs[userId] = nextCutoff;
+  await saveCutoffs(cutoffs);
+  return nextCutoff;
+};
+
 export const useAnnouncements = (userIdParam?: string): UseAnnouncementsResult => {
   const [announcements, setAnnouncements] = useState<AnnouncementApiResponse[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -116,12 +181,25 @@ export const useAnnouncements = (userIdParam?: string): UseAnnouncementsResult =
         }));
         
         // Calculate unread count for guests
-        calculatedUnreadCount = fetchedAnnouncements.filter(a => !a.read).length;
+        calculatedUnreadCount = countUnreadAnnouncements(fetchedAnnouncements);
+      } else if (userId) {
+        const cutoffTimestamp = await getOrCreateAnnouncementsCutoff(
+          userId,
+          authUser?.created_at,
+        );
+        fetchedAnnouncements = applyAnnouncementsCutoff(
+          fetchedAnnouncements,
+          cutoffTimestamp,
+        );
+        calculatedUnreadCount = countUnreadAnnouncements(fetchedAnnouncements);
       }
 
       setAnnouncements(fetchedAnnouncements);
       setUnreadCount(calculatedUnreadCount);
     } catch (err: unknown) {
+      if (isCancelledApiError(err)) {
+        return;
+      }
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch announcements';
       console.error('❌ Error fetching announcements:', errorMessage);
       setError(errorMessage);
@@ -130,7 +208,7 @@ export const useAnnouncements = (userIdParam?: string): UseAnnouncementsResult =
     } finally {
       setLoading(false);
     }
-  }, [userId, isAuthenticated]);
+  }, [userId, isAuthenticated, authUser?.created_at]);
 
   useEffect(() => {
     fetchAnnouncements();
@@ -211,11 +289,23 @@ export const useUnreadAnnouncementsCount = (userIdParam?: string): number => {
       if (appStateRef.current !== 'active') {
         return;
       }
+      if (sharedUnreadCount !== null) {
+        setCountSafely(sharedUnreadCount);
+        return;
+      }
 
       try {
         if (isAuthenticated && userId) {
-          // For authenticated users, get count from server
-          const unreadCount = await announcementsApi.getUnreadCount(userId);
+          const response = await announcementsApi.getAnnouncements(userId);
+          const cutoffTimestamp = await getOrCreateAnnouncementsCutoff(
+            userId,
+            authUser?.created_at,
+          );
+          const filteredAnnouncements = applyAnnouncementsCutoff(
+            response.data,
+            cutoffTimestamp,
+          );
+          const unreadCount = countUnreadAnnouncements(filteredAnnouncements);
           setCountSafely(unreadCount);
         } else {
           // For guests, fetch announcements and calculate locally
@@ -225,6 +315,9 @@ export const useUnreadAnnouncementsCount = (userIdParam?: string): number => {
           setCountSafely(unreadCount);
         }
       } catch (err: unknown) {
+        if (isCancelledApiError(err)) {
+          return;
+        }
         console.error('Failed to fetch unread count:', err);
         setCountSafely(0);
       }
@@ -262,7 +355,7 @@ export const useUnreadAnnouncementsCount = (userIdParam?: string): number => {
       stopPolling();
       appStateSubscription.remove();
     };
-  }, [userId, isAuthenticated]);
+  }, [userId, isAuthenticated, authUser?.created_at]);
 
   useEffect(() => {
     return subscribeUnreadCount(setCount);

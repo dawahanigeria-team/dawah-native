@@ -13,6 +13,7 @@ export interface User {
   username: string;
   email: string;
   token?: string;
+  created_at?: string;
 }
 
 export interface LoginCredentials {
@@ -45,6 +46,8 @@ export interface LoginResponse {
       languageId: string;
       user_type: string;
       is_social: boolean;
+      created_at?: string;
+      createdAt?: string;
     };
     tokens: {
       access_token: string;
@@ -65,6 +68,8 @@ export interface RegisterResponse {
       username: string;
       email: string;
       languageId: string;
+      created_at?: string;
+      createdAt?: string;
     };
     tokens: {
       access_token: string;
@@ -100,6 +105,8 @@ export interface UpdateProfileResponse {
       languageId: string;
       user_type: string;
       is_social: boolean;
+      created_at?: string;
+      createdAt?: string;
     };
     tokens?: {
       access_token: string;
@@ -135,6 +142,16 @@ class AuthApiService {
   private readonly REFRESH_TOKEN_KEY = 'refresh_token';
   private readonly LEGACY_AUTH_TOKEN_KEY = 'auth_token';
   private migrationComplete = false;
+
+  private getUserCreatedAt(value: { created_at?: string; createdAt?: string }): string | undefined {
+    if (typeof value.created_at === 'string' && value.created_at.trim().length > 0) {
+      return value.created_at;
+    }
+    if (typeof value.createdAt === 'string' && value.createdAt.trim().length > 0) {
+      return value.createdAt;
+    }
+    return undefined;
+  }
 
   private buildDeleteAccountPayload(userId: string): DeleteAccountPayload {
     const numericUserId = Number(userId);
@@ -186,6 +203,7 @@ class AuthApiService {
         username: response.data.data.user.username,
         email: response.data.data.user.email,
         token: response.data.data.tokens.access_token,
+        created_at: this.getUserCreatedAt(response.data.data.user),
       };
 
       // Store user data (not sensitive) in AsyncStorage
@@ -224,6 +242,7 @@ class AuthApiService {
         username: response.data.data.user.username,
         email: response.data.data.user.email,
         token: response.data.data.tokens.access_token,
+        created_at: this.getUserCreatedAt(response.data.data.user),
       };
 
       // Store user data (not sensitive) in AsyncStorage
@@ -267,6 +286,7 @@ class AuthApiService {
         username: response.data.data.user.username,
         email: response.data.data.user.email,
         token: response.data.data.tokens.access_token,
+        created_at: this.getUserCreatedAt(response.data.data.user),
       };
 
       await AsyncStorage.setItem(this.USER_KEY, JSON.stringify(user));
@@ -305,6 +325,7 @@ class AuthApiService {
         username: response.data.data.user.username,
         email: response.data.data.user.email,
         token: response.data.data.tokens?.access_token || accessToken,
+        created_at: this.getUserCreatedAt(response.data.data.user),
       };
 
       // Update stored user data

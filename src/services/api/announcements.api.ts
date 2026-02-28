@@ -63,9 +63,15 @@ class AnnouncementsApiService {
 
       return this.normalizeResponse(response.data);
     } catch (error) {
+      if (error instanceof ApiError && error.isCancelled) {
+        throw error;
+      }
       // Don't log "Invalid user_id" errors - expected for guest/new users
       const errorMessage = error instanceof Error ? error.message : '';
-      if (!errorMessage.includes('Invalid user_id')) {
+      if (
+        !errorMessage.includes('Invalid user_id') &&
+        !(error instanceof ApiError && error.isCancelled)
+      ) {
         console.error('❌ Announcements API Error:', error);
       }
       if (error instanceof ApiError) {
@@ -117,9 +123,15 @@ class AnnouncementsApiService {
       const response = await this.getAnnouncements(userId);
       return response.unread_count || response.data.filter(a => !a.read).length;
     } catch (error) {
+      if (error instanceof ApiError && error.isCancelled) {
+        return 0;
+      }
       // Don't log "Invalid user_id" errors - expected for guest/new users
       const errorMessage = error instanceof Error ? error.message : '';
-      if (!errorMessage.includes('Invalid user_id')) {
+      if (
+        !errorMessage.includes('Invalid user_id') &&
+        !(error instanceof ApiError && error.isCancelled)
+      ) {
         console.error('❌ Failed to get unread count:', error);
       }
       return 0;
