@@ -146,6 +146,11 @@ function applyIosExpoImportFix(contents) {
     "override func application("
   );
 
+  updated = updated.replace(
+    /^[ \t]*bindReactNativeFactory\(factory\)\n/m,
+    ""
+  );
+
   return updated;
 }
 
