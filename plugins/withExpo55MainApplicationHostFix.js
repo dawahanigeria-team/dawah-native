@@ -3,8 +3,11 @@ const path = require("path");
 const { withDangerousMod, WarningAggregator } = require("expo/config-plugins");
 
 const MAIN_APPLICATION_FILE = "MainApplication.kt";
+const APP_DELEGATE_FILE = "AppDelegate.swift";
 const EXPO_IMPORT_OLD = "import expo.modules.ReactNativeHostWrapper";
 const EXPO_IMPORT_NEW = "import expo.modules.ExpoReactHostFactory";
+const EXPO_IOS_IMPORT_OLD = "import Expo";
+const EXPO_IOS_IMPORT_NEW = "internal import Expo";
 
 const HOST_BLOCK = `  override val reactNativeHost: ReactNativeHost =
       object : DefaultReactNativeHost(this) {
@@ -74,6 +77,34 @@ function findMainApplicationPath(androidProjectRoot, androidPackage) {
   return null;
 }
 
+function findFileRecursive(rootDir, fileName, excludedDirs = new Set()) {
+  if (!fs.existsSync(rootDir)) {
+    return null;
+  }
+
+  const stack = [rootDir];
+  while (stack.length > 0) {
+    const dir = stack.pop();
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (!excludedDirs.has(entry.name)) {
+          stack.push(fullPath);
+        }
+        continue;
+      }
+
+      if (entry.isFile() && entry.name === fileName) {
+        return fullPath;
+      }
+    }
+  }
+
+  return null;
+}
+
 function applyExpo55HostFix(contents) {
   let updated = contents;
 
@@ -98,8 +129,28 @@ function applyExpo55HostFix(contents) {
   return updated;
 }
 
-const withExpo55MainApplicationHostFix = (config) =>
-  withDangerousMod(config, [
+function applyIosExpoImportFix(contents) {
+  let updated = contents;
+
+  if (!updated.includes(EXPO_IOS_IMPORT_NEW)) {
+    updated = updated.replace(EXPO_IOS_IMPORT_OLD, EXPO_IOS_IMPORT_NEW);
+  }
+
+  updated = updated.replace(
+    /public class AppDelegate: ExpoAppDelegate/g,
+    "class AppDelegate: ExpoAppDelegate"
+  );
+
+  updated = updated.replace(
+    /public override func application\(/g,
+    "override func application("
+  );
+
+  return updated;
+}
+
+const withExpo55MainApplicationHostFix = (config) => {
+  const withAndroidFix = withDangerousMod(config, [
     "android",
     async (cfg) => {
       const androidProjectRoot = cfg.modRequest.platformProjectRoot;
@@ -126,5 +177,35 @@ const withExpo55MainApplicationHostFix = (config) =>
       return cfg;
     },
   ]);
+
+  return withDangerousMod(withAndroidFix, [
+    "ios",
+    async (cfg) => {
+      const iosProjectRoot = cfg.modRequest.platformProjectRoot;
+      const appDelegatePath = findFileRecursive(
+        iosProjectRoot,
+        APP_DELEGATE_FILE,
+        new Set(["Pods", ".symlinks"])
+      );
+
+      if (!appDelegatePath) {
+        WarningAggregator.addWarningIOS(
+          "withExpo55MainApplicationHostFix",
+          "AppDelegate.swift was not found; iOS Expo import fix was skipped."
+        );
+        return cfg;
+      }
+
+      const original = fs.readFileSync(appDelegatePath, "utf8");
+      const updated = applyIosExpoImportFix(original);
+
+      if (updated !== original) {
+        fs.writeFileSync(appDelegatePath, updated);
+      }
+
+      return cfg;
+    },
+  ]);
+};
 
 module.exports = withExpo55MainApplicationHostFix;
