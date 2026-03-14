@@ -125,13 +125,20 @@ export default function RamadanTafsirScreen() {
             </View>
             <View style={tw`p-3`}>
               <Text
-                variant="footnote"
+                variant="subheadline"
                 color="label"
-                weight="medium"
-                numberOfLines={2}
-                style={tw`leading-4`}
+                weight="semibold"
+                numberOfLines={3}
+                style={tw`leading-5`}
               >
                 {album.name}
+              </Text>
+              <Text
+                variant="caption2"
+                color="secondaryLabel"
+                style={tw`mt-1`}
+              >
+                {album.lec_no} {album.lec_no === 1 ? 'lecture' : 'lectures'}
               </Text>
             </View>
           </TouchableOpacity>

@@ -395,22 +395,6 @@ export default function RamadanYearScreen() {
                 style={tw`w-full aspect-square rounded-t-2xl`}
                 resizeMode="cover"
               />
-              {/* Gradient overlay at bottom */}
-              <LinearGradient
-                colors={["transparent", "rgba(0,0,0,0.8)"]}
-                style={tw`absolute bottom-0 left-0 right-0 h-20`}
-              />
-              {/* Title on image */}
-              <View style={tw`absolute bottom-0 left-0 right-0 p-3`}>
-                <Text
-                  variant="footnote"
-                  weight="semibold"
-                  numberOfLines={2}
-                  style={[tw`leading-4`, { color: "#fff" }]}
-                >
-                  {item.name}
-                </Text>
-              </View>
               {/* Lectures badge */}
               <View
                 style={[
@@ -432,9 +416,17 @@ export default function RamadanYearScreen() {
                 </Text>
               </View>
             </View>
-            {/* Lecturer name / language */}
             <View style={tw`p-3`}>
-              <View style={tw`flex-row items-center`}>
+              <Text
+                variant="subheadline"
+                color="label"
+                weight="semibold"
+                numberOfLines={3}
+                style={tw`leading-5`}
+              >
+                {item.name}
+              </Text>
+              <View style={tw`flex-row items-center mt-1`}>
                 <View
                   style={[
                     tw`px-2 py-0.5 rounded`,
