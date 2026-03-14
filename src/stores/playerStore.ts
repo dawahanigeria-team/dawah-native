@@ -198,6 +198,8 @@ const playEpisode = async (episode: Episode) => {
   }
 
   try {
+    const wasPlaying = playerStore.get().isPlaying;
+
     setAndPersistPlayerState({
       ...playerStore.get(),
       isLoading: true,
@@ -211,8 +213,8 @@ const playEpisode = async (episode: Episode) => {
     if (currentState.currentEpisode?.id === episode.id) {
       logger.debug('📱 PlayerStore: Same episode already loaded');
 
-      // If it's paused, just resume using TrackPlayer (not audioControls)
-      if (!currentState.isPlaying) {
+      // If it was paused, resume; if it was playing, just show mini player
+      if (!wasPlaying) {
         logger.debug('▶️ PlayerStore: Resuming playback...');
         await TrackPlayer.play();
         if (audioControls) {
@@ -229,6 +231,8 @@ const playEpisode = async (episode: Episode) => {
         logger.debug('⏸️ PlayerStore: Already playing this episode');
         setAndPersistPlayerState({
           ...currentState,
+          isPlaying: true,
+          isLoading: false,
           isExpanded: false,
         });
       }
@@ -463,8 +467,17 @@ const playPrevious = async () => {
 
   if (currentState.progress > 3 && currentState.currentEpisode) {
     logger.debug('🔄 PlayerStore: Restarting current episode');
-    if (audioControls) {
-      audioControls.seekTo(0);
+    try {
+      await TrackPlayer.seekTo(0);
+      const nextState = {
+        ...currentState,
+        isPlaying: shouldResumePlayback,
+        progress: 0,
+      };
+      setAndPersistPlayerState(nextState);
+      persistQueueSnapshot(nextState);
+    } catch (error) {
+      logger.error('Failed to restart current episode', error as Error);
     }
     return;
   }
