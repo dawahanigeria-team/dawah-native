@@ -23,12 +23,11 @@ import { useRamadanAlbums } from "../../src/hooks/useRamadanAlbums";
 import { useRecentlyPlayedLectures } from "../../src/hooks/useRecentlyPlayedLectures";
 import { useTheme } from "../../src/hooks/useTheme";
 import { useTrending } from "../../src/hooks/useTrending";
-import { useVideos } from "../../src/hooks/useVideos";
 import { QuranAlbum } from "../../src/services/api/quran.api";
 import { RamadanAlbum } from "../../src/services/api/ramadan.api";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
-import { Episode, Series, Video } from "../../src/types/types";
+import { Episode, Series } from "../../src/types/types";
 
 type AlbumType = QuranAlbum | RamadanAlbum;
 
@@ -76,14 +75,6 @@ const getSectionInfo = (type: string) => {
         count: 0,
         data: [],
         variant: "quran" as const,
-      };
-    case "videos":
-      return {
-        title: "Featured Videos",
-        description: "Watch inspiring video content from our scholars",
-        count: 0,
-        data: [],
-        variant: "videos" as const,
       };
     case "ramadan-tafsir":
       return {
@@ -162,19 +153,6 @@ function SectionScreen() {
     isLoadingMore: isLoadingMoreQuran,
   } = useQuranAlbums(quranParams);
 
-  // Fetch videos if this is the videos section
-  const videosParams = type === "videos" ? { page: 1, limit: 20 } : undefined;
-
-  const {
-    videos,
-    loading: videosLoading,
-    error: videosError,
-    refetch: refetchVideos,
-    loadMore: loadMoreVideos,
-    hasMore: hasMoreVideos,
-    isLoadingMore: isLoadingMoreVideos,
-  } = useVideos(videosParams);
-
   // Fetch Ramadan albums if this is the ramadan-tafsir section
   const ramadanParams =
     type === "ramadan-tafsir" ? { page: 1, limit: 20 } : undefined;
@@ -208,9 +186,7 @@ function SectionScreen() {
           ? recentlyPlayedLectures
           : type === "quran-recitations"
             ? quranAlbums
-            : type === "videos"
-              ? videos
-              : type === "ramadan-tafsir"
+            : type === "ramadan-tafsir"
                 ? ramadanAlbums
                 : sectionInfo.data;
 
@@ -223,9 +199,7 @@ function SectionScreen() {
           ? recentlyPlayedLoading
           : type === "quran-recitations"
             ? quranLoading
-            : type === "videos"
-              ? videosLoading
-              : type === "ramadan-tafsir"
+            : type === "ramadan-tafsir"
                 ? ramadanLoading
                 : false;
 
@@ -235,12 +209,10 @@ function SectionScreen() {
       : type === "recently-posted"
         ? trendingError
         : type === "recently-played"
-          ? recentlyPlayedError
-          : type === "quran-recitations"
-            ? quranError
-            : type === "videos"
-              ? videosError
-              : type === "ramadan-tafsir"
+        ? recentlyPlayedError
+        : type === "quran-recitations"
+          ? quranError
+            : type === "ramadan-tafsir"
                 ? ramadanError
                 : null;
 
@@ -248,19 +220,17 @@ function SectionScreen() {
     if (type === "trending" || type === "recently-posted")
       return refetchTrending;
     if (type === "quran-recitations") return refetchQuran;
-    if (type === "videos") return refetchVideos;
     if (type === "ramadan-tafsir") return refetchRamadan;
     return () => Promise.resolve();
-  }, [type, refetchTrending, refetchQuran, refetchVideos, refetchRamadan]);
+  }, [type, refetchTrending, refetchQuran, refetchRamadan]);
 
   const loadMore = useMemo(() => {
     if (type === "trending" || type === "recently-posted")
       return loadMoreTrending;
     if (type === "quran-recitations") return loadMoreQuran;
-    if (type === "videos") return loadMoreVideos;
     if (type === "ramadan-tafsir") return loadMoreRamadan;
     return () => Promise.resolve();
-  }, [type, loadMoreTrending, loadMoreQuran, loadMoreVideos, loadMoreRamadan]);
+  }, [type, loadMoreTrending, loadMoreQuran, loadMoreRamadan]);
 
   const hasMore =
     type === "trending"
@@ -269,9 +239,7 @@ function SectionScreen() {
         ? hasMoreTrending
         : type === "quran-recitations"
           ? hasMoreQuran
-          : type === "videos"
-            ? hasMoreVideos
-            : type === "ramadan-tafsir"
+          : type === "ramadan-tafsir"
               ? hasMoreRamadan
               : false;
 
@@ -282,9 +250,7 @@ function SectionScreen() {
         ? isLoadingMoreTrending
         : type === "quran-recitations"
           ? isLoadingMoreQuran
-          : type === "videos"
-            ? isLoadingMoreVideos
-            : type === "ramadan-tafsir"
+          : type === "ramadan-tafsir"
               ? isLoadingMoreRamadan
               : false;
 
@@ -386,12 +352,6 @@ function SectionScreen() {
     router.push(`/quran-reciter/${album.id}`);
   }, []);
 
-  const handleVideoPress = useCallback((video: Video) => {
-    if (!video?.id) return;
-    // Navigate to video player page
-    router.push(`/video/${video.id}`);
-  }, []);
-
   const handleRamadanAlbumPress = useCallback((album: RamadanAlbum) => {
     if (!album?.id) return;
     // Navigate to album detail page (uses same page as quran reciter)
@@ -408,7 +368,6 @@ function SectionScreen() {
       (type === "trending" ||
         type === "recently-posted" ||
         type === "quran-recitations" ||
-        type === "videos" ||
         type === "ramadan-tafsir") &&
       hasMore &&
       !isLoadingMore
@@ -419,44 +378,7 @@ function SectionScreen() {
 
   // Render item for list
   const renderItem = useCallback(
-    ({ item }: { item: Episode | Series | AlbumType | Video }) => {
-      // Handle Videos
-      if (
-        sectionInfo.variant === "videos" &&
-        "youtubeId" in item &&
-        "thumbnailUrl" in item
-      ) {
-        const video = item as Video;
-        return (
-          <Card
-            variant="section"
-            data={
-              {
-                id: video.id,
-                title: video.title,
-                youtubeUrl: video.youtubeUrl,
-                youtubeId: video.youtubeId,
-                thumbnailUrl: video.thumbnailUrl,
-                coverUrl: video.thumbnailUrl,
-                durationSec: video.durationSec,
-                views: video.views,
-                likes: video.likes,
-                language: video.language || "",
-                createdAt: video.createdAt,
-                lecturerName: video.lecturerName,
-              } as Video
-            }
-            onPress={() => handleVideoPress(video)}
-            showTime={true}
-            showMeta={true}
-            metaValue={video.lecturerName || "Unknown"}
-            titleNumberOfLines={0}
-            metaNumberOfLines={2}
-            isVideo={true}
-          />
-        );
-      }
-
+    ({ item }: { item: Episode | Series | AlbumType }) => {
       // Handle Ramadan Tafsir albums
       if (
         sectionInfo.variant === "ramadan" &&
@@ -665,7 +587,6 @@ function SectionScreen() {
       handleLecturePress,
       handleQuranAlbumPress,
       handleRamadanAlbumPress,
-      handleVideoPress,
       sectionInfo.variant,
       type,
       colors,

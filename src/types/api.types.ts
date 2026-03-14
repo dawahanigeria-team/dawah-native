@@ -157,7 +157,6 @@ export interface LectureDetailResponse extends BaseApiResponse {
     Title: string;
     Duration: string;
     AudioUrl: string;
-    VideoUrl?: string;
     CoverUrl?: string;
     Description?: string;
     Plays: string;
@@ -441,5 +440,4 @@ export interface PlaylistData {
 export interface PlaylistDataResponse extends BaseApiResponse {
   playlist_data: PlaylistData[];
 }
-
 

@@ -1,6 +1,5 @@
 export { useAccessibility } from "./useAccessibility";
 export { useLectureDetail } from "./useLectureDetail";
-export { useVideos } from "./useVideos";
 export { useRamadanAlbums } from "./useRamadanAlbums";
 export { useAnnouncements, useUnreadAnnouncementsCount } from "./useAnnouncements";
 

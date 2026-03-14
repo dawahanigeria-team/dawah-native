@@ -46,13 +46,13 @@ const mockAnnouncements: Announcement[] = [
   },
   {
     id: "2",
-    title: "New Feature: Video Lectures",
+    title: "App Improvements",
     message:
-      "We've added video lectures! Click the Video section on the home page to watch inspiring content from our scholars.",
+      "We continue to improve the app experience with regular fixes and content updates from our scholars.",
     createdAt: new Date(Date.now() - 86400000).toISOString(),
     read: false,
     type: "update",
-    icon: "videocam",
+    icon: "sparkles",
   },
   {
     id: "3",

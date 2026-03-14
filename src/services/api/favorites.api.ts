@@ -13,7 +13,7 @@ import { logger } from '@/utils/logger';
 export interface ToggleFavoriteRequest {
   user_id: string;
   item_id: string;
-  type: 'audio' | 'video';
+  type: 'audio';
 }
 
 export interface ToggleFavoriteResponse {
@@ -24,7 +24,6 @@ export interface ToggleFavoriteResponse {
 export interface FavoritesListResponse {
   user_id: number;
   audio?: number[];
-  video?: number[];
 }
 
 class FavoritesApiService {
@@ -46,7 +45,7 @@ class FavoritesApiService {
    */
   async toggleFavorite(
     lectureId: string,
-    type: 'audio' | 'video' = 'audio'
+    type: 'audio' = 'audio'
   ): Promise<ToggleFavoriteResponse> {
     try {
       const userId = await this.getUserId();
@@ -131,7 +130,7 @@ class FavoritesApiService {
   /**
    * Get list of favorite lecture IDs
    */
-  async getFavoriteIds(type: 'audio' | 'video' = 'audio'): Promise<string[]> {
+  async getFavoriteIds(type: 'audio' = 'audio'): Promise<string[]> {
     try {
       const userId = await this.getUserId();
 

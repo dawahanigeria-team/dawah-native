@@ -23,7 +23,6 @@ Most endpoints require the `x-project` header with value: `206cf92c-8a46-45ef-bf
 9. [Social Features API](#social-features-api)
 10. [Content Management API](#content-management-api)
 11. [Ramadan API](#ramadan-api)
-12. [Video API](#video-api)
 
 ---
 
@@ -487,25 +486,6 @@ fetch("/api/ramadanlisting_api.php?action=getAllRamadanYear");
 fetch(
   "/api/ramadanlisting_api.php?action=getDocumentsGroupedByKeyLang&key_id=123"
 );
-```
-
----
-
-## Video API
-
-### Get Videos
-
-**Endpoint:** `GET /api/video_listingApi.php`
-
-**Parameters:**
-
-- `page` (optional): Page number (default: 1)
-- `limit` (optional): Results per page (default: 30)
-
-**Example:**
-
-```javascript
-fetch("/api/video_listingApi.php?page=1&limit=20");
 ```
 
 ---

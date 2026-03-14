@@ -67,7 +67,7 @@ src/components/
 
 ### Key Dependencies
 - **expo-router**: File-based routing
-- **expo-av**: Audio/video playback
+- **expo-audio**: Audio playback
 - **expo-haptics**: iOS haptic feedback
 - **react-native-reanimated**: Animations (configured in babel.config.js)
 - **simpler-state**: State management

@@ -56,7 +56,6 @@ const createEpisodeFromDetail = (detail: LectureDetail | null): Episode | null =
     durationSec: detail.durationSec || 0,
     coverUrl: detail.coverUrl || "",
     audioUrl: detail.audioUrl || "",
-    videoUrl: undefined,
     seriesId: detail.albumId || "",
     plays: detail.views || 0,
     liked: false,
