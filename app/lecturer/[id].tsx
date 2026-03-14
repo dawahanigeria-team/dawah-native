@@ -18,6 +18,10 @@ import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
 import { TabView } from "../../src/components/molecules/TabView";
 import { useDebounce } from "../../src/hooks/useDebounce";
 import { useTheme } from "../../src/hooks/useTheme";
+import {
+  buildLecturerPlaylistSearchKey,
+  shouldFetchLecturerPlaylists,
+} from "../../src/features/lecturer/playlistTabState";
 import { Album, albumsApi } from "../../src/services/api/albums.api";
 import {
   Lecturer,
@@ -225,6 +229,8 @@ function LecturerDetailScreen() {
   const [hasMorePlaylists, setHasMorePlaylists] = useState(true);
   const [loadingMorePlaylists, setLoadingMorePlaylists] = useState(false);
   const isPlaylistLoadingRef = useRef(false);
+  const [lastLoadedPlaylistSearchKey, setLastLoadedPlaylistSearchKey] =
+    useState<string | null>(null);
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabType>("songs");
@@ -467,12 +473,32 @@ function LecturerDetailScreen() {
     fetchAlbums(); // Fetch albums on initial load to show correct count
   }, [lecturerId, fetchLecturerDetails, fetchLecturerLectures, fetchAlbums]);
 
+  const playlistQueryName = lecturer?.rpname || lecturer?.name || "";
+  const playlistSearchKey = buildLecturerPlaylistSearchKey(
+    lecturerId,
+    playlistQueryName,
+  );
+
+  useEffect(() => {
+    setPlaylists([]);
+    setCurrentPlaylistPage(1);
+    setHasMorePlaylists(true);
+    setLoadingMorePlaylists(false);
+    setPlaylistsLoading(false);
+    isPlaylistLoadingRef.current = false;
+    setLastLoadedPlaylistSearchKey(null);
+  }, [playlistSearchKey]);
+
   const fetchPlaylists = useCallback(
     async (page = 1, appendData = false) => {
     if (isPlaylistLoadingRef.current) return;
 
     // Need lecturer name to search
     const queryName = lecturer?.rpname || lecturer?.name;
+    const currentPlaylistKey = buildLecturerPlaylistSearchKey(
+      lecturerId,
+      queryName,
+    );
     if (!queryName) {
       setPlaylistsLoading(false);
       return;
@@ -509,6 +535,9 @@ function LecturerDetailScreen() {
       const hasMore = response.data.length >= PAGE_SIZE;
       setHasMorePlaylists(hasMore);
       setCurrentPlaylistPage(page);
+      if (!appendData) {
+        setLastLoadedPlaylistSearchKey(currentPlaylistKey);
+      }
     } catch (err: unknown) {
       const error =
         err instanceof Error ? err : new Error("Failed to fetch playlists");
@@ -537,20 +566,21 @@ function LecturerDetailScreen() {
 
   // Fetch playlists when tab changes
   useEffect(() => {
-    if (
-      activeTab === "playlists" &&
-      playlists.length === 0 &&
-      !playlistsLoading &&
-      (lecturer?.rpname || lecturer?.name)
-    ) {
+    if (shouldFetchLecturerPlaylists({
+      activeTab,
+      playlistsLoading,
+      queryName: playlistQueryName,
+      currentSearchKey: playlistSearchKey,
+      lastLoadedSearchKey: lastLoadedPlaylistSearchKey,
+    })) {
       fetchPlaylists();
     }
   }, [
     activeTab,
     fetchPlaylists,
-    lecturer?.name,
-    lecturer?.rpname,
-    playlists.length,
+    lastLoadedPlaylistSearchKey,
+    playlistQueryName,
+    playlistSearchKey,
     playlistsLoading,
   ]);
 
