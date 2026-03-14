@@ -146,7 +146,9 @@ const ProfileScreen = () => {
 
       await deleteAccount();
       router.replace("/sign-in");
-      Alert.alert("Success", "Account deleted successfully.");
+      setTimeout(() => {
+        Alert.alert("Success", "Account deleted successfully.");
+      }, 300);
     } catch (err: unknown) {
       const error = err as Error;
       captureSentryException(error, {

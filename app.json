@@ -122,7 +122,11 @@
         "expo-audio",
         {
           "microphonePermission": false,
-          "recordAudioAndroid": false
+          "recordAudioAndroid": false,
+          "audioMode": {
+            "playsInSilentModeIOS": true,
+            "staysActiveInBackground": true
+          }
         }
       ],
       [
