@@ -41,7 +41,9 @@ class UserService {
 
       return userId;
     } catch (error) {
-      console.error('Failed to get/create user ID:', error);
+      logger.error('Failed to get/create user ID:', error, {
+        operation: 'user_get_or_create_id',
+      });
       // Fallback to a temporary ID
       return generateUniqueId();
     }
@@ -55,7 +57,10 @@ class UserService {
       await AsyncStorage.setItem(USER_ID_KEY, userId);
       logger.debug('Set user ID:', userId);
     } catch (error) {
-      console.error('Failed to set user ID:', error);
+      logger.error('Failed to set user ID:', error, {
+        operation: 'user_set_id',
+        userId,
+      });
     }
   }
 
@@ -67,7 +72,9 @@ class UserService {
       await AsyncStorage.removeItem(USER_ID_KEY);
       logger.debug('Cleared user ID');
     } catch (error) {
-      console.error('Failed to clear user ID:', error);
+      logger.error('Failed to clear user ID:', error, {
+        operation: 'user_clear_id',
+      });
     }
   }
 }

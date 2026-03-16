@@ -4,9 +4,22 @@
  * Use this instead of console.log to avoid performance issues in production
  */
 
+import { capturePostHogException } from '../services/config/posthog.config';
 import { captureSentryException } from '../services/config/sentry.config';
 
 const isDev = __DEV__;
+
+const toError = (error: unknown): Error | undefined => {
+  if (!error) return undefined;
+  if (error instanceof Error) return error;
+  if (typeof error === 'string') return new Error(error);
+
+  try {
+    return new Error(JSON.stringify(error));
+  } catch {
+    return new Error(String(error));
+  }
+};
 
 export const logger = {
   /**
@@ -37,12 +50,22 @@ export const logger = {
   /**
    * Error logs - shown in all environments and sent to Sentry in production
    */
-  error: (message: string, error?: Error, context?: Record<string, any>) => {
+  error: (message: string, error?: unknown, context?: Record<string, any>) => {
     console.error(message, error, context);
 
-    // Send to Sentry in production
-    if (!isDev && error) {
-      captureSentryException(error, { message, ...context });
+    const normalizedError = toError(error);
+    if (!normalizedError) {
+      return;
+    }
+
+    const telemetryContext = { message, ...context };
+    capturePostHogException(normalizedError, telemetryContext);
+
+    // Send to Sentry in production without duplicating PostHog forwarding.
+    if (!isDev) {
+      captureSentryException(normalizedError, telemetryContext, {
+        alsoSendToPostHog: false,
+      });
     }
   },
 };

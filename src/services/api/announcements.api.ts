@@ -72,7 +72,9 @@ class AnnouncementsApiService {
         !errorMessage.includes('Invalid user_id') &&
         !(error instanceof ApiError && error.isCancelled)
       ) {
-        console.error('❌ Announcements API Error:', error);
+        logger.error('❌ Announcements API Error:', error, {
+          operation: 'announcements_get',
+        });
       }
       if (error instanceof ApiError) {
         throw error;
@@ -110,7 +112,10 @@ class AnnouncementsApiService {
         message: response.data?.message,
       };
     } catch (error) {
-      console.error('❌ Mark as Read API Error:', error);
+      logger.error('❌ Mark as Read API Error:', error, {
+        operation: 'announcements_mark_read',
+        announcementId,
+      });
       throw new ApiError('Failed to mark announcement as read', undefined, error);
     }
   }
@@ -132,7 +137,9 @@ class AnnouncementsApiService {
         !errorMessage.includes('Invalid user_id') &&
         !(error instanceof ApiError && error.isCancelled)
       ) {
-        console.error('❌ Failed to get unread count:', error);
+        logger.error('❌ Failed to get unread count:', error, {
+          operation: 'announcements_unread_count',
+        });
       }
       return 0;
     }

@@ -6,6 +6,9 @@ import {
 } from '../api/networkErrors'
 
 let posthogInstance: PostHog | null = null
+let pendingFlush: Promise<void> | null = null
+
+const ERROR_STACK_MAX_LENGTH = 4000
 
 export const getPostHog = (): PostHog | null => {
   if (posthogInstance) return posthogInstance
@@ -49,6 +52,41 @@ const isBenignError = (error: unknown): boolean => {
   return false
 }
 
+const normalizeErrorForPostHog = (error: Error | unknown) => {
+  if (error instanceof Error) {
+    return {
+      name: error.name || 'Error',
+      message: error.message || 'Unknown error',
+      stack: error.stack ? error.stack.slice(0, ERROR_STACK_MAX_LENGTH) : undefined,
+      exception: error,
+    }
+  }
+
+  if (typeof error === 'string') {
+    return {
+      name: 'Error',
+      message: error,
+      stack: undefined,
+      exception: new Error(error),
+    }
+  }
+
+  const message = (() => {
+    try {
+      return JSON.stringify(error) || 'Unknown error'
+    } catch {
+      return String(error ?? 'Unknown error')
+    }
+  })()
+
+  return {
+    name: 'Error',
+    message,
+    stack: undefined,
+    exception: new Error(message),
+  }
+}
+
 export const capturePostHogException = (
   error: Error | unknown,
   context?: Record<string, string | number | boolean | null>,
@@ -58,5 +96,25 @@ export const capturePostHogException = (
   const posthog = getPostHog()
   if (!posthog) return
 
-  posthog.captureException(error, context)
+  const normalizedError = normalizeErrorForPostHog(error)
+
+  posthog.capture('app_error', {
+    error_name: normalizedError.name,
+    error_message: normalizedError.message,
+    ...(normalizedError.stack ? { error_stack: normalizedError.stack } : {}),
+    error_source: 'manual_capture',
+    ...context,
+  })
+
+  posthog.captureException(normalizedError.exception, context)
+
+  if (!pendingFlush) {
+    pendingFlush = posthog.flush()
+      .catch((flushError) => {
+        console.warn('[PostHog] flush() failed after captureException', flushError)
+      })
+      .finally(() => {
+        pendingFlush = null
+      })
+  }
 }

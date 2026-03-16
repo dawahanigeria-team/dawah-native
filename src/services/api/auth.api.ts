@@ -7,6 +7,7 @@ import AsyncStorage from 'expo-sqlite/kv-store';
 import { API_CONFIG } from '../config/api.config';
 import { apiClient, ApiError } from './base.api';
 import { secureStoreCompat } from '../storage/secureStoreCompat';
+import { logger } from '@/utils/logger';
 
 export interface User {
   id: string;
@@ -182,7 +183,9 @@ class AuthApiService {
         }
       }
     } catch (error) {
-      console.error('Token migration failed:', error);
+      logger.error('Token migration failed:', error, {
+        operation: 'auth_migrate_tokens',
+      });
     }
   }
 
@@ -216,7 +219,10 @@ class AuthApiService {
 
       return user;
     } catch (error) {
-      console.error('Login error:', error);
+      logger.error('Login error:', error, {
+        operation: 'auth_login',
+        email: credentials.email,
+      });
       throw error;
     }
   }
@@ -255,7 +261,11 @@ class AuthApiService {
 
       return user;
     } catch (error) {
-      console.error('Registration error:', error);
+      logger.error('Registration error:', error, {
+        operation: 'auth_register',
+        email: credentials.email,
+        username: credentials.username,
+      });
       throw error;
     }
   }
@@ -296,7 +306,11 @@ class AuthApiService {
 
       return user;
     } catch (error) {
-      console.error('Social login error:', error);
+      logger.error('Social login error:', error, {
+        operation: 'auth_social_login',
+        provider: credentials.provider,
+        email: credentials.email ?? null,
+      });
       throw error;
     }
   }
@@ -340,7 +354,9 @@ class AuthApiService {
 
       return user;
     } catch (error) {
-      console.error('Update profile error:', error);
+      logger.error('Update profile error:', error, {
+        operation: 'auth_update_profile',
+      });
       throw error;
     }
   }
@@ -397,7 +413,9 @@ class AuthApiService {
       await secureStoreCompat.deleteItemAsync(this.REFRESH_TOKEN_KEY);
       await secureStoreCompat.deleteItemAsync(this.LEGACY_AUTH_TOKEN_KEY);
     } catch (error) {
-      console.error('Failed to clear user data:', error);
+      logger.error('Failed to clear user data:', error, {
+        operation: 'auth_logout',
+      });
     }
   }
 
@@ -409,7 +427,9 @@ class AuthApiService {
       const userData = await AsyncStorage.getItem(this.USER_KEY);
       return userData ? JSON.parse(userData) : null;
     } catch (error) {
-      console.error('Failed to get stored user:', error);
+      logger.error('Failed to get stored user:', error, {
+        operation: 'auth_get_stored_user',
+      });
       return null;
     }
   }
@@ -433,7 +453,9 @@ class AuthApiService {
       }
       return await secureStoreCompat.getItemAsync(this.LEGACY_AUTH_TOKEN_KEY);
     } catch (error) {
-      console.error('Failed to get access token:', error);
+      logger.error('Failed to get access token:', error, {
+        operation: 'auth_get_access_token',
+      });
       return null;
     }
   }
@@ -445,7 +467,9 @@ class AuthApiService {
     try {
       return await secureStoreCompat.getItemAsync(this.REFRESH_TOKEN_KEY);
     } catch (error) {
-      console.error('Failed to get refresh token:', error);
+      logger.error('Failed to get refresh token:', error, {
+        operation: 'auth_get_refresh_token',
+      });
       return null;
     }
   }
@@ -458,7 +482,9 @@ class AuthApiService {
       await secureStoreCompat.setItemAsync(this.ACCESS_TOKEN_KEY, token);
       await secureStoreCompat.setItemAsync(this.LEGACY_AUTH_TOKEN_KEY, token);
     } catch (error) {
-      console.error('Failed to set access token:', error);
+      logger.error('Failed to set access token:', error, {
+        operation: 'auth_set_access_token',
+      });
     }
   }
 }

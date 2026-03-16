@@ -8,8 +8,6 @@ import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { Text } from "../../src/components/atoms";
 import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
-import { getPostHog } from "../../src/services/config/posthog.config";
-import { ENV } from "../../src/config/env";
 import { userService } from "../../src/services/user.service";
 import { useAuthStore } from "../../src/stores";
 import { useTheme } from "../../src/hooks/useTheme";
@@ -307,53 +305,7 @@ const ProfileScreen = () => {
     },
   ];
 
-  const handleTestPostHogError = async () => {
-    const posthog = getPostHog();
-
-    if (!posthog) {
-      Alert.alert(
-        "PostHog Not Available",
-        `KEY: "${ENV.POSTHOG_KEY?.substring(0, 15) || 'EMPTY'}..."\nHOST: "${ENV.POSTHOG_HOST}"\n\nRestart Metro with: npx expo start --clear`
-      );
-      return;
-    }
-
-    // 1. Send a regular event first to verify PostHog is working at all
-    posthog.capture("test_error_button_pressed", {
-      source: "profile_debug",
-      timestamp: new Date().toISOString(),
-    });
-
-    // 2. Send exception via captureException
-    const testError = new Error("PostHog test error from Dawah app");
-    posthog.captureException(testError, {
-      component: "ProfileScreen",
-      action: "testPostHogError",
-    });
-
-    try {
-      await posthog.flush();
-      console.warn("[PostHog Debug] flush() completed successfully");
-      Alert.alert(
-        "2 Events Sent",
-        `KEY: ${ENV.POSTHOG_KEY?.substring(0, 15)}...\nHOST: ${ENV.POSTHOG_HOST}\n\nSent: custom event + captureException`
-      );
-    } catch (err) {
-      console.error("[PostHog Debug] flush() failed:", err);
-      Alert.alert("Flush Failed", String(err));
-    }
-  };
-
   const debugItems: MenuItem[] = [
-    {
-      id: "test-posthog-error",
-      title: "Test PostHog Error",
-      subtitle: "Send a test exception to PostHog",
-      icon: "bug-outline",
-      iconColor: colors.semantic.red,
-      onPress: handleTestPostHogError,
-      showChevron: false,
-    },
     {
       id: "reset-user",
       title: "Reset User ID",

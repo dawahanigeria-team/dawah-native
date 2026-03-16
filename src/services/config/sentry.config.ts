@@ -248,7 +248,15 @@ export const addSentryBreadcrumb = (message: string, category: string, data?: Re
 /**
  * Manually capture an exception
  */
-export const captureSentryException = (error: Error, context?: Record<string, any>) => {
+export const captureSentryException = (
+  error: Error,
+  context?: Record<string, any>,
+  options?: {
+    alsoSendToPostHog?: boolean;
+  },
+) => {
+  const alsoSendToPostHog = options?.alsoSendToPostHog ?? true;
+
   if (isBenignNetworkOrCancellationError(error)) {
     return;
   }
@@ -258,7 +266,9 @@ export const captureSentryException = (error: Error, context?: Record<string, an
   }
 
   // Send to PostHog error tracking in parallel
-  capturePostHogException(error, context);
+  if (alsoSendToPostHog) {
+    capturePostHogException(error, context);
+  }
 
   if (context) {
     Sentry.withScope((scope) => {
