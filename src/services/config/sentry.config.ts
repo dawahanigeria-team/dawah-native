@@ -12,6 +12,7 @@ import {
   isTransientNetworkError,
   isTransientNetworkErrorText,
 } from '../api/networkErrors';
+import { capturePostHogException } from './posthog.config';
 import { shouldSendSentryEvent } from './sentry.filters';
 
 const SENTRY_DSN = 'https://fa9ba76768be824dd073b24308221777@o4508901298929664.ingest.us.sentry.io/4509860969512960';
@@ -255,6 +256,10 @@ export const captureSentryException = (error: Error, context?: Record<string, an
   if (statusCode && statusCode >= 400 && statusCode < 500) {
     return;
   }
+
+  // Send to PostHog error tracking in parallel
+  capturePostHogException(error, context);
+
   if (context) {
     Sentry.withScope((scope) => {
       Object.entries(context).forEach(([key, value]) => {

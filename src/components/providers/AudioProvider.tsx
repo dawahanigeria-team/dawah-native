@@ -249,7 +249,13 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       }
     }
 
-    setupTrackPlayer()
+    setupTrackPlayer().catch((error) => {
+      captureSentryException(error as Error, {
+        component: 'AudioProvider',
+        action: 'setupTrackPlayer-unhandled',
+        level: 'error',
+      })
+    })
   }, [])
 
   useEffect(() => {

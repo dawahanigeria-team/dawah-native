@@ -7,10 +7,11 @@ import { useFonts } from "expo-font";
 import { useCallback, useEffect, useRef } from "react";
 import { AppState, Linking, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { PostHogProvider, usePostHog } from "posthog-react-native";
+import { PostHogProvider, PostHogErrorBoundary, usePostHog } from "posthog-react-native";
 
 import { useStorageState } from "../src/hooks/useStorageState";
 import { useTheme } from "../src/hooks/useTheme";
+import { getPostHog } from "../src/services/config/posthog.config";
 import { logger } from "../src/utils/logger";
 
 import { ErrorBoundary } from "../src/components/atoms";
@@ -25,7 +26,6 @@ import { downloadsService } from "../src/services/downloads.service";
 import { linkingService } from "../src/services/linking.service";
 import { getNotificationRouteFromData } from "../src/services/notifications.service";
 import { userService } from "../src/services/user.service";
-import { ENV } from "../src/config/env";
 import { initializeAuth } from "../src/stores/authStore";
 import { fetchFavorites } from "../src/stores/favoritesStore";
 import { usePlayerActions, usePlayerStore } from "../src/stores";
@@ -112,6 +112,8 @@ function useNotificationObserver() {
       if (response?.notification) {
         redirect(response.notification);
       }
+    }).catch(() => {
+      // Can fail on some Android devices with notification permission issues.
     });
 
     const subscription = Notifications.addNotificationResponseReceivedListener(
@@ -271,7 +273,13 @@ function RootLayout() {
       }
     };
 
-    initialize();
+    initialize().catch((error) => {
+      captureSentryException(error as Error, {
+        component: "RootLayout",
+        action: "initialize",
+        level: "error",
+      });
+    });
 
     return () => {
       isMounted = false;
@@ -322,7 +330,13 @@ function RootLayout() {
       }
     };
 
-    handleDeepLink();
+    handleDeepLink().catch((error) => {
+      captureSentryException(error as Error, {
+        component: "RootLayout",
+        action: "handleDeepLink",
+        level: "warning",
+      });
+    });
 
     // Listen for deep links while app is running
     const subscription = Linking.addEventListener('url', (event) => {
@@ -445,20 +459,21 @@ function RootLayout() {
 
 // Wrap with Sentry for error tracking
 function RootLayoutWithProviders() {
-  const posthogEnabled = Boolean(ENV.POSTHOG_KEY);
+  const posthogClient = getPostHog();
 
-  if (!posthogEnabled) {
+  if (!posthogClient) {
     return <RootLayout />;
   }
 
   return (
     <PostHogProvider
-      apiKey={ENV.POSTHOG_KEY}
-      options={{ host: ENV.POSTHOG_HOST }}
+      client={posthogClient}
       autocapture={{ captureScreens: false, captureTouches: false }}
     >
-      <PostHogAnalytics />
-      <RootLayout />
+      <PostHogErrorBoundary>
+        <PostHogAnalytics />
+        <RootLayout />
+      </PostHogErrorBoundary>
     </PostHogProvider>
   );
 }

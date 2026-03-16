@@ -92,12 +92,17 @@ class DownloadsService {
   constructor() {
     // Only initialize in React Native environment (not during bundling)
     if (typeof window !== "undefined") {
-      // Create downloads directory in app's document storage
-      this.downloadsDirectory = new Directory(Paths.document, "downloads");
+      try {
+        // Create downloads directory in app's document storage
+        this.downloadsDirectory = new Directory(Paths.document, "downloads");
 
-      // Ensure downloads directory exists
-      if (!this.downloadsDirectory.exists) {
-        this.downloadsDirectory.create();
+        // Ensure downloads directory exists
+        if (!this.downloadsDirectory.exists) {
+          this.downloadsDirectory.create();
+        }
+      } catch (error) {
+        logger.error("Failed to create downloads directory", error as Error);
+        this.downloadsDirectory = null;
       }
 
       // Initialize metadata cache

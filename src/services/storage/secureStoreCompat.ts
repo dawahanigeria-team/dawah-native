@@ -43,7 +43,14 @@ const loadSecureStoreModule = (): SecureStoreModule | null => {
 const shouldFallback = (error: unknown): boolean => {
   const message =
     error instanceof Error ? error.message : typeof error === "string" ? error : "";
-  return message.includes("ExpoSecureStore") || message.includes("native module");
+  return (
+    message.includes("ExpoSecureStore") ||
+    message.includes("native module") ||
+    message.includes("Keystore") ||
+    message.includes("KeyGenParameterSpec") ||
+    message.includes("cipher") ||
+    message.includes("Could not decrypt")
+  );
 };
 
 export const secureStoreCompat = {

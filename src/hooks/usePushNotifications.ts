@@ -13,7 +13,10 @@ export const usePushNotifications = (): void => {
     if (initializedRef.current) return;
     initializedRef.current = true;
 
-    registerForPushNotificationsAsync();
+    registerForPushNotificationsAsync().catch(() => {
+      // Notification registration can fail on some Android devices —
+      // swallow to prevent an unhandled-rejection crash.
+    });
 
     const tokenListener = Notifications.addPushTokenListener(token => {
       updatePushTokenAsync(token.data);

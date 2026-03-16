@@ -230,7 +230,10 @@ const ensurePlayer = (): AudioPlayer => {
       return
     }
 
-    void handleTrackFinished()
+    void handleTrackFinished().catch(() => {
+      // Prevent unhandled rejection from crashing the app.
+      setPlaybackState(State.Ended)
+    })
   })
 
   return player
@@ -708,6 +711,8 @@ export const useProgress = (intervalMs: number = 500): Progress => {
     const interval = setInterval(() => {
       void TrackPlayer.getProgress().then((nextProgress) => {
         setCurrentProgress(nextProgress)
+      }).catch(() => {
+        // Ignore progress polling failures.
       })
     }, intervalMs)
 
