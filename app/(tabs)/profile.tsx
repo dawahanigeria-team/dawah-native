@@ -331,20 +331,12 @@ const ProfileScreen = () => {
       action: "testPostHogError",
     });
 
-    // 3. Also send a raw $exception event directly
-    posthog.capture("$exception", {
-      $exception_message: "Manual test exception from Dawah app",
-      $exception_type: "Error",
-      $exception_source: "react-native",
-      $exception_handled: true,
-    });
-
     try {
       await posthog.flush();
       console.warn("[PostHog Debug] flush() completed successfully");
       Alert.alert(
-        "3 Events Sent",
-        `KEY: ${ENV.POSTHOG_KEY?.substring(0, 15)}...\nHOST: ${ENV.POSTHOG_HOST}\n\nSent: custom event + captureException + raw $exception`
+        "2 Events Sent",
+        `KEY: ${ENV.POSTHOG_KEY?.substring(0, 15)}...\nHOST: ${ENV.POSTHOG_HOST}\n\nSent: custom event + captureException`
       );
     } catch (err) {
       console.error("[PostHog Debug] flush() failed:", err);
