@@ -137,7 +137,8 @@
           }
         }
       ],
-      "./plugins/withExpo55MainApplicationHostFix"
+      "./plugins/withExpo55MainApplicationHostFix",
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true,
