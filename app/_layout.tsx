@@ -29,7 +29,6 @@ import { userService } from "../src/services/user.service";
 import { initializeAuth } from "../src/stores/authStore";
 import { fetchFavorites } from "../src/stores/favoritesStore";
 import { usePlayerActions, usePlayerStore } from "../src/stores";
-import { syncContinueListeningWidget } from "../src/widgets/widgetSync";
 
 // Initialize Sentry as early as possible
 initSentry();
@@ -174,14 +173,7 @@ function RootLayout() {
   const hasInitializedApp = useRef(false);
   const { isDark } = useTheme();
   const { expandPlayer } = usePlayerActions();
-  const { currentEpisode, progress, duration, isPlaying } = usePlayerStore();
-  const currentEpisodeTitle = currentEpisode?.title ?? "";
-  const currentEpisodeLecturer =
-    currentEpisode?.lecturerName ||
-    currentEpisode?.rpname ||
-    currentEpisode?.reciter_name ||
-    "Unknown";
-  const currentEpisodeDuration = duration || currentEpisode?.durationSec || 0;
+  const { currentEpisode } = usePlayerStore();
   const currentEpisodeRef = useRef<typeof currentEpisode | null>(null);
   const pendingPlayerNavigationRef = useRef(false);
   const pendingPlayerNavigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -297,29 +289,6 @@ function RootLayout() {
   useEffect(() => {
     currentEpisodeRef.current = currentEpisode;
   }, [currentEpisode]);
-
-  useEffect(() => {
-    if (!currentEpisode) {
-      syncContinueListeningWidget({ hasEpisode: false });
-      return;
-    }
-
-    syncContinueListeningWidget({
-      hasEpisode: true,
-      title: currentEpisodeTitle,
-      lecturer: currentEpisodeLecturer,
-      progressSeconds: progress,
-      durationSeconds: currentEpisodeDuration,
-      isPlaying,
-    });
-  }, [
-    currentEpisode,
-    currentEpisodeDuration,
-    currentEpisodeLecturer,
-    currentEpisodeTitle,
-    isPlaying,
-    progress,
-  ]);
 
   useEffect(() => {
     const navigateToPlayer = () => {

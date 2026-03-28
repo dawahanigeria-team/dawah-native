@@ -137,22 +137,6 @@
           }
         }
       ],
-      [
-        "expo-widgets",
-        {
-          "widgets": [
-            {
-              "name": "ContinueListeningWidget",
-              "displayName": "Continue Listening",
-              "description": "Resume your latest lecture quickly",
-              "supportedFamilies": [
-                "systemSmall",
-                "systemMedium"
-              ]
-            }
-          ]
-        }
-      ],
       "./plugins/withExpo55MainApplicationHostFix",
       "expo-image"
     ],
