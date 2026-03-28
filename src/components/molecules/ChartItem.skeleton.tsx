@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, ViewStyle } from 'react-native';
 import { useTheme } from '../../hooks/useTheme';
-import { Skeleton } from '../atoms';
+import { Skeleton } from '../atoms/Skeleton';
 
 interface ChartItemSkeletonProps {
   style?: ViewStyle;

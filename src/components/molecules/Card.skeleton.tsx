@@ -1,7 +1,7 @@
 import React from "react";
 import { View, ViewStyle } from "react-native";
 import { designTokens } from "src/theme/designTokens";
-import { Skeleton } from "../atoms";
+import { Skeleton } from "../atoms/Skeleton";
 
 interface CardSkeletonProps {
   variant: "square" | "landscape" | "list" | "section";

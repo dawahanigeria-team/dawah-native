@@ -3,7 +3,9 @@ import { View, ViewStyle, FlatList } from 'react-native';
 import { useRouter } from 'expo-router';
 import { designTokens, BorderRadius } from '../../theme/designTokens';
 import { useTheme } from '../../hooks/useTheme';
-import { Touchable, Text, Icon } from '../atoms';
+import { Icon } from '../atoms/Icon';
+import { Text } from '../atoms/Text';
+import { Touchable } from '../atoms/Touchable';
 
 interface ActionItem {
   id: string;

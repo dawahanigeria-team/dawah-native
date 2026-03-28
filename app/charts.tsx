@@ -2,7 +2,7 @@ import { Stack, useRouter } from 'expo-router';
 import React, { memo, useCallback, useEffect, useState } from 'react';
 import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Icon } from '../src/components/atoms';
+import { Icon } from '../src/components/atoms/Icon';
 import { Text } from '../src/components/atoms/Text';
 import { FlashList } from '../src/components/adapters/flashListCompat';
 import { ChartItem } from '../src/components/molecules/ChartItem';
@@ -18,7 +18,7 @@ import {
 import { addSentryBreadcrumb, captureSentryException } from '../src/services/config/sentry.config';
 import { logger } from '../src/utils/logger';
 import { useTheme } from '../src/hooks/useTheme';
-import { getTabBarPaddingBottom } from '../src/utils';
+import { getTabBarPaddingBottom } from '../src/utils/layout';
 
 type ChartType = 'album' | 'lecturer' | 'playlist' | 'lecture';
 

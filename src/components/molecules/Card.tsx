@@ -7,7 +7,10 @@ import { useTheme } from "../../hooks/useTheme";
 import { Episode, Series } from "../../types/types";
 import { getInitials, getPlaceholderStyle } from "../../utils/colorPlaceholder";
 import { formatDuration } from "../../utils/formatTime";
-import { Badge, Icon, Text, Touchable } from "../atoms";
+import { Badge } from "../atoms/Badge";
+import { Icon } from "../atoms/Icon";
+import { Text } from "../atoms/Text";
+import { Touchable } from "../atoms/Touchable";
 
 interface CardProps {
   variant: "square" | "landscape" | "list" | "section";

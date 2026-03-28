@@ -77,6 +77,10 @@ npm run eas:prod:android  # Android AAB
 npm run eas:prod:ios      # iOS IPA
 ```
 
+## Performance Baseline
+
+Use `docs/performance-baseline.md` for repeatable FPS, TTI, and bundle-size checks.
+
 ## Get a fresh project
 
 When you're ready, run:

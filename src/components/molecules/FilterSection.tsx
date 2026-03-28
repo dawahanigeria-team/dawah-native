@@ -1,7 +1,8 @@
 import React, { memo, useState } from 'react';
 import { View, ScrollView, ViewStyle } from 'react-native';
 import { designTokens } from '../../theme/designTokens';
-import { Text, Chip } from '../atoms';
+import { Chip } from '../atoms/Chip';
+import { Text } from '../atoms/Text';
 import { SearchBar } from './SearchBar';
 
 interface FilterSectionProps {

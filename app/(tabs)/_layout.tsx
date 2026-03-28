@@ -6,7 +6,10 @@ import { Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { designTokens } from "../../src/theme/designTokens";
 import { useThemeColors } from "../../src/hooks/useTheme";
-import { getTabBarHeight, getTabBarPaddingBottom } from "../../src/utils";
+import {
+  getTabBarHeight,
+  getTabBarPaddingBottom,
+} from "../../src/utils/layout";
 
 export default function TabLayout() {
   const pathname = usePathname();

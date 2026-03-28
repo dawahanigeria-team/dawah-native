@@ -32,12 +32,14 @@ import { useTheme } from "../../hooks/useTheme";
 import { useDownloadsStore } from "../../stores";
 import { resolveEpisodeArtistName, usePlayerStore } from "../../stores/playerStore";
 import { designTokens } from "../../theme/designTokens";
-import { getTabBarHeight } from "../../utils";
+import { getTabBarHeight } from "../../utils/layout";
 import { getInitials, getPlaceholderStyle } from "../../utils/colorPlaceholder";
 import { linkingService } from "../../services/linking.service";
 import { appendShareSignature } from "../../utils/shareMessage";
 import { DownloadStatus } from "../../services/downloads/downloadQueue.service";
-import { Loading, Text, Touchable } from "../atoms";
+import { Loading } from "../atoms/Loading";
+import { Text } from "../atoms/Text";
+import { Touchable } from "../atoms/Touchable";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 

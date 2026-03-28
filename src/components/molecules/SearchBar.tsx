@@ -2,7 +2,8 @@ import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import { TextInput, View, ViewStyle } from "react-native";
 import { BorderRadius, designTokens } from "../../theme/designTokens";
 import { useTheme } from "../../hooks/useTheme";
-import { Icon, Touchable } from "../atoms";
+import { Icon } from "../atoms/Icon";
+import { Touchable } from "../atoms/Touchable";
 
 interface SearchBarProps {
   placeholder?: string;

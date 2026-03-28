@@ -5,7 +5,10 @@ import { BorderRadius, designTokens } from "../../theme/designTokens";
 import { useTheme } from "../../hooks/useTheme";
 import { Episode } from "../../types/types";
 import { formatDuration } from "../../utils/formatTime";
-import { Badge, Icon, Text, Touchable } from "../atoms";
+import { Badge } from "../atoms/Badge";
+import { Icon } from "../atoms/Icon";
+import { Text } from "../atoms/Text";
+import { Touchable } from "../atoms/Touchable";
 import { logger } from "../../utils/logger";
 
 interface HeroCarouselProps {

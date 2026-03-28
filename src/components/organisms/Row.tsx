@@ -2,7 +2,9 @@ import { FlashList, ListRenderItem } from "../adapters/flashListCompat";
 import React, { memo } from "react";
 import { ScrollView, View, ViewStyle } from "react-native";
 import { designTokens } from "../../theme/designTokens";
-import { Icon, Text, Touchable } from "../atoms";
+import { Icon } from "../atoms/Icon";
+import { Text } from "../atoms/Text";
+import { Touchable } from "../atoms/Touchable";
 
 interface RowProps<T = any> {
   title: string;
