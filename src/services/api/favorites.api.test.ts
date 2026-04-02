@@ -85,4 +85,43 @@ describe('favoritesApi guest mode', () => {
       message: 'audio added to favorites (guest mode)',
     });
   });
+
+  test('getFavoriteIds normalizes malformed API payloads without throwing', async () => {
+    mockGetUserId.mockResolvedValue('user_123');
+    mockGet.mockResolvedValue({
+      data: {
+        user_id: 123,
+        audio: '42',
+      },
+    });
+    mockSetItem.mockResolvedValue();
+
+    const ids = await favoritesApi.getFavoriteIds('audio');
+
+    expect(ids).toEqual(['42']);
+    expect(mockSetItem).toHaveBeenCalledWith('favorites_cache', JSON.stringify(['42']));
+  });
+
+  test('getFavoriteIds normalizes object-shaped API payloads without throwing', async () => {
+    mockGetUserId.mockResolvedValue('user_123');
+    mockGet.mockResolvedValue({
+      data: {
+        user_id: 91649,
+        audio: {
+          '0': 21435,
+          '1': 252910,
+          '2': 26434,
+        },
+      },
+    });
+    mockSetItem.mockResolvedValue();
+
+    const ids = await favoritesApi.getFavoriteIds('audio');
+
+    expect(ids).toEqual(['21435', '252910', '26434']);
+    expect(mockSetItem).toHaveBeenCalledWith(
+      'favorites_cache',
+      JSON.stringify(['21435', '252910', '26434'])
+    );
+  });
 });

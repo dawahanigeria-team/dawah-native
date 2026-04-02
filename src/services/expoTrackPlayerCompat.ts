@@ -1,5 +1,5 @@
 import type { AudioLockScreenOptions, AudioPlayer, AudioStatus } from 'expo-audio'
-import { createAudioPlayer, setAudioModeAsync } from 'expo-audio'
+import { AudioModule, createAudioPlayer, setAudioModeAsync } from 'expo-audio'
 import { useEffect, useMemo, useState } from 'react'
 import { Platform } from 'react-native'
 import { logger } from '../utils/logger'
@@ -203,10 +203,37 @@ const buildDefaultPlaylistKey = (tracks: Track[]): string | null => {
   return tracks.map((track) => track.id).join('|')
 }
 
+const isLegacyAudioPlayerConstructorError = (error: unknown): boolean => {
+  const message = error instanceof Error ? error.message : String(error)
+  return /\breceived 4 arguments, but 3 was expected\b/i.test(message)
+}
+
+const createCompatAudioPlayer = (): AudioPlayer => {
+  try {
+    return createAudioPlayer(null, { updateInterval: 250, keepAudioSessionActive: true })
+  } catch (error) {
+    if (!isLegacyAudioPlayerConstructorError(error)) {
+      throw error
+    }
+
+    logger.warn('expo-audio native module expects legacy AudioPlayer constructor, falling back', {
+      error: error instanceof Error ? error.message : String(error),
+    })
+
+    const LegacyAudioPlayer = AudioModule.AudioPlayer as unknown as new (
+      source: null,
+      updateInterval: number,
+      keepAudioSessionActive: boolean
+    ) => AudioPlayer
+
+    return new LegacyAudioPlayer(null, 250, true)
+  }
+}
+
 const ensurePlayer = (): AudioPlayer => {
   if (player) return player
 
-  player = createAudioPlayer(null, { updateInterval: 250, keepAudioSessionActive: true })
+  player = createCompatAudioPlayer()
   _playerStatusSubscription = player.addListener('playbackStatusUpdate', (audioStatus: AudioStatus) => {
     if (shouldResumeWhenLoaded && audioStatus.isLoaded && !audioStatus.playing) {
       try {

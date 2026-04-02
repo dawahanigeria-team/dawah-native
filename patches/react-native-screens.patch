@@ -1,0 +1,25 @@
+diff --git a/src/components/Screen.tsx b/src/components/Screen.tsx
+index 4e6bb0453620ce2bfe3f3e2d7f5e4845b7af4cee..de55625731c470dc24b0461bdeae3ab6940fdc50 100644
+--- a/src/components/Screen.tsx
++++ b/src/components/Screen.tsx
+@@ -30,6 +30,7 @@ import {
+ } from './helpers/sheet';
+ import { parseBooleanToOptionalBooleanNativeProp } from '../utils';
+ import featureFlags from '../flags';
++import { getCompatFullScreenSwipeEnabledProp } from '../../../../src/services/reactNativeScreensCompat';
+ 
+ type NativeProps = ScreenNativeComponentProps | ModalScreenNativeComponentProps;
+ const AnimatedNativeScreen = Animated.createAnimatedComponent(
+@@ -239,9 +240,10 @@ export const InnerScreen = React.forwardRef<View, ScreenProps>(
+             sheetCornerRadius={sheetCornerRadius}
+             sheetExpandsWhenScrolledToEdge={sheetExpandsWhenScrolledToEdge}
+             sheetInitialDetent={resolvedSheetInitialDetentIndex}
+-            fullScreenSwipeEnabled={parseBooleanToOptionalBooleanNativeProp(
++            fullScreenSwipeEnabled={getCompatFullScreenSwipeEnabledProp(
+               fullScreenSwipeEnabled,
+-            )}
++              Platform.OS,
++            ) as ReturnType<typeof parseBooleanToOptionalBooleanNativeProp>}
+             gestureResponseDistance={{
+               start: gestureResponseDistance?.start ?? -1,
+               end: gestureResponseDistance?.end ?? -1,

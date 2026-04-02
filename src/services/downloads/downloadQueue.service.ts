@@ -241,7 +241,15 @@ class DownloadQueueService {
       if (!resumableDownload) throw new Error('Failed to create download.');
 
       this.activeDownloads.set(downloadId, resumableDownload);
-      await downloadsService.startDownload(resumableDownload);
+      const result = await downloadsService.startDownload(resumableDownload);
+
+      if (result !== 'completed') {
+        return;
+      }
+
+      if (!this.queue.has(downloadId) || download.status !== DownloadStatus.DOWNLOADING) {
+        return;
+      }
 
       // Post-download completion logic
       download.status = DownloadStatus.COMPLETED;
@@ -255,6 +263,10 @@ class DownloadQueueService {
       await this.processQueue();
 
     } catch (error: any) {
+      if (!this.queue.has(downloadId)) {
+        return;
+      }
+
       download.status = DownloadStatus.FAILED;
       download.error = error.message;
       this.activeDownloads.delete(downloadId);

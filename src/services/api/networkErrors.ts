@@ -19,6 +19,7 @@ const TRANSIENT_NETWORK_ERROR_PATTERNS: RegExp[] = [
   /\bi\/o error during system call\b/i,
   /\bsoftware caused connection abort\b/i,
   /\bdownload failed\b/i,
+  /\bthe network connection was lost\b/i,
   /\bconnection (?:reset|abort(?:ed)?|closed)\b/i,
   /\bunable to resolve host\b/i,
   /\bfailed to connect to\b/i,

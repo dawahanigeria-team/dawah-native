@@ -81,6 +81,9 @@ jest.mock('expo-audio', () => {
   return {
     createAudioPlayer: jest.fn(() => player),
     setAudioModeAsync: jest.fn().mockResolvedValue(undefined),
+    AudioModule: {
+      AudioPlayer: jest.fn(() => player),
+    },
     __player: player,
   }
 })
@@ -231,5 +234,21 @@ describe('expoTrackPlayerCompat', () => {
     await expect(TrackPlayer.getActiveTrackIndex()).resolves.toBeNull()
     await expect(TrackPlayer.getActiveTrack()).resolves.toBeNull()
     await expect(TrackPlayer.getPlaybackState()).resolves.toEqual({ state: State.None })
+  })
+
+  test('falls back to legacy AudioPlayer constructor when native module expects 3 args', async () => {
+    const expoAudioMock = jest.requireMock('expo-audio') as {
+      createAudioPlayer: jest.Mock
+      AudioModule: { AudioPlayer: jest.Mock }
+    }
+
+    releasePlayer()
+    expoAudioMock.createAudioPlayer.mockImplementationOnce(() => {
+      throw new Error('Received 4 arguments, but 3 was expected')
+    })
+
+    await expect(TrackPlayer.setupPlayer()).resolves.toBeUndefined()
+
+    expect(expoAudioMock.AudioModule.AudioPlayer).toHaveBeenCalledWith(null, 250, true)
   })
 })

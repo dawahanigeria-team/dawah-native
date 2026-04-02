@@ -20,6 +20,7 @@ describe('networkErrors', () => {
     expect(isTransientNetworkError(sslAbortError)).toBe(true);
     expect(isTransientNetworkErrorText('Download failed')).toBe(true);
     expect(isTransientNetworkErrorText('Unable to resolve host backend.dawahbox.com')).toBe(true);
+    expect(isTransientNetworkErrorText('The network connection was lost.')).toBe(true);
   });
 
   test('does not classify cancellation as transient network error', () => {

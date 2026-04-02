@@ -19,6 +19,7 @@ import { Loading, Text } from "../src/components/atoms";
 import { ENV } from "../src/config/env";
 import { useTheme } from "../src/hooks/useTheme";
 import { addSentryBreadcrumb, captureSentryException } from "../src/services/config/sentry.config";
+import { ensureGoogleSigninConfigured } from "../src/services/googleSignIn.service";
 import { useAuthStore } from "../src/stores";
 import tw from "../src/theme/twrnc";
 
@@ -45,10 +46,17 @@ export default function SignUpScreen() {
   const [confirmPasswordFocused, setConfirmPasswordFocused] = useState(false);
 
   useEffect(() => {
-    if (ENV.GOOGLE_WEB_CLIENT_ID) {
-      GoogleSignin.configure({
-        webClientId: ENV.GOOGLE_WEB_CLIENT_ID,
-        iosClientId: ENV.GOOGLE_IOS_CLIENT_ID || undefined,
+    if (!ENV.GOOGLE_WEB_CLIENT_ID) {
+      return;
+    }
+
+    try {
+      ensureGoogleSigninConfigured();
+    } catch (error) {
+      captureSentryException(error as Error, {
+        component: "SignUpScreen",
+        action: "configureGoogleSignIn",
+        level: "warning",
       });
     }
   }, []);
@@ -202,6 +210,7 @@ export default function SignUpScreen() {
   const handleGoogleSignIn = async () => {
     clearError();
     try {
+      ensureGoogleSigninConfigured();
       await GoogleSignin.hasPlayServices();
       const response = await GoogleSignin.signIn();
 

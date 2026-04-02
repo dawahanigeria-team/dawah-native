@@ -107,6 +107,8 @@ function buildLockScreenInfo(episode: Episode): { title: string; artist: string;
 
 let currentPlayRequestId = 0;
 const PLAYBACK_START_TIMEOUT_MS = 20000;
+const PLAYBACK_POLL_INTERVAL_MS = 500;
+const PLAYBACK_RECOVERY_INTERVAL_MS = 3000;
 
 const resolvePlaybackUri = (episode: Episode): string => {
   if (!episode.audioUrl) {
@@ -118,10 +120,14 @@ const resolvePlaybackUri = (episode: Episode): string => {
 
 const waitForPlaybackReady = async (timeoutMs: number, requestId?: number) => {
   const start = Date.now();
+  let lastRecoveryAttemptAt = start;
+  let recoveryAttempts = 0;
+
   while (Date.now() - start < timeoutMs) {
     if (requestId !== undefined && requestId !== currentPlayRequestId) {
       throw new Error('Playback superseded');
     }
+
     const playbackState = await TrackPlayer.getPlaybackState();
     const progress = await TrackPlayer.getProgress();
     const state =
@@ -135,7 +141,39 @@ const waitForPlaybackReady = async (timeoutMs: number, requestId?: number) => {
     if (state === State.Error) {
       throw new Error('Audio playback error');
     }
-    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    const now = Date.now();
+    const isStalled =
+      state === State.None ||
+      state === State.Ready ||
+      state === State.Paused ||
+      state === State.Stopped ||
+      state === State.Loading ||
+      state === State.Buffering;
+
+    if (isStalled && now - lastRecoveryAttemptAt >= PLAYBACK_RECOVERY_INTERVAL_MS) {
+      lastRecoveryAttemptAt = now;
+      recoveryAttempts += 1;
+
+      try {
+        logger.warn('Playback startup stalled, retrying play()', {
+          requestId,
+          state,
+          recoveryAttempts,
+          position: progress.position,
+        });
+        await TrackPlayer.play();
+      } catch (error) {
+        logger.warn('Playback startup recovery attempt failed', {
+          requestId,
+          state,
+          recoveryAttempts,
+          error: (error as Error).message,
+        });
+      }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, PLAYBACK_POLL_INTERVAL_MS));
   }
 
   throw new Error('Audio loading timeout');

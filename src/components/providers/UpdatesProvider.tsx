@@ -34,6 +34,7 @@ export const UpdatesProvider: React.FC = () => {
 
   const checkForUpdate = useCallback(async () => {
     if (__DEV__) return;
+    if (!Updates.isEnabled) return;
     if (checkingRef.current) return;
 
     const now = Date.now();
@@ -82,15 +83,9 @@ export const UpdatesProvider: React.FC = () => {
     }
   }, []);
 
-  // Check on mount
-  useEffect(() => {
-    if (__DEV__) return;
-    checkForUpdate();
-  }, [checkForUpdate]);
-
   // Check when app returns from background
   useEffect(() => {
-    if (__DEV__) return;
+    if (__DEV__ || !Updates.isEnabled) return;
 
     const handleAppStateChange = (nextState: AppStateStatus) => {
       if (nextState === 'active') {
@@ -103,6 +98,9 @@ export const UpdatesProvider: React.FC = () => {
   }, [checkForUpdate]);
 
   const handleReload = useCallback(async () => {
+    if (!Updates.isEnabled) {
+      return;
+    }
     addSentryBreadcrumb('User accepted OTA update', 'updates');
     try {
       await Updates.reloadAsync();

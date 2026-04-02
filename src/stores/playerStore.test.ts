@@ -5,6 +5,22 @@ import { historyService } from '../services/history.service'
 import { ensureTrackPlayerReady } from '../services/trackPlayerReady.service'
 
 jest.mock('../services/expoTrackPlayerCompat', () => ({
+  State: {
+    None: 'none',
+    Ready: 'ready',
+    Playing: 'playing',
+    Paused: 'paused',
+    Stopped: 'stopped',
+    Loading: 'loading',
+    Buffering: 'buffering',
+    Error: 'error',
+    Ended: 'ended',
+  },
+  RepeatMode: {
+    Off: 0,
+    Track: 1,
+    Queue: 2,
+  },
   reset: jest.fn(),
   add: jest.fn(),
   skip: jest.fn(),
@@ -14,6 +30,8 @@ jest.mock('../services/expoTrackPlayerCompat', () => ({
   setPlaylistKey: jest.fn(),
   setRepeatMode: jest.fn(),
   getActiveTrackIndex: jest.fn().mockResolvedValue(0),
+  getPlaybackState: jest.fn(),
+  getProgress: jest.fn(),
   skipToNext: jest.fn(),
   skipToPrevious: jest.fn(),
 }))
@@ -58,6 +76,12 @@ const mockGetPlaybackUri = downloadsService.getPlaybackUri as jest.Mock
 const mockIsDownloaded = downloadsService.isDownloaded as jest.Mock
 const mockAddToHistory = historyService.addToHistory as jest.Mock
 const mockEnsureReady = ensureTrackPlayerReady as jest.Mock
+const mockGetPlaybackState = TrackPlayer.getPlaybackState as jest.Mock
+const mockGetProgress = TrackPlayer.getProgress as jest.Mock
+
+afterEach(() => {
+  jest.useRealTimers()
+})
 
 beforeEach(() => {
   playerStore.set({
@@ -116,6 +140,10 @@ beforeEach(() => {
   ;(TrackPlayer.add as jest.Mock).mockReset()
   ;(TrackPlayer.skip as jest.Mock).mockReset()
   ;(TrackPlayer.play as jest.Mock).mockReset()
+  mockGetPlaybackState.mockReset()
+  mockGetProgress.mockReset()
+  mockGetPlaybackState.mockResolvedValue({ state: 'playing' })
+  mockGetProgress.mockResolvedValue({ position: 1, duration: 120, buffered: 1 })
 })
 
 test('playEpisode builds queue and uses TrackPlayer', async () => {
@@ -145,6 +173,48 @@ test('playEpisode builds queue and uses TrackPlayer', async () => {
   expect(TrackPlayer.reset).toHaveBeenCalledTimes(1)
   expect(TrackPlayer.add).toHaveBeenCalledTimes(1)
   expect(TrackPlayer.play).toHaveBeenCalledTimes(1)
+})
+
+test('playEpisode retries playback when startup stalls before timing out', async () => {
+  jest.useFakeTimers()
+
+  const episode = {
+    id: 'retry-1',
+    title: 'Lecture Retry',
+    audioUrl: 'https://example.com/audio.mp3',
+    lecturerName: 'Ustadh',
+    coverUrl: 'cover.png',
+    durationSec: 120,
+    seriesId: '',
+    plays: 0,
+    liked: false,
+    language: 'Unknown',
+    downloads: 0,
+    createdAt: new Date().toISOString(),
+  }
+
+  let playAttempts = 0
+
+  mockGetPlaybackUri.mockReturnValue('file:///audio.mp3')
+  mockIsDownloaded.mockReturnValue(false)
+  mockAddToHistory.mockResolvedValue(undefined)
+  ;(TrackPlayer.play as jest.Mock).mockImplementation(async () => {
+    playAttempts += 1
+  })
+  mockGetPlaybackState.mockImplementation(async () => ({
+    state: playAttempts >= 2 ? 'playing' : 'paused',
+  }))
+  mockGetProgress.mockResolvedValue({ position: 0, duration: 120, buffered: 0 })
+
+  const actions = usePlayerActions()
+  const playPromise = actions.playEpisode(episode)
+
+  await jest.advanceTimersByTimeAsync(4000)
+  await playPromise
+
+  expect(TrackPlayer.play).toHaveBeenCalledTimes(2)
+  expect(playerStore.get().isPlaying).toBe(true)
+  expect(playerStore.get().errorMessage).toBeNull()
 })
 
 test('resolveEpisodeArtistName prefers lecturer name then reciter fields', () => {

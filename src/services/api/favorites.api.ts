@@ -23,11 +23,32 @@ export interface ToggleFavoriteResponse {
 
 export interface FavoritesListResponse {
   user_id: number;
-  audio?: number[];
+  audio?: number[] | string[] | number | string | Record<string, unknown> | null;
 }
 
 class FavoritesApiService {
   private readonly FAVORITES_CACHE_KEY = 'favorites_cache';
+
+  private normalizeFavoriteIds(rawValue: FavoritesListResponse['audio']): string[] {
+    if (Array.isArray(rawValue)) {
+      return rawValue.map((id) => String(id));
+    }
+
+    if (typeof rawValue === 'string' || typeof rawValue === 'number') {
+      return [String(rawValue)];
+    }
+
+    if (rawValue && typeof rawValue === 'object') {
+      const values = Object.values(rawValue).filter(
+        (value): value is string | number => typeof value === 'string' || typeof value === 'number'
+      );
+      if (values.length > 0) {
+        return values.map((value) => String(value));
+      }
+    }
+
+    return [];
+  }
 
   private isGuestUserId(userId: string): boolean {
     return userId.startsWith('guest_');
@@ -159,8 +180,7 @@ class FavoritesApiService {
       );
 
       // Extract lecture IDs from response
-      const ids = response.data[type] || [];
-      const lectureIds = ids.map(id => String(id));
+      const lectureIds = this.normalizeFavoriteIds(response.data?.[type]);
 
       logger.debug(`Fetched ${lectureIds.length} favorite ${type} IDs from API`);
 
