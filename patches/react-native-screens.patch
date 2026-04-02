@@ -1,16 +1,33 @@
 diff --git a/src/components/Screen.tsx b/src/components/Screen.tsx
-index 4e6bb0453620ce2bfe3f3e2d7f5e4845b7af4cee..de55625731c470dc24b0461bdeae3ab6940fdc50 100644
+index 4e6bb0453620ce2bfe3f3e2d7f5e4845b7af4cee..3767227a357c51dfdc34a3c2f0d42777850228e7 100644
 --- a/src/components/Screen.tsx
 +++ b/src/components/Screen.tsx
-@@ -30,6 +30,7 @@ import {
- } from './helpers/sheet';
+@@ -31,6 +31,24 @@ import {
  import { parseBooleanToOptionalBooleanNativeProp } from '../utils';
  import featureFlags from '../flags';
-+import { getCompatFullScreenSwipeEnabledProp } from '../../../../src/services/reactNativeScreensCompat';
  
++const getCompatFullScreenSwipeEnabledProp = (
++  value: boolean | undefined,
++  platform: string,
++): ReturnType<typeof parseBooleanToOptionalBooleanNativeProp> | undefined => {
++  // `fullScreenSwipeEnabled` is only meaningful on iOS. Some older Android
++  // binaries still expect the legacy boolean prop type, so newer string-native
++  // serialization from JS must be omitted to keep OTA bundles compatible.
++  if (platform !== 'ios') {
++    return undefined;
++  }
++
++  if (value === undefined) {
++    return 'undefined';
++  }
++
++  return value ? 'true' : 'false';
++};
++
  type NativeProps = ScreenNativeComponentProps | ModalScreenNativeComponentProps;
  const AnimatedNativeScreen = Animated.createAnimatedComponent(
-@@ -239,9 +240,10 @@ export const InnerScreen = React.forwardRef<View, ScreenProps>(
+   ScreenNativeComponent,
+@@ -239,9 +257,10 @@ export const InnerScreen = React.forwardRef<View, ScreenProps>(
              sheetCornerRadius={sheetCornerRadius}
              sheetExpandsWhenScrolledToEdge={sheetExpandsWhenScrolledToEdge}
              sheetInitialDetent={resolvedSheetInitialDetentIndex}
