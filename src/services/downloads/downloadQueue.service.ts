@@ -244,14 +244,25 @@ class DownloadQueueService {
       const result = await downloadsService.startDownload(resumableDownload);
 
       if (result !== 'completed') {
+        this.activeDownloads.delete(downloadId);
+        this.speedTrackers.delete(downloadId);
+
+        if (this.queue.has(downloadId) && result === 'paused') {
+          download.status = DownloadStatus.PAUSED;
+          await this.saveQueue();
+          this.notify();
+        }
+
+        await this.processQueue();
         return;
       }
 
       if (!this.queue.has(downloadId) || download.status !== DownloadStatus.DOWNLOADING) {
+        this.activeDownloads.delete(downloadId);
+        this.speedTrackers.delete(downloadId);
         return;
       }
 
-      // Post-download completion logic
       download.status = DownloadStatus.COMPLETED;
       download.progress = 100;
       download.completedAt = Date.now();
@@ -263,16 +274,15 @@ class DownloadQueueService {
       await this.processQueue();
 
     } catch (error: any) {
-      if (!this.queue.has(downloadId)) {
-        return;
-      }
-
-      download.status = DownloadStatus.FAILED;
-      download.error = error.message;
       this.activeDownloads.delete(downloadId);
       this.speedTrackers.delete(downloadId);
-      await this.saveQueue();
-      this.notify();
+
+      if (this.queue.has(downloadId)) {
+        download.status = DownloadStatus.FAILED;
+        download.error = error.message;
+        await this.saveQueue();
+        this.notify();
+      }
 
       captureSentryException(error, { operation: 'download_queue_start', downloadId });
 
