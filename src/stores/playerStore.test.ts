@@ -3,6 +3,7 @@ import { playerStore, resolveEpisodeArtistName, setAudioControls, usePlayerActio
 import { downloadsService } from '../services/downloads.service'
 import { historyService } from '../services/history.service'
 import { ensureTrackPlayerReady } from '../services/trackPlayerReady.service'
+import AsyncStorage from 'expo-sqlite/kv-store'
 
 jest.mock('../services/expoTrackPlayerCompat', () => ({
   State: {
@@ -78,6 +79,7 @@ const mockAddToHistory = historyService.addToHistory as jest.Mock
 const mockEnsureReady = ensureTrackPlayerReady as jest.Mock
 const mockGetPlaybackState = TrackPlayer.getPlaybackState as jest.Mock
 const mockGetProgress = TrackPlayer.getProgress as jest.Mock
+const mockSetItem = AsyncStorage.setItem as jest.Mock
 
 afterEach(() => {
   jest.useRealTimers()
@@ -136,10 +138,12 @@ beforeEach(() => {
   mockIsDownloaded.mockReset()
   mockAddToHistory.mockReset()
   mockEnsureReady.mockReset()
+  mockEnsureReady.mockResolvedValue(undefined)
   ;(TrackPlayer.reset as jest.Mock).mockReset()
   ;(TrackPlayer.add as jest.Mock).mockReset()
   ;(TrackPlayer.skip as jest.Mock).mockReset()
   ;(TrackPlayer.play as jest.Mock).mockReset()
+  mockSetItem.mockReset()
   mockGetPlaybackState.mockReset()
   mockGetProgress.mockReset()
   mockGetPlaybackState.mockResolvedValue({ state: 'playing' })
@@ -215,6 +219,39 @@ test('playEpisode retries playback when startup stalls before timing out', async
   expect(TrackPlayer.play).toHaveBeenCalledTimes(2)
   expect(playerStore.get().isPlaying).toBe(true)
   expect(playerStore.get().errorMessage).toBeNull()
+})
+
+test('setRepeatMode does not persist originalQueue payloads to AsyncStorage', async () => {
+  const queueEpisode = {
+    id: 'queue-1',
+    title: 'Lecture One',
+    audioUrl: 'https://example.com/audio.mp3',
+    lecturerName: 'Ustadh',
+    coverUrl: 'cover.png',
+    durationSec: 120,
+    seriesId: '',
+    plays: 0,
+    liked: false,
+    language: 'Unknown',
+    downloads: 0,
+    createdAt: new Date().toISOString(),
+  }
+
+  playerStore.set({
+    ...playerStore.get(),
+    currentEpisode: queueEpisode,
+    queue: [queueEpisode],
+    originalQueue: [queueEpisode],
+    currentQueueIndex: 0,
+  })
+
+  usePlayerActions().setRepeatMode('all')
+  await Promise.resolve()
+
+  expect(mockSetItem).toHaveBeenCalled()
+  const persistedState = JSON.parse(mockSetItem.mock.calls.at(-1)?.[1] as string)
+  expect(persistedState.queue).toEqual([])
+  expect(persistedState.originalQueue).toEqual([])
 })
 
 test('resolveEpisodeArtistName prefers lecturer name then reciter fields', () => {

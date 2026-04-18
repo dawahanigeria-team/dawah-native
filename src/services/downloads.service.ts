@@ -91,6 +91,7 @@ export interface DownloadProgress {
 export interface ResumableDownload {
   id: string;
   episode: Episode;
+  downloadUrl: string;
   progressCallback: (progress: DownloadProgress) => void;
   isPaused: boolean;
   bytesDownloaded: number;
@@ -252,19 +253,25 @@ class DownloadsService {
   }
 
   private createResumableTask(
-    episode: Episode,
+    lectureId: string,
+    downloadUrl: string,
     targetFileUri: string,
     onProgress?: (progress: DownloadProgress) => void,
     onStateUpdate?: (progress: DownloadProgress) => void,
     resumeState?: DownloadPauseState | null
   ): LegacyDownloadResumable {
     return createDownloadResumable(
-      episode.audioUrl!,
+      downloadUrl,
       targetFileUri,
       {},
-      this.createLegacyProgressCallback(episode.id, onProgress, onStateUpdate),
+      this.createLegacyProgressCallback(lectureId, onProgress, onStateUpdate),
       resumeState?.resumeData
     );
+  }
+
+  private async resolveDownloadUrl(lectureId: string, audioUrl: string): Promise<string> {
+    const apiResponse = await downloadsApi.incrementDownloadCounter(lectureId);
+    return apiResponse.url || audioUrl;
   }
 
   private async runLegacyDownloadTask(
@@ -613,10 +620,10 @@ class DownloadsService {
         this.metadataCache.get(lectureId)?.resumableData
       );
       const resumeState =
-        persistedResumableData?.pauseState.fileUri === partialFile.uri &&
-        persistedResumableData.pauseState.url === audioUrl
+        persistedResumableData?.pauseState.fileUri === partialFile.uri
           ? persistedResumableData.pauseState
           : null;
+      const downloadUrl = resumeState?.url ?? await this.resolveDownloadUrl(lectureId, audioUrl);
 
       if (!resumeState && partialFile.exists) {
         partialFile.delete();
@@ -625,12 +632,14 @@ class DownloadsService {
       const resumableDownload: ResumableDownload = {
         id: lectureId,
         episode,
+        downloadUrl,
         progressCallback,
         isPaused: false,
         bytesDownloaded: persistedResumableData?.bytesDownloaded ?? 0,
         totalBytes: persistedResumableData?.totalBytes ?? 0,
         downloadTask: this.createResumableTask(
-          episode,
+          lectureId,
+          downloadUrl,
           partialFile.uri,
           progressCallback,
           (progress) => {
@@ -659,12 +668,13 @@ class DownloadsService {
    * Start a resumable download
    */
   async startDownload(resumableDownload: ResumableDownload): Promise<DownloadRunResult> {
-    const { id, episode, progressCallback } = resumableDownload;
+    const { id, progressCallback } = resumableDownload;
     const file = this.getPartialDownloadFile(id);
     try {
       if (!resumableDownload.downloadTask) {
         resumableDownload.downloadTask = this.createResumableTask(
-          episode,
+          id,
+          resumableDownload.downloadUrl,
           file.uri,
           progressCallback,
           (progress) => {
@@ -702,7 +712,8 @@ class DownloadsService {
         resumableDownload.resumeState = null;
         await this.saveResumableData(id, null);
         resumableDownload.downloadTask = this.createResumableTask(
-          episode,
+          id,
+          resumableDownload.downloadUrl,
           file.uri,
           progressCallback,
           (progress) => {
@@ -720,7 +731,7 @@ class DownloadsService {
 
         logger.error("Download failed", new Error(`${errorMessage} (HTTP ${result.status})`), {
           lectureId: id,
-          audioUrl: episode.audioUrl,
+          audioUrl: resumableDownload.downloadUrl,
           status: result.status,
         });
 
@@ -737,11 +748,11 @@ class DownloadsService {
 
       const metadata: DownloadMetadata = {
         lectureId: id,
-        title: episode.title,
-        lecturerName: episode.lecturerName || "Unknown",
-        coverUrl: episode.coverUrl,
-        audioUrl: episode.audioUrl || undefined,
-        duration: episode.durationSec,
+        title: resumableDownload.episode.title,
+        lecturerName: resumableDownload.episode.lecturerName || "Unknown",
+        coverUrl: resumableDownload.episode.coverUrl,
+        audioUrl: resumableDownload.downloadUrl,
+        duration: resumableDownload.episode.durationSec,
         downloadedAt: new Date().toISOString(),
         fileSize: bytesDownloaded,
       };

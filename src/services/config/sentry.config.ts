@@ -3,19 +3,20 @@
  * Error tracking and performance monitoring
  */
 
-import * as Sentry from '@sentry/react-native';
-import Constants from 'expo-constants';
-import { Platform } from 'react-native';
+import * as Sentry from "@sentry/react-native";
+import Constants from "expo-constants";
+import { Platform } from "react-native";
 import {
   isCancelledErrorText,
   isCancelledRequestError,
   isTransientNetworkError,
   isTransientNetworkErrorText,
-} from '../api/networkErrors';
-import { capturePostHogException } from './posthog.config';
-import { shouldSendSentryEvent } from './sentry.filters';
+} from "../api/networkErrors";
+import { capturePostHogException } from "./posthog.config";
+import { shouldSendSentryEvent } from "./sentry.filters";
 
-const SENTRY_DSN = 'https://fa9ba76768be824dd073b24308221777@o4508901298929664.ingest.us.sentry.io/4509860969512960';
+const SENTRY_DSN =
+  "https://d2bf75e91c09153b4afbb0da6f7a5419@o980827.ingest.us.sentry.io/4511160608292864";
 
 const isBenignNetworkOrCancellationError = (error: unknown): boolean => {
   const maybeError = error as {
@@ -32,7 +33,7 @@ const isBenignNetworkOrCancellationError = (error: unknown): boolean => {
 };
 
 const shouldDropEventAsNetworkNoise = (event: Sentry.Event): boolean => {
-  const message = typeof event.message === 'string' ? event.message : '';
+  const message = typeof event.message === "string" ? event.message : "";
   if (isCancelledErrorText(message) || isTransientNetworkErrorText(message)) {
     return true;
   }
@@ -43,8 +44,8 @@ const shouldDropEventAsNetworkNoise = (event: Sentry.Event): boolean => {
   }
 
   return values.some((value) => {
-    const type = typeof value?.type === 'string' ? value.type : '';
-    const message = typeof value?.value === 'string' ? value.value : '';
+    const type = typeof value?.type === "string" ? value.type : "";
+    const message = typeof value?.value === "string" ? value.value : "";
     return (
       isCancelledErrorText(type) ||
       isCancelledErrorText(message) ||
@@ -59,31 +60,35 @@ const shouldDropEventAsNetworkNoise = (event: Sentry.Event): boolean => {
  */
 export const initSentry = () => {
   // Only initialize in React Native environment
-  if (typeof window === 'undefined') {
-    console.log('⚠️ Sentry: Skipping initialization in Node.js environment');
+  if (typeof window === "undefined") {
+    console.warn("Sentry: Skipping initialization in Node.js environment");
     return;
   }
 
   const isDevelopment = __DEV__;
   const devSentryFlagValue = process.env.EXPO_PUBLIC_SENTRY_DEV_ENABLED;
-  const environment = isDevelopment ? 'development' : 'production';
+  const environment = isDevelopment ? "development" : "production";
   const sendSentryEvents = shouldSendSentryEvent({
     isDevelopment,
     devFlagValue: devSentryFlagValue,
   });
-  const enableMobileReplay = Platform.OS !== 'android';
-  const replaySessionSampleRate = enableMobileReplay ? (isDevelopment ? 1.0 : 0.1) : 0.0;
+  const enableMobileReplay = Platform.OS !== "android";
+  const replaySessionSampleRate = enableMobileReplay
+    ? isDevelopment
+      ? 1.0
+      : 0.1
+    : 0.0;
   const replayOnErrorSampleRate = enableMobileReplay ? 1.0 : 0.0;
   // Keep fatal flush waits short on Android to reduce ANR risk on low-end devices.
-  const shutdownTimeout = Platform.OS === 'android' ? 1000 : 2000;
+  const shutdownTimeout = Platform.OS === "android" ? 1000 : 2000;
   const integrations = [
     ...(enableMobileReplay
       ? [
-        Sentry.mobileReplayIntegration({
-          maskAllText: false,
-          maskAllImages: false,
-        }),
-      ]
+          Sentry.mobileReplayIntegration({
+            maskAllText: false,
+            maskAllImages: false,
+          }),
+        ]
       : []),
     Sentry.reactNativeTracingIntegration(),
   ];
@@ -93,8 +98,12 @@ export const initSentry = () => {
 
     // Environment and release tracking
     environment,
-    release: `dawah-nigeria@${Constants.expoConfig?.version || '1.0.0'}`,
-    dist: String(Constants.expoConfig?.ios?.buildNumber || Constants.expoConfig?.android?.versionCode || 1),
+    release: `dawah-nigeria@${Constants.expoConfig?.version || "1.0.0"}`,
+    dist: String(
+      Constants.expoConfig?.ios?.buildNumber ||
+        Constants.expoConfig?.android?.versionCode ||
+        1,
+    ),
 
     // Enable debug mode in development (set to false to reduce console noise)
     debug: false, // Change to true if you need to debug Sentry itself
@@ -134,7 +143,7 @@ export const initSentry = () => {
     // Before sending breadcrumbs
     beforeBreadcrumb(breadcrumb) {
       // Filter sensitive breadcrumbs
-      if (breadcrumb.category === 'console') {
+      if (breadcrumb.category === "console") {
         return null; // Don't send console logs as breadcrumbs
       }
       return breadcrumb;
@@ -143,29 +152,29 @@ export const initSentry = () => {
     // Ignore specific errors
     ignoreErrors: [
       // Network errors that are expected
-      'Network request failed',
-      'NetworkError',
-      'Failed to fetch',
+      "Network request failed",
+      "NetworkError",
+      "Failed to fetch",
 
       // React Native specific
-      'Aborted',
-      'AbortError',
-      'cancelled',
-      'canceled',
-      'Fetch request has been canceled',
-      'Request cancelled',
-      'Request canceled',
-      'Read error: ssl=',
-      'I/O error during system call',
-      'Software caused connection abort',
-      'Download failed',
-      'Unable to resolve host',
-      'Connection reset',
-      'Unexpected end of stream',
-      'Broken pipe',
+      "Aborted",
+      "AbortError",
+      "cancelled",
+      "canceled",
+      "Fetch request has been canceled",
+      "Request cancelled",
+      "Request canceled",
+      "Read error: ssl=",
+      "I/O error during system call",
+      "Software caused connection abort",
+      "Download failed",
+      "Unable to resolve host",
+      "Connection reset",
+      "Unexpected end of stream",
+      "Broken pipe",
 
       // Expo specific
-      'ExpoModulesCore',
+      "ExpoModulesCore",
     ],
 
     // Enable native crash handling
@@ -186,21 +195,23 @@ export const initSentry = () => {
   });
 
   // Set user context if available (can be updated later with actual user data)
-  Sentry.setContext('device', {
+  Sentry.setContext("device", {
     platform: Constants.platform,
     deviceName: Constants.deviceName,
     expoVersion: Constants.expoVersion,
   });
 
-  console.log('✅ Sentry initialized:', {
+  console.warn("Sentry initialized:", {
     environment,
-    dsn: SENTRY_DSN.substring(0, 50) + '...',
+    dsn: `${SENTRY_DSN.substring(0, 50)}...`,
     debug: isDevelopment,
     sendEvents: sendSentryEvents,
   });
 
   if (isDevelopment && !sendSentryEvents) {
-    console.log('⚠️ Sentry dev events are disabled. Set EXPO_PUBLIC_SENTRY_DEV_ENABLED=true to send events locally.');
+    console.warn(
+      "Sentry dev events are disabled. Set EXPO_PUBLIC_SENTRY_DEV_ENABLED=true to send events locally.",
+    );
   }
 };
 
@@ -229,18 +240,25 @@ export const clearSentryUser = () => {
 /**
  * Add custom context to error reports
  */
-export const setSentryContext = (key: string, context: Record<string, any>) => {
+export const setSentryContext = (
+  key: string,
+  context: Record<string, unknown>,
+) => {
   Sentry.setContext(key, context);
 };
 
 /**
  * Add breadcrumb for tracking user actions
  */
-export const addSentryBreadcrumb = (message: string, category: string, data?: Record<string, any>) => {
+export const addSentryBreadcrumb = (
+  message: string,
+  category: string,
+  data?: Record<string, unknown>,
+) => {
   Sentry.addBreadcrumb({
     message,
     category,
-    level: 'info',
+    level: "info",
     data,
   });
 };
@@ -250,7 +268,7 @@ export const addSentryBreadcrumb = (message: string, category: string, data?: Re
  */
 export const captureSentryException = (
   error: Error,
-  context?: Record<string, any>,
+  context?: Record<string, unknown>,
   options?: {
     alsoSendToPostHog?: boolean;
   },
@@ -285,7 +303,10 @@ export const captureSentryException = (
 /**
  * Capture a message
  */
-export const captureSentryMessage = (message: string, level: Sentry.SeverityLevel = 'info') => {
+export const captureSentryMessage = (
+  message: string,
+  level: Sentry.SeverityLevel = "info",
+) => {
   Sentry.captureMessage(message, level);
 };
 

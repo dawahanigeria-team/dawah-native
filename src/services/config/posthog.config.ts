@@ -10,6 +10,35 @@ let pendingFlush: Promise<void> | null = null
 
 const ERROR_STACK_MAX_LENGTH = 4000
 
+type PostHogExceptionProperties = NonNullable<
+  Parameters<InstanceType<typeof PostHog>['captureException']>[1]
+>
+
+const toPostHogExceptionProperties = (
+  context?: Record<string, unknown>,
+): PostHogExceptionProperties | undefined => {
+  if (!context) return undefined
+  const out: Record<string, string | number | boolean | null> = {}
+  for (const [key, value] of Object.entries(context)) {
+    if (value === undefined) continue
+    if (
+      value === null ||
+      typeof value === 'string' ||
+      typeof value === 'number' ||
+      typeof value === 'boolean'
+    ) {
+      out[key] = value
+    } else {
+      try {
+        out[key] = JSON.stringify(value)
+      } catch {
+        out[key] = String(value)
+      }
+    }
+  }
+  return out as PostHogExceptionProperties
+}
+
 export const getPostHog = (): PostHog | null => {
   if (posthogInstance) return posthogInstance
   if (!ENV.POSTHOG_KEY) return null
@@ -89,7 +118,7 @@ const normalizeErrorForPostHog = (error: Error | unknown) => {
 
 export const capturePostHogException = (
   error: Error | unknown,
-  context?: Record<string, string | number | boolean | null>,
+  context?: Record<string, unknown>,
 ): void => {
   if (isBenignError(error)) return
 
@@ -97,16 +126,17 @@ export const capturePostHogException = (
   if (!posthog) return
 
   const normalizedError = normalizeErrorForPostHog(error)
+  const posthogProperties = toPostHogExceptionProperties(context)
 
   posthog.capture('app_error', {
     error_name: normalizedError.name,
     error_message: normalizedError.message,
     ...(normalizedError.stack ? { error_stack: normalizedError.stack } : {}),
     error_source: 'manual_capture',
-    ...context,
+    ...posthogProperties,
   })
 
-  posthog.captureException(normalizedError.exception, context)
+  posthog.captureException(normalizedError.exception, posthogProperties)
 
   if (!pendingFlush) {
     pendingFlush = posthog.flush()

@@ -17,14 +17,10 @@
       "usesAppleSignIn": true,
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
-        "UIBackgroundModes": [
-          "audio"
-        ],
+        "UIBackgroundModes": ["audio"],
         "ITSAppUsesNonExemptEncryption": false
       },
-      "associatedDomains": [
-        "applinks:dawahnigeria.com"
-      ]
+      "associatedDomains": ["applinks:dawahnigeria.com"]
     },
     "android": {
       "package": "com.dawahnigeria.app",
@@ -67,10 +63,7 @@
               "pathPrefix": "/dawahcast/rp"
             }
           ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
+          "category": ["BROWSABLE", "DEFAULT"]
         }
       ]
     },
@@ -100,8 +93,8 @@
         "@sentry/react-native/expo",
         {
           "url": "https://sentry.io/",
-          "project": "dawah-nigeria",
-          "organization": "yusuf-adeyemo"
+          "project": "dawah-native",
+          "organization": "prontoville"
         }
       ],
       "expo-notifications",

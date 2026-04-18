@@ -210,4 +210,37 @@ describe("downloadsService.downloadLecture", () => {
       })
     );
   });
+
+  it("resolves the queued download URL through the downloads API before creating a resumable task", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { downloadsService } = require("./downloads.service");
+
+    const resumableDownload = await downloadsService.createDownload(
+      {
+        id: "lecture-queue-1",
+        title: "Lecture Queue One",
+        audioUrl: "https://example.com/original.mp3",
+        lecturerName: "Ustadh",
+        coverUrl: "https://example.com/cover.jpg",
+        durationSec: 360,
+        seriesId: "",
+        plays: 0,
+        liked: false,
+        language: "English",
+        downloads: 0,
+        createdAt: new Date().toISOString(),
+      },
+      jest.fn()
+    );
+
+    expect(resumableDownload).not.toBeNull();
+    expect(mockIncrementDownloadCounter).toHaveBeenCalledWith("lecture-queue-1");
+    expect(mockCreateDownloadResumable).toHaveBeenCalledWith(
+      "https://cdn.example.com/audio.mp3",
+      "file://document/downloads/lecture-queue-1.part",
+      {},
+      expect.any(Function),
+      undefined
+    );
+  });
 });

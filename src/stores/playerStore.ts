@@ -40,6 +40,12 @@ const PLAYER_STATE_KEY = "PLAYER_STATE";
 // Chain persistence writes to prevent race conditions
 let persistenceQueue: Promise<void> = Promise.resolve();
 
+const buildPersistablePlayerState = (state: PlayerState): PlayerState => ({
+  ...state,
+  queue: [],
+  originalQueue: [],
+});
+
 /**
  * Set player state and persist it to AsyncStorage
  * Uses a promise chain to prevent race conditions from rapid state updates
@@ -49,8 +55,8 @@ const setAndPersistPlayerState = (newState: Partial<PlayerState>) => {
   const updatedState = { ...currentState, ...newState };
   playerStore.set(updatedState);
 
-  // Avoid storing the entire queue, as it can be large
-  const persistableState = { ...updatedState, queue: [] };
+  // Avoid storing the full queue payloads, as they can be large.
+  const persistableState = buildPersistablePlayerState(updatedState);
 
   // Chain writes to prevent out-of-order persistence
   persistenceQueue = persistenceQueue

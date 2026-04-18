@@ -8,7 +8,7 @@ export const setAndPersistPlayerState = (newState: Partial<PlayerState>) => {
   const currentState = playerStore.get();
   const updatedState = { ...currentState, ...newState };
   playerStore.set(updatedState);
-  // Avoid storing the entire queue, as it can be large
-  const persistableState = { ...updatedState, queue: [] };
+  // Avoid storing the full queue payloads, as they can be large.
+  const persistableState = { ...updatedState, queue: [], originalQueue: [] };
   AsyncStorage.setItem(PLAYER_STATE_KEY, JSON.stringify(persistableState));
 };
