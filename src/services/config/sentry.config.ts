@@ -18,6 +18,20 @@ import { shouldSendSentryEvent } from "./sentry.filters";
 const SENTRY_DSN =
   "https://d2bf75e91c09153b4afbb0da6f7a5419@o980827.ingest.us.sentry.io/4511160608292864";
 
+const parseSampleRate = (value: string | undefined, fallback: number): number => {
+  if (!value) return fallback;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  if (parsed < 0) return 0;
+  if (parsed > 1) return 1;
+  return parsed;
+};
+
+const parseBoolean = (value: string | undefined, fallback: boolean): boolean => {
+  if (value === undefined) return fallback;
+  return value === "true";
+};
+
 const isBenignNetworkOrCancellationError = (error: unknown): boolean => {
   const maybeError = error as {
     isCancelled?: boolean;
@@ -72,6 +86,19 @@ export const initSentry = () => {
     isDevelopment,
     devFlagValue: devSentryFlagValue,
   });
+  const captureSentryLogs = parseBoolean(
+    process.env.EXPO_PUBLIC_SENTRY_CAPTURE_LOGS,
+    false,
+  );
+  const tracesSampleRate = parseSampleRate(
+    process.env.EXPO_PUBLIC_SENTRY_TRACES_SAMPLE_RATE,
+    0,
+  );
+  const profilesSampleRate = parseSampleRate(
+    process.env.EXPO_PUBLIC_SENTRY_PROFILES_SAMPLE_RATE,
+    0,
+  );
+  const tracingEnabled = tracesSampleRate > 0;
   const enableMobileReplay = Platform.OS !== "android";
   const replaySessionSampleRate = enableMobileReplay
     ? isDevelopment
@@ -90,7 +117,7 @@ export const initSentry = () => {
           }),
         ]
       : []),
-    Sentry.reactNativeTracingIntegration(),
+    ...(tracingEnabled ? [Sentry.reactNativeTracingIntegration()] : []),
   ];
 
   Sentry.init({
@@ -114,17 +141,17 @@ export const initSentry = () => {
     sessionTrackingIntervalMillis: 10000,
 
     // Performance Monitoring
-    tracesSampleRate: isDevelopment ? 1.0 : 0.2, // 100% in dev, 20% in production
+    tracesSampleRate,
 
     // Profiling
-    profilesSampleRate: isDevelopment ? 1.0 : 0.1, // 100% in dev, 10% in production
+    profilesSampleRate,
 
     // Session Replay
     replaysOnErrorSampleRate: replayOnErrorSampleRate,
     replaysSessionSampleRate: replaySessionSampleRate,
 
     // User Interaction Tracing (button taps, scrolls, etc.)
-    enableUserInteractionTracing: true,
+    enableUserInteractionTracing: tracingEnabled,
 
     // Integrations
     integrations,
@@ -134,10 +161,26 @@ export const initSentry = () => {
       if (!sendSentryEvents) {
         return null;
       }
+      // Keep Sentry focused on actionable errors unless explicitly enabled.
+      if (
+        !captureSentryLogs &&
+        !event.exception &&
+        event.level !== "fatal" &&
+        event.level !== "error"
+      ) {
+        return null;
+      }
       if (shouldDropEventAsNetworkNoise(event)) {
         return null;
       }
       return event;
+    },
+
+    beforeSendTransaction(transaction) {
+      if (!sendSentryEvents || !tracingEnabled) {
+        return null;
+      }
+      return transaction;
     },
 
     // Before sending breadcrumbs
@@ -182,7 +225,7 @@ export const initSentry = () => {
     enableNative: true,
 
     // Enable auto performance tracking
-    enableAutoPerformanceTracing: true,
+    enableAutoPerformanceTracing: tracingEnabled,
 
     // Maximum number of breadcrumbs
     maxBreadcrumbs: 100,
@@ -206,6 +249,9 @@ export const initSentry = () => {
     dsn: `${SENTRY_DSN.substring(0, 50)}...`,
     debug: isDevelopment,
     sendEvents: sendSentryEvents,
+    captureLogs: captureSentryLogs,
+    tracesSampleRate,
+    profilesSampleRate,
   });
 
   if (isDevelopment && !sendSentryEvents) {
@@ -271,15 +317,24 @@ export const captureSentryException = (
   context?: Record<string, unknown>,
   options?: {
     alsoSendToPostHog?: boolean;
+    captureClientError?: boolean;
   },
 ) => {
   const alsoSendToPostHog = options?.alsoSendToPostHog ?? true;
+  const captureClientError =
+    options?.captureClientError ??
+    parseBoolean(process.env.EXPO_PUBLIC_SENTRY_CAPTURE_CLIENT_ERRORS, true);
 
   if (isBenignNetworkOrCancellationError(error)) {
     return;
   }
   const statusCode = (error as { statusCode?: number } | null)?.statusCode;
-  if (statusCode && statusCode >= 400 && statusCode < 500) {
+  if (
+    statusCode &&
+    statusCode >= 400 &&
+    statusCode < 500 &&
+    !captureClientError
+  ) {
     return;
   }
 

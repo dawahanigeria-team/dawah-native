@@ -154,6 +154,23 @@ function HomeScreen() {
 
   const [popularEpisodes, setPopularEpisodes] = useState<Episode[]>([]);
 
+  const featuredEpisodes = useMemo(() => {
+    if (trendingLectures.length === 0) return [];
+
+    const latestCandidates = trendingLectures.filter(
+      (lecture) => Boolean(lecture.audioUrl) && Boolean(lecture.coverUrl),
+    );
+    if (latestCandidates.length === 0) return [];
+
+    const shuffled = [...latestCandidates];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    return shuffled.slice(0, HOME_HERO_LIMIT);
+  }, [trendingLectures]);
+
   const trendingNowLectures = useMemo(() => {
     const remainingAfterHero = popularEpisodes.slice(HOME_HERO_LIMIT);
     if (remainingAfterHero.length > 0) {
@@ -623,16 +640,16 @@ function HomeScreen() {
 
         {/* Hero Carousel */}
         <View style={tw`mt-4`}>
-          {popularLoading ? (
+          {trendingLoading ? (
             <View
               style={[
                 styles.heroSkeleton,
                 { backgroundColor: colors.system.background.secondary },
               ]}
             />
-          ) : popularEpisodes.length > 0 ? (
+          ) : featuredEpisodes.length > 0 ? (
             <FlatList
-              data={popularEpisodes.slice(0, HOME_HERO_LIMIT)}
+              data={featuredEpisodes}
               renderItem={renderHeroItem}
               keyExtractor={(item) => `hero-${item.id}`}
               horizontal

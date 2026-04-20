@@ -53,6 +53,8 @@ export interface SearchLecture {
   audio?: string;
   duration?: string;
   img?: string;
+  lec_img?: string;
+  rp_image?: string;
   rpname?: string;
   rp_id?: number;
   lang?: string;

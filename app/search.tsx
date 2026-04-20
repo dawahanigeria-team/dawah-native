@@ -168,7 +168,13 @@ function SearchScreen() {
     const title = lecture.mp3_title || lecture.Title || "Untitled Lecture";
     const duration = lecture.mp3_duration || lecture.Duration;
     const audioUrl = lecture.mp3_url || lecture.AudioUrl || "";
-    const coverUrl = lecture.lecturer_image || lecture.CoverUrl || "";
+    const coverUrl =
+      lecture.img ||
+      lecture.lec_img ||
+      lecture.rp_image ||
+      lecture.lecturer_image ||
+      lecture.CoverUrl ||
+      "";
     const plays = parseInt(lecture.views || lecture.Plays || "0") || 0;
     const language = lecture.language || lecture.Language || "Unknown";
     const downloads =
