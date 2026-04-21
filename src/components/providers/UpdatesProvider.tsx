@@ -24,6 +24,20 @@ import { getUpdatesBannerTop } from './UpdatesProvider.layout';
 
 const CHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 
+const isExpectedUpdateCheckFailure = (error: unknown): boolean => {
+  if (!error || typeof error !== 'object') return false;
+
+  const maybeError = error as { code?: unknown; message?: unknown };
+  const code = typeof maybeError.code === 'string' ? maybeError.code : '';
+  const message = typeof maybeError.message === 'string' ? maybeError.message : '';
+
+  return (
+    code === 'ERR_UPDATES_CHECK' ||
+    /failed to check for update/i.test(message) ||
+    /checkforupdateasync/i.test(message)
+  );
+};
+
 export const UpdatesProvider: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
@@ -72,6 +86,14 @@ export const UpdatesProvider: React.FC = () => {
       logger.debug('OTA update downloaded, ready to reload');
       attemptSucceeded = true;
     } catch (error) {
+      if (isExpectedUpdateCheckFailure(error)) {
+        const message = error instanceof Error ? error.message : 'Unknown update check failure';
+        logger.warn('[UpdatesProvider] OTA check skipped:', message);
+        addSentryBreadcrumb('OTA check failed', 'updates', { reason: message });
+        // Avoid noisy retries while offline by respecting the normal check interval.
+        attemptSucceeded = true;
+        return;
+      }
       captureSentryException(error as Error, { action: 'check_for_update' });
     } finally {
       lastCheckRef.current = getLastCheckAfterAttempt({
