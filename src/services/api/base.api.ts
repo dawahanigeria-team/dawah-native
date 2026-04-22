@@ -6,7 +6,7 @@
 import AsyncStorage from 'expo-sqlite/kv-store';
 import NetInfo from '@react-native-community/netinfo';
 import { API_CONFIG } from '../config/api.config';
-import { captureSentryException, addSentryBreadcrumb } from '../config/sentry.config';
+import { Sentry, captureSentryException, addSentryBreadcrumb } from '../config/sentry.config';
 import { secureStoreCompat } from '../storage/secureStoreCompat';
 import {
   getErrorMessage,
@@ -14,6 +14,8 @@ import {
   isTransientNetworkError,
   isTransientNetworkErrorText,
 } from './networkErrors';
+
+const SLOW_API_REQUEST_THRESHOLD_MS = 2000;
 
 // Custom error class for API errors
 export class ApiError extends Error {
@@ -47,6 +49,21 @@ export const createTokenRefreshRetryConfig = (config: RequestConfig): RequestCon
   const { signal: _signal, ...retryConfig } = config;
   return { ...retryConfig, skipTokenRefresh: true };
 };
+
+export const isMissingAccessTokenError = (errorData: any): boolean => {
+  const text = String(errorData?.message || errorData?.error || '').toLowerCase();
+  return text.includes('access token') && text.includes('required');
+};
+
+export const shouldCaptureApiHttpError = (
+  statusCode: number,
+  errorData: any,
+  hasAuthToken: boolean,
+): boolean => !(
+  statusCode === 401 &&
+  !hasAuthToken &&
+  isMissingAccessTokenError(errorData)
+);
 
 // Response wrapper interface
 export interface ApiResponse<T = any> {
@@ -510,6 +527,21 @@ class ApiClient {
     config: RequestConfig = {},
   ): Promise<ApiResponse<T>> {
     // Define these outside try block so they're available in catch
+    const telemetryMethod = (config.method || 'GET').toUpperCase();
+    const requestStartedAtMs = Date.now();
+    const requestSpan = Sentry.startInactiveSpan({
+      name: `${telemetryMethod} ${endpoint}`,
+      op: 'http.client',
+      forceTransaction: true,
+      attributes: {
+        'http.request.method': telemetryMethod,
+        'http.route': endpoint,
+      },
+    });
+    let statusCodeForTelemetry: number | null = null;
+    let usedCache = false;
+    let failed = false;
+    let suppressSentryFailureTelemetry = false;
     let url = '';
     let method = '';
     let requestId = '';
@@ -531,6 +563,8 @@ class ApiClient {
         const cachedData = await this.getCachedData(cacheKey);
 
         if (cachedData) {
+          usedCache = true;
+          statusCodeForTelemetry = 200;
           if (__DEV__) console.log(`Cache hit for ${url}`);
           return {
             data: cachedData,
@@ -595,6 +629,7 @@ class ApiClient {
 
       // Execute request with retry logic
       const response = await this.retryRequest(url, requestConfig, requestId, requestToken);
+      statusCodeForTelemetry = response.status;
 
       if (__DEV__) {
         console.log('📡 HTTP Response:', {
@@ -644,15 +679,24 @@ class ApiClient {
           response.status,
           errorData,
         );
+        failed = true;
 
-        // Report API errors to Sentry
-        captureSentryException(apiError, {
-          endpoint,
-          method,
-          url,
-          statusCode: response.status,
+        const shouldReportToSentry = shouldCaptureApiHttpError(
+          response.status,
           errorData,
-        });
+          !!this.authToken,
+        );
+        suppressSentryFailureTelemetry = !shouldReportToSentry;
+
+        if (shouldReportToSentry) {
+          captureSentryException(apiError, {
+            endpoint,
+            method,
+            url,
+            statusCode: response.status,
+            errorData,
+          });
+        }
 
         throw apiError;
       }
@@ -707,6 +751,10 @@ class ApiClient {
         timestamp: Date.now(),
       };
     } catch (error: any) {
+      failed = true;
+      if (typeof error?.statusCode === 'number') {
+        statusCodeForTelemetry = error.statusCode;
+      }
       // If the error is already an ApiError with a status code, re-throw it directly.
       // This prevents HTTP errors from being re-classified as network errors.
       if (error instanceof ApiError && error.statusCode) {
@@ -782,6 +830,57 @@ class ApiClient {
 
       throw unknownError;
     } finally {
+      const durationMs = Date.now() - requestStartedAtMs;
+      requestSpan.setAttributes({
+        'http.request.method': telemetryMethod,
+        'http.route': endpoint,
+        'http.request.duration_ms': durationMs,
+        'app.api.cached': usedCache,
+        'app.api.failed': failed,
+      });
+      if (statusCodeForTelemetry !== null) {
+        requestSpan.setAttribute('http.response.status_code', statusCodeForTelemetry);
+      }
+      requestSpan.end();
+
+      Sentry.metrics.count('api_request_total', 1, {
+        attributes: {
+          endpoint,
+          method: telemetryMethod,
+          status_code: statusCodeForTelemetry ?? 'unknown',
+          cached: usedCache,
+          failed,
+        },
+      });
+      Sentry.metrics.distribution('api_request_duration', durationMs, {
+        unit: 'millisecond',
+        attributes: {
+          endpoint,
+          method: telemetryMethod,
+          status_code: statusCodeForTelemetry ?? 'unknown',
+          cached: usedCache,
+          failed,
+        },
+      });
+
+      if (failed && !suppressSentryFailureTelemetry) {
+        Sentry.logger.warn('API request failed', {
+          endpoint,
+          method: telemetryMethod,
+          status_code: statusCodeForTelemetry ?? 'unknown',
+          duration_ms: durationMs,
+          cached: usedCache,
+        });
+      } else if (durationMs >= SLOW_API_REQUEST_THRESHOLD_MS) {
+        Sentry.logger.info('Slow API request', {
+          endpoint,
+          method: telemetryMethod,
+          status_code: statusCodeForTelemetry ?? 'unknown',
+          duration_ms: durationMs,
+          cached: usedCache,
+        });
+      }
+
       if (requestId && requestToken && this.requestTokens.get(requestId) === requestToken) {
         this.requestTokens.delete(requestId);
       }

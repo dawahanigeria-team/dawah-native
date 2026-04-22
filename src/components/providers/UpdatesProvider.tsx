@@ -12,6 +12,7 @@ import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { logger } from '../../utils/logger';
 import { captureSentryException, addSentryBreadcrumb } from '../../services/config/sentry.config';
+import { isExpectedExpoUpdatesCheckFailure } from '../../services/config/sentry.filters';
 import { useTheme } from '../../hooks/useTheme';
 import { getLastCheckAfterAttempt, shouldThrottleUpdateCheck } from './UpdatesProvider.checks';
 import {
@@ -23,20 +24,6 @@ import {
 import { getUpdatesBannerTop } from './UpdatesProvider.layout';
 
 const CHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
-
-const isExpectedUpdateCheckFailure = (error: unknown): boolean => {
-  if (!error || typeof error !== 'object') return false;
-
-  const maybeError = error as { code?: unknown; message?: unknown };
-  const code = typeof maybeError.code === 'string' ? maybeError.code : '';
-  const message = typeof maybeError.message === 'string' ? maybeError.message : '';
-
-  return (
-    code === 'ERR_UPDATES_CHECK' ||
-    /failed to check for update/i.test(message) ||
-    /checkforupdateasync/i.test(message)
-  );
-};
 
 export const UpdatesProvider: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -86,7 +73,7 @@ export const UpdatesProvider: React.FC = () => {
       logger.debug('OTA update downloaded, ready to reload');
       attemptSucceeded = true;
     } catch (error) {
-      if (isExpectedUpdateCheckFailure(error)) {
+      if (isExpectedExpoUpdatesCheckFailure(error, { action: 'check_for_update' })) {
         const message = error instanceof Error ? error.message : 'Unknown update check failure';
         logger.warn('[UpdatesProvider] OTA check skipped:', message);
         addSentryBreadcrumb('OTA check failed', 'updates', { reason: message });

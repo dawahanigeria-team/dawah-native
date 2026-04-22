@@ -4,7 +4,7 @@
  */
 
 // Base API Response
-export interface BaseApiResponse<T = any> {
+export interface BaseApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   message?: string;
@@ -13,7 +13,7 @@ export interface BaseApiResponse<T = any> {
 }
 
 // Pagination Response
-export interface PaginatedResponse<T = any> extends BaseApiResponse<T[]> {
+export interface PaginatedResponse<T = unknown> extends BaseApiResponse<T[]> {
   total: number;
   page: number;
   total_pages: number;
@@ -359,7 +359,7 @@ export interface DownloadLinkResponse extends BaseApiResponse {
 }
 
 // Chart Response
-export interface ChartResponse<T = any> extends BaseApiResponse {
+export interface ChartResponse<T = unknown> extends BaseApiResponse {
   period: "daily" | "weekly" | "monthly" | "all-time";
   items: (T & {
     rank: number;
@@ -386,7 +386,7 @@ export interface ApiErrorResponse {
   success: false;
   error: string;
   message?: string;
-  details?: any;
+  details?: unknown;
   statusCode?: number;
   timestamp: string;
 }

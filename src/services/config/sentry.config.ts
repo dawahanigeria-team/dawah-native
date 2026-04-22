@@ -13,7 +13,11 @@ import {
   isTransientNetworkErrorText,
 } from "../api/networkErrors";
 import { capturePostHogException } from "./posthog.config";
-import { shouldSendSentryEvent } from "./sentry.filters";
+import {
+  isExpectedExpoUpdatesCheckFailure,
+  shouldDropExpectedExpoUpdatesCheckEvent,
+  shouldSendSentryEvent,
+} from "./sentry.filters";
 
 const SENTRY_DSN =
   "https://d2bf75e91c09153b4afbb0da6f7a5419@o980827.ingest.us.sentry.io/4511160608292864";
@@ -90,9 +94,17 @@ export const initSentry = () => {
     process.env.EXPO_PUBLIC_SENTRY_CAPTURE_LOGS,
     false,
   );
+  const enableSentryLogs = parseBoolean(
+    process.env.EXPO_PUBLIC_SENTRY_ENABLE_LOGS,
+    false,
+  );
+  const enableSentryMetrics = parseBoolean(
+    process.env.EXPO_PUBLIC_SENTRY_ENABLE_METRICS,
+    true,
+  );
   const tracesSampleRate = parseSampleRate(
     process.env.EXPO_PUBLIC_SENTRY_TRACES_SAMPLE_RATE,
-    0,
+    isDevelopment ? 1 : 0.2,
   );
   const profilesSampleRate = parseSampleRate(
     process.env.EXPO_PUBLIC_SENTRY_PROFILES_SAMPLE_RATE,
@@ -150,6 +162,10 @@ export const initSentry = () => {
     replaysOnErrorSampleRate: replayOnErrorSampleRate,
     replaysSessionSampleRate: replaySessionSampleRate,
 
+    // Structured logs and custom metrics
+    enableLogs: enableSentryLogs,
+    enableMetrics: enableSentryMetrics,
+
     // User Interaction Tracing (button taps, scrolls, etc.)
     enableUserInteractionTracing: tracingEnabled,
 
@@ -171,6 +187,9 @@ export const initSentry = () => {
         return null;
       }
       if (shouldDropEventAsNetworkNoise(event)) {
+        return null;
+      }
+      if (shouldDropExpectedExpoUpdatesCheckEvent(event)) {
         return null;
       }
       return event;
@@ -250,6 +269,8 @@ export const initSentry = () => {
     debug: isDevelopment,
     sendEvents: sendSentryEvents,
     captureLogs: captureSentryLogs,
+    enableLogs: enableSentryLogs,
+    enableMetrics: enableSentryMetrics,
     tracesSampleRate,
     profilesSampleRate,
   });
@@ -326,6 +347,9 @@ export const captureSentryException = (
     parseBoolean(process.env.EXPO_PUBLIC_SENTRY_CAPTURE_CLIENT_ERRORS, true);
 
   if (isBenignNetworkOrCancellationError(error)) {
+    return;
+  }
+  if (isExpectedExpoUpdatesCheckFailure(error, context)) {
     return;
   }
   const statusCode = (error as { statusCode?: number } | null)?.statusCode;
