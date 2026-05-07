@@ -167,11 +167,11 @@ const setProgress = (nextProgress: Progress) => {
 }
 
 const mapAudioStatusToState = (audioStatus: AudioStatus): PlaybackState['state'] => {
-  if (audioStatus.isBuffering) {
-    return State.Buffering
-  }
   if (audioStatus.playing) {
     return State.Playing
+  }
+  if (audioStatus.isBuffering) {
+    return State.Buffering
   }
   if (!audioStatus.isLoaded) {
     return State.Loading

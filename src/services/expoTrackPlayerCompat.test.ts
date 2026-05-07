@@ -32,6 +32,17 @@ jest.mock('expo-audio', () => {
         didJustFinish: false,
       })
     }),
+    emitStatus: (status: Record<string, unknown>) => {
+      emit('playbackStatusUpdate', {
+        isLoaded: true,
+        isBuffering: false,
+        playing: false,
+        currentTime: player.currentTime,
+        duration: player.duration,
+        didJustFinish: false,
+        ...status,
+      })
+    },
     pause: jest.fn(() => {
       player.playing = false
       player.paused = true
@@ -141,6 +152,22 @@ describe('expoTrackPlayerCompat', () => {
 
     const playbackState = await TrackPlayer.getPlaybackState()
     expect(playbackState.state).toBe(State.Playing)
+  })
+
+  test('keeps playing state when native status is both playing and buffering', async () => {
+    const expoAudioMock = jest.requireMock('expo-audio') as {
+      __player: { emitStatus: (status: Record<string, unknown>) => void }
+    }
+
+    await TrackPlayer.add({ id: 'a', url: 'https://example.com/a.mp3', title: 'A' })
+    await TrackPlayer.skip(0)
+    expoAudioMock.__player.emitStatus({
+      isLoaded: true,
+      isBuffering: true,
+      playing: true,
+    })
+
+    await expect(TrackPlayer.getPlaybackState()).resolves.toEqual({ state: State.Playing })
   })
 
   test('reset keeps native player warm for faster startup', async () => {

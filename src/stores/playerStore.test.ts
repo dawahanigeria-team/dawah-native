@@ -4,6 +4,7 @@ import { downloadsService } from '../services/downloads.service'
 import { historyService } from '../services/history.service'
 import { ensureTrackPlayerReady } from '../services/trackPlayerReady.service'
 import AsyncStorage from 'expo-sqlite/kv-store'
+import NetInfo from '@react-native-community/netinfo'
 
 jest.mock('../services/expoTrackPlayerCompat', () => ({
   State: {
@@ -59,6 +60,10 @@ jest.mock('../services/config/sentry.config', () => ({
   captureSentryException: jest.fn(),
 }))
 
+jest.mock('@react-native-community/netinfo', () => ({
+  fetch: jest.fn(),
+}))
+
 jest.mock('../utils/logger', () => ({
   logger: {
     debug: jest.fn(),
@@ -80,6 +85,8 @@ const mockEnsureReady = ensureTrackPlayerReady as jest.Mock
 const mockGetPlaybackState = TrackPlayer.getPlaybackState as jest.Mock
 const mockGetProgress = TrackPlayer.getProgress as jest.Mock
 const mockSetItem = AsyncStorage.setItem as jest.Mock
+const mockFetchNetInfo = NetInfo.fetch as jest.Mock
+const mockFetch = jest.fn()
 
 afterEach(() => {
   jest.useRealTimers()
@@ -148,6 +155,11 @@ beforeEach(() => {
   mockGetProgress.mockReset()
   mockGetPlaybackState.mockResolvedValue({ state: 'playing' })
   mockGetProgress.mockResolvedValue({ position: 1, duration: 120, buffered: 1 })
+  mockFetchNetInfo.mockReset()
+  mockFetchNetInfo.mockResolvedValue({ isConnected: true, isInternetReachable: true })
+  mockFetch.mockReset()
+  mockFetch.mockResolvedValue({ status: 206 })
+  globalThis.fetch = mockFetch
 })
 
 test('playEpisode builds queue and uses TrackPlayer', async () => {
@@ -219,6 +231,82 @@ test('playEpisode retries playback when startup stalls before timing out', async
   expect(TrackPlayer.play).toHaveBeenCalledTimes(2)
   expect(playerStore.get().isPlaying).toBe(true)
   expect(playerStore.get().errorMessage).toBeNull()
+})
+
+test('playEpisode allows extra startup time while remote audio is still buffering', async () => {
+  jest.useFakeTimers()
+  jest.setSystemTime(0)
+
+  const episode = {
+    id: 'buffering-1',
+    title: 'Lecture Buffering',
+    audioUrl: 'https://example.com/audio.mp3',
+    lecturerName: 'Ustadh',
+    coverUrl: 'cover.png',
+    durationSec: 120,
+    seriesId: '',
+    plays: 0,
+    liked: false,
+    language: 'Unknown',
+    downloads: 0,
+    createdAt: new Date().toISOString(),
+  }
+
+  mockGetPlaybackUri.mockReturnValue('https://example.com/audio.mp3')
+  mockIsDownloaded.mockReturnValue(false)
+  mockAddToHistory.mockResolvedValue(undefined)
+  mockGetPlaybackState.mockImplementation(async () => ({
+    state: Date.now() >= 25000 ? 'playing' : 'buffering',
+  }))
+  mockGetProgress.mockResolvedValue({ position: 0, duration: 120, buffered: 0 })
+
+  const actions = usePlayerActions()
+  const playPromise = actions.playEpisode(episode)
+
+  await jest.advanceTimersByTimeAsync(26000)
+  await playPromise
+
+  expect(mockFetchNetInfo).toHaveBeenCalled()
+  expect(playerStore.get().isPlaying).toBe(true)
+  expect(playerStore.get().errorMessage).toBeNull()
+})
+
+test('playEpisode fails before player setup when remote audio returns 404', async () => {
+  const episode = {
+    id: 'missing-1',
+    title: 'Missing Lecture',
+    audioUrl: 'https://example.com/missing [Q4].mp3',
+    lecturerName: 'Ustadh',
+    coverUrl: 'cover.png',
+    durationSec: 120,
+    seriesId: '',
+    plays: 0,
+    liked: false,
+    language: 'Unknown',
+    downloads: 0,
+    createdAt: new Date().toISOString(),
+  }
+
+  mockGetPlaybackUri.mockReturnValue(episode.audioUrl)
+  mockIsDownloaded.mockReturnValue(false)
+  mockFetch.mockResolvedValue({ status: 404 })
+
+  const actions = usePlayerActions()
+  await actions.playEpisode(episode)
+
+  expect(mockFetch).toHaveBeenCalledWith(
+    'https://example.com/missing%20%5BQ4%5D.mp3',
+    expect.objectContaining({
+      method: 'GET',
+      headers: { Range: 'bytes=0-0' },
+    })
+  )
+  expect(TrackPlayer.reset).not.toHaveBeenCalled()
+  expect(TrackPlayer.add).not.toHaveBeenCalled()
+  expect(TrackPlayer.play).not.toHaveBeenCalled()
+  expect(playerStore.get().isPlaying).toBe(false)
+  expect(playerStore.get().isLoading).toBe(false)
+  expect(playerStore.get().errorMessage).toBe('This audio file is currently unavailable. Please try another lecture.')
 })
 
 test('setRepeatMode does not persist originalQueue payloads to AsyncStorage', async () => {

@@ -113,8 +113,11 @@ function buildLockScreenInfo(episode: Episode): { title: string; artist: string;
 
 let currentPlayRequestId = 0;
 const PLAYBACK_START_TIMEOUT_MS = 20000;
+const PLAYBACK_BUFFERING_GRACE_MS = 45000;
 const PLAYBACK_POLL_INTERVAL_MS = 500;
 const PLAYBACK_RECOVERY_INTERVAL_MS = 3000;
+const PLAYBACK_SOURCE_CHECK_TIMEOUT_MS = 10000;
+const HTTP_URL_REGEX = /^https?:\/\//i;
 
 const resolvePlaybackUri = (episode: Episode): string => {
   if (!episode.audioUrl) {
@@ -124,12 +127,60 @@ const resolvePlaybackUri = (episode: Episode): string => {
   return downloadsService.getPlaybackUri(episode.id, episode.audioUrl);
 };
 
+const sanitizeRemotePlaybackUri = (uri: string): string => {
+  if (!uri || !HTTP_URL_REGEX.test(uri)) {
+    return uri;
+  }
+
+  const encode = (value: string) => encodeURI(value).replace(/'/g, '%27');
+
+  try {
+    return encode(decodeURI(uri));
+  } catch {
+    return encode(uri);
+  }
+};
+
+const assertRemotePlaybackSourceAvailable = async (uri: string): Promise<void> => {
+  if (!HTTP_URL_REGEX.test(uri)) {
+    return;
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), PLAYBACK_SOURCE_CHECK_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(sanitizeRemotePlaybackUri(uri), {
+      method: 'GET',
+      headers: { Range: 'bytes=0-0' },
+      signal: controller.signal,
+    });
+
+    if (response.status === 404 || response.status === 410) {
+      throw new Error('Audio source unavailable');
+    }
+
+    if (response.status >= 400 && response.status !== 416) {
+      throw new Error(`Audio source request failed with status ${response.status}`);
+    }
+  } catch (error) {
+    const err = error as Error;
+    if (err.name === 'AbortError') {
+      return;
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
 const waitForPlaybackReady = async (timeoutMs: number, requestId?: number) => {
   const start = Date.now();
   let lastRecoveryAttemptAt = start;
   let recoveryAttempts = 0;
+  let effectiveTimeoutMs = timeoutMs;
 
-  while (Date.now() - start < timeoutMs) {
+  while (Date.now() - start < effectiveTimeoutMs) {
     if (requestId !== undefined && requestId !== currentPlayRequestId) {
       throw new Error('Playback superseded');
     }
@@ -144,6 +195,17 @@ const waitForPlaybackReady = async (timeoutMs: number, requestId?: number) => {
     if (state === State.Playing || hasStarted) {
       return;
     }
+    const elapsedMs = Date.now() - start;
+    if (
+      (state === State.Buffering || state === State.Loading) &&
+      effectiveTimeoutMs === timeoutMs &&
+      elapsedMs >= timeoutMs - PLAYBACK_POLL_INTERVAL_MS
+    ) {
+      const netState = await NetInfo.fetch();
+      if (netState.isConnected !== false && netState.isInternetReachable !== false) {
+        effectiveTimeoutMs = PLAYBACK_BUFFERING_GRACE_MS;
+      }
+    }
     if (state === State.Error) {
       throw new Error('Audio playback error');
     }
@@ -153,9 +215,7 @@ const waitForPlaybackReady = async (timeoutMs: number, requestId?: number) => {
       state === State.None ||
       state === State.Ready ||
       state === State.Paused ||
-      state === State.Stopped ||
-      state === State.Loading ||
-      state === State.Buffering;
+      state === State.Stopped;
 
     if (isStalled && now - lastRecoveryAttemptAt >= PLAYBACK_RECOVERY_INTERVAL_MS) {
       lastRecoveryAttemptAt = now;
@@ -304,6 +364,7 @@ const playEpisode = async (episode: Episode) => {
         logger.debug('🔊 PlayerStore: Loading from DOWNLOADED file:', playbackUri);
       } else {
         logger.debug('🔊 PlayerStore: Loading from REMOTE URL:', playbackUri);
+        await assertRemotePlaybackSourceAvailable(playbackUri);
       }
 
       const queue = [episode];
@@ -369,6 +430,7 @@ const playEpisode = async (episode: Episode) => {
     const err = error as Error;
     const message = err?.message ?? '';
     const isTimeout = message.toLowerCase().includes('timeout');
+    const isSourceUnavailable = message === 'Audio source unavailable';
 
     logger.error('❌ PlayerStore: Failed to play episode', err, {
       episodeId: episode.id,
@@ -389,6 +451,9 @@ const playEpisode = async (episode: Episode) => {
       } catch {
         errorMessage = 'Audio is taking longer than usual to load. Please try again.';
       }
+    }
+    if (isSourceUnavailable) {
+      errorMessage = 'This audio file is currently unavailable. Please try another lecture.';
     }
 
     if (!isTimeout) {
@@ -602,6 +667,8 @@ const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: b
       logger.error('No valid tracks with audio URLs', new Error('No playable tracks'));
       return;
     }
+
+    await assertRemotePlaybackSourceAvailable(tracks[safeFilteredStartIndex].url);
 
     await ensureTrackPlayerReady();
     await TrackPlayer.reset();
