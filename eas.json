@@ -5,6 +5,8 @@
   },
   "build": {
     "development": {
+      "pnpm": "10.23.0",
+      "environment": "development",
       "developmentClient": true,
       "distribution": "internal",
       "android": {
@@ -21,6 +23,8 @@
       "channel": "development"
     },
     "preview": {
+      "pnpm": "10.23.0",
+      "environment": "preview",
       "distribution": "internal",
       "android": {
         "buildType": "apk",
@@ -37,6 +41,8 @@
       "channel": "preview"
     },
     "production": {
+      "pnpm": "10.23.0",
+      "environment": "production",
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
@@ -55,6 +61,7 @@
       "channel": "production"
     },
     "development-simulator": {
+      "pnpm": "10.23.0",
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
