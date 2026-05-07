@@ -12,6 +12,7 @@ import { cacheService } from '../services/cache/cache.service';
 import { historyService } from '../services/history.service';
 import { apiClient } from '../services/api/base.api';
 import { clearFavorites } from './favoritesStore';
+import { hydratePremiumFromUser, refreshPremiumFeatures, resetPremiumState } from './premiumStore';
 
 export interface AuthState {
   user: User | null;
@@ -48,6 +49,7 @@ export const initializeAuth = async () => {
     apiClient.setOnRefreshFailure(async () => {
       await authApi.logout();
       await apiClient.setAuthToken(null);
+      resetPremiumState();
       authStore.set({ ...initialState, isLoading: false, isInitialized: true });
     });
     authListenerRegistered = true;
@@ -71,6 +73,12 @@ export const initializeAuth = async () => {
     await apiClient.setAuthToken(null);
   }
 
+  if (accessToken && storedUser) {
+    hydratePremiumFromUser(storedUser);
+  } else {
+    resetPremiumState();
+  }
+
   authStore.set((prev) => ({
     ...prev,
     user: accessToken ? storedUser : null,
@@ -78,6 +86,10 @@ export const initializeAuth = async () => {
     isLoading: false,
     isInitialized: true,
   }));
+
+  if (accessToken) {
+    refreshPremiumFeatures().catch(() => {});
+  }
 };
 
 const clearLocalSessionData = async (): Promise<void> => {
@@ -117,6 +129,7 @@ export const useAuthStore = () => {
 
       // Set auth token in apiClient and update store
       await apiClient.setAuthToken(user.token ?? null);
+      hydratePremiumFromUser(user);
 
       authStore.set({
         user,
@@ -149,6 +162,7 @@ export const useAuthStore = () => {
 
       await userService.setUserId(user.id);
       await apiClient.setAuthToken(user.token ?? null);
+      hydratePremiumFromUser(user);
 
       authStore.set({
         user,
@@ -181,6 +195,7 @@ export const useAuthStore = () => {
 
       // Set auth token in apiClient and update store
       await apiClient.setAuthToken(user.token ?? null);
+      hydratePremiumFromUser(user);
 
       authStore.set({
         user,
@@ -213,6 +228,7 @@ export const useAuthStore = () => {
 
       // Clear auth token in apiClient and update store
       await apiClient.setAuthToken(null);
+      resetPremiumState();
 
       authStore.set({
         ...initialState,
@@ -244,6 +260,7 @@ export const useAuthStore = () => {
 
       await authApi.deleteAccount(currentUser.id);
       await clearLocalSessionData();
+      resetPremiumState();
 
       authStore.set({
         ...initialState,
@@ -281,6 +298,7 @@ export const useAuthStore = () => {
       if (user.token) {
         await apiClient.setAuthToken(user.token);
       }
+      hydratePremiumFromUser(user);
 
       authStore.set((prev) => ({
         ...prev,

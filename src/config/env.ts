@@ -12,6 +12,8 @@ interface EnvConfig {
   POSTHOG_HOST: string;
   GOOGLE_WEB_CLIENT_ID: string;
   GOOGLE_IOS_CLIENT_ID: string;
+  PREMIUM_MONTHLY_PRODUCT_ID: string;
+  PREMIUM_YEARLY_PRODUCT_ID: string;
   NODE_ENV: 'development' | 'production' | 'test';
 }
 
@@ -25,6 +27,8 @@ export const ENV: EnvConfig = {
   POSTHOG_HOST: process.env.EXPO_PUBLIC_POSTHOG_HOST || 'https://eu.i.posthog.com',
   GOOGLE_WEB_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '',
   GOOGLE_IOS_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '',
+  PREMIUM_MONTHLY_PRODUCT_ID: process.env.EXPO_PUBLIC_PREMIUM_MONTHLY_PRODUCT_ID || 'dawahnigeria_premium_monthly',
+  PREMIUM_YEARLY_PRODUCT_ID: process.env.EXPO_PUBLIC_PREMIUM_YEARLY_PRODUCT_ID || 'dawahnigeria_premium_yearly',
   NODE_ENV: (__DEV__ ? 'development' : 'production') as EnvConfig['NODE_ENV'],
 };
 

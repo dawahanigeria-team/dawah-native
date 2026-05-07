@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Icon, Text } from '../../src/components/atoms';
+import { useFollowGate } from '../../src/hooks/useFollowGate';
 import { useTheme } from '../../src/hooks/useTheme';
 import {
   followLecturer,
@@ -48,6 +49,7 @@ const QuranReciterScreen: React.FC = () => {
   const shouldAutoFollow = parseAutoFollowFlag(autoFollow);
   const { playQueue, currentEpisode } = usePlayerStore();
   const { isAuthenticated, user } = useAuthStore();
+  const { canFollowMore, requireFollowAccess } = useFollowGate();
   const { colors } = useTheme();
   const navigation = useNavigation();
 
@@ -229,9 +231,13 @@ const QuranReciterScreen: React.FC = () => {
         return;
       }
 
+      const shouldFollow = options.forceFollow ? true : !isFollowing;
+      if (shouldFollow && !requireFollowAccess(isFollowing)) {
+        return;
+      }
+
       setIsFollowLoading(true);
       try {
-        const shouldFollow = options.forceFollow ? true : !isFollowing;
         if (shouldFollow) {
           let token = await getStoredPushToken();
 
@@ -286,6 +292,23 @@ const QuranReciterScreen: React.FC = () => {
           }
         }
       } catch (err) {
+        const apiError = err as { statusCode?: number; data?: { code?: string; feature?: string }; message?: string };
+        if (
+          apiError.statusCode === 403 &&
+          apiError.data?.code === 'FEATURE_NOT_AVAILABLE' &&
+          apiError.data?.feature === 'multi_lecturer_follow'
+        ) {
+          Alert.alert(
+            'Premium feature',
+            'Free users can follow up to 2 lecturers or reciters. Upgrade to follow more.',
+            [
+              { text: 'Not now', style: 'cancel' },
+              { text: 'Upgrade', onPress: () => router.push('/premium' as any) },
+            ],
+          );
+          return;
+        }
+
         const error = err instanceof Error ? err : new Error('Follow toggle failed');
         captureSentryException(error, {
           component: 'QuranReciterScreen',
@@ -305,7 +328,9 @@ const QuranReciterScreen: React.FC = () => {
       navigateToSignIn,
       isFollowing,
       confirmEnableNotifications,
+      requireFollowAccess,
       user?.id,
+      router,
     ],
   );
 
@@ -759,7 +784,11 @@ const QuranReciterScreen: React.FC = () => {
                 loading={isFollowLoading}
                 disabled={followDisabled}
                 leftIcon={
-                  isFollowing ? <Icon name="checkmark" color="label" size="sm" /> : undefined
+                  isFollowing ? (
+                    <Icon name="checkmark" color="label" size="sm" />
+                  ) : !canFollowMore ? (
+                    <Icon name="lock-closed" color="white" size="sm" />
+                  ) : undefined
                 }
                 style={styles.followButton}
                 accessibilityLabel={isFollowing ? 'Following reciter' : 'Follow reciter'}

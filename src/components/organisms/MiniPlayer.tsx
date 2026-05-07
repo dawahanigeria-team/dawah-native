@@ -27,6 +27,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useDownloadGate } from "../../hooks/useDownloadGate";
 import { useLectureDetail } from "../../hooks/useLectureDetail";
 import { useTheme } from "../../hooks/useTheme";
 import { useDownloadsStore } from "../../stores";
@@ -78,6 +79,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       getDownloadStatus,
       getDownloadProgress,
     } = useDownloadsStore();
+    const { requireDownloadAccess } = useDownloadGate();
     const { colors } = useTheme();
 
     // Fetch richer lecture metadata only when the player is expanded.
@@ -275,6 +277,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
 
     const handleDownloadPress = async () => {
       if (!currentEpisode) return;
+      if (!requireDownloadAccess()) return;
 
       try {
         if (downloadStatus === DownloadStatus.DOWNLOADING) {

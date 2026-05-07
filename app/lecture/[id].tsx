@@ -32,6 +32,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { Button, Chip, Text, Touchable } from "../../src/components/atoms";
 import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
 import AddToPlaylistModal from "../../src/components/organisms/AddToPlaylistModal";
+import { useDownloadGate } from "../../src/hooks/useDownloadGate";
 import { useLectureDetail } from "../../src/hooks/useLectureDetail";
 import { useTheme } from "../../src/hooks/useTheme";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
@@ -378,6 +379,7 @@ const LectureDetailScreen: React.FC = () => {
   } = useDownloadsStore();
 
   const { isFavorited, toggleFavorite } = useFavoritesStore();
+  const { requireDownloadAccess } = useDownloadGate();
 
   // Derived State
   const liked = isFavorited(lectureId);
@@ -440,6 +442,7 @@ const LectureDetailScreen: React.FC = () => {
 
   const handleDownloadPress = useCallback(async () => {
     if (!episode) return;
+    if (!requireDownloadAccess()) return;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
@@ -489,7 +492,7 @@ const LectureDetailScreen: React.FC = () => {
         [{ text: "OK" }]
       );
     }
-  }, [episode, downloadStatus, addToQueue, pauseDownload, resumeDownload]);
+  }, [episode, requireDownloadAccess, downloadStatus, addToQueue, pauseDownload, resumeDownload]);
 
   const handleCancelDownload = useCallback(() => {
     if (!episode) return;

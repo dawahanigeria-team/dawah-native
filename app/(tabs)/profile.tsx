@@ -10,6 +10,7 @@ import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
 import { userService } from "../../src/services/user.service";
 import { useAuthStore } from "../../src/stores";
+import { usePremiumStore } from "../../src/stores/premiumStore";
 import { useTheme } from "../../src/hooks/useTheme";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
@@ -31,6 +32,7 @@ const ProfileScreen = () => {
   const router = useRouter();
   const { colors, isDark, setTheme } = useTheme();
   const { user, isAuthenticated, logout, deleteAccount } = useAuthStore();
+  const { plan, subscription_status } = usePremiumStore();
   const [isDeletingAccount, setIsDeletingAccount] = React.useState(false);
 
   // Get time-based greeting (Arabic)
@@ -254,7 +256,30 @@ const ProfileScreen = () => {
       ]
     : [];
 
+  const premiumSubtitle = (() => {
+    const isPremium = plan !== "free";
+    const status = String(subscription_status);
+    const isNoteworthyStatus =
+      status !== "none" && status !== "inactive" && status !== "active";
+    if (!isPremium) {
+      return "Free";
+    }
+    const planLabel = plan === "premium" ? "Premium" : String(plan);
+    return isNoteworthyStatus
+      ? `${planLabel} · ${status.replace(/_/g, " ")}`
+      : planLabel;
+  })();
+
   const settingsItems: MenuItem[] = [
+    {
+      id: "premium",
+      title: "Premium",
+      subtitle: premiumSubtitle,
+      icon: "diamond-outline",
+      iconColor: colors.brand.primary,
+      onPress: () => router.push("/premium" as any),
+      showChevron: true,
+    },
     {
       id: "appearance",
       title: "Appearance",

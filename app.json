@@ -17,10 +17,14 @@
       "usesAppleSignIn": true,
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
-        "UIBackgroundModes": ["audio"],
+        "UIBackgroundModes": [
+          "audio"
+        ],
         "ITSAppUsesNonExemptEncryption": false
       },
-      "associatedDomains": ["applinks:dawahnigeria.com"]
+      "associatedDomains": [
+        "applinks:dawahnigeria.com"
+      ]
     },
     "android": {
       "package": "com.dawahnigeria.app",
@@ -63,7 +67,10 @@
               "pathPrefix": "/dawahcast/rp"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -131,7 +138,8 @@
         }
       ],
       "./plugins/withExpo55MainApplicationHostFix",
-      "expo-image"
+      "expo-image",
+      "expo-iap"
     ],
     "experiments": {
       "typedRoutes": true,

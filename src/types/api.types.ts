@@ -432,6 +432,7 @@ export interface UserPlaylist {
 }
 
 export interface UserPlaylistsResponse extends BaseApiResponse {
+  data?: UserPlaylist[];
   playlists: UserPlaylist[];
 }
 
@@ -440,6 +441,6 @@ export interface PlaylistData {
 }
 
 export interface PlaylistDataResponse extends BaseApiResponse {
+  data?: Array<{ audio?: number[] | string[] }>;
   playlist_data: PlaylistData[];
 }
-

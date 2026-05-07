@@ -8,6 +8,16 @@ import { API_CONFIG } from '../config/api.config';
 import { apiClient, ApiError } from './base.api';
 import { secureStoreCompat } from '../storage/secureStoreCompat';
 import { logger } from '@/utils/logger';
+import type {
+  PremiumFeatureFlags,
+  PremiumStateSnapshot,
+  SubscriptionPlan,
+  SubscriptionStatus,
+} from '../../types/premium.types';
+import {
+  DEFAULT_PREMIUM_FEATURE_FLAGS,
+  DEFAULT_PREMIUM_STATE,
+} from '../../types/premium.types';
 
 export interface User {
   id: string;
@@ -15,6 +25,9 @@ export interface User {
   email: string;
   token?: string;
   created_at?: string;
+  plan: SubscriptionPlan;
+  subscription_status: SubscriptionStatus;
+  feature_flags: PremiumFeatureFlags;
 }
 
 export interface LoginCredentials {
@@ -49,6 +62,9 @@ export interface LoginResponse {
       is_social: boolean;
       created_at?: string;
       createdAt?: string;
+      plan?: SubscriptionPlan;
+      subscription_status?: SubscriptionStatus;
+      feature_flags?: Partial<PremiumFeatureFlags>;
     };
     tokens: {
       access_token: string;
@@ -71,6 +87,9 @@ export interface RegisterResponse {
       languageId: string;
       created_at?: string;
       createdAt?: string;
+      plan?: SubscriptionPlan;
+      subscription_status?: SubscriptionStatus;
+      feature_flags?: Partial<PremiumFeatureFlags>;
     };
     tokens: {
       access_token: string;
@@ -108,6 +127,9 @@ export interface UpdateProfileResponse {
       is_social: boolean;
       created_at?: string;
       createdAt?: string;
+      plan?: SubscriptionPlan;
+      subscription_status?: SubscriptionStatus;
+      feature_flags?: Partial<PremiumFeatureFlags>;
     };
     tokens?: {
       access_token: string;
@@ -152,6 +174,46 @@ class AuthApiService {
       return value.createdAt;
     }
     return undefined;
+  }
+
+  private getPremiumFields(value: {
+    plan?: SubscriptionPlan;
+    subscription_status?: SubscriptionStatus;
+    feature_flags?: Partial<PremiumFeatureFlags>;
+  }): PremiumStateSnapshot {
+    return {
+      ...DEFAULT_PREMIUM_STATE,
+      plan: value.plan ?? DEFAULT_PREMIUM_STATE.plan,
+      subscription_status:
+        value.subscription_status ?? DEFAULT_PREMIUM_STATE.subscription_status,
+      feature_flags: {
+        ...DEFAULT_PREMIUM_FEATURE_FLAGS,
+        ...(value.feature_flags ?? {}),
+      },
+    };
+  }
+
+  private buildUser(
+    value: {
+      id: number | string;
+      username: string;
+      email: string;
+      created_at?: string;
+      createdAt?: string;
+      plan?: SubscriptionPlan;
+      subscription_status?: SubscriptionStatus;
+      feature_flags?: Partial<PremiumFeatureFlags>;
+    },
+    token?: string,
+  ): User {
+    return {
+      id: value.id.toString(),
+      username: value.username,
+      email: value.email,
+      token,
+      created_at: this.getUserCreatedAt(value),
+      ...this.getPremiumFields(value),
+    };
   }
 
   private buildDeleteAccountPayload(userId: string): DeleteAccountPayload {
@@ -201,13 +263,7 @@ class AuthApiService {
       });
 
       // Extract user data from response
-      const user: User = {
-        id: response.data.data.user.id.toString(),
-        username: response.data.data.user.username,
-        email: response.data.data.user.email,
-        token: response.data.data.tokens.access_token,
-        created_at: this.getUserCreatedAt(response.data.data.user),
-      };
+      const user = this.buildUser(response.data.data.user, response.data.data.tokens.access_token);
 
       // Store user data (not sensitive) in AsyncStorage
       await AsyncStorage.setItem(this.USER_KEY, JSON.stringify(user));
@@ -243,13 +299,7 @@ class AuthApiService {
       const response = await apiClient.post<RegisterResponse>('/api/user_auth.php', payload);
 
       // Extract user data from response
-      const user: User = {
-        id: response.data.data.user.id.toString(),
-        username: response.data.data.user.username,
-        email: response.data.data.user.email,
-        token: response.data.data.tokens.access_token,
-        created_at: this.getUserCreatedAt(response.data.data.user),
-      };
+      const user = this.buildUser(response.data.data.user, response.data.data.tokens.access_token);
 
       // Store user data (not sensitive) in AsyncStorage
       await AsyncStorage.setItem(this.USER_KEY, JSON.stringify(user));
@@ -291,13 +341,7 @@ class AuthApiService {
 
       const response = await apiClient.post<LoginResponse>('/api/user_auth.php', payload);
 
-      const user: User = {
-        id: response.data.data.user.id.toString(),
-        username: response.data.data.user.username,
-        email: response.data.data.user.email,
-        token: response.data.data.tokens.access_token,
-        created_at: this.getUserCreatedAt(response.data.data.user),
-      };
+      const user = this.buildUser(response.data.data.user, response.data.data.tokens.access_token);
 
       await AsyncStorage.setItem(this.USER_KEY, JSON.stringify(user));
       await secureStoreCompat.setItemAsync(this.ACCESS_TOKEN_KEY, response.data.data.tokens.access_token);
@@ -334,13 +378,10 @@ class AuthApiService {
 
       const response = await apiClient.post<UpdateProfileResponse>('/api/user_auth.php', payload);
 
-      const user: User = {
-        id: response.data.data.user.id.toString(),
-        username: response.data.data.user.username,
-        email: response.data.data.user.email,
-        token: response.data.data.tokens?.access_token || accessToken,
-        created_at: this.getUserCreatedAt(response.data.data.user),
-      };
+      const user = this.buildUser(
+        response.data.data.user,
+        response.data.data.tokens?.access_token || accessToken,
+      );
 
       // Update stored user data
       await AsyncStorage.setItem(this.USER_KEY, JSON.stringify(user));
@@ -425,7 +466,17 @@ class AuthApiService {
   async getStoredUser(): Promise<User | null> {
     try {
       const userData = await AsyncStorage.getItem(this.USER_KEY);
-      return userData ? JSON.parse(userData) : null;
+      if (!userData) return null;
+      const parsed = JSON.parse(userData) as Partial<User> | null;
+      if (!parsed?.id || !parsed.username || !parsed.email) return null;
+      return {
+        id: parsed.id.toString(),
+        username: parsed.username,
+        email: parsed.email,
+        token: parsed.token,
+        created_at: parsed.created_at,
+        ...this.getPremiumFields(parsed),
+      };
     } catch (error) {
       logger.error('Failed to get stored user:', error, {
         operation: 'auth_get_stored_user',

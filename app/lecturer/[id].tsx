@@ -17,6 +17,7 @@ import { Text } from "../../src/components/atoms";
 import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
 import { TabView } from "../../src/components/molecules/TabView";
 import { useDebounce } from "../../src/hooks/useDebounce";
+import { useFollowGate } from "../../src/hooks/useFollowGate";
 import { useTheme } from "../../src/hooks/useTheme";
 import {
   buildLecturerPlaylistSearchKey,
@@ -143,6 +144,7 @@ function LecturerDetailScreen() {
   const { playEpisode } = usePlayerActions();
   const { colors } = useTheme();
   const { isAuthenticated, user } = useAuthStore();
+  const { canFollowMore, requireFollowAccess } = useFollowGate();
 
   // If we navigated here without a valid lecturer id (e.g., id=0), try resolving by name.
   useEffect(() => {
@@ -737,9 +739,13 @@ function LecturerDetailScreen() {
       return;
     }
 
+    const shouldFollow = options.forceFollow ? true : !isFollowing;
+    if (shouldFollow && !requireFollowAccess(isFollowing)) {
+      return;
+    }
+
     setIsFollowLoading(true);
     try {
-      const shouldFollow = options.forceFollow ? true : !isFollowing;
       if (shouldFollow) {
         let token = await getStoredPushToken();
 
@@ -788,6 +794,23 @@ function LecturerDetailScreen() {
         }
       }
     } catch (err) {
+      const apiError = err as { statusCode?: number; data?: { code?: string; feature?: string }; message?: string };
+      if (
+        apiError.statusCode === 403 &&
+        apiError.data?.code === "FEATURE_NOT_AVAILABLE" &&
+        apiError.data?.feature === "multi_lecturer_follow"
+      ) {
+        Alert.alert(
+          "Premium feature",
+          "Free users can follow up to 2 lecturers. Upgrade to follow more.",
+          [
+            { text: "Not now", style: "cancel" },
+            { text: "Upgrade", onPress: () => router.push("/premium" as any) },
+          ],
+        );
+        return;
+      }
+
       const error = err instanceof Error ? err : new Error("Follow toggle failed");
       captureSentryException(error, {
         component: "LecturerDetailScreen",
@@ -808,7 +831,9 @@ function LecturerDetailScreen() {
       navigateToSignIn,
       isFollowing,
       confirmEnableNotifications,
+      requireFollowAccess,
       user?.id,
+      router,
     ],
   );
 
@@ -1390,14 +1415,21 @@ function LecturerDetailScreen() {
                 />
               ) : (
                 <>
-                  {isFollowing && (
+                  {isFollowing ? (
                     <Ionicons
                       name="checkmark-circle"
                       size={18}
                       color={colors.brand.primary}
                       style={tw`mr-1.5`}
                     />
-                  )}
+                  ) : !canFollowMore ? (
+                    <Ionicons
+                      name="lock-closed"
+                      size={14}
+                      color={colors.fixed.white}
+                      style={tw`mr-1.5`}
+                    />
+                  ) : null}
                   <Text
                     style={[
                       tw`text-base font-semibold`,
