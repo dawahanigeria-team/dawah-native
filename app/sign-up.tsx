@@ -1,26 +1,32 @@
 import { Ionicons } from "@expo/vector-icons";
+import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
+import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Loading, Text } from "../src/components/atoms";
+import { ENV } from "../src/config/env";
+import { useTheme } from "../src/hooks/useTheme";
 import { addSentryBreadcrumb, captureSentryException } from "../src/services/config/sentry.config";
+import { ensureGoogleSigninConfigured } from "../src/services/googleSignIn.service";
 import { useAuthStore } from "../src/stores";
-import { designTokens } from "../src/theme/designTokens";
 import tw from "../src/theme/twrnc";
 
 export default function SignUpScreen() {
   const router = useRouter();
-  const { register, isLoading, error, clearError } = useAuthStore();
+  const { colors } = useTheme();
+  const { register, socialLogin, isLoading, error, clearError } = useAuthStore();
 
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -33,6 +39,27 @@ export default function SignUpScreen() {
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [confirmPasswordError, setConfirmPasswordError] = useState("");
+
+  const [usernameFocused, setUsernameFocused] = useState(false);
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
+  const [confirmPasswordFocused, setConfirmPasswordFocused] = useState(false);
+
+  useEffect(() => {
+    if (!ENV.GOOGLE_WEB_CLIENT_ID) {
+      return;
+    }
+
+    try {
+      ensureGoogleSigninConfigured();
+    } catch (error) {
+      captureSentryException(error as Error, {
+        component: "SignUpScreen",
+        action: "configureGoogleSignIn",
+        level: "warning",
+      });
+    }
+  }, []);
 
   const validateUsername = (text: string): boolean => {
     if (!text) {
@@ -105,11 +132,10 @@ export default function SignUpScreen() {
         email,
         password,
       });
-      // User is now authenticated, go directly to home
-      router.replace('/');
-    } catch (err: any) {
-      // Log to Sentry
-      captureSentryException(err, {
+      router.replace('/(tabs)');
+    } catch (err: unknown) {
+      const error = err as Error;
+      captureSentryException(error, {
         component: 'SignUpScreen',
         action: 'handleSignUp',
         email: email,
@@ -118,14 +144,14 @@ export default function SignUpScreen() {
       });
 
       addSentryBreadcrumb('Sign up failed', 'error', {
-        error: err.message,
+        error: error.message,
         email: email,
         username: username,
       });
 
       Alert.alert(
         "Sign Up Failed",
-        err.message || "Unable to create account. Please try again.",
+        error.message || "Unable to create account. Please try again.",
         [{ text: "OK" }]
       );
     }
@@ -135,11 +161,216 @@ export default function SignUpScreen() {
     router.back();
   };
 
+  const handleAppleSignIn = async () => {
+    clearError();
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        throw new Error("No identity token received from Apple");
+      }
+
+      const fullName = credential.fullName
+        ? [credential.fullName.givenName, credential.fullName.familyName]
+            .filter(Boolean)
+            .join(" ")
+        : null;
+
+      await socialLogin({
+        provider: "apple",
+        identityToken: credential.identityToken,
+        email: credential.email,
+        fullName: fullName || null,
+      });
+
+      router.replace("/");
+    } catch (err: unknown) {
+      const error = err as Error & { code?: string };
+      if (error.code === "ERR_REQUEST_CANCELED") {
+        return;
+      }
+      captureSentryException(error, {
+        component: "SignUpScreen",
+        action: "handleAppleSignIn",
+        level: "warning",
+      });
+      Alert.alert(
+        "Apple Sign In Failed",
+        error.message || "Unable to sign in with Apple. Please try again.",
+        [{ text: "OK" }]
+      );
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    clearError();
+    try {
+      ensureGoogleSigninConfigured();
+      await GoogleSignin.hasPlayServices();
+      const response = await GoogleSignin.signIn();
+
+      const idToken = response.data?.idToken;
+      if (!idToken) {
+        throw new Error("No ID token received from Google");
+      }
+
+      const email = response.data?.user?.email || null;
+      const fullName = response.data?.user?.name || null;
+
+      await socialLogin({
+        provider: "google",
+        identityToken: idToken,
+        email,
+        fullName,
+      });
+
+      router.replace("/");
+    } catch (err: unknown) {
+      const error = err as Error & { code?: string };
+      if (
+        error.code === statusCodes.SIGN_IN_CANCELLED ||
+        error.code === "SIGN_IN_CANCELLED"
+      ) {
+        return;
+      }
+      captureSentryException(error, {
+        component: "SignUpScreen",
+        action: "handleGoogleSignIn",
+        level: "warning",
+      });
+      Alert.alert(
+        "Google Sign In Failed",
+        error.message || "Unable to sign in with Google. Please try again.",
+        [{ text: "OK" }]
+      );
+    }
+  };
+
+  const getInputBorderColor = (hasError: boolean, isFocused: boolean) => {
+    if (hasError) return colors.semantic.red;
+    if (isFocused) return colors.brand.primary;
+    return "transparent";
+  };
+
+  const renderInput = (
+    label: string,
+    icon: string,
+    value: string,
+    setValue: (text: string) => void,
+    error: string,
+    validate: (text: string) => boolean,
+    focused: boolean,
+    setFocused: (focused: boolean) => void,
+    options: {
+      placeholder: string;
+      secureTextEntry?: boolean;
+      showToggle?: boolean;
+      showPassword?: boolean;
+      setShowPassword?: (show: boolean) => void;
+      keyboardType?: 'default' | 'email-address';
+      autoComplete?: 'username' | 'email' | 'password' | 'password-new';
+      delay: number;
+    }
+  ) => (
+    <Animated.View
+      entering={FadeInDown.delay(options.delay).duration(400)}
+      style={tw`mb-4`}
+    >
+      <Text
+        variant="subheadline"
+        weight="medium"
+        color="label"
+        style={{ marginBottom: 6 }}
+      >
+        {label}
+      </Text>
+      <View
+        style={[
+          tw`rounded-xl px-4 py-3 flex-row items-center`,
+          {
+            backgroundColor: colors.system.background.secondary,
+            borderWidth: 1.5,
+            borderColor: getInputBorderColor(!!error, focused),
+          },
+        ]}
+      >
+        <Ionicons
+          name={icon as keyof typeof Ionicons.glyphMap}
+          size={18}
+          color={focused ? colors.brand.primary : colors.system.label.tertiary}
+          style={tw`mr-3`}
+        />
+        <TextInput
+          style={[
+            tw`flex-1`,
+            {
+              color: colors.system.label.primary,
+              fontSize: 16,
+              paddingVertical: 0,
+            },
+          ]}
+          placeholder={options.placeholder}
+          placeholderTextColor={colors.system.label.tertiary}
+          value={value}
+          onChangeText={(text) => {
+            setValue(text);
+            if (error) validate(text);
+          }}
+          onFocus={() => setFocused(true)}
+          onBlur={() => {
+            setFocused(false);
+            validate(value);
+          }}
+          secureTextEntry={options.secureTextEntry && !options.showPassword}
+          keyboardType={options.keyboardType || 'default'}
+          autoCapitalize="none"
+          autoComplete={options.autoComplete}
+          autoCorrect={false}
+          editable={!isLoading}
+        />
+        {options.showToggle && options.setShowPassword && (
+          <Pressable
+            onPress={() => options.setShowPassword!(!options.showPassword)}
+            hitSlop={8}
+          >
+            <Ionicons
+              name={options.showPassword ? "eye-off-outline" : "eye-outline"}
+              size={18}
+              color={colors.system.label.tertiary}
+            />
+          </Pressable>
+        )}
+        {!options.showToggle && value.length > 0 && (
+          <Pressable onPress={() => setValue("")} hitSlop={8}>
+            <Ionicons
+              name="close-circle"
+              size={18}
+              color={colors.system.label.tertiary}
+            />
+          </Pressable>
+        )}
+      </View>
+      {error && (
+        <Text
+          variant="caption1"
+          style={{ color: colors.semantic.red, marginTop: 4 }}
+        >
+          {error}
+        </Text>
+      )}
+    </Animated.View>
+  );
+
   return (
     <SafeAreaView
       style={[
         tw`flex-1`,
-        { backgroundColor: designTokens.colors.system.background.primary },
+        { backgroundColor: colors.system.background.primary },
       ]}
     >
       <KeyboardAvoidingView
@@ -148,445 +379,264 @@ export default function SignUpScreen() {
       >
         <ScrollView
           style={tw`flex-1`}
-          contentContainerStyle={tw`px-6 py-8 pb-32`}
+          contentContainerStyle={tw`px-6 py-6 pb-32`}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Header */}
-          <View style={tw`mb-8`}>
+          {/* Back Button */}
+          <Animated.View entering={FadeIn.duration(300)}>
             <Pressable
               onPress={() => router.back()}
-              style={tw`mb-6 self-start`}
+              style={[
+                tw`mb-6 self-start p-2 -ml-2 rounded-full`,
+                { backgroundColor: colors.system.fill.tertiary },
+              ]}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <Ionicons
                 name="chevron-back"
-                size={28}
-                color={designTokens.colors.system.label.primary}
+                size={24}
+                color={colors.system.label.primary}
               />
             </Pressable>
+          </Animated.View>
 
-            {/* Logo/Brand */}
-            <View style={tw`items-center mb-8`}>
-              <View
-                style={[
-                  tw`w-20 h-20 rounded-3xl items-center justify-center mb-4`,
-                  { backgroundColor: designTokens.colors.brand.primary },
-                ]}
-              >
-                <Text
-                  style={{
-                    fontSize: designTokens.typography.fontSize.largeTitle,
-                    fontWeight: designTokens.typography.fontWeight.bold,
-                    color: designTokens.colors.system.background.primary,
-                  }}
-                >
-                  DN
-                </Text>
-              </View>
+          {/* Logo/Brand */}
+          <Animated.View
+            entering={FadeInDown.delay(100).duration(400)}
+            style={tw`items-center mb-6`}
+          >
+            <View
+              style={[
+                tw`w-16 h-16 rounded-2xl items-center justify-center mb-4`,
+                { 
+                  backgroundColor: colors.brand.primary,
+                  shadowColor: colors.brand.primary,
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 4,
+                },
+              ]}
+            >
               <Text
-                variant="largeTitle"
-                weight="bold"
-                color="label"
-                style={{ textAlign: "center", marginBottom: 8 }}
+                style={{
+                  fontSize: 24,
+                  fontWeight: '700',
+                  color: colors.fixed.black,
+                }}
               >
-                Create Account
-              </Text>
-              <Text
-                variant="body"
-                color="secondaryLabel"
-                style={{ textAlign: "center" }}
-              >
-                Join dawahnigeria community
+                DN
               </Text>
             </View>
-          </View>
+            <Text
+              variant="title1"
+              weight="bold"
+              color="label"
+              style={{ textAlign: "center", marginBottom: 6 }}
+            >
+              Ahlan wa Sahlan!
+            </Text>
+            <Text
+              variant="subheadline"
+              color="secondaryLabel"
+              style={{ textAlign: "center" }}
+            >
+              Join dawahnigeria community
+            </Text>
+          </Animated.View>
 
           {/* Error Alert */}
           {error && (
-            <View
+            <Animated.View
+              entering={FadeIn.duration(200)}
               style={[
-                tw`rounded-2xl p-4 mb-6 flex-row items-start`,
-                { backgroundColor: designTokens.colors.system.fill.quaternary },
+                tw`rounded-xl p-3 mb-5 flex-row items-center`,
+                { backgroundColor: `${colors.semantic.red}15` },
               ]}
             >
               <Ionicons
                 name="alert-circle"
-                size={20}
-                color={designTokens.colors.semantic.red}
-                style={tw`mr-3 mt-0.5`}
+                size={18}
+                color={colors.semantic.red}
+                style={tw`mr-2`}
               />
               <Text
                 variant="subheadline"
-                style={{ color: designTokens.colors.semantic.red, flex: 1 }}
+                style={{ color: colors.semantic.red, flex: 1 }}
               >
                 {error}
               </Text>
-            </View>
+            </Animated.View>
           )}
 
           {/* Username Input */}
-          <View style={tw`mb-4`}>
-            <Text
-              variant="subheadline"
-              weight="semibold"
-              color="label"
-              style={{ marginBottom: 8 }}
-            >
-              Username
-            </Text>
-            <View
-              style={[
-                tw`rounded-2xl px-4 py-4 flex-row items-center`,
-                {
-                  backgroundColor:
-                    designTokens.colors.system.background.secondary,
-                  borderWidth: 2,
-                  borderColor: usernameError
-                    ? designTokens.colors.semantic.red
-                    : "transparent",
-                },
-              ]}
-            >
-              <Ionicons
-                name="person-outline"
-                size={20}
-                color={designTokens.colors.system.label.tertiary}
-                style={tw`mr-3`}
-              />
-              <TextInput
-                style={[
-                  tw`flex-1`,
-                  {
-                    color: designTokens.colors.system.label.primary,
-                    fontSize: designTokens.typography.fontSize.body,
-                  },
-                ]}
-                placeholder="Enter your username"
-                placeholderTextColor={designTokens.colors.system.label.tertiary}
-                value={username}
-                onChangeText={(text) => {
-                  setUsername(text);
-                  if (usernameError) validateUsername(text);
-                }}
-                onBlur={() => validateUsername(username)}
-                autoCapitalize="none"
-                autoComplete="username"
-                autoCorrect={false}
-                editable={!isLoading}
-              />
-              {username.length > 0 && (
-                <Pressable onPress={() => setUsername("")} hitSlop={8}>
-                  <Ionicons
-                    name="close-circle"
-                    size={20}
-                    color={designTokens.colors.system.label.tertiary}
-                  />
-                </Pressable>
-              )}
-            </View>
-            {usernameError && (
-              <Text
-                variant="caption1"
-                style={{ color: designTokens.colors.semantic.red, marginTop: 6 }}
-              >
-                {usernameError}
-              </Text>
-            )}
-          </View>
+          {renderInput(
+            "Username",
+            "person-outline",
+            username,
+            setUsername,
+            usernameError,
+            validateUsername,
+            usernameFocused,
+            setUsernameFocused,
+            {
+              placeholder: "Enter your username",
+              autoComplete: "username",
+              delay: 200,
+            }
+          )}
 
           {/* Email Input */}
-          <View style={tw`mb-4`}>
-            <Text
-              variant="subheadline"
-              weight="semibold"
-              color="label"
-              style={{ marginBottom: 8 }}
-            >
-              Email Address
-            </Text>
-            <View
-              style={[
-                tw`rounded-2xl px-4 py-4 flex-row items-center`,
-                {
-                  backgroundColor:
-                    designTokens.colors.system.background.secondary,
-                  borderWidth: 2,
-                  borderColor: emailError
-                    ? designTokens.colors.semantic.red
-                    : "transparent",
-                },
-              ]}
-            >
-              <Ionicons
-                name="mail-outline"
-                size={20}
-                color={designTokens.colors.system.label.tertiary}
-                style={tw`mr-3`}
-              />
-              <TextInput
-                style={[
-                  tw`flex-1`,
-                  {
-                    color: designTokens.colors.system.label.primary,
-                    fontSize: designTokens.typography.fontSize.body,
-                  },
-                ]}
-                placeholder="Enter your email"
-                placeholderTextColor={designTokens.colors.system.label.tertiary}
-                value={email}
-                onChangeText={(text) => {
-                  setEmail(text);
-                  if (emailError) validateEmail(text);
-                }}
-                onBlur={() => validateEmail(email)}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoComplete="email"
-                autoCorrect={false}
-                editable={!isLoading}
-              />
-              {email.length > 0 && (
-                <Pressable onPress={() => setEmail("")} hitSlop={8}>
-                  <Ionicons
-                    name="close-circle"
-                    size={20}
-                    color={designTokens.colors.system.label.tertiary}
-                  />
-                </Pressable>
-              )}
-            </View>
-            {emailError && (
-              <Text
-                variant="caption1"
-                style={{ color: designTokens.colors.semantic.red, marginTop: 6 }}
-              >
-                {emailError}
-              </Text>
-            )}
-          </View>
+          {renderInput(
+            "Email Address",
+            "mail-outline",
+            email,
+            setEmail,
+            emailError,
+            validateEmail,
+            emailFocused,
+            setEmailFocused,
+            {
+              placeholder: "Enter your email",
+              keyboardType: "email-address",
+              autoComplete: "email",
+              delay: 250,
+            }
+          )}
 
           {/* Password Input */}
-          <View style={tw`mb-4`}>
-            <Text
-              variant="subheadline"
-              weight="semibold"
-              color="label"
-              style={{ marginBottom: 8 }}
-            >
-              Password
-            </Text>
-            <View
-              style={[
-                tw`rounded-2xl px-4 py-4 flex-row items-center`,
-                {
-                  backgroundColor:
-                    designTokens.colors.system.background.secondary,
-                  borderWidth: 2,
-                  borderColor: passwordError
-                    ? designTokens.colors.semantic.red
-                    : "transparent",
-                },
-              ]}
-            >
-              <Ionicons
-                name="lock-closed-outline"
-                size={20}
-                color={designTokens.colors.system.label.tertiary}
-                style={tw`mr-3`}
-              />
-              <TextInput
-                style={[
-                  tw`flex-1`,
-                  {
-                    color: designTokens.colors.system.label.primary,
-                    fontSize: designTokens.typography.fontSize.body,
-                  },
-                ]}
-                placeholder="Create a password"
-                placeholderTextColor={designTokens.colors.system.label.tertiary}
-                value={password}
-                onChangeText={(text) => {
-                  setPassword(text);
-                  if (passwordError) validatePassword(text);
-                  if (confirmPassword) validateConfirmPassword(confirmPassword);
-                }}
-                onBlur={() => validatePassword(password)}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoComplete="password-new"
-                autoCorrect={false}
-                editable={!isLoading}
-              />
-              <Pressable
-                onPress={() => setShowPassword(!showPassword)}
-                hitSlop={8}
-              >
-                <Ionicons
-                  name={showPassword ? "eye-off-outline" : "eye-outline"}
-                  size={20}
-                  color={designTokens.colors.system.label.tertiary}
-                />
-              </Pressable>
-            </View>
-            {passwordError && (
-              <Text
-                variant="caption1"
-                style={{ color: designTokens.colors.semantic.red, marginTop: 6 }}
-              >
-                {passwordError}
-              </Text>
-            )}
-          </View>
+          {renderInput(
+            "Password",
+            "lock-closed-outline",
+            password,
+            (text) => {
+              setPassword(text);
+              if (confirmPassword) validateConfirmPassword(confirmPassword);
+            },
+            passwordError,
+            validatePassword,
+            passwordFocused,
+            setPasswordFocused,
+            {
+              placeholder: "Create a password",
+              secureTextEntry: true,
+              showToggle: true,
+              showPassword: showPassword,
+              setShowPassword: setShowPassword,
+              autoComplete: "password-new",
+              delay: 300,
+            }
+          )}
 
           {/* Confirm Password Input */}
-          <View style={tw`mb-6`}>
-            <Text
-              variant="subheadline"
-              weight="semibold"
-              color="label"
-              style={{ marginBottom: 8 }}
-            >
-              Confirm Password
-            </Text>
-            <View
+          {renderInput(
+            "Confirm Password",
+            "lock-closed-outline",
+            confirmPassword,
+            setConfirmPassword,
+            confirmPasswordError,
+            validateConfirmPassword,
+            confirmPasswordFocused,
+            setConfirmPasswordFocused,
+            {
+              placeholder: "Confirm your password",
+              secureTextEntry: true,
+              showToggle: true,
+              showPassword: showConfirmPassword,
+              setShowPassword: setShowConfirmPassword,
+              autoComplete: "password-new",
+              delay: 350,
+            }
+          )}
+
+          {/* Sign Up Button */}
+          <Animated.View
+            entering={FadeInDown.delay(400).duration(400)}
+            style={tw`mt-2`}
+          >
+            <TouchableOpacity
+              onPress={handleSignUp}
+              disabled={isLoading}
+              activeOpacity={0.8}
               style={[
-                tw`rounded-2xl px-4 py-4 flex-row items-center`,
+                tw`rounded-xl py-4 items-center justify-center mb-5`,
                 {
-                  backgroundColor:
-                    designTokens.colors.system.background.secondary,
-                  borderWidth: 2,
-                  borderColor: confirmPasswordError
-                    ? designTokens.colors.semantic.red
-                    : "transparent",
+                  backgroundColor: colors.brand.primary,
+                  opacity: isLoading ? 0.7 : 1,
+                  shadowColor: colors.brand.primary,
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 4,
                 },
               ]}
             >
-              <Ionicons
-                name="lock-closed-outline"
-                size={20}
-                color={designTokens.colors.system.label.tertiary}
-                style={tw`mr-3`}
-              />
-              <TextInput
-                style={[
-                  tw`flex-1`,
-                  {
-                    color: designTokens.colors.system.label.primary,
-                    fontSize: designTokens.typography.fontSize.body,
-                  },
-                ]}
-                placeholder="Confirm your password"
-                placeholderTextColor={designTokens.colors.system.label.tertiary}
-                value={confirmPassword}
-                onChangeText={(text) => {
-                  setConfirmPassword(text);
-                  if (confirmPasswordError) validateConfirmPassword(text);
-                }}
-                onBlur={() => validateConfirmPassword(confirmPassword)}
-                secureTextEntry={!showConfirmPassword}
-                autoCapitalize="none"
-                autoComplete="password-new"
-                autoCorrect={false}
-                editable={!isLoading}
-              />
-              <Pressable
-                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                hitSlop={8}
-              >
-                <Ionicons
-                  name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
-                  size={20}
-                  color={designTokens.colors.system.label.tertiary}
-                />
-              </Pressable>
-            </View>
-            {confirmPasswordError && (
-              <Text
-                variant="caption1"
-                style={{ color: designTokens.colors.semantic.red, marginTop: 6 }}
-              >
-                {confirmPasswordError}
-              </Text>
-            )}
-          </View>
-
-          {/* Sign Up Button */}
-          <TouchableOpacity
-            onPress={handleSignUp}
-            disabled={isLoading}
-            activeOpacity={0.8}
-            style={[
-              tw`rounded-full py-4 items-center justify-center mb-6`,
-              {
-                backgroundColor: designTokens.colors.brand.primary,
-                opacity: isLoading ? 0.6 : 1,
-              },
-            ]}
-          >
-            {isLoading ? (
-              <Loading size="small" color={designTokens.colors.system.background.primary} />
-            ) : (
-              <Text
-                variant="headline"
-                weight="semibold"
-                style={{ color: designTokens.colors.system.background.primary }}
-              >
-                Create Account
-              </Text>
-            )}
-          </TouchableOpacity>
+              {isLoading ? (
+                <Loading size="small" color={colors.fixed.black} />
+              ) : (
+                <Text
+                  variant="body"
+                  weight="semibold"
+                  style={{ color: colors.fixed.black, fontSize: 16 }}
+                >
+                  Create Account
+                </Text>
+              )}
+            </TouchableOpacity>
+          </Animated.View>
 
           {/* Divider */}
-          <View style={tw`flex-row items-center my-6`}>
+          <Animated.View
+            entering={FadeInDown.delay(450).duration(400)}
+            style={tw`flex-row items-center my-5`}
+          >
             <View
               style={[
                 tw`flex-1 h-px`,
-                { backgroundColor: designTokens.colors.system.separator.primary },
+                { backgroundColor: colors.system.separator.primary },
               ]}
             />
             <Text
-              variant="subheadline"
-              color="secondaryLabel"
-              style={{ marginHorizontal: 16 }}
+              variant="caption1"
+              color="tertiaryLabel"
+              style={{ marginHorizontal: 12 }}
             >
               or continue with
             </Text>
             <View
               style={[
                 tw`flex-1 h-px`,
-                { backgroundColor: designTokens.colors.system.separator.primary },
+                { backgroundColor: colors.system.separator.primary },
               ]}
             />
-          </View>
+          </Animated.View>
 
           {/* Social Sign Up Buttons */}
-          <View style={tw`flex-row gap-4 mb-6`}>
+          <Animated.View
+            entering={FadeInDown.delay(500).duration(400)}
+            style={tw`flex-row gap-3 mb-6`}
+          >
             {/* Google Sign Up */}
             <TouchableOpacity
-              onPress={() =>
-                Alert.alert(
-                  "Google Sign Up",
-                  "Google authentication coming soon!",
-                  [{ text: "OK" }]
-                )
-              }
+              onPress={handleGoogleSignIn}
+              disabled={isLoading}
               style={[
-                tw`flex-1 py-3 rounded-2xl flex-row items-center justify-center`,
+                tw`flex-1 py-3 rounded-xl flex-row items-center justify-center`,
                 {
-                  backgroundColor:
-                    designTokens.colors.system.background.secondary,
+                  backgroundColor: colors.system.background.secondary,
                   borderWidth: 1,
-                  borderColor: designTokens.colors.system.separator.primary,
+                  borderColor: colors.system.separator.primary,
+                  opacity: isLoading ? 0.7 : 1,
                 },
               ]}
               activeOpacity={0.7}
             >
               <Ionicons
                 name="logo-google"
-                size={20}
-                color={designTokens.colors.system.label.primary}
-                style={{ marginRight: 8 }}
+                size={18}
+                color={colors.system.label.primary}
+                style={{ marginRight: 6 }}
               />
               <Text variant="subheadline" weight="semibold" color="label">
                 Google
@@ -594,76 +644,79 @@ export default function SignUpScreen() {
             </TouchableOpacity>
 
             {/* Apple Sign Up */}
-            <TouchableOpacity
-              onPress={() =>
-                Alert.alert(
-                  "Apple Sign Up",
-                  "Apple authentication coming soon!",
-                  [{ text: "OK" }]
-                )
-              }
-              style={[
-                tw`flex-1 py-3 rounded-2xl flex-row items-center justify-center`,
-                {
-                  backgroundColor:
-                    designTokens.colors.system.background.secondary,
-                  borderWidth: 1,
-                  borderColor: designTokens.colors.system.separator.primary,
-                },
-              ]}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name="logo-apple"
-                size={20}
-                color={designTokens.colors.system.label.primary}
-                style={{ marginRight: 8 }}
-              />
-              <Text variant="subheadline" weight="semibold" color="label">
-                Apple
-              </Text>
-            </TouchableOpacity>
-          </View>
+            {Platform.OS === "ios" && (
+              <TouchableOpacity
+                onPress={handleAppleSignIn}
+                disabled={isLoading}
+                style={[
+                  tw`flex-1 py-3 rounded-xl flex-row items-center justify-center`,
+                  {
+                    backgroundColor: colors.system.background.secondary,
+                    borderWidth: 1,
+                    borderColor: colors.system.separator.primary,
+                    opacity: isLoading ? 0.7 : 1,
+                  },
+                ]}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="logo-apple"
+                  size={18}
+                  color={colors.system.label.primary}
+                  style={{ marginRight: 6 }}
+                />
+                <Text variant="subheadline" weight="semibold" color="label">
+                  Apple
+                </Text>
+              </TouchableOpacity>
+            )}
+          </Animated.View>
 
           {/* Sign In Link */}
-          <View style={tw`flex-row items-center justify-center`}>
-            <Text variant="body" color="secondaryLabel">
+          <Animated.View
+            entering={FadeInDown.delay(550).duration(400)}
+            style={tw`flex-row items-center justify-center`}
+          >
+            <Text variant="subheadline" color="secondaryLabel">
               Already have an account?{" "}
             </Text>
             <Pressable onPress={handleSignIn}>
               <Text
-                variant="body"
+                variant="subheadline"
                 weight="semibold"
-                style={{ color: designTokens.colors.brand.primary }}
+                style={{ color: colors.brand.primary }}
               >
                 Sign In
               </Text>
             </Pressable>
-          </View>
+          </Animated.View>
 
           {/* Terms & Privacy */}
-          <View style={tw`mt-8 items-center`}>
+          <Animated.View
+            entering={FadeInDown.delay(600).duration(400)}
+            style={tw`mt-8 items-center`}
+          >
             <Text
               variant="caption2"
               color="tertiaryLabel"
-              style={{ textAlign: "center", lineHeight: 18 }}
+              style={{ textAlign: "center", lineHeight: 16 }}
             >
               By creating an account, you agree to our{" "}
               <Text
                 variant="caption2"
-                style={{ color: designTokens.colors.brand.primary }}
+                style={{ color: colors.brand.primary }}
               >
                 Terms of Service
               </Text>{" "}
               and{" "}
               <Text
                 variant="caption2"
-                style={{ color: designTokens.colors.brand.primary }}
+                style={{ color: colors.brand.primary }}
               >
                 Privacy Policy
               </Text>
             </Text>
-          </View>
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

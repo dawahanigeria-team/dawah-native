@@ -4,6 +4,7 @@
  */
 
 import { apiClient } from './base.api';
+import { logger } from '@/utils/logger';
 
 export interface DownloadApiResponse {
   _id: string;
@@ -21,12 +22,12 @@ class DownloadsApiService {
    */
   async incrementDownloadCounter(lecid: string): Promise<DownloadApiResponse> {
     try {
-      console.log('📤 Sending to download API:', { lecid });
+      logger.debug('Sending to download API:', { lecid });
       const response = await apiClient.post<DownloadApiResponse>('/api/download_api.php', {
         lecid,
       });
 
-      console.log('✅ Download API response:', response.data);
+      logger.debug('Download API response:', response.data);
       return response.data;
     } catch (error: any) {
       console.error('❌ Download API failed for lecid:', lecid);

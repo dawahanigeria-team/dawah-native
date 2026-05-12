@@ -11,27 +11,30 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  ScrollView,
-  Share,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    ScrollView,
+    Share,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import Animated, {
-  Extrapolate,
-  interpolate,
-  useAnimatedScrollHandler,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
+    Extrapolate,
+    interpolate,
+    useAnimatedScrollHandler,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
 } from "react-native-reanimated";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button, Chip, Text, Touchable } from "../../src/components/atoms";
+import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
 import AddToPlaylistModal from "../../src/components/organisms/AddToPlaylistModal";
+import { useDownloadGate } from "../../src/hooks/useDownloadGate";
 import { useLectureDetail } from "../../src/hooks/useLectureDetail";
+import { useTheme } from "../../src/hooks/useTheme";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
 import { DownloadStatus } from "../../src/services/downloads/downloadQueue.service";
 import { linkingService } from "../../src/services/linking.service";
@@ -54,7 +57,6 @@ const createEpisodeFromDetail = (detail: LectureDetail | null): Episode | null =
     durationSec: detail.durationSec || 0,
     coverUrl: detail.coverUrl || "",
     audioUrl: detail.audioUrl || "",
-    videoUrl: undefined,
     seriesId: detail.albumId || "",
     plays: detail.views || 0,
     liked: false,
@@ -62,12 +64,299 @@ const createEpisodeFromDetail = (detail: LectureDetail | null): Episode | null =
     downloads: detail.downloads || 0,
     createdAt: detail.postedDate || new Date().toISOString(),
     lecturerName: detail.lecturerName || detail.reciter?.name || "",
+    rpname: detail.raw?.rpname,
+    reciter_name: detail.raw?.reciter_name || detail.reciter?.name,
+    isReciter: detail.isReciter ?? detail.reciter?.isReciter ?? detail.raw?.is_reciter ?? false,
   };
+};
+
+const parseApiDate = (rawDate?: string): Date | null => {
+  if (!rawDate) return null;
+  const trimmed = rawDate.trim();
+  if (!trimmed) return null;
+
+  if (/^\d+$/.test(trimmed)) {
+    const numeric = Number(trimmed);
+    const asMs = trimmed.length === 10 ? numeric * 1000 : numeric;
+    const timestampDate = new Date(asMs);
+    if (!Number.isNaN(timestampDate.getTime())) {
+      return timestampDate;
+    }
+  }
+
+  const directDate = new Date(trimmed);
+  if (!Number.isNaN(directDate.getTime())) {
+    return directDate;
+  }
+
+  // Backend often sends MySQL datetime (YYYY-MM-DD HH:mm:ss), which iOS Date parsing rejects.
+  const mysqlNormalizedDate = new Date(trimmed.replace(/\s+/g, 'T'));
+  if (!Number.isNaN(mysqlNormalizedDate.getTime())) {
+    return mysqlNormalizedDate;
+  }
+
+  return null;
+};
+
+const formatReleaseDate = (rawDate?: string): string => {
+  const date = parseApiDate(rawDate);
+  if (!date) return "";
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+};
+
+type ThemeColors = ReturnType<typeof useTheme>["colors"];
+
+interface LecturePlaybackControlsProps {
+  episode: Episode | null;
+  canPlay: boolean;
+  colors: ThemeColors;
+  downloadStatus: DownloadStatus | null;
+  downloadProgress: number;
+  onCancelDownload: () => void;
+  onDownloadPress: () => void | Promise<void>;
+  onOpenAddToPlaylist: () => void;
+  onShare: () => void;
+}
+
+const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
+  episode,
+  canPlay,
+  colors,
+  downloadStatus,
+  downloadProgress,
+  onCancelDownload,
+  onDownloadPress,
+  onOpenAddToPlaylist,
+  onShare,
+}) => {
+  const {
+    currentEpisode,
+    isPlaying,
+    progress: currentProgress,
+    playbackSpeed,
+    setPlaybackSpeed,
+    playEpisode,
+    togglePlayPause,
+  } = usePlayerStore();
+
+  const isCurrentLecture = Boolean(episode && currentEpisode?.id === episode.id);
+  const isCurrentlyPlaying = isCurrentLecture && isPlaying;
+  const progress = isCurrentLecture ? currentProgress : 0;
+  const duration = episode?.durationSec || 0;
+  const progressPercent = duration > 0 ? (progress / duration) * 100 : 0;
+
+  const handlePlayPress = useCallback(() => {
+    if (!episode || !canPlay) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+
+    if (isCurrentLecture) {
+      togglePlayPause();
+    } else {
+      playEpisode(episode);
+    }
+  }, [episode, canPlay, isCurrentLecture, togglePlayPause, playEpisode]);
+
+  const handleSpeedChange = useCallback(() => {
+    const speeds = [0.75, 1.0, 1.25, 1.5, 2.0];
+    const currentIndex = speeds.indexOf(playbackSpeed);
+    const nextIndex = (currentIndex + 1) % speeds.length;
+    const newSpeed = speeds[nextIndex];
+    setPlaybackSpeed(newSpeed);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [playbackSpeed, setPlaybackSpeed]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <View style={[tw`px-6 pb-8 pt-4`, { backgroundColor: colors.system.background.primary }]}>
+      {/* Progress Bar */}
+      <View style={tw`mb-2`}>
+        <View style={[tw`h-1 rounded-full overflow-hidden`, { backgroundColor: colors.system.fill.tertiary }]}>
+          <View
+            style={[
+              tw`h-full rounded-full`,
+              {
+                backgroundColor: colors.brand.primary,
+                width: `${progressPercent}%`
+              }
+            ]}
+          />
+        </View>
+        <View style={tw`flex-row justify-between mt-2`}>
+          <Text variant="caption2" color="tertiaryLabel">
+            {formatTime(progress)}
+          </Text>
+          <Text variant="caption2" color="tertiaryLabel">
+            {formatTime(duration)}
+          </Text>
+        </View>
+      </View>
+
+      {/* Main Playback Controls */}
+      <View style={tw`flex-row items-center justify-center mt-4 mb-4`}>
+        {/* Shuffle */}
+        <TouchableOpacity
+          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+          style={tw`w-12 h-12 items-center justify-center`}
+        >
+          <Ionicons name="shuffle" size={24} color={colors.system.label.secondary} />
+        </TouchableOpacity>
+
+        {/* Previous */}
+        <TouchableOpacity
+          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
+          style={tw`w-14 h-14 items-center justify-center mx-4`}
+        >
+          <Ionicons name="play-back" size={32} color={colors.system.label.primary} />
+        </TouchableOpacity>
+
+        {/* Play/Pause - Large Center Button */}
+        <TouchableOpacity
+          onPress={handlePlayPress}
+          disabled={!canPlay}
+          style={[
+            tw`w-20 h-20 rounded-full items-center justify-center mx-6`,
+            {
+              backgroundColor: canPlay ? colors.brand.primary : colors.system.fill.tertiary,
+              shadowColor: colors.brand.primary,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.3,
+              shadowRadius: 8,
+              elevation: 8,
+            }
+          ]}
+        >
+          <Ionicons
+            name={!canPlay ? "alert-circle" : isCurrentlyPlaying ? "pause" : "play"}
+            size={36}
+            color={canPlay ? colors.system.background.primary : colors.system.label.tertiary}
+            style={!canPlay ? {} : { marginLeft: isCurrentlyPlaying ? 0 : 3 }}
+          />
+        </TouchableOpacity>
+
+        {/* Next */}
+        <TouchableOpacity
+          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
+          style={tw`w-14 h-14 items-center justify-center mx-4`}
+        >
+          <Ionicons name="play-forward" size={32} color={colors.system.label.primary} />
+        </TouchableOpacity>
+
+        {/* Repeat */}
+        <TouchableOpacity
+          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+          style={tw`w-12 h-12 items-center justify-center`}
+        >
+          <Ionicons name="repeat" size={24} color={colors.system.label.secondary} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Secondary Actions */}
+      <View style={tw`flex-row items-center justify-between mt-2`}>
+        {/* Download Button Group */}
+        <View style={tw`flex-row items-center`}>
+        { (downloadStatus === DownloadStatus.DOWNLOADING ||
+          downloadStatus === DownloadStatus.PAUSED ||
+          downloadStatus === DownloadStatus.QUEUED) && (
+            <TouchableOpacity onPress={onCancelDownload} style={tw`mr-4`}>
+              <Ionicons name="close-circle-outline" size={24} color={colors.semantic.red} />
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            onPress={() => {
+              void onDownloadPress();
+            }}
+            disabled={episode === null}
+            style={tw`flex-row items-center`}
+          >
+            <Ionicons
+              name={
+                downloadStatus === DownloadStatus.COMPLETED
+                  ? "checkmark-circle"
+                  : downloadStatus === DownloadStatus.DOWNLOADING
+                    ? "pause-circle-outline"
+                    : downloadStatus === DownloadStatus.PAUSED
+                      ? "play-circle-outline"
+                      : downloadStatus === DownloadStatus.QUEUED
+                        ? "time-outline"
+                        : downloadStatus === DownloadStatus.FAILED
+                          ? "alert-circle-outline"
+                          : "arrow-down-circle-outline"
+              }
+              size={24}
+              color={
+                downloadStatus === DownloadStatus.COMPLETED
+                  ? colors.brand.primary
+                  : downloadStatus === DownloadStatus.FAILED
+                    ? colors.semantic.red
+                    : colors.system.label.secondary
+              }
+            />
+            <Text
+              variant="caption1"
+              color={
+                downloadStatus === DownloadStatus.COMPLETED
+                  ? "brand"
+                  : downloadStatus === DownloadStatus.FAILED
+                    ? "systemRed"
+                    : "secondaryLabel"
+              }
+              style={tw`ml-2`}
+            >
+              {downloadStatus === DownloadStatus.COMPLETED
+                ? "Downloaded"
+                : downloadStatus === DownloadStatus.DOWNLOADING
+                  ? `${Math.round(downloadProgress)}%`
+                  : downloadStatus === DownloadStatus.PAUSED
+                    ? "Paused"
+                    : downloadStatus === DownloadStatus.QUEUED
+                      ? "Queued"
+                      : downloadStatus === DownloadStatus.FAILED
+                        ? "Failed"
+                        : "Download"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity onPress={onShare} style={tw`flex-row items-center`}>
+          <Ionicons name="share-outline" size={24} color={colors.system.label.secondary} />
+          <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
+            Share
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={onOpenAddToPlaylist} style={tw`flex-row items-center`}>
+          <Ionicons name="add-circle-outline" size={24} color={colors.system.label.secondary} />
+          <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
+            Add to Playlist
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={handleSpeedChange} style={tw`flex-row items-center`}>
+          <Ionicons name="speedometer-outline" size={24} color={colors.system.label.secondary} />
+          <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
+            {playbackSpeed}x
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 };
 
 const LectureDetailScreen: React.FC = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const lectureId = id ?? "";
 
   // Local State & Animations
@@ -81,16 +370,6 @@ const LectureDetailScreen: React.FC = () => {
 
   // Store Hooks
   const {
-    playEpisode,
-    togglePlayPause,
-    currentEpisode,
-    isPlaying,
-    progress: currentProgress,
-    playbackSpeed,
-    setPlaybackSpeed,
-  } = usePlayerStore();
-
-  const {
     addToQueue,
     getDownloadProgress,
     getDownloadStatus,
@@ -100,13 +379,11 @@ const LectureDetailScreen: React.FC = () => {
   } = useDownloadsStore();
 
   const { isFavorited, toggleFavorite } = useFavoritesStore();
+  const { requireDownloadAccess } = useDownloadGate();
 
   // Derived State
   const liked = isFavorited(lectureId);
   const episode = useMemo(() => createEpisodeFromDetail(lecture), [lecture]);
-  const isCurrentLecture = Boolean(
-    lecture && currentEpisode?.id === lecture.id,
-  );
   const isRecitation = Boolean(
     lecture?.isReciter ||
       lecture?.reciter?.isReciter ||
@@ -115,7 +392,6 @@ const LectureDetailScreen: React.FC = () => {
   );
   const aboutHeading = isRecitation ? "About this recitation" : "About this lecture";
   const canPlay = Boolean(episode?.audioUrl);
-  const isCurrentlyPlaying = isCurrentLecture && isPlaying;
 
   // Download state
 
@@ -164,21 +440,9 @@ const LectureDetailScreen: React.FC = () => {
     },
   });
 
-  const handlePlayPress = useCallback(() => {
-    if (!episode || !canPlay) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-
-    // If this lecture is currently playing, toggle play/pause
-    // Otherwise, start playing this episode
-    if (isCurrentLecture) {
-      togglePlayPause();
-    } else {
-      playEpisode(episode);
-    }
-  }, [episode, canPlay, isCurrentLecture, togglePlayPause, playEpisode]);
-
   const handleDownloadPress = useCallback(async () => {
     if (!episode) return;
+    if (!requireDownloadAccess()) return;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
@@ -228,7 +492,7 @@ const LectureDetailScreen: React.FC = () => {
         [{ text: "OK" }]
       );
     }
-  }, [episode, downloadStatus, addToQueue, pauseDownload, resumeDownload]);
+  }, [episode, requireDownloadAccess, downloadStatus, addToQueue, pauseDownload, resumeDownload]);
 
   const handleCancelDownload = useCallback(() => {
     if (!episode) return;
@@ -313,15 +577,6 @@ const LectureDetailScreen: React.FC = () => {
     });
   }, [lecture, id]);
 
-  const handleSpeedChange = useCallback(() => {
-    const speeds = [0.75, 1.0, 1.25, 1.5, 2.0];
-    const currentIndex = speeds.indexOf(playbackSpeed);
-    const nextIndex = (currentIndex + 1) % speeds.length;
-    const newSpeed = speeds[nextIndex];
-    setPlaybackSpeed(newSpeed);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, [playbackSpeed, setPlaybackSpeed]);
-
   const formatNumber = (num?: number): string => {
     if (!num) return '0';
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -353,10 +608,10 @@ const LectureDetailScreen: React.FC = () => {
   if (loading) {
     return (
       <SafeAreaView
-        style={[tw`flex-1 items-center justify-center`, { backgroundColor: designTokens.colors.system.background.primary }]}
+        style={[tw`flex-1 items-center justify-center`, { backgroundColor: colors.system.background.primary }]}
         edges={["top", "left", "right", "bottom"]}
       >
-        <ActivityIndicator size="large" color={designTokens.colors.brand.primary} />
+        <ActivityIndicator size="large" color={colors.brand.primary} />
         <Text variant="body" color="secondaryLabel" style={tw`mt-4`}>
           Loading lecture...
         </Text>
@@ -367,13 +622,13 @@ const LectureDetailScreen: React.FC = () => {
   if (error || !lecture) {
     return (
       <SafeAreaView
-        style={[tw`flex-1 items-center justify-center px-8`, { backgroundColor: designTokens.colors.system.background.primary }]}
+        style={[tw`flex-1 items-center justify-center px-8`, { backgroundColor: colors.system.background.primary }]}
         edges={["top", "left", "right", "bottom"]}
       >
         <Ionicons
           name="alert-circle-outline"
           size={64}
-          color={designTokens.colors.semantic.red}
+          color={colors.semantic.red}
         />
         <Text variant="title2" weight="bold" color="label" style={tw`mt-4 text-center`}>
           {error || "Lecture not found"}
@@ -395,7 +650,7 @@ const LectureDetailScreen: React.FC = () => {
           left: 0,
           right: 0,
           zIndex: 10,
-          paddingTop: 50,
+          paddingTop: insets.top + designTokens.spacing.sm,
           paddingBottom: 12,
           paddingHorizontal: 16,
         },
@@ -405,10 +660,10 @@ const LectureDetailScreen: React.FC = () => {
       <BlurView intensity={80} tint="prominent" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
       <View style={tw`flex-row items-center justify-between`}>
         <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.back(); }} style={tw`w-10 h-10 items-center justify-center`}>
-          <Ionicons name="chevron-back" size={28} color={designTokens.colors.system.label.primary} />
+          <Ionicons name="chevron-back" size={28} color={colors.system.label.primary} />
         </TouchableOpacity>
         <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/playlists'); }} style={tw`w-10 h-10 items-center justify-center ml-2`}>
-          <Ionicons name="list" size={24} color={designTokens.colors.system.label.primary} />
+          <Ionicons name="list" size={24} color={colors.system.label.primary} />
         </TouchableOpacity>
         <View style={tw`flex-1 mx-3`}>
           <Text variant="body" color="label" weight="semibold" numberOfLines={1} style={tw`text-center`}>
@@ -420,7 +675,7 @@ const LectureDetailScreen: React.FC = () => {
             <Ionicons
               name={liked ? "heart" : "heart-outline"}
               size={26}
-              color={liked ? designTokens.colors.semantic.red : designTokens.colors.system.label.primary}
+              color={liked ? colors.semantic.red : colors.system.label.primary}
             />
           </TouchableOpacity>
         </Animated.View>
@@ -432,7 +687,7 @@ const LectureDetailScreen: React.FC = () => {
     if (loading) {
       return (
         <View style={tw`flex-1 items-center justify-center`}>
-          <ActivityIndicator size="large" color={designTokens.colors.brand.primary} />
+          <ActivityIndicator size="large" color={colors.brand.primary} />
           <Text variant="body" color="secondaryLabel" style={tw`mt-3`}>
             Loading lecture...
           </Text>
@@ -446,7 +701,7 @@ const LectureDetailScreen: React.FC = () => {
           <Ionicons
             name="alert-circle-outline"
             size={48}
-            color={designTokens.colors.semantic.red}
+            color={colors.semantic.red}
           />
           <Text variant="title3" color="label" weight="semibold" style={tw`mt-4 text-center`}>
             Unable to load lecture
@@ -472,7 +727,7 @@ const LectureDetailScreen: React.FC = () => {
           <Ionicons
             name="help-circle-outline"
             size={48}
-            color={designTokens.colors.system.label.tertiary}
+            color={colors.system.label.tertiary}
           />
           <Text variant="title3" color="label" weight="semibold" style={tw`mt-4 text-center`}>
             Lecture not found
@@ -506,19 +761,19 @@ const LectureDetailScreen: React.FC = () => {
                 contentFit="cover"
               />
             ) : (
-              <View style={[tw`flex-1 items-center justify-center`, { backgroundColor: designTokens.colors.system.fill.secondary }]}>
-                <Ionicons name="musical-notes-outline" size={64} color={designTokens.colors.system.label.tertiary} />
+              <View style={[tw`flex-1 items-center justify-center`, { backgroundColor: colors.system.fill.secondary }]}>
+                <Ionicons name="musical-notes-outline" size={64} color={colors.system.label.tertiary} />
               </View>
             )}
             <LinearGradient
-              colors={['transparent', designTokens.colors.overlay.darkStrong]}
+              colors={['transparent', colors.overlay.darkStrong]}
               style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 80 }}
             />
           </Animated.View>
         </View>
 
         {/* Content Section */}
-        <View style={[tw`px-6 -mt-12`, { backgroundColor: designTokens.colors.system.background.primary, borderTopLeftRadius: 32, borderTopRightRadius: 32 }]}>
+        <View style={[tw`px-6 -mt-12`, { backgroundColor: colors.system.background.primary, borderTopLeftRadius: 32, borderTopRightRadius: 32 }]}>
           {/* Title and Lecturer */}
           <View style={tw`pt-6`}>
             <Text
@@ -542,13 +797,6 @@ const LectureDetailScreen: React.FC = () => {
                     if (!s || s === '0') return null;
                     return s;
                   };
-
-                  const normalizeName = (value: string): string =>
-                    value
-                      .replace(/\[[^\]]*\]/g, '') // remove bracketed honorifics/notes
-                      .replace(/\s+/g, ' ')
-                      .trim()
-                      .toLowerCase();
 
                   // Prefer normalized lecturerId, then fall back to known fields
                   const directId =
@@ -577,14 +825,14 @@ const LectureDetailScreen: React.FC = () => {
                 }}
               >
                 <View style={tw`flex-row items-center mt-3`}>
-                  <View style={[tw`w-10 h-10 rounded-full items-center justify-center mr-3`, { backgroundColor: designTokens.colors.brand.primary + '20' }]}>
+                  <View style={[tw`w-10 h-10 rounded-full items-center justify-center mr-3`, { backgroundColor: colors.brand.primary + '20' }]}>
                     {lecture.lecturerImage ? (
                       <Image
                         source={{ uri: lecture.lecturerImage }}
                         style={tw`w-10 h-10 rounded-full`}
                       />
                     ) : (
-                        <Ionicons name="person" size={20} color={designTokens.colors.brand.primary} />
+                        <Ionicons name="person" size={20} color={colors.brand.primary} />
                     )}
                   </View>
                   <View style={tw`flex-1`}>
@@ -597,7 +845,7 @@ const LectureDetailScreen: React.FC = () => {
                       </Text>
                     )}
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color={designTokens.colors.system.label.tertiary} />
+                  <Ionicons name="chevron-forward" size={20} color={colors.system.label.tertiary} />
                 </View>
               </Touchable>
             )}
@@ -615,13 +863,13 @@ const LectureDetailScreen: React.FC = () => {
                 style={[
                   tw`flex-1 items-center`,
                   {
-                    backgroundColor: designTokens.colors.system.background.secondary,
+                    backgroundColor: colors.system.background.secondary,
                     paddingVertical: designTokens.spacing.lg,
                     borderRadius: designTokens.borderRadius.xl,
                   },
                 ]}
               >
-                <Ionicons name={item.icon as any} size={20} color={designTokens.colors.brand.primary} />
+                <Ionicons name={item.icon as any} size={20} color={colors.brand.primary} />
                 <Text variant="headline" color="label" weight="bold" style={tw`mt-2`}>
                   {formatNumber(item.value)}
                 </Text>
@@ -683,10 +931,11 @@ const LectureDetailScreen: React.FC = () => {
 
           {/* Details Section - User-friendly info only */}
           {(() => {
+            const releasedDateLabel = formatReleaseDate(lecture.postedDate);
             const meta = [
               lecture.durationLabel && { label: "Duration", value: lecture.durationLabel, icon: "time-outline" },
               lecture.albumName && { label: "Album", value: lecture.albumName, icon: "albums-outline" },
-              lecture.postedDate && { label: "Released", value: new Date(lecture.postedDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }), icon: "calendar-outline" },
+              releasedDateLabel && { label: "Released", value: releasedDateLabel, icon: "calendar-outline" },
             ].filter(Boolean);
 
             if (meta.length === 0) return null;
@@ -698,8 +947,8 @@ const LectureDetailScreen: React.FC = () => {
                 </Text>
                 {meta.map((item: any) => (
                   <View key={item.label} style={tw`flex-row items-center mb-3`}>
-                    <View style={[tw`w-8 h-8 rounded-full items-center justify-center mr-3`, { backgroundColor: designTokens.colors.system.fill.secondary }]}>
-                      <Ionicons name={item.icon} size={16} color={designTokens.colors.system.label.secondary} />
+                    <View style={[tw`w-8 h-8 rounded-full items-center justify-center mr-3`, { backgroundColor: colors.system.fill.secondary }]}>
+                      <Ionicons name={item.icon} size={16} color={colors.system.label.secondary} />
                     </View>
                     <View style={tw`flex-1`}>
                       <Text variant="caption1" color="tertiaryLabel">
@@ -735,12 +984,12 @@ const LectureDetailScreen: React.FC = () => {
                       style={[
                         tw`items-center`,
                         {
-                          backgroundColor: designTokens.colors.brand.primary + '15',
+                          backgroundColor: colors.brand.primary + '15',
                           paddingHorizontal: designTokens.spacing.lg,
                           paddingVertical: designTokens.spacing.md,
                           borderRadius: designTokens.borderRadius.xl,
                           borderWidth: 1,
-                          borderColor: designTokens.colors.brand.primary + '30',
+                          borderColor: colors.brand.primary + '30',
                         },
                       ]}
                     >
@@ -761,175 +1010,27 @@ const LectureDetailScreen: React.FC = () => {
     );
   };
 
-  const renderPlaybackControls = () => {
-    const formatTime = (seconds: number) => {
-      const mins = Math.floor(seconds / 60);
-      const secs = Math.floor(seconds % 60);
-      return `${mins}:${secs.toString().padStart(2, '0')}`;
-    };
-
-    const duration = episode?.durationSec || 0;
-    const progress = isCurrentLecture ? currentProgress : 0;
-    const progressPercent = duration > 0 ? (progress / duration) * 100 : 0;
-
-    return (
-      <View style={[tw`px-6 pb-8 pt-4`, { backgroundColor: designTokens.colors.system.background.primary }]}>
-        {/* Progress Bar */}
-        <View style={tw`mb-2`}>
-          <View style={[tw`h-1 rounded-full overflow-hidden`, { backgroundColor: designTokens.colors.system.fill.tertiary }]}>
-            <View
-              style={[
-                tw`h-full rounded-full`,
-                {
-                  backgroundColor: designTokens.colors.brand.primary,
-                  width: `${progressPercent}%`
-                }
-              ]}
-            />
-          </View>
-          <View style={tw`flex-row justify-between mt-2`}>
-            <Text variant="caption2" color="tertiaryLabel">
-              {formatTime(progress)}
-            </Text>
-            <Text variant="caption2" color="tertiaryLabel">
-              {formatTime(duration)}
-            </Text>
-          </View>
-        </View>
-
-        {/* Main Playback Controls */}
-        <View style={tw`flex-row items-center justify-center mt-4 mb-4`}>
-          {/* Shuffle */}
-          <TouchableOpacity
-            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-            style={tw`w-12 h-12 items-center justify-center`}
-          >
-            <Ionicons name="shuffle" size={24} color={designTokens.colors.system.label.secondary} />
-          </TouchableOpacity>
-
-          {/* Previous */}
-          <TouchableOpacity
-            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
-            style={tw`w-14 h-14 items-center justify-center mx-4`}
-          >
-            <Ionicons name="play-back" size={32} color={designTokens.colors.system.label.primary} />
-          </TouchableOpacity>
-
-          {/* Play/Pause - Large Center Button */}
-          <TouchableOpacity
-            onPress={handlePlayPress}
-            disabled={!canPlay}
-            style={[
-              tw`w-20 h-20 rounded-full items-center justify-center mx-6`,
-              {
-                backgroundColor: canPlay ? designTokens.colors.brand.primary : designTokens.colors.system.fill.tertiary,
-                shadowColor: designTokens.colors.brand.primary,
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 8,
-                elevation: 8,
-              }
-            ]}
-          >
-            <Ionicons
-              name={!canPlay ? "alert-circle" : isCurrentlyPlaying ? "pause" : "play"}
-              size={36}
-              color={canPlay ? designTokens.colors.system.background.primary : designTokens.colors.system.label.tertiary}
-              style={!canPlay ? {} : { marginLeft: isCurrentlyPlaying ? 0 : 3 }}
-            />
-          </TouchableOpacity>
-
-          {/* Next */}
-          <TouchableOpacity
-            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
-            style={tw`w-14 h-14 items-center justify-center mx-4`}
-          >
-            <Ionicons name="play-forward" size={32} color={designTokens.colors.system.label.primary} />
-          </TouchableOpacity>
-
-          {/* Repeat */}
-          <TouchableOpacity
-            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-            style={tw`w-12 h-12 items-center justify-center`}
-          >
-            <Ionicons name="repeat" size={24} color={designTokens.colors.system.label.secondary} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Secondary Actions */}
-        <View style={tw`flex-row items-center justify-between mt-2`}>
-          {/* Download Button Group */}
-          <View style={tw`flex-row items-center`}>
-          { (downloadStatus === DownloadStatus.DOWNLOADING ||
-            downloadStatus === DownloadStatus.PAUSED ||
-            downloadStatus === DownloadStatus.QUEUED) && (
-              <TouchableOpacity onPress={handleCancelDownload} style={tw`mr-4`}>
-                <Ionicons name="close-circle-outline" size={24} color={designTokens.colors.semantic.red} />
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              onPress={handleDownloadPress}
-              disabled={episode === null}
-              style={tw`flex-row items-center`}
-            >
-              <Ionicons
-                name={
-                  downloadStatus === DownloadStatus.COMPLETED
-                    ? "checkmark-circle"
-                    : downloadStatus === DownloadStatus.DOWNLOADING
-                      ? "pause-circle-outline"
-                      : downloadStatus === DownloadStatus.PAUSED
-                        ? "play-circle-outline"
-                        : downloadStatus === DownloadStatus.QUEUED
-                          ? "time-outline"
-                          : downloadStatus === DownloadStatus.FAILED
-                            ? "alert-circle-outline"
-                            : "arrow-down-circle-outline"
-                }
-                size={24}
-                color={
-                  downloadStatus === DownloadStatus.COMPLETED
-                    ? designTokens.colors.brand.primary
-                    : downloadStatus === DownloadStatus.FAILED
-                      ? designTokens.colors.semantic.red
-                      : designTokens.colors.system.label.secondary
-                }
-              />
-              <Text
-                variant="caption1"
-                color={
-                  downloadStatus === DownloadStatus.COMPLETED
-                    ? "brand"
-                    : downloadStatus === DownloadStatus.FAILED
-                      ? "systemRed"
-                      : "secondaryLabel"
-                }
-                style={tw`ml-2`}
-              >
-                {downloadStatus === DownloadStatus.COMPLETED
-                  ? "Downloaded"
-                  : downloadStatus === DownloadStatus.DOWNLOADING
-                    ? `${Math.round(downloadProgress)}%`
-                    : downloadStatus === DownloadStatus.PAUSED
-                      ? "Paused"
-                      : downloadStatus === DownloadStatus.QUEUED
-                        ? "Queued"
-                        : downloadStatus === DownloadStatus.FAILED
-                          ? "Failed"
-                          : "Download"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity onPress={handleShare} style={tw`flex-row items-center`}>
-            <Ionicons name="share-outline" size={24} color={designTokens.colors.system.label.secondary} />
-            <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
-              Share
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => {
+  return (
+    <SafeAreaView
+      style={[
+        tw`flex-1`,
+        { backgroundColor: colors.system.background.primary },
+      ]}
+      edges={["left", "right", "bottom"]}
+    >
+      {renderHeader()}
+      <View style={tw`flex-1`}>{renderContent()}</View>
+      {lecture && (
+        <LecturePlaybackControls
+          episode={episode}
+          canPlay={canPlay}
+          colors={colors}
+          downloadStatus={downloadStatus}
+          downloadProgress={downloadProgress}
+          onCancelDownload={handleCancelDownload}
+          onDownloadPress={handleDownloadPress}
+          onShare={handleShare}
+          onOpenAddToPlaylist={() => {
             if (!authStore.get().isAuthenticated) {
               router.push({
                 pathname: "/sign-in",
@@ -938,35 +1039,9 @@ const LectureDetailScreen: React.FC = () => {
             } else {
               setShowAddToPlaylistModal(true);
             }
-          }} style={tw`flex-row items-center`}>
-            <Ionicons name="add-circle-outline" size={24} color={designTokens.colors.system.label.secondary} />
-            <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
-              Add to Playlist
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={handleSpeedChange} style={tw`flex-row items-center`}>
-            <Ionicons name="speedometer-outline" size={24} color={designTokens.colors.system.label.secondary} />
-            <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
-              {playbackSpeed}x
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  };
-
-  return (
-    <SafeAreaView
-      style={[
-        tw`flex-1`,
-        { backgroundColor: designTokens.colors.system.background.primary },
-      ]}
-      edges={["top", "left", "right", "bottom"]}
-    >
-      {renderHeader()}
-      <View style={tw`flex-1`}>{renderContent()}</View>
-      {lecture && renderPlaybackControls()}
+          }}
+        />
+      )}
 
       {lecture && (
         <AddToPlaylistModal
@@ -980,4 +1055,10 @@ const LectureDetailScreen: React.FC = () => {
   );
 };
 
-export default LectureDetailScreen;
+export default function LectureDetailScreenWithBoundary() {
+  return (
+    <ErrorBoundary>
+      <LectureDetailScreen />
+    </ErrorBoundary>
+  );
+}

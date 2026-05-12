@@ -6,6 +6,7 @@
 import { getLanguageId, getLanguageName } from '../../utils/languages';
 import { API_CONFIG } from '../config/api.config';
 import { apiClient, ApiError } from './base.api';
+import { logger } from '@/utils/logger';
 
 export interface Lecturer {
   // Actual API response fields based on the response
@@ -38,6 +39,7 @@ export interface LecturersParams {
   offset?: number;
   lim?: number;
   language?: string | number; // Can be language ID (number) or name (string)
+  state?: string;
 }
 
 export interface LecturersResponse {
@@ -56,6 +58,16 @@ class LecturersApiService {
    */
   private getLanguageFromId(langId?: number): string {
     return getLanguageName(langId);
+  }
+
+  private resolveLanguage(lecturer: any): string {
+    return (
+      lecturer.language ||
+      lecturer.lang ||
+      lecturer.language_name ||
+      this.getLanguageFromId(lecturer.lang_id) ||
+      'Unknown'
+    );
   }
 
   /**
@@ -89,8 +101,12 @@ class LecturersApiService {
         }
       }
 
+      if (params.state && params.state !== 'All') {
+        requestParams.state = params.state;
+      }
+
       // Log the API call
-      console.log('👨‍🏫 Lecturers API Call:', {
+      logger.debug('Lecturers API Call:', {
         endpoint: '/api/all_rps_api.php',
         params: requestParams,
         fullUrl: `${API_CONFIG.BASE_URL}/api/all_rps_api.php?${new URLSearchParams(requestParams).toString()}`
@@ -108,7 +124,7 @@ class LecturersApiService {
       );
 
       // Log response summary (without sensitive data)
-      console.log('📥 Lecturers Response:', {
+      logger.debug('Lecturers Response:', {
         status: 'success',
         dataReceived: response.data ? 'Yes' : 'No',
         dataLength: Array.isArray(response.data) ? response.data.length :
@@ -118,11 +134,99 @@ class LecturersApiService {
       // Normalize the response
       return this.normalizeResponse(response.data, params);
     } catch (error) {
+      if (error instanceof ApiError && error.isCancelled) {
+        throw error;
+      }
       console.error('❌ Lecturers API Error:', error);
       if (error instanceof ApiError) {
         throw error;
       }
       throw new ApiError('Failed to fetch lecturers', undefined, error);
+    }
+  }
+
+  /**
+   * Fetch available states for filtering
+   */
+  async getStates(): Promise<string[]> {
+    try {
+      const response = await apiClient.get<any>(
+        '/api/all_states_api.php',
+        {},
+        {
+          timeout: API_CONFIG.TIMEOUTS.DEFAULT,
+          useCache: true,
+          cacheTTL: 60 * 60 * 24, // Cache for 24 hours
+        }
+      );
+
+      const data = response.data;
+      const rawStates = Array.isArray(data?.states)
+        ? data.states
+        : Array.isArray(data)
+          ? data
+          : Array.isArray(data?.data?.states)
+            ? data.data.states
+            : [];
+
+      return rawStates
+        .map((state: any) => String(state || '').trim())
+        .filter(Boolean);
+    } catch (error) {
+      console.error('Failed to fetch states:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Search lecturers by name
+   */
+  async searchLecturers(value: string, state?: string): Promise<Lecturer[]> {
+    try {
+      const requestParams: Record<string, any> = {
+        type: 'lecturers',
+        value,
+      };
+
+      if (state && state !== 'All') {
+        requestParams.state = state;
+      }
+
+      const response = await apiClient.get<any>(
+        '/api/searchApi.php',
+        requestParams,
+        {
+          timeout: API_CONFIG.TIMEOUTS.DEFAULT,
+          useCache: false,
+        }
+      );
+
+      const data = response.data;
+      if (data && data.success === false) {
+        throw new ApiError(data.message || 'Failed to search lecturers', data.statusCode);
+      }
+
+      let lecturers: any[] = [];
+      if (Array.isArray(data)) {
+        lecturers = data;
+      } else if (Array.isArray(data?.data)) {
+        lecturers = data.data;
+      } else if (Array.isArray(data?.results)) {
+        lecturers = data.results;
+      } else if (Array.isArray(data?.items)) {
+        lecturers = data.items;
+      } else if (Array.isArray(data?.lecturers)) {
+        lecturers = data.lecturers;
+      }
+
+      return lecturers.map((lecturer: any) => ({
+        ...lecturer,
+        language: this.resolveLanguage(lecturer),
+        followers: lecturer.views || 0,
+      }));
+    } catch (error) {
+      console.error('Failed to search lecturers:', error);
+      throw error;
     }
   }
 
@@ -155,7 +259,7 @@ class LecturersApiService {
     // Add computed language field to each lecturer
     const enhancedLecturers = lecturers.map((lecturer: any) => ({
       ...lecturer,
-      language: this.getLanguageFromId(lecturer.lang_id),
+      language: this.resolveLanguage(lecturer),
       followers: lecturer.views || 0, // Use views as followers for now
     }));
 
@@ -193,7 +297,7 @@ class LecturersApiService {
    */
   async getLecturerDetails(lecturerId: string | number): Promise<Lecturer | null> {
     try {
-      console.log('👤 Fetching lecturer details for:', lecturerId);
+      logger.debug('Fetching lecturer details for:', lecturerId);
 
       // Try to find in all lecturers list first
       const response = await this.getAllLecturers({ lim: 50 });
@@ -202,12 +306,12 @@ class LecturersApiService {
       );
 
       if (lecturer) {
-        console.log('✅ Lecturer found in list:', lecturer.name);
+        logger.debug('Lecturer found in list:', lecturer.name);
         return lecturer;
       }
 
       // Lecturer not in first 50, fetch their lectures to get info
-      console.log('⚠️ Lecturer not in list, fetching from lectures...');
+      logger.debug('Lecturer not in list, fetching from lectures...');
       const lecturesResponse = await this.getLecturesByLecturer(lecturerId, 1);
 
       if (lecturesResponse.data.length > 0) {
@@ -222,11 +326,11 @@ class LecturersApiService {
           share: firstLecture.share || 0,
           comment: firstLecture.comment || 0,
         };
-        console.log('✅ Lecturer constructed from lectures:', constructedLecturer.name);
+        logger.debug('Lecturer constructed from lectures:', constructedLecturer.name);
         return constructedLecturer;
       }
 
-      console.log('❌ No lectures found for lecturer:', lecturerId);
+      logger.debug('No lectures found for lecturer:', lecturerId);
       return null;
     } catch (error) {
       console.error('Failed to fetch lecturer details:', error);
@@ -247,7 +351,7 @@ class LecturersApiService {
     total_pages: number;
   }> {
     try {
-      console.log('📚 Fetching lectures for lecturer:', lecturerId);
+      logger.debug('Fetching lectures for lecturer:', lecturerId);
 
       const response = await apiClient.get<any>(
         '/api/leclisting_rp.php',
@@ -265,7 +369,7 @@ class LecturersApiService {
       // Response is an array of lectures
       const lectures = Array.isArray(response.data) ? response.data : [];
 
-      console.log('✅ Lectures fetched:', lectures.length);
+      logger.debug('Lectures fetched:', lectures.length);
 
       return {
         data: lectures,

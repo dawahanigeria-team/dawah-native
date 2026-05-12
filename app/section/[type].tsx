@@ -1,20 +1,35 @@
 import { Ionicons } from "@expo/vector-icons";
+import { FlashList } from "../../src/components/adapters/flashListCompat";
+import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, ScrollView, TouchableOpacity, UIManager, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  Image,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  UIManager,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { FlashList } from "@shopify/flash-list";
 import { Chip, Text } from "../../src/components/atoms";
+import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
 import { Card } from "../../src/components/molecules/Card";
 import { SearchBar } from "../../src/components/molecules/SearchBar";
 import { useQuranAlbums } from "../../src/hooks/useQuranAlbums";
+import { useRamadanAlbums } from "../../src/hooks/useRamadanAlbums";
 import { useRecentlyPlayedLectures } from "../../src/hooks/useRecentlyPlayedLectures";
+import { useTheme } from "../../src/hooks/useTheme";
 import { useTrending } from "../../src/hooks/useTrending";
 import { QuranAlbum } from "../../src/services/api/quran.api";
-
+import { RamadanAlbum } from "../../src/services/api/ramadan.api";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Episode, Series } from "../../src/types/types";
+
+type AlbumType = QuranAlbum | RamadanAlbum;
 
 const getSectionInfo = (type: string) => {
   switch (type) {
@@ -55,10 +70,20 @@ const getSectionInfo = (type: string) => {
     case "quran-recitations":
       return {
         title: "Quran Reciters",
-        description: "Discover renowned Quran reciters and their beautiful recitations",
+        description:
+          "Listen to beautiful recitations from talented indigenous Nigerian Quran reciters",
         count: 0,
-        data: [], 
+        data: [],
         variant: "quran" as const,
+      };
+    case "ramadan-tafsir":
+      return {
+        title: "Ramadan Tafsir",
+        description:
+          "Explore Ramadan Tafsir collections from renowned scholars",
+        count: 0,
+        data: [],
+        variant: "ramadan" as const,
       };
     default:
       return {
@@ -74,14 +99,28 @@ const getSectionInfo = (type: string) => {
 type SortOption = "recent" | "most-played" | "downloads";
 type LanguageFilter = "all" | "hausa" | "english" | "yoruba" | "arabic";
 
-export default function SectionScreen() {
+export default function SectionScreenWithBoundary() {
+  return (
+    <ErrorBoundary>
+      <SectionScreen />
+    </ErrorBoundary>
+  );
+}
+
+function SectionScreen() {
+  const { colors } = useTheme();
   const { type } = useLocalSearchParams<{ type: string }>();
-  const canUseFlashList = Boolean(UIManager.getViewManagerConfig?.('AutoLayoutView'));
-  const ListComponent = canUseFlashList ? FlashList : FlatList;
+  const supportsAutoLayoutView = Boolean(
+    UIManager.getViewManagerConfig?.("AutoLayoutView"),
+  );
+  // Guard against runtime module/export issues; always keep FlatList as a safe fallback.
+  const canUseFlashList = supportsAutoLayoutView && Boolean(FlashList);
 
   // Fetch trending data if this is the trending or recently-posted section
-  const trendingParams = (type === "trending" || type === "recently-posted") ? { page: 1, limit: 20 } : undefined;
-  console.log(`📱 SectionScreen render - type: ${type}, trendingParams:`, trendingParams);
+  const trendingParams =
+    type === "trending" || type === "recently-posted"
+      ? { page: 1, limit: 20 }
+      : undefined;
 
   const {
     lectures: trendingLectures,
@@ -93,8 +132,6 @@ export default function SectionScreen() {
     isLoadingMore: isLoadingMoreTrending,
   } = useTrending(trendingParams);
 
-  console.log(`📊 useTrending values - lectures: ${trendingLectures.length}, loading: ${trendingLoading}, hasMore: ${hasMoreTrending}, isLoadingMore: ${isLoadingMoreTrending}`);
-
   // Fetch recently played lectures if this is the recently-played section
   const {
     lectures: recentlyPlayedLectures,
@@ -102,10 +139,9 @@ export default function SectionScreen() {
     error: recentlyPlayedError,
   } = useRecentlyPlayedLectures(type === "recently-played" ? 50 : 0);
 
-  console.log(`🕐 useRecentlyPlayed values - lectures: ${recentlyPlayedLectures.length}, loading: ${recentlyPlayedLoading}`);
-
   // Fetch Quran albums if this is the quran-recitations section
-  const quranParams = type === "quran-recitations" ? { page: 1, limit: 20 } : undefined;
+  const quranParams =
+    type === "quran-recitations" ? { page: 1, limit: 20 } : undefined;
 
   const {
     albums: quranAlbums,
@@ -117,7 +153,19 @@ export default function SectionScreen() {
     isLoadingMore: isLoadingMoreQuran,
   } = useQuranAlbums(quranParams);
 
-  console.log(`📖 useQuranAlbums values - albums: ${quranAlbums.length}, loading: ${quranLoading}, hasMore: ${hasMoreQuran}, isLoadingMore: ${isLoadingMoreQuran}`);
+  // Fetch Ramadan albums if this is the ramadan-tafsir section
+  const ramadanParams =
+    type === "ramadan-tafsir" ? { page: 1, limit: 20 } : undefined;
+
+  const {
+    albums: ramadanAlbums,
+    loading: ramadanLoading,
+    error: ramadanError,
+    refetch: refetchRamadan,
+    loadMore: loadMoreRamadan,
+    hasMore: hasMoreRamadan,
+    isLoadingMore: isLoadingMoreRamadan,
+  } = useRamadanAlbums(ramadanParams);
 
   const sectionInfo = getSectionInfo(type || "");
   const [searchQuery, setSearchQuery] = useState("");
@@ -130,49 +178,81 @@ export default function SectionScreen() {
 
   // Determine which data source to use based on section type
   const rawData =
-    type === "trending" ? trendingLectures :
-    type === "recently-posted" ? trendingLectures :
-    type === "recently-played" ? recentlyPlayedLectures :
-    type === "quran-recitations" ? quranAlbums :
-    sectionInfo.data;
+    type === "trending"
+      ? trendingLectures
+      : type === "recently-posted"
+        ? trendingLectures
+        : type === "recently-played"
+          ? recentlyPlayedLectures
+          : type === "quran-recitations"
+            ? quranAlbums
+            : type === "ramadan-tafsir"
+                ? ramadanAlbums
+                : sectionInfo.data;
 
   const isLoading =
-    type === "trending" ? trendingLoading :
-    type === "recently-posted" ? trendingLoading :
-    type === "recently-played" ? recentlyPlayedLoading :
-    type === "quran-recitations" ? quranLoading :
-    false;
+    type === "trending"
+      ? trendingLoading
+      : type === "recently-posted"
+        ? trendingLoading
+        : type === "recently-played"
+          ? recentlyPlayedLoading
+          : type === "quran-recitations"
+            ? quranLoading
+            : type === "ramadan-tafsir"
+                ? ramadanLoading
+                : false;
 
   const hasError =
-    type === "trending" ? trendingError :
-    type === "recently-posted" ? trendingError :
-    type === "recently-played" ? recentlyPlayedError :
-    type === "quran-recitations" ? quranError :
-    null;
+    type === "trending"
+      ? trendingError
+      : type === "recently-posted"
+        ? trendingError
+        : type === "recently-played"
+        ? recentlyPlayedError
+        : type === "quran-recitations"
+          ? quranError
+            : type === "ramadan-tafsir"
+                ? ramadanError
+                : null;
 
   const refetch = useMemo(() => {
-    if (type === "trending" || type === "recently-posted") return refetchTrending;
+    if (type === "trending" || type === "recently-posted")
+      return refetchTrending;
     if (type === "quran-recitations") return refetchQuran;
+    if (type === "ramadan-tafsir") return refetchRamadan;
     return () => Promise.resolve();
-  }, [type, refetchTrending, refetchQuran]);
+  }, [type, refetchTrending, refetchQuran, refetchRamadan]);
 
   const loadMore = useMemo(() => {
-    if (type === "trending" || type === "recently-posted") return loadMoreTrending;
+    if (type === "trending" || type === "recently-posted")
+      return loadMoreTrending;
     if (type === "quran-recitations") return loadMoreQuran;
+    if (type === "ramadan-tafsir") return loadMoreRamadan;
     return () => Promise.resolve();
-  }, [type, loadMoreTrending, loadMoreQuran]);
+  }, [type, loadMoreTrending, loadMoreQuran, loadMoreRamadan]);
 
   const hasMore =
-    type === "trending" ? hasMoreTrending :
-    type === "recently-posted" ? hasMoreTrending :
-    type === "quran-recitations" ? hasMoreQuran :
-    false;
+    type === "trending"
+      ? hasMoreTrending
+      : type === "recently-posted"
+        ? hasMoreTrending
+        : type === "quran-recitations"
+          ? hasMoreQuran
+          : type === "ramadan-tafsir"
+              ? hasMoreRamadan
+              : false;
 
   const isLoadingMore =
-    type === "trending" ? isLoadingMoreTrending :
-    type === "recently-posted" ? isLoadingMoreTrending :
-    type === "quran-recitations" ? isLoadingMoreQuran :
-    false;
+    type === "trending"
+      ? isLoadingMoreTrending
+      : type === "recently-posted"
+        ? isLoadingMoreTrending
+        : type === "quran-recitations"
+          ? isLoadingMoreQuran
+          : type === "ramadan-tafsir"
+              ? isLoadingMoreRamadan
+              : false;
 
   // Filter and sort data based on search query, language, and sort option
   const filteredData = useMemo(() => {
@@ -183,15 +263,17 @@ export default function SectionScreen() {
       const query = searchQuery.toLowerCase();
       data = data.filter((item) => {
         // Handle QuranAlbum type
-        if ('name' in item && 'lec_no' in item) {
+        if ("name" in item && "lec_no" in item) {
           const album = item as QuranAlbum;
-          return album.name.toLowerCase().includes(query) ||
-            album.language.toLowerCase().includes(query);
+          return (
+            album.name.toLowerCase().includes(query) ||
+            album.language.toLowerCase().includes(query)
+          );
         }
 
         // Handle Episode type
-        const title = (item as Episode).title?.toLowerCase() || '';
-        const metaValue = (item as Episode).lecturerName?.toLowerCase() || '';
+        const title = (item as Episode).title?.toLowerCase() || "";
+        const metaValue = (item as Episode).lecturerName?.toLowerCase() || "";
 
         // Search in title, author, and tags if available
         const titleMatch = title.includes(query);
@@ -245,7 +327,7 @@ export default function SectionScreen() {
         default:
           episodes.sort(
             (a, b) =>
-              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
           );
           break;
       }
@@ -255,26 +337,26 @@ export default function SectionScreen() {
     return data;
   }, [rawData, searchQuery, selectedLanguage, sortBy, showFilters]);
 
-  const handleSeriesPress = (series: Series) => {
-    console.log("Series pressed:", series.title);
+  const handleSeriesPress = (_series: Series) => {
+    // Series press handler - implement navigation if needed
   };
 
-  const handleLecturePress = useCallback(
-    (episode: Episode) => {
-      if (!episode?.id) return;
-      router.push(`/lecture/${episode.id}`);
-    },
-    []
-  );
+  const handleLecturePress = useCallback((episode: Episode) => {
+    if (!episode?.id) return;
+    router.push(`/lecture/${episode.id}`);
+  }, []);
 
-  const handleQuranAlbumPress = useCallback(
-    (album: QuranAlbum) => {
-      if (!album?.id) return;
-      // Navigate to reciter detail page
-      router.push(`/quran-reciter/${album.id}`);
-    },
-    []
-  );
+  const handleQuranAlbumPress = useCallback((album: QuranAlbum) => {
+    if (!album?.id) return;
+    // Navigate to reciter detail page
+    router.push(`/quran-reciter/${album.id}`);
+  }, []);
+
+  const handleRamadanAlbumPress = useCallback((album: RamadanAlbum) => {
+    if (!album?.id) return;
+    // Navigate to album detail page (uses same page as quran reciter)
+    router.push(`/album/${album.id}`);
+  }, []);
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -282,116 +364,257 @@ export default function SectionScreen() {
 
   // Handle infinite scroll load more
   const handleLoadMore = useCallback(() => {
-    console.log(`🔄 onEndReached triggered - type: ${type}, hasMore: ${hasMore}, isLoadingMore: ${isLoadingMore}`);
-    if ((type === "trending" || type === "recently-posted" || type === "quran-recitations") && hasMore && !isLoadingMore) {
-      console.log('✅ Triggering loadMore()');
+    if (
+      (type === "trending" ||
+        type === "recently-posted" ||
+        type === "quran-recitations" ||
+        type === "ramadan-tafsir") &&
+      hasMore &&
+      !isLoadingMore
+    ) {
       loadMore();
     }
   }, [type, hasMore, isLoadingMore, loadMore]);
 
   // Render item for list
-  const renderItem = useCallback(({ item }: { item: Episode | Series | QuranAlbum }) => {
-    // Handle Quran albums
-    if (sectionInfo.variant === "quran" && 'name' in item && 'lec_no' in item) {
-      const album = item as QuranAlbum;
-      return (
-        <Card
-          variant="section"
-          data={{
-            id: album.id,
-            title: album.name,
-            coverUrl: album.alb_thumbnail || album.img,
-            lecturerName: `${album.lec_no} Surahs`,
-            plays: album.views,
-            downloads: album.downloads,
-            language: album.language,
-          } as Episode}
-          onPress={() => handleQuranAlbumPress(album)}
-          showTime={false}
-          showMeta={true}
-          metaValue={`${album.lec_no} Surahs • ${album.language}`}
-          titleNumberOfLines={0}
-          metaNumberOfLines={2}
-        />
-      );
-    }
-
-    // Handle Episodes
-    if (sectionInfo.variant === "section") {
-      const shouldNavigate = type === "trending" || type === "recently-posted" || type === "recently-played";
-
-      return (
-        <Card
-          variant="section"
-          data={item as Episode}
-          onPress={
-            shouldNavigate
-              ? () => handleLecturePress(item as Episode)
-              : undefined
-          }
-          playOnPress={false}
-          showTime={true}
-          showMeta={true}
-          metaValue={(item as Episode).lecturerName || "Unknown"}
-        />
-      );
-    } else {
-      return (
-        <View style={tw`items-center mb-6`}>
-          <View
-            style={[
-              tw`p-4 rounded-xl`,
+  const renderItem = useCallback(
+    ({ item }: { item: Episode | Series | AlbumType }) => {
+      // Handle Ramadan Tafsir albums
+      if (
+        sectionInfo.variant === "ramadan" &&
+        "name" in item &&
+        "lec_no" in item
+      ) {
+        const album = item as RamadanAlbum;
+        return (
+          <Card
+            variant="section"
+            data={
               {
-                backgroundColor: designTokens.colors.system.background.secondary,
-                shadowColor: designTokens.colors.system.label.primary,
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: 0.04,
-                shadowRadius: 4,
-                elevation: 1,
+                id: album.id,
+                title: album.name,
+                coverUrl: album.alb_thumbnail || album.img,
+                lecturerName: `${album.lec_no} Lectures`,
+                plays: album.views,
+                downloads: album.downloads,
+                language: album.language,
+              } as Episode
+            }
+            onPress={() => handleRamadanAlbumPress(album)}
+            showTime={false}
+            showMeta={true}
+            metaValue={`${album.lec_no} Lectures • ${album.language}`}
+            titleNumberOfLines={0}
+            metaNumberOfLines={2}
+          />
+        );
+      }
+
+      // Handle Quran albums - World-class reciter card
+      if (
+        sectionInfo.variant === "quran" &&
+        "name" in item &&
+        "lec_no" in item
+      ) {
+        const album = item as QuranAlbum;
+        const surahCount = album.lec_no || 0;
+        const viewCount = album.views || 0;
+
+        return (
+          <TouchableOpacity
+            onPress={() => handleQuranAlbumPress(album)}
+            activeOpacity={0.9}
+            style={[
+              tw`mb-4 rounded-2xl overflow-hidden`,
+              styles.quranAlbumCard,
+              {
+                backgroundColor: colors.system.background.secondary,
+                shadowColor: colors.fixed.black,
+                shadowOffset: { width: 0, height: 2 },
               },
             ]}
+            accessibilityLabel={`${album.name}, ${surahCount} Surahs in ${album.language}`}
+            accessibilityRole="button"
           >
-            <Card
-              variant="square"
-              data={item as unknown as Series}
-              onPress={() => handleSeriesPress(item as unknown as Series)}
-              showBadge={false}
-            />
-            <Text
-              variant="caption1"
-              color="secondaryLabel"
-              style={tw`mt-2 text-center`}
-              numberOfLines={2}
+            <View style={tw`flex-row`}>
+              {/* Image Section */}
+              <View style={tw`w-28 h-28 relative`}>
+                <Image
+                  source={{ uri: album.alb_thumbnail || album.img }}
+                  style={tw`w-full h-full`}
+                  resizeMode="cover"
+                />
+                <LinearGradient
+                  colors={["transparent", "rgba(0,0,0,0.4)"]}
+                  style={tw`absolute inset-0`}
+                />
+                {/* Play Icon Overlay */}
+                <View
+                  style={[
+                    tw`absolute bottom-2 right-2 w-8 h-8 rounded-full items-center justify-center`,
+                    { backgroundColor: colors.brand.primary },
+                  ]}
+                >
+                  <Ionicons name="play" size={16} color={colors.fixed.black} />
+                </View>
+              </View>
+
+              {/* Content Section */}
+              <View style={tw`flex-1 p-3 justify-between`}>
+                {/* Top: Name and Language */}
+                <View>
+                  <Text
+                    variant="headline"
+                    color="label"
+                    weight="semibold"
+                    numberOfLines={2}
+                    style={tw`leading-5`}
+                  >
+                    {album.name}
+                  </Text>
+                  <View style={tw`flex-row items-center mt-1`}>
+                    <View
+                      style={[
+                        tw`px-2 py-0.5 rounded-full mr-2`,
+                        { backgroundColor: colors.brand.primary + "20" },
+                      ]}
+                    >
+                      <Text
+                        variant="caption2"
+                        weight="semibold"
+                        style={{ color: colors.brand.primary }}
+                      >
+                        {album.language}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Bottom: Stats */}
+                <View style={tw`flex-row items-center mt-2`}>
+                  <View style={tw`flex-row items-center mr-4`}>
+                    <Ionicons
+                      name="book-outline"
+                      size={14}
+                      color={colors.system.label.secondary}
+                    />
+                    <Text
+                      variant="caption1"
+                      color="secondaryLabel"
+                      style={tw`ml-1`}
+                    >
+                      {surahCount} {surahCount === 1 ? "Surah" : "Surahs"}
+                    </Text>
+                  </View>
+                  {viewCount > 0 && (
+                    <View style={tw`flex-row items-center`}>
+                      <Ionicons
+                        name="headset-outline"
+                        size={14}
+                        color={colors.system.label.secondary}
+                      />
+                      <Text
+                        variant="caption1"
+                        color="secondaryLabel"
+                        style={tw`ml-1`}
+                      >
+                        {viewCount.toLocaleString()}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </View>
+          </TouchableOpacity>
+        );
+      }
+
+      // Handle Episodes
+      if (sectionInfo.variant === "section") {
+        const shouldNavigate =
+          type === "trending" ||
+          type === "recently-posted" ||
+          type === "recently-played";
+
+        return (
+          <Card
+            variant="section"
+            data={item as Episode}
+            onPress={
+              shouldNavigate
+                ? () => handleLecturePress(item as Episode)
+                : undefined
+            }
+            playOnPress={false}
+            showTime={true}
+            showMeta={true}
+            metaValue={(item as Episode).lecturerName || "Unknown"}
+          />
+        );
+      } else {
+        return (
+          <View style={tw`items-center mb-6`}>
+            <View
+              style={[
+                tw`p-4 rounded-xl shadow-sm`,
+                {
+                  backgroundColor: colors.system.background.secondary,
+                  shadowColor: colors.system.label.primary,
+                  shadowOffset: { width: 0, height: 1 },
+                },
+              ]}
             >
-              {(item as Series).title}
-            </Text>
+              <Card
+                variant="square"
+                data={item as unknown as Series}
+                onPress={() => handleSeriesPress(item as unknown as Series)}
+                showBadge={false}
+              />
+              <Text
+                variant="caption1"
+                color="secondaryLabel"
+                style={tw`mt-2 text-center`}
+                numberOfLines={2}
+              >
+                {(item as Series).title}
+              </Text>
+            </View>
           </View>
-        </View>
-      );
-    }
-  }, [handleLecturePress, handleQuranAlbumPress, sectionInfo.variant, type]);
+        );
+      }
+    },
+    [
+      handleLecturePress,
+      handleQuranAlbumPress,
+      handleRamadanAlbumPress,
+      sectionInfo.variant,
+      type,
+      colors,
+    ],
+  );
 
   // Render footer (loading indicator) for list
   const renderFooter = useCallback(() => {
-    console.log(`🦶 renderFooter - isLoadingMore: ${isLoadingMore}, type: ${type}, hasMore: ${hasMore}`);
     if (!isLoadingMore) return null;
     return (
       <View style={tw`py-4 items-center`}>
-        <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
+        <ActivityIndicator size="small" color={colors.brand.primary} />
         <Text variant="caption1" color="secondaryLabel" style={tw`mt-2`}>
           Loading more...
         </Text>
       </View>
     );
-  }, [isLoadingMore, type, hasMore]);
+  }, [isLoadingMore, colors]);
 
   // Empty component for list
   const renderEmpty = useCallback(() => {
     if (isLoading) {
       return (
         <View style={tw`flex-1 items-center justify-center py-20`}>
-          <ActivityIndicator size="large" color={designTokens.colors.brand.primary} />
-          <Text style={tw`text-white mt-2`}>Loading {sectionInfo.title.toLowerCase()}...</Text>
+          <ActivityIndicator size="large" color={colors.brand.primary} />
+          <Text style={[tw`mt-2`, { color: colors.system.label.primary }]}>
+            Loading {sectionInfo.title.toLowerCase()}...
+          </Text>
         </View>
       );
     }
@@ -402,26 +625,34 @@ export default function SectionScreen() {
           <View
             style={[
               tw`w-16 h-16 rounded-full items-center justify-center mb-4`,
-              { backgroundColor: designTokens.colors.system.fill.quaternary },
+              { backgroundColor: colors.system.fill.quaternary },
             ]}
           >
             <Ionicons
               name="cloud-offline-outline"
               size={32}
-              color={designTokens.colors.system.label.tertiary}
+              color={colors.system.label.tertiary}
             />
           </View>
-          <Text variant="title3" color="label" style={tw`font-semibold text-center mb-2`}>
+          <Text
+            variant="title3"
+            color="label"
+            style={tw`font-semibold text-center mb-2`}
+          >
             Failed to load {sectionInfo.title.toLowerCase()}
           </Text>
-          <Text variant="subheadline" color="secondaryLabel" style={tw`text-center mb-4`}>
+          <Text
+            variant="subheadline"
+            color="secondaryLabel"
+            style={tw`text-center mb-4`}
+          >
             Check your connection and try again
           </Text>
           <TouchableOpacity
             onPress={() => refetch()}
             style={[
               tw`px-6 py-3 rounded-full`,
-              { backgroundColor: designTokens.colors.brand.primary },
+              { backgroundColor: colors.brand.primary },
             ]}
             accessibilityLabel={`Retry loading ${sectionInfo.title.toLowerCase()}`}
             accessibilityRole="button"
@@ -431,7 +662,7 @@ export default function SectionScreen() {
               variant="body"
               style={[
                 tw`font-semibold`,
-                { color: designTokens.colors.system.background.primary },
+                { color: colors.system.background.primary },
               ]}
             >
               Retry
@@ -446,32 +677,40 @@ export default function SectionScreen() {
         <View
           style={[
             tw`w-16 h-16 rounded-full items-center justify-center mb-4`,
-            { backgroundColor: designTokens.colors.system.fill.quaternary },
+            { backgroundColor: colors.system.fill.quaternary },
           ]}
         >
           <Ionicons
             name={searchQuery.trim() ? "search-outline" : "library-outline"}
             size={32}
-            color={designTokens.colors.system.label.tertiary}
+            color={colors.system.label.tertiary}
           />
         </View>
-        <Text variant="title2" color="label" style={tw`font-semibold mb-2 text-center`}>
+        <Text
+          variant="title2"
+          color="label"
+          style={tw`font-semibold mb-2 text-center`}
+        >
           {searchQuery.trim() ? "No results found" : "No content available"}
         </Text>
-        <Text variant="subheadline" color="secondaryLabel" style={tw`text-center px-8`}>
+        <Text
+          variant="subheadline"
+          color="secondaryLabel"
+          style={tw`text-center px-8`}
+        >
           {searchQuery.trim()
             ? "Try adjusting your search terms or browse all available content"
             : "This section is currently empty"}
         </Text>
       </View>
     );
-  }, [isLoading, hasError, searchQuery, refetch, sectionInfo.title]);
+  }, [isLoading, hasError, searchQuery, refetch, sectionInfo.title, colors]);
 
   return (
     <SafeAreaView
       style={[
         tw`flex-1 pb-4`,
-        { backgroundColor: designTokens.colors.system.background.primary },
+        { backgroundColor: colors.system.background.primary },
       ]}
       edges={["top", "left", "right", "bottom"]}
     >
@@ -480,7 +719,7 @@ export default function SectionScreen() {
         style={[
           tw`px-6 pt-2 pb-4`,
           {
-            backgroundColor: designTokens.colors.system.background.primary,
+            backgroundColor: colors.system.background.primary,
           },
         ]}
       >
@@ -496,7 +735,7 @@ export default function SectionScreen() {
             <Ionicons
               name="chevron-back"
               size={28}
-              color={designTokens.colors.brand.primary}
+              color={colors.brand.primary}
             />
           </TouchableOpacity>
           <Text variant="title1" color="label" style={tw`font-semibold`}>
@@ -520,7 +759,7 @@ export default function SectionScreen() {
             style={[
               tw`px-3 py-1.5 rounded-full mr-3`,
               {
-                backgroundColor: designTokens.colors.system.fill.tertiary,
+                backgroundColor: colors.system.fill.tertiary,
               },
             ]}
           >
@@ -537,8 +776,9 @@ export default function SectionScreen() {
                     ? `${recentlyPlayedLectures.length > 0 ? recentlyPlayedLectures.length : sectionInfo.count} lectures`
                     : type === "quran-recitations"
                       ? `${quranAlbums.length > 0 ? quranAlbums.length : sectionInfo.count} reciters`
-                      : `${sectionInfo.count} lectures`
-              }
+                      : type === "ramadan-tafsir"
+                        ? `${ramadanAlbums.length > 0 ? ramadanAlbums.length : sectionInfo.count} collections`
+                        : `${sectionInfo.count} lectures`}
             </Text>
           </View>
         </View>
@@ -547,11 +787,10 @@ export default function SectionScreen() {
       {/* Search Bar and Filters */}
       <View
         style={[
-          tw`pb-4`,
+          tw`pb-4 border-b`,
           {
-            backgroundColor: designTokens.colors.system.background.primary,
-            borderBottomWidth: 1,
-            borderBottomColor: designTokens.colors.system.separator.primary,
+            backgroundColor: colors.system.background.primary,
+            borderBottomColor: colors.system.separator.primary,
           },
         ]}
       >
@@ -567,7 +806,7 @@ export default function SectionScreen() {
           {searchQuery.trim() && (
             <View style={tw`mt-3 flex-row items-center justify-between`}>
               <Text variant="caption1" color="secondaryLabel">
-                {filteredData.length} of {sectionInfo.count} results
+                {filteredData.length} of {rawData.length} results
               </Text>
               {searchQuery.trim() && (
                 <TouchableOpacity
@@ -576,7 +815,11 @@ export default function SectionScreen() {
                   accessibilityLabel="Clear search"
                   accessibilityRole="button"
                 >
-                  <Text variant="caption1" color="brand" style={tw`font-medium`}>
+                  <Text
+                    variant="caption1"
+                    color="brand"
+                    style={tw`font-medium`}
+                  >
                     Clear
                   </Text>
                 </TouchableOpacity>
@@ -608,7 +851,7 @@ export default function SectionScreen() {
                   style={[
                     tw`px-2 py-1 rounded-full`,
                     {
-                      backgroundColor: designTokens.colors.system.fill.tertiary,
+                      backgroundColor: colors.system.fill.tertiary,
                     },
                   ]}
                 >
@@ -624,7 +867,7 @@ export default function SectionScreen() {
               <Ionicons
                 name={filtersExpanded ? "chevron-up" : "chevron-down"}
                 size={20}
-                color={designTokens.colors.system.label.secondary}
+                color={colors.system.label.secondary}
               />
             </TouchableOpacity>
 
@@ -706,26 +949,53 @@ export default function SectionScreen() {
       </View>
 
       {/* Content with Dynamic Spacing */}
-      <ListComponent
-        data={filteredData}
-        renderItem={renderItem}
-        keyExtractor={(item, index) => `${item.id}-${index}`}
-        ListEmptyComponent={renderEmpty}
-        ListFooterComponent={renderFooter}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.5}
-        {...(canUseFlashList ? { estimatedItemSize: 160 } : {})}
-        contentContainerStyle={[
-          tw`px-6`,
-          {
-            paddingTop: showFilters
-              ? designTokens.spacing.md
-              : designTokens.spacing.lg,
-            paddingBottom: 80, // Add extra padding for mini player
-          },
-        ]}
-        showsVerticalScrollIndicator={false}
-      />
+      {canUseFlashList ? (
+        <FlashList
+          data={filteredData}
+          renderItem={renderItem}
+          keyExtractor={(item, index) => `${item.id}-${index}`}
+          ListEmptyComponent={renderEmpty}
+          ListFooterComponent={renderFooter}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          contentContainerStyle={[
+            tw`px-6 pb-20`,
+            {
+              paddingTop: showFilters
+                ? designTokens.spacing.md
+                : designTokens.spacing.lg,
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+        />
+      ) : (
+        <FlatList
+          data={filteredData}
+          renderItem={renderItem}
+          keyExtractor={(item, index) => `${item.id}-${index}`}
+          ListEmptyComponent={renderEmpty}
+          ListFooterComponent={renderFooter}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          contentContainerStyle={[
+            tw`px-6 pb-20`,
+            {
+              paddingTop: showFilters
+                ? designTokens.spacing.md
+                : designTokens.spacing.lg,
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  quranAlbumCard: {
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+});

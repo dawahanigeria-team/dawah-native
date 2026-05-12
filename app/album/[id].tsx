@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../../src/components/atoms';
 import { Text } from '../../src/components/atoms/Text';
 import { Album, albumsApi, AlbumTrack } from '../../src/services/api/albums.api';
@@ -23,6 +23,8 @@ import { appendShareSignature } from '../../src/utils/shareMessage';
 
 const AlbumDetailScreen: React.FC = () => {
   const router = useRouter();
+  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const albumId = Array.isArray(id) ? id[0] : id;
   const { playQueue, currentEpisode } = usePlayerStore();
@@ -31,6 +33,21 @@ const AlbumDetailScreen: React.FC = () => {
   const [tracks, setTracks] = useState<AlbumTrack[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const handleBack = useCallback(() => {
+    let canGoBack = false;
+    try {
+      canGoBack = navigation.canGoBack();
+    } catch {
+      canGoBack = false;
+    }
+
+    if (canGoBack) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
+  }, [navigation, router]);
 
   useEffect(() => {
     fetchAlbumData();
@@ -461,12 +478,15 @@ const AlbumDetailScreen: React.FC = () => {
         }
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        initialNumToRender={10}
+        maxToRenderPerBatch={5}
+        windowSize={5}
       />
 
       {/* Back Button */}
       <TouchableOpacity
-        onPress={() => router.back()}
-        style={styles.backButton}
+        onPress={handleBack}
+        style={[styles.backButton, { top: insets.top + designTokens.spacing.sm }]}
         activeOpacity={0.7}
       >
         <Icon name="arrow-back" size="lg" color="label" />
@@ -475,7 +495,7 @@ const AlbumDetailScreen: React.FC = () => {
       {/* Share Button */}
       <TouchableOpacity
         onPress={handleShare}
-        style={styles.shareButton}
+        style={[styles.shareButton, { top: insets.top + designTokens.spacing.sm }]}
         activeOpacity={0.7}
       >
         <Icon name="share-social" size="md" color="label" />

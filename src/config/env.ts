@@ -8,6 +8,12 @@ interface EnvConfig {
   API_PROJECT_KEY: string;
   MEDIA_BASE_URL: string;
   PUSH_NOTIFICATIONS_REGISTER_URL: string;
+  POSTHOG_KEY: string;
+  POSTHOG_HOST: string;
+  GOOGLE_WEB_CLIENT_ID: string;
+  GOOGLE_IOS_CLIENT_ID: string;
+  PREMIUM_MONTHLY_PRODUCT_ID: string;
+  PREMIUM_YEARLY_PRODUCT_ID: string;
   NODE_ENV: 'development' | 'production' | 'test';
 }
 
@@ -17,14 +23,19 @@ export const ENV: EnvConfig = {
   API_PROJECT_KEY: process.env.EXPO_PUBLIC_API_PROJECT_KEY || '206cf92c-8a46-45ef-bf3f-a6ef92fc6f25',
   MEDIA_BASE_URL: process.env.EXPO_PUBLIC_MEDIA_BASE_URL || 'https://media.dawahnigeria.com',
   PUSH_NOTIFICATIONS_REGISTER_URL: process.env.EXPO_PUBLIC_PUSH_REGISTER_URL || '',
-  NODE_ENV: (process.env.EXPO_PUBLIC_NODE_ENV || 'development') as EnvConfig['NODE_ENV'],
+  POSTHOG_KEY: process.env.EXPO_PUBLIC_POSTHOG_KEY || '',
+  POSTHOG_HOST: process.env.EXPO_PUBLIC_POSTHOG_HOST || 'https://eu.i.posthog.com',
+  GOOGLE_WEB_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '',
+  GOOGLE_IOS_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '',
+  PREMIUM_MONTHLY_PRODUCT_ID: process.env.EXPO_PUBLIC_PREMIUM_MONTHLY_PRODUCT_ID || 'dawahnigeria_premium_monthly',
+  PREMIUM_YEARLY_PRODUCT_ID: process.env.EXPO_PUBLIC_PREMIUM_YEARLY_PRODUCT_ID || 'dawahnigeria_premium_yearly',
+  NODE_ENV: (__DEV__ ? 'development' : 'production') as EnvConfig['NODE_ENV'],
 };
 
-export const isDevelopment = ENV.NODE_ENV === 'development';
-export const isProduction = ENV.NODE_ENV === 'production';
+export const isDevelopment = __DEV__;
+export const isProduction = !__DEV__;
 
-// Log configuration in development
-if (isDevelopment) {
+if (__DEV__) {
   console.log('Environment Configuration:', {
     API_BASE_URL: ENV.API_BASE_URL,
     MEDIA_BASE_URL: ENV.MEDIA_BASE_URL,

@@ -8,6 +8,7 @@ import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
 import type { Episode } from '../../types/types';
 import { addSentryBreadcrumb, captureSentryException } from '../config/sentry.config';
 import { DownloadProgress, downloadsService, ResumableDownload } from '../downloads.service';
+import { logger } from '@/utils/logger';
 
 const DOWNLOAD_QUEUE_KEY = 'download_queue_v1';
 
@@ -60,7 +61,7 @@ class DownloadQueueService {
   private unsubscribeNetInfo: (() => void) | null = null;
 
   private constructor() {
-    console.log('📥 Download Queue Service initialized');
+    logger.debug('Download Queue Service initialized');
     this._initialize();
   }
 
@@ -114,7 +115,7 @@ class DownloadQueueService {
           }
           this.queue.set(item.id, item);
         });
-        console.log(`📥 Loaded ${this.queue.size} items from download queue`);
+        logger.debug(`Loaded ${this.queue.size} items from download queue`);
         this.notify();
       }
     } catch (error) {
@@ -185,7 +186,7 @@ class DownloadQueueService {
   private async processQueue(): Promise<void> {
     // Prevent concurrent processing
     if (this.isProcessing) {
-      console.log('⏸️ Queue processing already in progress, skipping');
+      logger.debug('Queue processing already in progress, skipping');
       return;
     }
 
@@ -196,13 +197,13 @@ class DownloadQueueService {
       const isWifi = netState.type === 'wifi';
 
       if (!isConnected) {
-        console.log('No network connection, pausing active downloads.');
+        logger.debug('No network connection, pausing active downloads.');
         await this.pauseAll(); // Pause all active downloads if no network
         return;
       }
 
       if (this.config.wifiOnly && !isWifi) {
-        console.log('WiFi-only mode enabled, but not on WiFi. Pausing active downloads.');
+        logger.debug('WiFi-only mode enabled, but not on WiFi. Pausing active downloads.');
         await this.pauseAll(); // Pause all active downloads if wifiOnly and not on WiFi
         return;
       }
@@ -240,9 +241,28 @@ class DownloadQueueService {
       if (!resumableDownload) throw new Error('Failed to create download.');
 
       this.activeDownloads.set(downloadId, resumableDownload);
-      await downloadsService.startDownload(resumableDownload);
+      const result = await downloadsService.startDownload(resumableDownload);
 
-      // Post-download completion logic
+      if (result !== 'completed') {
+        this.activeDownloads.delete(downloadId);
+        this.speedTrackers.delete(downloadId);
+
+        if (this.queue.has(downloadId) && result === 'paused') {
+          download.status = DownloadStatus.PAUSED;
+          await this.saveQueue();
+          this.notify();
+        }
+
+        await this.processQueue();
+        return;
+      }
+
+      if (!this.queue.has(downloadId) || download.status !== DownloadStatus.DOWNLOADING) {
+        this.activeDownloads.delete(downloadId);
+        this.speedTrackers.delete(downloadId);
+        return;
+      }
+
       download.status = DownloadStatus.COMPLETED;
       download.progress = 100;
       download.completedAt = Date.now();
@@ -254,12 +274,15 @@ class DownloadQueueService {
       await this.processQueue();
 
     } catch (error: any) {
-      download.status = DownloadStatus.FAILED;
-      download.error = error.message;
       this.activeDownloads.delete(downloadId);
       this.speedTrackers.delete(downloadId);
-      await this.saveQueue();
-      this.notify();
+
+      if (this.queue.has(downloadId)) {
+        download.status = DownloadStatus.FAILED;
+        download.error = error.message;
+        await this.saveQueue();
+        this.notify();
+      }
 
       captureSentryException(error, { operation: 'download_queue_start', downloadId });
 
@@ -314,16 +337,21 @@ class DownloadQueueService {
 
   public async cancelDownload(downloadId: string): Promise<void> {
     const download = this.queue.get(downloadId);
+    // Always attempt cleanup in downloadsService even if queue state is stale.
+    await downloadsService.cancelDownload(downloadId);
+
     if (download) {
-      await downloadsService.cancelDownload(downloadId);
       this.queue.delete(downloadId);
-      this.activeDownloads.delete(downloadId);
-      this.speedTrackers.delete(downloadId);
       addSentryBreadcrumb(`Cancelled download: ${download.episode.title}`, 'download');
-      await this.saveQueue();
-      this.notify();
-      await this.processQueue();
+    } else {
+      addSentryBreadcrumb(`Cancelled download cleanup: ${downloadId}`, 'download');
     }
+
+    this.activeDownloads.delete(downloadId);
+    this.speedTrackers.delete(downloadId);
+    await this.saveQueue();
+    this.notify();
+    await this.processQueue();
   }
 
   public getQueue(): QueuedDownload[] {

@@ -2,9 +2,13 @@ import { Image } from "expo-image";
 import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Dimensions, ScrollView, View, ViewStyle } from "react-native";
 import { BorderRadius, designTokens } from "../../theme/designTokens";
+import { useTheme } from "../../hooks/useTheme";
 import { Episode } from "../../types/types";
 import { formatDuration } from "../../utils/formatTime";
-import { Badge, Icon, Text, Touchable } from "../atoms";
+import { Badge } from "../atoms/Badge";
+import { Icon } from "../atoms/Icon";
+import { Text } from "../atoms/Text";
+import { Touchable } from "../atoms/Touchable";
 import { logger } from "../../utils/logger";
 
 interface HeroCarouselProps {
@@ -42,6 +46,7 @@ const CarouselItem = memo<CarouselItemProps>(({
   onItemPress,
   onPlayPress,
 }) => {
+  const { colors } = useTheme();
   const itemStyle: ViewStyle = {
     width: cardWidth,
     height,
@@ -57,7 +62,6 @@ const CarouselItem = memo<CarouselItemProps>(({
           onItemPress?.(item);
         }}
         accessibilityLabel={`${item.title}, duration ${formatDuration(item.durationSec)}`}
-        accessibilityHint="Tap to play this episode"
         accessibilityRole="button"
       >
         <View
@@ -92,7 +96,7 @@ const CarouselItem = memo<CarouselItemProps>(({
                 left: 0,
                 right: 0,
                 height: "60%",
-                backgroundColor: designTokens.colors.overlay.darkStrong,
+                backgroundColor: colors.overlay.darkStrong,
                 opacity: 0.8,
               }}
             />
@@ -119,10 +123,9 @@ const CarouselItem = memo<CarouselItemProps>(({
               </Badge>
               <Text
                 variant="caption1"
-                color="label"
                 style={{
                   marginLeft: designTokens.spacing.sm,
-                  color: designTokens.colors.system.label.secondary,
+                  color: 'rgba(255, 255, 255, 0.8)', // Explicit white for visibility over dark overlay
                 }}
               >
                 {formatDuration(item.durationSec)}
@@ -131,11 +134,11 @@ const CarouselItem = memo<CarouselItemProps>(({
 
             <Text
               variant="title3"
-              color="label"
               weight="bold"
               numberOfLines={2}
               style={{
                 lineHeight: designTokens.typography.fontSize.title3 * 1.2,
+                color: colors.fixed.white, // Explicit white for visibility over dark overlay
               }}
             >
               {item.title}
@@ -160,13 +163,13 @@ const CarouselItem = memo<CarouselItemProps>(({
                 }
               }}
               style={{
-                backgroundColor: designTokens.colors.overlay.lightStrong,
+                backgroundColor: colors.overlay.lightStrong,
                 borderRadius: designTokens.borderRadius.full,
                 width: 48,
                 height: 48,
                 justifyContent: "center",
                 alignItems: "center",
-                shadowColor: designTokens.colors.fixed.black,
+                shadowColor: colors.fixed.black,
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.25,
                 shadowRadius: 4,
@@ -174,7 +177,6 @@ const CarouselItem = memo<CarouselItemProps>(({
               }}
               accessibilityLabel="Play episode"
               accessibilityRole="button"
-              accessibilityHint="Tap to play this episode immediately"
             >
               <Icon
                 name="play"
@@ -206,6 +208,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = memo(
     onPlayPress,
     style,
   }) => {
+    const { colors } = useTheme();
     const [currentIndex, setCurrentIndex] = useState(0);
     const scrollViewRef = useRef<ScrollView>(null);
 
@@ -296,8 +299,8 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = memo(
                   marginHorizontal: designTokens.spacing.xs,
                   backgroundColor:
                     index === currentIndex
-                      ? designTokens.colors.brand.primary
-                      : designTokens.colors.system.label.tertiary, // 30% opacity
+                      ? colors.brand.primary
+                      : colors.system.label.tertiary, // 30% opacity
                 }}
                 accessibilityLabel={`Page ${index + 1} of ${items.length}`}
               />

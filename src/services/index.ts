@@ -4,7 +4,7 @@
  */
 
 // Export configuration
-export * from './config/api.config';
+export { API_CONFIG, type ApiEndpoint } from './config/api.config';
 
 // Export base API client
 export { apiClient, ApiError, type ApiResponse, type RequestConfig } from './api/base.api';
@@ -14,4 +14,4 @@ export { searchApi, type SearchParams } from './api/search.api';
 export { lectureDetailApi, type LectureDetailParams } from './api/lectureDetail.api';
 
 // Re-export API types
-export * from '../types/api.types';
+export type * from '../types/api.types';

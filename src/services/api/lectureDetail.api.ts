@@ -6,6 +6,7 @@
 import type { LectureDetail, LectureDetailApiItem } from '../../types/api.types';
 import { API_CONFIG } from '../config/api.config';
 import { apiClient, ApiError } from './base.api';
+import { logger } from '@/utils/logger';
 
 export interface LectureDetailParams {
   lectureId: string | number;
@@ -20,6 +21,35 @@ interface LectureDetailCacheEntry {
 class LectureDetailApiService {
   private cache = new Map<string, LectureDetailCacheEntry>();
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+  private readonly DAWAH_NIGERIA_PATTERN = /\bdawah\s*nigeria\b/i;
+
+  private isPlaceholderSpeakerName(name: unknown): boolean {
+    if (typeof name !== 'string') return false;
+    const normalized = name.trim().toLowerCase();
+    return (
+      this.DAWAH_NIGERIA_PATTERN.test(normalized) ||
+      normalized === 'dawahnigeria' ||
+      normalized === 'unknown' ||
+      normalized === 'unknown lecturer' ||
+      normalized === 'unknown scholar' ||
+      normalized === 'n/a'
+    );
+  }
+
+  private pickSpeakerName(item: LectureDetailApiItem): string {
+    const rpName = typeof item.rpname === 'string' ? item.rpname.trim() : '';
+    const reciterName = typeof item.reciter_name === 'string' ? item.reciter_name.trim() : '';
+
+    if (item.is_reciter === true) {
+      return reciterName || (this.isPlaceholderSpeakerName(rpName) ? '' : rpName);
+    }
+
+    if (!this.isPlaceholderSpeakerName(rpName) && rpName) {
+      return rpName;
+    }
+
+    return reciterName;
+  }
 
   /**
    * Fetch lecture detail
@@ -37,7 +67,7 @@ class LectureDetailApiService {
     }
 
     try {
-      console.log('🎯 LectureDetailApi: Fetching lecture detail', { lectureId });
+      logger.debug('LectureDetailApi: Fetching lecture detail', { lectureId });
 
       const response = await apiClient.get<any>(
         '/api/leclistingapi.php',
@@ -107,6 +137,7 @@ class LectureDetailApiService {
     })();
 
     const lecturerImage = item.reciter_image || item.lec_img || item.img || '';
+    const speakerName = this.pickSpeakerName(item);
 
     const lecture: LectureDetail = {
       id: String(item.nid ?? lectureId),
@@ -131,7 +162,7 @@ class LectureDetailApiService {
       comments,
       language: item.lang ?? '',
       lecturerId,
-      lecturerName: item.rpname || item.reciter_name || '',
+      lecturerName: speakerName,
       lecturerImage,
       isReciter: item.is_reciter ?? false,
       updatedDate: item.updated_date ?? '',
@@ -176,7 +207,7 @@ class LectureDetailApiService {
     return 0;
   }
 
-  private parseCategories(cats?: string): string[] {
+  private parseCategories(cats?: string | string[]): string[] {
     if (!cats) return [];
     if (Array.isArray(cats)) return cats;
     return cats.split(',').map(cat => cat.trim()).filter(Boolean);

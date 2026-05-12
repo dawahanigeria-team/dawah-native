@@ -32,6 +32,18 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children }) => {
     progress: 0,
     duration: 0,
     isExpanded: false,
+    isLoading: false,
+    playbackSpeed: 1,
+    volume: 1,
+    isDownloaded: false,
+    isDownloading: false,
+    downloadProgress: 0,
+    errorMessage: null,
+    queue: [],
+    originalQueue: [],
+    currentQueueIndex: 0,
+    isShuffled: false,
+    repeatMode: 'off',
   });
 
   const playEpisode = useCallback((episode: Episode) => {

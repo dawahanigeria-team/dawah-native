@@ -8,11 +8,12 @@ import { apiClient, ApiError } from './base.api';
 import { API_CONFIG } from '../config/api.config';
 import { addSentryBreadcrumb, captureSentryException } from '../config/sentry.config';
 import { userService } from '../user.service';
+import { logger } from '@/utils/logger';
 
 export interface ToggleFavoriteRequest {
   user_id: string;
   item_id: string;
-  type: 'audio' | 'video';
+  type: 'audio';
 }
 
 export interface ToggleFavoriteResponse {
@@ -22,12 +23,36 @@ export interface ToggleFavoriteResponse {
 
 export interface FavoritesListResponse {
   user_id: number;
-  audio?: number[];
-  video?: number[];
+  audio?: number[] | string[] | number | string | Record<string, unknown> | null;
 }
 
 class FavoritesApiService {
   private readonly FAVORITES_CACHE_KEY = 'favorites_cache';
+
+  private normalizeFavoriteIds(rawValue: FavoritesListResponse['audio']): string[] {
+    if (Array.isArray(rawValue)) {
+      return rawValue.map((id) => String(id));
+    }
+
+    if (typeof rawValue === 'string' || typeof rawValue === 'number') {
+      return [String(rawValue)];
+    }
+
+    if (rawValue && typeof rawValue === 'object') {
+      const values = Object.values(rawValue).filter(
+        (value): value is string | number => typeof value === 'string' || typeof value === 'number'
+      );
+      if (values.length > 0) {
+        return values.map((value) => String(value));
+      }
+    }
+
+    return [];
+  }
+
+  private isGuestUserId(userId: string): boolean {
+    return userId.startsWith('guest_');
+  }
 
   /**
    * Get user ID (creates guest ID if none exists)
@@ -41,7 +66,7 @@ class FavoritesApiService {
    */
   async toggleFavorite(
     lectureId: string,
-    type: 'audio' | 'video' = 'audio'
+    type: 'audio' = 'audio'
   ): Promise<ToggleFavoriteResponse> {
     try {
       const userId = await this.getUserId();
@@ -66,6 +91,16 @@ class FavoritesApiService {
         isCurrentlyFavorited,
       });
 
+      // Guest users are local-only until authenticated user IDs are available.
+      if (this.isGuestUserId(userId)) {
+        return {
+          success: true,
+          message: isCurrentlyFavorited
+            ? `${type} removed from favorites (guest mode)`
+            : `${type} added to favorites (guest mode)`,
+        };
+      }
+
       // Try to sync with backend (but don't fail if offline)
       try {
         const response = await apiClient.post<ToggleFavoriteResponse>(
@@ -81,12 +116,12 @@ class FavoritesApiService {
           }
         );
 
-        console.log('✅ Synced favorite to backend:', response.data.message);
+        logger.debug('Synced favorite to backend:', response.data.message);
         return response.data;
       } catch (networkError: any) {
         // If offline or network error, that's OK - we already updated locally
         if (networkError.isNetworkError || networkError.statusCode === 404) {
-          console.log('📱 Favorite saved locally (offline mode)');
+          logger.debug('Favorite saved locally (offline mode)');
           return {
             success: true,
             message: isCurrentlyFavorited
@@ -116,9 +151,15 @@ class FavoritesApiService {
   /**
    * Get list of favorite lecture IDs
    */
-  async getFavoriteIds(type: 'audio' | 'video' = 'audio'): Promise<string[]> {
+  async getFavoriteIds(type: 'audio' = 'audio'): Promise<string[]> {
     try {
       const userId = await this.getUserId();
+
+      if (this.isGuestUserId(userId)) {
+        const cachedIds = await this.getCachedIds();
+        logger.debug(`Guest mode: using ${cachedIds.length} cached favorite ${type} IDs`);
+        return cachedIds;
+      }
 
       addSentryBreadcrumb('Fetching favorites', 'query', {
         userId,
@@ -139,10 +180,9 @@ class FavoritesApiService {
       );
 
       // Extract lecture IDs from response
-      const ids = response.data[type] || [];
-      const lectureIds = ids.map(id => String(id));
+      const lectureIds = this.normalizeFavoriteIds(response.data?.[type]);
 
-      console.log(`✅ Fetched ${lectureIds.length} favorite ${type} IDs from API`);
+      logger.debug(`Fetched ${lectureIds.length} favorite ${type} IDs from API`);
 
       // Cache the IDs locally
       await this.cacheIds(lectureIds);
@@ -151,7 +191,7 @@ class FavoritesApiService {
     } catch (error: any) {
       // Silently handle network errors - offline is normal
       if (error.isNetworkError) {
-        console.log('📱 Offline mode: Using cached favorites');
+        logger.debug('Offline mode: Using cached favorites');
       } else if (error.statusCode === 404) {
         console.warn('⚠️ Favorites API not available (404). Using local storage only.');
       } else {
@@ -170,7 +210,7 @@ class FavoritesApiService {
 
       // Always return cached IDs (works offline)
       const cachedIds = await this.getCachedIds();
-      console.log(`📦 Using ${cachedIds.length} locally cached favorite IDs`);
+      logger.debug(`Using ${cachedIds.length} locally cached favorite IDs`);
       return cachedIds;
     }
   }

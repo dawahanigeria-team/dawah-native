@@ -2,18 +2,25 @@
   "expo": {
     "name": "dawahnigeria",
     "slug": "dawah-nigeria",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
+    "assetBundlePatterns": [
+      "assets/**/*",
+      "node_modules/**/node_modules/@expo/vector-icons/**/Fonts/*"
+    ],
     "scheme": "dawahnigeria",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.dawahnigeria.app",
+      "usesAppleSignIn": true,
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "UIBackgroundModes": [
           "audio"
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       },
       "associatedDomains": [
         "applinks:dawahnigeria.com"
@@ -21,18 +28,17 @@
     },
     "android": {
       "package": "com.dawahnigeria.app",
-      "versionCode": 1,
+      "versionCode": 2,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
       "permissions": [
         "INTERNET",
         "WAKE_LOCK",
         "FOREGROUND_SERVICE",
-        "android.permission.RECORD_AUDIO",
+        "FOREGROUND_SERVICE_MEDIA_PLAYBACK",
         "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
       "intentFilters": [
@@ -81,15 +87,12 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 420,
           "resizeMode": "cover",
-          "backgroundColor": "#ffffff"
-        }
-      ],
-      [
-        "expo-audio",
-        {
-          "audioMode": {
-            "playsInSilentModeIOS": true,
-            "staysActiveInBackground": true
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "image": "./assets/images/splash-icon.png",
+            "imageWidth": 420,
+            "resizeMode": "cover",
+            "backgroundColor": "#000000"
           }
         }
       ],
@@ -97,20 +100,55 @@
         "@sentry/react-native/expo",
         {
           "url": "https://sentry.io/",
-          "project": "dawah-nigeria",
-          "organization": "yusuf-adeyemo"
+          "project": "dawah-native",
+          "organization": "prontoville"
         }
       ],
       "expo-notifications",
       "expo-asset",
       "expo-font",
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-localization",
+      "@sentry/react-native",
+      "expo-secure-store",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.739832430566-i4h4ftr4hedrg6anghbv2bnvvdlgrvus"
+        }
+      ],
+      "expo-apple-authentication",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "audioMode": {
+            "playsInSilentModeIOS": true,
+            "staysActiveInBackground": true
+          }
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "reactNativeReleaseLevel": "experimental"
+          }
+        }
+      ],
+      "./plugins/withExpo55MainApplicationHostFix",
+      "expo-image",
+      "expo-iap"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
     },
     "updates": {
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0,
       "url": "https://u.expo.dev/f7c0926f-13d1-4a2f-bfb1-3f9c04f2577b"
     },
     "extra": {

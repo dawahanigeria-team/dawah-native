@@ -6,6 +6,7 @@
 import { SearchLecture } from '../../types/api.types';
 import { API_CONFIG } from '../config/api.config';
 import { apiClient, ApiError } from './base.api';
+import { logger } from '@/utils/logger';
 
 export interface TrendingLecturesParams {
   page?: number;
@@ -46,7 +47,7 @@ class TrendingLecturesApiService {
 
       if (!this.allTrendingCache || cacheExpired || configChanged) {
         if (configChanged) {
-          console.log('🔄 Cache invalidated due to limit change:', this.cachedLimit, '→', requestLimit);
+          logger.debug('Cache invalidated due to limit change:', this.cachedLimit, '->', requestLimit);
         }
         
         // Randomize langid to get varied trending content from different languages
@@ -62,7 +63,7 @@ class TrendingLecturesApiService {
         };
 
         // Log the API call
-        console.log(`🔥 Trending Lectures API Call (fetching for langid ${randomLangId} with limit 100):`, {
+        logger.debug(`Trending Lectures API Call (fetching for langid ${randomLangId} with limit 100):`, {
           endpoint: '/api/popular_lec_api.php',
           params: requestParams,
           fullUrl: `${API_CONFIG.BASE_URL}/api/popular_lec_api.php?${new URLSearchParams(requestParams).toString()}`
@@ -85,7 +86,7 @@ class TrendingLecturesApiService {
         );
 
         // Log response summary
-        console.log('📥 Trending Lectures Response:', {
+        logger.debug('Trending Lectures Response:', {
           status: 'success',
           dataReceived: response.data ? 'Yes' : 'No',
           dataLength: Array.isArray(response.data) ? response.data.length :
@@ -109,7 +110,7 @@ class TrendingLecturesApiService {
           return lecture.keyword !== 'dn_quran';
         });
 
-        console.log(`📊 Cached ${filteredLectures.length} trending lectures for client-side pagination`);
+        logger.debug(`Cached ${filteredLectures.length} trending lectures for client-side pagination`);
 
         // Store in cache
         this.allTrendingCache = filteredLectures;
@@ -128,7 +129,7 @@ class TrendingLecturesApiService {
       const totalItems = this.allTrendingCache.length;
       const totalPages = Math.ceil(totalItems / limit);
 
-      console.log(`📄 Client-side pagination: Page ${page}/${totalPages}, showing items ${startIndex + 1}-${Math.min(endIndex, totalItems)} of ${totalItems}, hasMore: ${page < totalPages}`);
+      logger.debug(`Client-side pagination: Page ${page}/${totalPages}, showing items ${startIndex + 1}-${Math.min(endIndex, totalItems)} of ${totalItems}, hasMore: ${page < totalPages}`);
 
       return {
         success: true,
@@ -170,7 +171,7 @@ class TrendingLecturesApiService {
     this.allTrendingCache = null;
     this.cacheTimestamp = 0;
     this.cachedLimit = 0;
-    console.log('🗑️ Trending lectures cache cleared');
+    logger.debug('Trending lectures cache cleared');
   }
 }
 

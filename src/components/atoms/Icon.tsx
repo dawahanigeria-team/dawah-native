@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { memo } from 'react';
 import { StyleProp, TextStyle } from 'react-native';
-import { designTokens } from '../../theme/designTokens';
 import { useThemeColors } from '../../hooks/useTheme';
 
 type IconColorVariant = 

@@ -4,10 +4,15 @@
  */
 
 import AsyncStorage from "expo-sqlite/kv-store";
-import { Directory, File, FileHandle, Paths } from "expo-file-system";
-
-import { fetch } from "expo/fetch";
+import { Directory, File, Paths } from "expo-file-system";
+import {
+  createDownloadResumable,
+  type DownloadPauseState,
+  type DownloadProgressData as LegacyDownloadProgressData,
+  type DownloadResumable as LegacyDownloadResumable,
+} from "expo-file-system/legacy";
 import type { Episode } from "../types/types";
+import { copyWithOverwrite } from "../utils/fileCopy";
 import { logger } from "../utils/logger";
 import { requestStoragePermission } from "../utils/permissions";
 import { downloadsApi } from "./api/downloads.api";
@@ -17,6 +22,52 @@ import {
 } from "./config/sentry.config";
 
 const DOWNLOADS_METADATA_KEY = "downloads_metadata";
+
+type PersistedResumableData = {
+  pauseState: DownloadPauseState;
+  bytesDownloaded: number;
+  totalBytes: number;
+};
+
+type DownloadRunResult = "completed" | "paused" | "cancelled";
+
+const isCancelledDownloadError = (error: unknown): boolean => {
+  const maybeError = error as { name?: string; message?: string; code?: string } | null;
+  if (!maybeError) return false;
+
+  const name = (maybeError.name || "").toLowerCase();
+  const message = (maybeError.message || "").toLowerCase();
+  const code = (maybeError.code || "").toLowerCase();
+
+  if (name === "aborterror" || code === "err_canceled") {
+    return true;
+  }
+
+  return (
+    message.includes("fetch request has been canceled") ||
+    message.includes("request cancelled") ||
+    message.includes("request canceled") ||
+    message.includes("aborted") ||
+    message.includes("canceled") ||
+    message.includes("cancelled")
+  );
+};
+
+const getDownloadStatusErrorMessage = (status: number): string => {
+  switch (status) {
+    case 404:
+      return "Audio file not found on server. This lecture may have been removed or the link is broken.";
+    case 403:
+      return "Access denied. You may not have permission to download this lecture.";
+    case 500:
+    case 502:
+    case 503:
+    case 504:
+      return "Server error. Please try again later.";
+    default:
+      return `Download failed with status ${status}. Please try again.`;
+  }
+};
 
 export interface DownloadMetadata {
   lectureId: string;
@@ -40,12 +91,13 @@ export interface DownloadProgress {
 export interface ResumableDownload {
   id: string;
   episode: Episode;
+  downloadUrl: string;
   progressCallback: (progress: DownloadProgress) => void;
-  // New fields for manual pause/resume using streaming API
-  abortController: AbortController;
   isPaused: boolean;
   bytesDownloaded: number;
   totalBytes: number;
+  downloadTask: LegacyDownloadResumable | null;
+  resumeState: DownloadPauseState | null;
 }
 
 export class DownloadError extends Error {
@@ -71,12 +123,17 @@ class DownloadsService {
   constructor() {
     // Only initialize in React Native environment (not during bundling)
     if (typeof window !== "undefined") {
-      // Create downloads directory in app's document storage
-      this.downloadsDirectory = new Directory(Paths.document, "downloads");
+      try {
+        // Create downloads directory in app's document storage
+        this.downloadsDirectory = new Directory(Paths.document, "downloads");
 
-      // Ensure downloads directory exists
-      if (!this.downloadsDirectory.exists) {
-        this.downloadsDirectory.create();
+        // Ensure downloads directory exists
+        if (!this.downloadsDirectory.exists) {
+          this.downloadsDirectory.create();
+        }
+      } catch (error) {
+        logger.error("Failed to create downloads directory", error as Error);
+        this.downloadsDirectory = null;
       }
 
       // Initialize metadata cache
@@ -145,6 +202,83 @@ class DownloadsService {
   private getPartialDownloadFile(lectureId: string): File {
     if (!this.downloadsDirectory) throw new Error("Downloads directory not initialized");
     return new File(this.downloadsDirectory, `${lectureId}.part`);
+  }
+
+  private getFileSize(file: File): number {
+    return typeof file.size === "number" && file.size > 0 ? file.size : 0;
+  }
+
+  private parsePersistedResumableData(serialized: string | undefined): PersistedResumableData | null {
+    if (!serialized) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(serialized) as Partial<PersistedResumableData> | null;
+      if (!parsed?.pauseState?.fileUri || !parsed.pauseState.url) {
+        return null;
+      }
+
+      return {
+        pauseState: parsed.pauseState,
+        bytesDownloaded: typeof parsed.bytesDownloaded === "number" ? parsed.bytesDownloaded : 0,
+        totalBytes: typeof parsed.totalBytes === "number" ? parsed.totalBytes : 0,
+      };
+    } catch (error) {
+      logger.warn("Failed to parse persisted resumable data", error);
+      return null;
+    }
+  }
+
+  private createLegacyProgressCallback(
+    lectureId: string,
+    onProgress?: (progress: DownloadProgress) => void,
+    onStateUpdate?: (progress: DownloadProgress) => void
+  ) {
+    return (progressData: LegacyDownloadProgressData) => {
+      const bytesDownloaded = progressData.totalBytesWritten;
+      const reportedTotal = progressData.totalBytesExpectedToWrite;
+      const totalBytes = reportedTotal > 0 ? reportedTotal : bytesDownloaded;
+      const progress = totalBytes > 0 ? bytesDownloaded / totalBytes : 0;
+      const nextProgress: DownloadProgress = {
+        lectureId,
+        progress: Math.min(progress, 0.99),
+        bytesDownloaded,
+        totalBytes,
+      };
+
+      onStateUpdate?.(nextProgress);
+      onProgress?.(nextProgress);
+    };
+  }
+
+  private createResumableTask(
+    lectureId: string,
+    downloadUrl: string,
+    targetFileUri: string,
+    onProgress?: (progress: DownloadProgress) => void,
+    onStateUpdate?: (progress: DownloadProgress) => void,
+    resumeState?: DownloadPauseState | null
+  ): LegacyDownloadResumable {
+    return createDownloadResumable(
+      downloadUrl,
+      targetFileUri,
+      {},
+      this.createLegacyProgressCallback(lectureId, onProgress, onStateUpdate),
+      resumeState?.resumeData
+    );
+  }
+
+  private async resolveDownloadUrl(lectureId: string, audioUrl: string): Promise<string> {
+    const apiResponse = await downloadsApi.incrementDownloadCounter(lectureId);
+    return apiResponse.url || audioUrl;
+  }
+
+  private async runLegacyDownloadTask(
+    task: LegacyDownloadResumable,
+    resumeState: DownloadPauseState | null
+  ) {
+    return resumeState?.resumeData ? task.resumeAsync() : task.downloadAsync();
   }
 
   isDownloaded(lectureId: string): boolean {
@@ -219,117 +353,54 @@ class DownloadsService {
       downloadUrl = apiResponse.url || audioUrl;
       logger.debug(`🔗 Download URL: ${downloadUrl}`);
 
-      // STEP 2: Download the MP3 file to local storage using expo/fetch
-      logger.debug(`📡 Fetching MP3 from: ${downloadUrl}`);
-      const response = await fetch(downloadUrl);
+      // STEP 2: Download the MP3 file to local storage using Expo's native download task.
+      logger.debug(`📡 Downloading MP3 from: ${downloadUrl}`);
 
-      logger.debug(`📊 Download response: status=${response.status}, ok=${response.ok}`);
+      let bytesDownloaded = 0;
+      let totalBytes = 0;
+      const downloadTask = createDownloadResumable(
+        downloadUrl,
+        file.uri,
+        {},
+        this.createLegacyProgressCallback(lectureId, onProgress, (progress) => {
+          bytesDownloaded = progress.bytesDownloaded;
+          totalBytes = progress.totalBytes;
+        })
+      );
 
-      if (!response.ok) {
-        const errorMessage = `Download failed (${response.status}): ${response.statusText}`;
-        logger.error(`❌ ${errorMessage}`, new Error(errorMessage), {
+      const result = await downloadTask.downloadAsync();
+
+      if (!result) {
+        throw new Error("Download was cancelled before completion");
+      }
+
+      logger.debug(`📊 Download response: status=${result.status}`);
+
+      if (result.status < 200 || result.status >= 300) {
+        const errorMessage = getDownloadStatusErrorMessage(result.status);
+        logger.error("❌ Download failed", new Error(errorMessage), {
           url: downloadUrl,
           lectureId,
+          status: result.status,
         });
 
         throw new Error(errorMessage);
       }
 
-      // Get total size for progress tracking
-      const contentLength = response.headers.get("content-length");
-      const totalBytes = contentLength ? parseInt(contentLength, 10) : 0;
-
-      // Initialize download tracking
-      let bytesDownloaded = 0;
-      let lastProgressUpdate = 0;
-      const PROGRESS_UPDATE_INTERVAL = 100; // Update progress every 100ms
-      let fileHandle: FileHandle | null = null;
+      bytesDownloaded = Math.max(bytesDownloaded, this.getFileSize(file));
+      totalBytes = Math.max(totalBytes, bytesDownloaded);
 
       logger.debug(
-        `📊 Starting streaming download: ${totalBytes > 0 ? `${totalBytes} bytes total` : "unknown size"}`
+        `✅ Download complete: ${title} (${bytesDownloaded} bytes saved to local storage)`
       );
 
-      // Get the response stream
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error("Response body is not readable");
-      }
-
-      try {
-        try {
-          // Ensure destination file exists and is truncated before writing
-          file.create({ intermediates: true, overwrite: true });
-          fileHandle = file.open();
-        } catch (fileInitError) {
-          throw new Error(
-            `Unable to prepare download file: ${(fileInitError as Error).message || fileInitError
-            }`
-          );
-        }
-
-        // Read the stream in chunks
-        while (true) {
-          const { done, value } = await reader.read();
-
-          if (done) {
-            break;
-          }
-
-          if (!value || !fileHandle) {
-            continue;
-          }
-
-          // Stream chunk directly to disk
-          fileHandle.writeBytes(value);
-
-          // Update progress tracking
-          bytesDownloaded += value.length;
-
-          // Throttle progress updates to avoid too frequent callbacks
-          const now = Date.now();
-          if (now - lastProgressUpdate >= PROGRESS_UPDATE_INTERVAL) {
-            const progress = totalBytes > 0 ? bytesDownloaded / totalBytes : 0;
-
-            if (onProgress) {
-              onProgress({
-                lectureId,
-                progress: Math.min(progress, 0.99), // Don't report 100% until actually done
-                bytesDownloaded,
-                totalBytes: totalBytes > 0 ? totalBytes : bytesDownloaded, // Use downloaded as total if unknown
-              });
-            }
-
-            lastProgressUpdate = now;
-          }
-        }
-
-        logger.debug(
-          `✅ Download complete: ${title} (${bytesDownloaded} bytes saved to local storage)`
-        );
-
-        // Report final completion
-        if (onProgress) {
-          onProgress({
-            lectureId,
-            progress: 1,
-            bytesDownloaded,
-            totalBytes: bytesDownloaded,
-          });
-        }
-      } finally {
-        // Always close the reader and file handle
-        try {
-          reader.releaseLock();
-        } catch (releaseError) {
-          console.warn('Failed to release download reader lock', releaseError);
-        }
-        if (fileHandle) {
-          try {
-            fileHandle.close();
-          } catch (closeError) {
-            console.warn('Failed to close download file handle', closeError);
-          }
-        }
+      if (onProgress) {
+        onProgress({
+          lectureId,
+          progress: 1,
+          bytesDownloaded,
+          totalBytes,
+        });
       }
 
       // Save metadata
@@ -420,9 +491,26 @@ class DownloadsService {
     return new File(this.downloadsDirectory, `${lectureId}.json`);
   }
 
-  private async saveResumableData(lectureId: string, resumableData: any): Promise<void> {
-    const metadata = this.metadataCache.get(lectureId) || { lectureId, downloadedAt: '' };
-    const updatedMetadata = { ...metadata, resumableData: JSON.stringify(resumableData) };
+  private async saveResumableData(
+    lectureId: string,
+    resumableData: PersistedResumableData | null
+  ): Promise<void> {
+    const metadata = this.metadataCache.get(lectureId);
+    if (!metadata && !resumableData) {
+      return;
+    }
+
+    const updatedMetadata = {
+      ...(metadata ?? {
+        lectureId,
+        title: "",
+        lecturerName: "",
+        duration: 0,
+        downloadedAt: new Date().toISOString(),
+      }),
+      resumableData: resumableData ? JSON.stringify(resumableData) : undefined,
+    };
+
     this.metadataCache.set(lectureId, updatedMetadata as DownloadMetadata);
     await this.saveMetadata();
   }
@@ -527,14 +615,40 @@ class DownloadsService {
     }
 
     try {
+      const partialFile = this.getPartialDownloadFile(lectureId);
+      const persistedResumableData = this.parsePersistedResumableData(
+        this.metadataCache.get(lectureId)?.resumableData
+      );
+      const resumeState =
+        persistedResumableData?.pauseState.fileUri === partialFile.uri
+          ? persistedResumableData.pauseState
+          : null;
+      const downloadUrl = resumeState?.url ?? await this.resolveDownloadUrl(lectureId, audioUrl);
+
+      if (!resumeState && partialFile.exists) {
+        partialFile.delete();
+      }
+
       const resumableDownload: ResumableDownload = {
         id: lectureId,
         episode,
+        downloadUrl,
         progressCallback,
-        abortController: new AbortController(),
         isPaused: false,
-        bytesDownloaded: 0,
-        totalBytes: 0,
+        bytesDownloaded: persistedResumableData?.bytesDownloaded ?? 0,
+        totalBytes: persistedResumableData?.totalBytes ?? 0,
+        downloadTask: this.createResumableTask(
+          lectureId,
+          downloadUrl,
+          partialFile.uri,
+          progressCallback,
+          (progress) => {
+            resumableDownload.bytesDownloaded = progress.bytesDownloaded;
+            resumableDownload.totalBytes = progress.totalBytes;
+          },
+          resumeState
+        ),
+        resumeState,
       };
 
       this.activeDownloads.set(lectureId, resumableDownload);
@@ -553,256 +667,116 @@ class DownloadsService {
   /**
    * Start a resumable download
    */
-  async startDownload(resumableDownload: ResumableDownload): Promise<void> {
-    const { id, episode, progressCallback, abortController } = resumableDownload;
+  async startDownload(resumableDownload: ResumableDownload): Promise<DownloadRunResult> {
+    const { id, progressCallback } = resumableDownload;
     const file = this.getPartialDownloadFile(id);
-    let fileHandle: FileHandle | null = null;
-    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
-
     try {
-      // Check for existing partial file to resume
-      let existingSize = 0;
-      if (file.exists) {
-        // Try to get file size using type-safe approach
-        // expo-file-system File objects in SDK 54 have a size property
-        try {
-          // Type guard to safely access size property
-          const fileInfo = file as { size?: number };
-          if (typeof fileInfo.size === 'number' && fileInfo.size > 0) {
-            existingSize = fileInfo.size;
-          } else {
-            // Size property not available or zero, restart the download
-            logger.warn('File size property not available, restarting download from scratch');
-            file.delete();
-            existingSize = 0;
-          }
-        } catch (e) {
-          logger.warn('Could not get file size, restarting download:', e);
-          file.delete();
-          existingSize = 0;
-        }
+      if (!resumableDownload.downloadTask) {
+        resumableDownload.downloadTask = this.createResumableTask(
+          id,
+          resumableDownload.downloadUrl,
+          file.uri,
+          progressCallback,
+          (progress) => {
+            resumableDownload.bytesDownloaded = progress.bytesDownloaded;
+            resumableDownload.totalBytes = progress.totalBytes;
+          },
+          resumableDownload.resumeState
+        );
       }
 
-      const headers: Record<string, string> = {};
-      if (existingSize > 0) {
-        headers['Range'] = `bytes=${existingSize}-`;
-        logger.debug(`Resuming download for ${id} from byte ${existingSize}`);
+      const result = await this.runLegacyDownloadTask(
+        resumableDownload.downloadTask,
+        resumableDownload.resumeState
+      );
+
+      if (!result) {
+        return resumableDownload.isPaused ? "paused" : "cancelled";
       }
 
-      logger.debug(`Fetching download: ${episode.audioUrl}`);
-
-      const response = await fetch(episode.audioUrl!, {
-        signal: abortController.signal,
-        headers,
-      });
-
-      if (!response.ok) {
-        // If Range request fails (e.g. 416 Range Not Satisfiable), restart from scratch
-        if (response.status === 416) {
-          logger.warn('Range request failed (416), cleaning up and restarting download');
-
-          // Clean up partial file
-          if (file.exists) {
-            file.delete();
-          }
-
-          // Reset resumable download state completely
-          resumableDownload.bytesDownloaded = 0;
-          resumableDownload.totalBytes = 0;
-          resumableDownload.isPaused = false;
-
-          // Create fresh abort controller
-          resumableDownload.abortController = new AbortController();
-
-          // Retry download from beginning
-          return this.startDownload(resumableDownload);
-        }
-
-        // Provide user-friendly error messages for common HTTP errors
-        let errorMessage: string;
-        switch (response.status) {
-          case 404:
-            errorMessage = 'Audio file not found on server. This lecture may have been removed or the link is broken.';
-            break;
-          case 403:
-            errorMessage = 'Access denied. You may not have permission to download this lecture.';
-            break;
-          case 500:
-          case 502:
-          case 503:
-          case 504:
-            errorMessage = 'Server error. Please try again later.';
-            break;
-          default:
-            errorMessage = `Download failed with status ${response.status}. Please try again.`;
-        }
-
-        logger.error('Download failed', new Error(`${errorMessage} (HTTP ${response.status})`), {
+      if (
+        resumableDownload.resumeState?.resumeData &&
+        (result.status === 200 || result.status === 416)
+      ) {
+        logger.warn("Server rejected byte-range resume, restarting download from scratch", {
           lectureId: id,
-          audioUrl: episode.audioUrl,
-          status: response.status,
+          status: result.status,
+        });
+
+        if (file.exists) {
+          file.delete();
+        }
+
+        resumableDownload.bytesDownloaded = 0;
+        resumableDownload.totalBytes = 0;
+        resumableDownload.resumeState = null;
+        await this.saveResumableData(id, null);
+        resumableDownload.downloadTask = this.createResumableTask(
+          id,
+          resumableDownload.downloadUrl,
+          file.uri,
+          progressCallback,
+          (progress) => {
+            resumableDownload.bytesDownloaded = progress.bytesDownloaded;
+            resumableDownload.totalBytes = progress.totalBytes;
+          },
+          null
+        );
+
+        return this.startDownload(resumableDownload);
+      }
+
+      if (result.status < 200 || result.status >= 300) {
+        const errorMessage = getDownloadStatusErrorMessage(result.status);
+
+        logger.error("Download failed", new Error(`${errorMessage} (HTTP ${result.status})`), {
+          lectureId: id,
+          audioUrl: resumableDownload.downloadUrl,
+          status: result.status,
         });
 
         throw new Error(errorMessage);
       }
 
-      const contentLength = response.headers.get("content-length");
-      // If 206 Partial Content, total length is content-length + existing size
-      // Note: Content-Range header usually has the full size: "bytes 100-200/200"
-      const totalBytesHeader = response.headers.get("content-range")?.split('/')[1];
-      const totalBytes = totalBytesHeader
-        ? parseInt(totalBytesHeader, 10)
-        : (contentLength ? parseInt(contentLength, 10) + existingSize : 0);
+      const bytesDownloaded = Math.max(resumableDownload.bytesDownloaded, this.getFileSize(file));
+      const finalFile = this.getDownloadFile(id);
 
-      resumableDownload.totalBytes = totalBytes;
-
-      // Stream to file
-      if (response.status === 206 && existingSize > 0) {
-        // Resuming: File already exists, just open it and set offset
-        // Don't call create() because the file already exists
-        if (!file.exists) {
-          // This shouldn't happen, but handle it gracefully
-          logger.warn('Resume requested but file does not exist, restarting download');
-          resumableDownload.bytesDownloaded = 0;
-          resumableDownload.totalBytes = 0;
-          resumableDownload.abortController = new AbortController();
-          return this.startDownload(resumableDownload);
-        }
-
-        // Open existing file for writing
-        fileHandle = file.open();
-
-        // Set offset to the end of the partial file to append new data
-        // In Expo SDK 54, FileHandle has an 'offset' property that controls write position
-        try {
-          // Type-safe approach to set offset property
-          const handleWithOffset = fileHandle as { offset?: number };
-          if ('offset' in handleWithOffset) {
-            handleWithOffset.offset = existingSize;
-            logger.debug(`Set file offset to ${existingSize} for resume`);
-          } else {
-            // offset property not supported, restart download
-            throw new Error('FileHandle offset property not supported');
-          }
-        } catch (e) {
-          // If setting offset fails, cannot resume - restart download
-          logger.error('Failed to set file offset, restarting download', e as Error);
-          if (fileHandle) {
-            fileHandle.close();
-            fileHandle = null;
-          }
-          file.delete();
-
-          // Reset state and retry from beginning
-          resumableDownload.bytesDownloaded = 0;
-          resumableDownload.totalBytes = 0;
-          resumableDownload.abortController = new AbortController();
-          return this.startDownload(resumableDownload);
-        }
-      } else {
-        // New download or server didn't accept range: Overwrite
-        file.create({ intermediates: true, overwrite: true });
-        fileHandle = file.open();
-        existingSize = 0; // Reset if we are overwriting
-      }
-
-      reader = response.body?.getReader() || null;
-
-      if (!reader) {
-        throw new Error("Response body is not readable");
-      }
-
-      let bytesDownloaded = existingSize;
-      let lastProgressUpdate = 0;
-      const PROGRESS_UPDATE_INTERVAL = 100; // Update progress every 100ms
-
-      // Update initial state
-      resumableDownload.bytesDownloaded = bytesDownloaded;
-
-      while (true) {
-        // Check if paused
-        if (resumableDownload.isPaused) {
-          break;
-        }
-
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        if (value && fileHandle) {
-          fileHandle.writeBytes(value);
-          bytesDownloaded += value.length;
-          resumableDownload.bytesDownloaded = bytesDownloaded;
-
-          // Throttle progress updates
-          const now = Date.now();
-          if (now - lastProgressUpdate >= PROGRESS_UPDATE_INTERVAL) {
-            const rawProgress = totalBytes > 0 ? bytesDownloaded / totalBytes : 0;
-            progressCallback({
-              lectureId: id,
-              progress: Math.min(rawProgress, 1),
-              bytesDownloaded,
-              totalBytes: totalBytes || bytesDownloaded,
-            });
-            lastProgressUpdate = now;
-          }
-        }
-      }
-
-      // If completed successfully, move to final location
-      if (!resumableDownload.isPaused && (totalBytes === 0 || bytesDownloaded === totalBytes)) {
-        const finalFile = this.getDownloadFile(id);
-
-        // Copy to final location
-        file.copy(finalFile);
+      copyWithOverwrite(file, finalFile);
+      if (file.exists) {
         file.delete();
-
-        // Save metadata
-        const metadata: DownloadMetadata = {
-          lectureId: id,
-          title: episode.title,
-          lecturerName: episode.lecturerName || "Unknown",
-          coverUrl: episode.coverUrl,
-          audioUrl: episode.audioUrl || undefined,
-          duration: episode.durationSec,
-          downloadedAt: new Date().toISOString(),
-          fileSize: bytesDownloaded,
-        };
-
-        this.metadataCache.set(id, metadata);
-        await this.saveMetadata();
-        this.activeDownloads.delete(id);
-        this.notify();
-
-        // Report final completion
-        progressCallback({
-          lectureId: id,
-          progress: 1,
-          bytesDownloaded,
-          totalBytes: bytesDownloaded,
-        });
       }
+
+      const metadata: DownloadMetadata = {
+        lectureId: id,
+        title: resumableDownload.episode.title,
+        lecturerName: resumableDownload.episode.lecturerName || "Unknown",
+        coverUrl: resumableDownload.episode.coverUrl,
+        audioUrl: resumableDownload.downloadUrl,
+        duration: resumableDownload.episode.durationSec,
+        downloadedAt: new Date().toISOString(),
+        fileSize: bytesDownloaded,
+      };
+
+      this.metadataCache.set(id, metadata);
+      await this.saveMetadata();
+      this.activeDownloads.delete(id);
+      this.notify();
+
+      progressCallback({
+        lectureId: id,
+        progress: 1,
+        bytesDownloaded,
+        totalBytes: Math.max(resumableDownload.totalBytes, bytesDownloaded),
+      });
+
+      return "completed";
     } catch (error: any) {
-      if (error.name === "AbortError") {
+      if (isCancelledDownloadError(error)) {
         logger.debug("Download was cancelled");
+        return resumableDownload.isPaused ? "paused" : "cancelled";
       } else {
         logger.error("Download failed", error);
         throw error;
-      }
-    } finally {
-      // ALWAYS clean up resources
-      if (reader) {
-        try {
-          reader.releaseLock();
-        } catch (releaseError) {
-          logger.warn('Failed to release reader lock:', releaseError);
-        }
-      }
-      if (fileHandle) {
-        try {
-          fileHandle.close();
-        } catch (closeError) {
-          logger.warn('Failed to close file handle:', closeError);
-        }
       }
     }
   }
@@ -815,22 +789,18 @@ class DownloadsService {
     if (download) {
       try {
         download.isPaused = true;
-        // Save resumable state
-        const metadata = this.metadataCache.get(lectureId) || {
+        const pauseState = await download.downloadTask?.pauseAsync();
+        download.resumeState = pauseState ?? null;
+        await this.saveResumableData(
           lectureId,
-          title: download.episode.title,
-          lecturerName: download.episode.lecturerName || "Unknown",
-          duration: download.episode.durationSec,
-          downloadedAt: new Date().toISOString(),
-        };
-        this.metadataCache.set(lectureId, {
-          ...metadata,
-          resumableData: JSON.stringify({
-            bytesDownloaded: download.bytesDownloaded,
-            totalBytes: download.totalBytes,
-          }),
-        } as DownloadMetadata);
-        await this.saveMetadata();
+          pauseState
+            ? {
+              pauseState,
+              bytesDownloaded: download.bytesDownloaded,
+              totalBytes: download.totalBytes,
+            }
+            : null
+        );
         this.notify();
       } catch (error) {
         logger.error("Failed to pause download", error as Error);
@@ -849,7 +819,7 @@ class DownloadsService {
     const download = this.activeDownloads.get(lectureId);
     if (download) {
       try {
-        download.abortController.abort();
+        await download.downloadTask?.cancelAsync();
       } catch (error) {
         logger.warn("Error aborting download:", error);
       }

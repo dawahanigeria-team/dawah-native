@@ -5,6 +5,7 @@
  */
 
 import AsyncStorage from 'expo-sqlite/kv-store';
+import { logger } from '@/utils/logger';
 
 const USER_ID_KEY = 'user_id';
 
@@ -36,11 +37,13 @@ class UserService {
       // Store it
       await AsyncStorage.setItem(USER_ID_KEY, userId);
 
-      console.log('✅ Created guest user ID:', userId);
+      logger.debug('Created guest user ID:', userId);
 
       return userId;
     } catch (error) {
-      console.error('Failed to get/create user ID:', error);
+      logger.error('Failed to get/create user ID:', error, {
+        operation: 'user_get_or_create_id',
+      });
       // Fallback to a temporary ID
       return generateUniqueId();
     }
@@ -52,9 +55,12 @@ class UserService {
   async setUserId(userId: string): Promise<void> {
     try {
       await AsyncStorage.setItem(USER_ID_KEY, userId);
-      console.log('✅ Set user ID:', userId);
+      logger.debug('Set user ID:', userId);
     } catch (error) {
-      console.error('Failed to set user ID:', error);
+      logger.error('Failed to set user ID:', error, {
+        operation: 'user_set_id',
+        userId,
+      });
     }
   }
 
@@ -64,9 +70,11 @@ class UserService {
   async clearUserId(): Promise<void> {
     try {
       await AsyncStorage.removeItem(USER_ID_KEY);
-      console.log('✅ Cleared user ID');
+      logger.debug('Cleared user ID');
     } catch (error) {
-      console.error('Failed to clear user ID:', error);
+      logger.error('Failed to clear user ID:', error, {
+        operation: 'user_clear_id',
+      });
     }
   }
 }

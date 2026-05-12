@@ -16,10 +16,10 @@ interface EditPlaylistModalProps {
 const EditPlaylistModal: React.FC<EditPlaylistModalProps> = ({
   isVisible,
   onClose,
-  playlistId,
+  playlistId: _playlistId,
   currentName,
   currentIsPrivate,
-  onPlaylistUpdated,
+  onPlaylistUpdated: _onPlaylistUpdated,
 }) => {
   const [name, setName] = useState(currentName);
   const [isPrivate, setIsPrivate] = useState(currentIsPrivate);

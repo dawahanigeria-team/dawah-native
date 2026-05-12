@@ -1,20 +1,24 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { FlatList, Text, TouchableOpacity, View, Alert, ActivityIndicator } from "react-native";
+import { FlashList } from "../../src/components/adapters/flashListCompat";
+import { Text, TouchableOpacity, View, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../../src/components/molecules/Card";
+import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
 import { useRouter } from "expo-router";
 import { usePlayerActions, useDownloadsStore, useFavoritesStore } from "../../src/stores";
 import { useAuthStore } from "../../src/stores/authStore";
-import { designTokens } from "../../src/theme/designTokens";
+import { useTheme } from "../../src/hooks/useTheme";
 import tw from "../../src/theme/twrnc";
 import { Episode, Series } from "../../src/types/types";
 import type { DownloadMetadata } from "../../src/services/downloads.service";
 import { captureSentryException, addSentryBreadcrumb } from "../../src/services/config/sentry.config";
+import { logger } from "../../src/utils/logger";
 import { historyService } from "../../src/services/history.service";
 import { lectureDetailApi } from "../../src/services/api/lectureDetail.api";
 import { playlistApi } from "../../src/services/api/playlist.api";
 import type { UserPlaylist } from "../../src/types/api.types";
+import { resolveFavoriteIdsForLoad } from "../../src/features/library/resolveFavoriteIdsForLoad";
 
 type LibraryTab = "Downloads" | "History" | "Liked" | "Playlists";
 
@@ -35,12 +39,21 @@ const downloadToEpisode = (download: DownloadMetadata): Episode => ({
   createdAt: download.downloadedAt,
 });
 
-export default function LibraryScreen() {
+export default function LibraryScreenWithBoundary() {
+  return (
+    <ErrorBoundary>
+      <LibraryScreen />
+    </ErrorBoundary>
+  );
+}
+
+function LibraryScreen() {
   const router = useRouter();
   const { playEpisode } = usePlayerActions();
   const { downloads, deleteLecture, getTotalStorageUsed, refreshDownloads } = useDownloadsStore();
   const { favoriteIds, fetchFavorites, loading: favoritesLoading } = useFavoritesStore();
   const { isAuthenticated } = useAuthStore();
+  const { colors } = useTheme();
   const [activeTab, setActiveTab] = useState<LibraryTab>("Downloads");
   const [historyEpisodes, setHistoryEpisodes] = useState<Episode[]>([]);
   const [likedEpisodes, setLikedEpisodes] = useState<Episode[]>([]);
@@ -53,7 +66,7 @@ export default function LibraryScreen() {
 
   // Refresh downloads when screen loads
   useEffect(() => {
-    console.log('📚 Library: Refreshing downloads...');
+    logger.debug('Library: Refreshing downloads...');
     refreshDownloads().catch(err => {
       console.error('📚 Library: Failed to refresh downloads:', err);
       captureSentryException(err, {
@@ -88,10 +101,10 @@ export default function LibraryScreen() {
   const loadHistory = async () => {
     try {
       setLoadingHistory(true);
-      console.log('📚 Loading history...');
+      logger.debug('Loading history...');
       const episodes = await historyService.getHistoryAsEpisodes();
       setHistoryEpisodes(episodes);
-      console.log(`✅ Loaded ${episodes.length} history items`);
+      logger.debug(`Loaded ${episodes.length} history items`);
     } catch (err) {
       console.error('Failed to load history:', err);
       captureSentryException(err as Error, {
@@ -106,16 +119,13 @@ export default function LibraryScreen() {
   const loadFavorites = async () => {
     try {
       setLoadingLiked(true);
-      console.log('📚 Loading favorites...');
+      logger.debug('Loading favorites...');
 
-      // Fetch favorite IDs if not loaded
-      if (favoriteIds.length === 0) {
-        await fetchFavorites();
-      }
+      const favoriteIdsToLoad = await resolveFavoriteIdsForLoad(favoriteIds, fetchFavorites);
 
       // Fetch lecture details for each favorite ID
       const episodes: Episode[] = [];
-      for (const lectureId of favoriteIds) {
+      for (const lectureId of favoriteIdsToLoad) {
         try {
           const lecture = await lectureDetailApi.getLectureDetail({ lectureId });
           if (lecture) {
@@ -140,7 +150,7 @@ export default function LibraryScreen() {
       }
 
       setLikedEpisodes(episodes);
-      console.log(`✅ Loaded ${episodes.length} liked lectures`);
+      logger.debug(`Loaded ${episodes.length} liked lectures`);
     } catch (err) {
       console.error('Failed to load favorites:', err);
       captureSentryException(err as Error, {
@@ -181,9 +191,9 @@ export default function LibraryScreen() {
 
   // Convert downloads to Episodes
   const downloadedEpisodes = useMemo(() => {
-    console.log('📚 Library: Total downloads:', downloads.length);
+    logger.debug('Library: Total downloads:', downloads.length);
     downloads.forEach((d, i) => {
-      console.log(`  ${i + 1}. ${d.title} (${d.lectureId})`);
+      logger.debug(`  ${i + 1}. ${d.title} (${d.lectureId})`);
     });
     return downloads.map(downloadToEpisode);
   }, [downloads]);
@@ -259,7 +269,7 @@ export default function LibraryScreen() {
       if (activeTab === "Playlists") {
         router.push(`/playlist/${item.id}` as any);
       } else {
-        console.log("Series/Playlist pressed:", item.title);
+        logger.debug("Series/Playlist pressed:", item.title);
       }
     }
   };
@@ -309,20 +319,20 @@ export default function LibraryScreen() {
       <View
         style={[
           tw`w-16 h-16 rounded-full items-center justify-center mb-4`,
-          { backgroundColor: designTokens.colors.system.background.tertiary },
+          { backgroundColor: colors.system.background.tertiary },
         ]}
       >
         <Ionicons
           name={getTabIcon(tab)}
           size={32}
-          color={designTokens.colors.system.label.tertiary}
+          color={colors.system.label.tertiary}
           accessibilityLabel={`${tab} icon`}
         />
       </View>
       <Text
         style={[
           tw`text-lg font-semibold mb-2`,
-          { color: designTokens.colors.system.label.primary },
+          { color: colors.system.label.primary },
         ]}
         accessibilityRole="header"
       >
@@ -331,7 +341,7 @@ export default function LibraryScreen() {
       <Text
         style={[
           tw`text-center px-8`,
-          { color: designTokens.colors.system.label.secondary },
+          { color: colors.system.label.secondary },
         ]}
         accessibilityRole="text"
       >
@@ -376,12 +386,12 @@ export default function LibraryScreen() {
         <View style={tw`flex-1 items-center justify-center py-20`}>
           <ActivityIndicator
             size="large"
-            color={designTokens.colors.brand.primary}
+            color={colors.brand.primary}
           />
           <Text
             style={[
               tw`mt-4`,
-              { color: designTokens.colors.system.label.secondary },
+              { color: colors.system.label.secondary },
             ]}
           >
             Loading {activeTab.toLowerCase()}...
@@ -391,13 +401,13 @@ export default function LibraryScreen() {
     }
 
     return renderEmptyState(activeTab);
-  }, [activeTab, loading]);
+  }, [activeTab, loading, colors]);
 
   return (
     <SafeAreaView
       style={[
         tw`flex-1`,
-        { backgroundColor: designTokens.colors.system.background.primary },
+        { backgroundColor: colors.system.background.primary },
       ]}
     >
       {/* Header */}
@@ -406,7 +416,7 @@ export default function LibraryScreen() {
           <Text
             style={[
               tw`text-2xl font-bold`,
-              { color: designTokens.colors.system.label.primary },
+              { color: colors.system.label.primary },
             ]}
             accessibilityRole="header"
           >
@@ -417,12 +427,12 @@ export default function LibraryScreen() {
               <Ionicons
                 name="cloud-outline"
                 size={16}
-                color={designTokens.colors.system.label.secondary}
+                color={colors.system.label.secondary}
               />
               <Text
                 style={[
                   tw`text-sm ml-1`,
-                  { color: designTokens.colors.system.label.secondary },
+                  { color: colors.system.label.secondary },
                 ]}
               >
                 {getTotalStorageUsed()}
@@ -437,7 +447,7 @@ export default function LibraryScreen() {
         <View
           style={[
             tw`rounded-2xl p-1 flex-row`,
-            { backgroundColor: designTokens.colors.system.background.tertiary },
+            { backgroundColor: colors.system.background.tertiary },
           ]}
         >
           {tabs.map((tab) => (
@@ -446,7 +456,7 @@ export default function LibraryScreen() {
               style={[
                 tw`flex-1 py-2 px-1 rounded-xl items-center`,
                 activeTab === tab && {
-                  backgroundColor: designTokens.colors.system.fill.primary,
+                  backgroundColor: colors.system.fill.primary,
                 },
               ]}
               onPress={() => handleTabPress(tab)}
@@ -462,8 +472,8 @@ export default function LibraryScreen() {
                   {
                     color:
                       activeTab === tab
-                        ? designTokens.colors.system.label.primary
-                        : designTokens.colors.system.label.secondary,
+                        ? colors.system.label.primary
+                        : colors.system.label.secondary,
                   },
                 ]}
               >
@@ -475,21 +485,14 @@ export default function LibraryScreen() {
       </View>
 
       {/* Content */}
-      <FlatList
+      <FlashList
         data={loading ? [] : data}
         renderItem={renderListItem}
         keyExtractor={(item) => String(item.id)}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          tw`pb-40 px-4`,
-          (loading || data.length === 0) ? { flexGrow: 1 } : null,
-        ]}
+        contentContainerStyle={tw`pb-40 px-4`}
         ListEmptyComponent={renderListEmpty}
         accessibilityLabel="Library content"
-        removeClippedSubviews={true}
-        initialNumToRender={8}
-        windowSize={10}
-        maxToRenderPerBatch={8}
       />
     </SafeAreaView>
   );

@@ -1,7 +1,8 @@
 import React, { memo, useState } from 'react';
 import { View, ScrollView, ViewStyle } from 'react-native';
 import { designTokens } from '../../theme/designTokens';
-import { Text, Chip } from '../atoms';
+import { Chip } from '../atoms/Chip';
+import { Text } from '../atoms/Text';
 import { SearchBar } from './SearchBar';
 
 interface FilterSectionProps {
@@ -52,8 +53,8 @@ export const FilterSection: React.FC<FilterSectionProps> = memo(({
     <View style={containerStyle}>
       <View style={headerStyle}>
         <Text
-          variant="bodySmall"
-          color="muted"
+          variant="footnote"
+          color="secondaryLabel"
           weight="semibold"
           style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}
         >
@@ -85,8 +86,6 @@ export const FilterSection: React.FC<FilterSectionProps> = memo(({
                 size="medium"
                 selected={selectedValue === option}
                 onPress={() => onSelect(option)}
-                accessibilityLabel={`Filter by ${option}`}
-                accessibilityState={{ selected: selectedValue === option }}
               />
             </View>
           ))}

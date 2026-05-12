@@ -4,7 +4,7 @@
  */
 
 // Base API Response
-export interface BaseApiResponse<T = any> {
+export interface BaseApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   message?: string;
@@ -13,7 +13,7 @@ export interface BaseApiResponse<T = any> {
 }
 
 // Pagination Response
-export interface PaginatedResponse<T = any> extends BaseApiResponse<T[]> {
+export interface PaginatedResponse<T = unknown> extends BaseApiResponse<T[]> {
   total: number;
   page: number;
   total_pages: number;
@@ -53,6 +53,8 @@ export interface SearchLecture {
   audio?: string;
   duration?: string;
   img?: string;
+  lec_img?: string;
+  rp_image?: string;
   rpname?: string;
   rp_id?: number;
   lang?: string;
@@ -157,7 +159,6 @@ export interface LectureDetailResponse extends BaseApiResponse {
     Title: string;
     Duration: string;
     AudioUrl: string;
-    VideoUrl?: string;
     CoverUrl?: string;
     Description?: string;
     Plays: string;
@@ -358,7 +359,7 @@ export interface DownloadLinkResponse extends BaseApiResponse {
 }
 
 // Chart Response
-export interface ChartResponse<T = any> extends BaseApiResponse {
+export interface ChartResponse<T = unknown> extends BaseApiResponse {
   period: "daily" | "weekly" | "monthly" | "all-time";
   items: (T & {
     rank: number;
@@ -385,7 +386,7 @@ export interface ApiErrorResponse {
   success: false;
   error: string;
   message?: string;
-  details?: any;
+  details?: unknown;
   statusCode?: number;
   timestamp: string;
 }
@@ -431,6 +432,7 @@ export interface UserPlaylist {
 }
 
 export interface UserPlaylistsResponse extends BaseApiResponse {
+  data?: UserPlaylist[];
   playlists: UserPlaylist[];
 }
 
@@ -439,7 +441,6 @@ export interface PlaylistData {
 }
 
 export interface PlaylistDataResponse extends BaseApiResponse {
+  data?: Array<{ audio?: number[] | string[] }>;
   playlist_data: PlaylistData[];
 }
-
-

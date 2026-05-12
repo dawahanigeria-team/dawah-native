@@ -1,11 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { usePathname } from "expo-router";
-import React, { memo, useEffect, useMemo, useState } from "react";
+import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
   Dimensions,
+  GestureResponderEvent,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   View,
 } from "react-native";
@@ -13,7 +15,6 @@ import {
   Gesture,
   GestureDetector,
   GestureHandlerRootView,
-  PanGestureHandler,
 } from "react-native-gesture-handler";
 import Animated, {
   Extrapolate,
@@ -26,12 +27,20 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useDownloadGate } from "../../hooks/useDownloadGate";
 import { useLectureDetail } from "../../hooks/useLectureDetail";
-import { usePlayerStore } from "../../stores/playerStore";
+import { useTheme } from "../../hooks/useTheme";
+import { useDownloadsStore } from "../../stores";
+import { resolveEpisodeArtistName, usePlayerStore } from "../../stores/playerStore";
 import { designTokens } from "../../theme/designTokens";
-import { getTabBarHeight } from "../../utils";
+import { getTabBarHeight } from "../../utils/layout";
 import { getInitials, getPlaceholderStyle } from "../../utils/colorPlaceholder";
-import { Loading, Text, Touchable } from "../atoms";
+import { linkingService } from "../../services/linking.service";
+import { appendShareSignature } from "../../utils/shareMessage";
+import { DownloadStatus } from "../../services/downloads/downloadQueue.service";
+import { Loading } from "../atoms/Loading";
+import { Text } from "../atoms/Text";
+import { Touchable } from "../atoms/Touchable";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -53,19 +62,25 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       duration,
       isExpanded,
       isLoading,
-      isDownloading,
-      downloadProgress,
       togglePlayPause,
       expandPlayer,
       minimizePlayer,
       seekForward,
       seekBackward,
-      downloadEpisode,
       closePlayer,
       setProgress,
       playbackSpeed,
       setPlaybackSpeed,
     } = usePlayerStore();
+    const {
+      addToQueue,
+      pauseDownload,
+      resumeDownload,
+      getDownloadStatus,
+      getDownloadProgress,
+    } = useDownloadsStore();
+    const { requireDownloadAccess } = useDownloadGate();
+    const { colors } = useTheme();
 
     // Fetch richer lecture metadata only when the player is expanded.
     const { lecture: lectureDetail } = useLectureDetail(
@@ -91,7 +106,18 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       .filter(Boolean)
       .join(", ");
 
+    // Build content-type label from actual API categories instead of hardcoding
+    const contentTypeLabel = topicsLabel || "";
+
+    const downloadStatus = currentEpisode ? getDownloadStatus(currentEpisode.id) : null;
+    const downloadProgress = currentEpisode ? getDownloadProgress(currentEpisode.id) : 0;
+    const isDownloading =
+      downloadStatus === DownloadStatus.DOWNLOADING ||
+      downloadStatus === DownloadStatus.QUEUED;
+
     const [imageError, setImageError] = useState(false);
+    const [miniProgressTrackWidth, setMiniProgressTrackWidth] = useState(screenWidth);
+    const [expandedProgressTrackWidth, setExpandedProgressTrackWidth] = useState(280);
     const translateY = useSharedValue(0);
     const opacity = useSharedValue(1);
     const dragY = useSharedValue(0);
@@ -177,10 +203,43 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       };
     });
 
+    const progressPercentage = duration > 0 ? (progress / duration) * 100 : 0;
+
+    const updateProgressFromTouch = useCallback(
+      (event: GestureResponderEvent, trackWidth: number) => {
+        if (!duration || trackWidth <= 0) return;
+        const touchX = event.nativeEvent.locationX;
+        const nextProgress = Math.max(
+          0,
+          Math.min(duration, (touchX / trackWidth) * duration)
+        );
+        setProgress(nextProgress);
+      },
+      [duration, setProgress]
+    );
+
+    const handleMiniProgressTouch = useCallback(
+      (event: GestureResponderEvent) => {
+        updateProgressFromTouch(event, miniProgressTrackWidth);
+      },
+      [miniProgressTrackWidth, updateProgressFromTouch]
+    );
+
+    const handleExpandedProgressTouch = useCallback(
+      (event: GestureResponderEvent) => {
+        updateProgressFromTouch(event, expandedProgressTrackWidth);
+      },
+      [expandedProgressTrackWidth, updateProgressFromTouch]
+    );
+
     // Don't render if no episode is playing
     if (!currentEpisode) {
       return null;
     }
+
+    // Resolve the display name: filters out placeholders like "DawahNigeria"
+    // and picks the best available name (rpname, reciter_name, etc.)
+    const displayArtistName = resolveEpisodeArtistName(currentEpisode);
 
     const handleExpand = () => {
       expandPlayer();
@@ -198,53 +257,84 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       });
     };
 
+    const handleShare = async () => {
+      if (!currentEpisode) return;
+
+      const webLink = linkingService.createLectureLink(currentEpisode.id);
+      const baseMessage = `🎧 ${currentEpisode.title}\n👤 ${displayArtistName || currentEpisode.lecturerName || 'Unknown'}\n\n${webLink}`;
+      const message = appendShareSignature(baseMessage);
+
+      try {
+        await Share.share({
+          title: currentEpisode.title,
+          message,
+          url: webLink, // iOS will use this for sharing
+        });
+      } catch (error) {
+        console.warn("Failed to share lecture", error);
+      }
+    };
+
+    const handleDownloadPress = async () => {
+      if (!currentEpisode) return;
+      if (!requireDownloadAccess()) return;
+
+      try {
+        if (downloadStatus === DownloadStatus.DOWNLOADING) {
+          await pauseDownload(currentEpisode.id);
+        } else if (downloadStatus === DownloadStatus.PAUSED) {
+          await resumeDownload(currentEpisode.id);
+        } else if (downloadStatus === DownloadStatus.COMPLETED) {
+          // No-op; already downloaded
+        } else {
+          await addToQueue(currentEpisode);
+        }
+      } catch (error) {
+        console.error("Failed to manage download", error);
+      }
+    };
+
     const formatDuration = (seconds: number): string => {
       const mins = Math.floor(seconds / 60);
       const secs = Math.floor(seconds % 60);
       return `${mins}:${secs.toString().padStart(2, "0")}`;
     };
 
-    const progressPercentage = duration > 0 ? (progress / duration) * 100 : 0;
-
     const renderMiniPlayer = () => (
       <View style={styles.miniPlayerContainer}>
         {/* Progress Bar with Draggable Thumb */}
         <View style={styles.progressContainer}>
-          <PanGestureHandler
-            onGestureEvent={(event) => {
-              const containerWidth = screenWidth; // Full screen width for mini player
-              const newProgress = Math.max(
-                0,
-                Math.min(
-                  duration,
-                  (event.nativeEvent.x / containerWidth) * duration
-                )
-              );
-              setProgress(newProgress);
+          <View
+            style={[styles.progressTrack, { backgroundColor: colors.system.fill.quaternary }]}
+            onLayout={(event) => {
+              setMiniProgressTrackWidth(event.nativeEvent.layout.width);
             }}
+            onStartShouldSetResponder={() => true}
+            onMoveShouldSetResponder={() => true}
+            onResponderGrant={handleMiniProgressTouch}
+            onResponderMove={handleMiniProgressTouch}
           >
-            <View style={styles.progressTrack}>
-              <View
-                style={[
-                  styles.progressFill,
-                  {
-                    width: `${progressPercentage}%`,
-                    backgroundColor: designTokens.colors.brand.primary,
-                  },
-                ]}
-              />
-              {/* Draggable Progress Thumb */}
-              <View
-                style={[
-                  styles.miniProgressThumb,
-                  {
-                    left: `${progressPercentage}%`,
-                    backgroundColor: designTokens.colors.brand.primary,
-                  },
-                ]}
-              />
-            </View>
-          </PanGestureHandler>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  width: `${progressPercentage}%`,
+                  backgroundColor: colors.brand.primary,
+                },
+              ]}
+            />
+            {/* Draggable Progress Thumb */}
+            <View
+              style={[
+                styles.miniProgressThumb,
+                {
+                  left: `${progressPercentage}%`,
+                  backgroundColor: colors.brand.primary,
+                  shadowColor: colors.system.label.primary,
+                },
+              ]}
+            />
+          </View>
         </View>
 
         {/* Main Content */}
@@ -269,7 +359,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                   style={{
                     fontSize: designTokens.typography.fontSize.caption1,
                     fontWeight: designTokens.typography.fontWeight.bold,
-                    color: designTokens.colors.system.label.primary,
+                    color: colors.fixed.white,
                   }}
                 >
                   {getInitials(currentEpisode.title)}
@@ -290,7 +380,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
               {currentEpisode.title}
             </Text>
             <Text variant="caption1" color="secondaryLabel" numberOfLines={1}>
-              {currentEpisode.lecturerName ? `${currentEpisode.lecturerName} • ` : ""}{formatDuration(progress)}/{formatDuration(duration)}
+              {displayArtistName ? `${displayArtistName} • ` : ""}{formatDuration(progress)}/{formatDuration(duration)}
             </Text>
           </View>
 
@@ -298,18 +388,20 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
           <View style={styles.miniControls}>
             {/* Play/Pause Button */}
             {isLoading ? (
-              <Loading size="small" />
+              <View style={[styles.playButton, { backgroundColor: colors.system.fill.secondary }]}>
+                <Loading size="small" />
+              </View>
             ) : (
               <Touchable
                 onPress={togglePlayPause}
-                style={styles.playButton}
+                style={{ ...styles.playButton, backgroundColor: colors.system.fill.secondary }}
                 accessibilityLabel={isPlaying ? "Pause" : "Play"}
                 accessibilityRole="button"
               >
                 <Ionicons
                   name={isPlaying ? "pause" : "play"}
                   size={24}
-                  color={designTokens.colors.system.label.primary}
+                  color={colors.system.label.primary}
                 />
               </Touchable>
             )}
@@ -323,7 +415,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
         <Animated.View style={styles.expandedPlayerContainer}>
           {/* Drag Handle */}
           <View style={styles.dragHandle}>
-            <View style={styles.dragIndicator} />
+            <View style={[styles.dragIndicator, { backgroundColor: colors.system.fill.quaternary }]} />
           </View>
 
           {/* Header */}
@@ -337,7 +429,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
               <Ionicons
                 name="chevron-down"
                 size={24}
-                color={designTokens.colors.system.label.primary}
+                color={colors.system.label.primary}
               />
             </Touchable>
 
@@ -360,7 +452,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
               <Ionicons
                 name="close"
                 size={24}
-                color={designTokens.colors.system.label.primary}
+                color={colors.system.label.primary}
               />
             </Touchable>
           </View>
@@ -391,7 +483,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                     style={{
                       fontSize: designTokens.typography.fontSize.title1,
                       fontWeight: designTokens.typography.fontWeight.bold,
-                      color: designTokens.colors.system.label.primary,
+                      color: colors.fixed.white,
                     }}
                   >
                     {getInitials(currentEpisode.title)}
@@ -416,52 +508,47 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                 color="secondaryLabel"
                 style={{ textAlign: "center", marginBottom: 4 }}
               >
-                {currentEpisode.lecturerName || ""}
+                {displayArtistName}
               </Text>
               <Text
                 variant="caption1"
                 color="tertiaryLabel"
                 style={{ textAlign: "center" }}
               >
-                {`Islamic Lecture${languageLabel ? ` • ${languageLabel}` : ""}`}
+                {[contentTypeLabel, languageLabel].filter(Boolean).join(" • ")}
               </Text>
             </View>
 
             {/* Progress Slider */}
             <View style={styles.progressSliderContainer}>
               <View style={styles.progressSlider}>
-                <PanGestureHandler
-                  onGestureEvent={(event) => {
-                    const trackWidth = 280; // Approximate track width
-                    const newProgress = Math.max(
-                      0,
-                      Math.min(
-                        duration,
-                        (event.nativeEvent.x / trackWidth) * duration
-                      )
-                    );
-                    setProgress(newProgress);
+                <View
+                  style={[styles.progressSliderTrack, { backgroundColor: colors.system.fill.quaternary }]}
+                  onLayout={(event) => {
+                    setExpandedProgressTrackWidth(event.nativeEvent.layout.width);
                   }}
+                  onStartShouldSetResponder={() => true}
+                  onMoveShouldSetResponder={() => true}
+                  onResponderGrant={handleExpandedProgressTouch}
+                  onResponderMove={handleExpandedProgressTouch}
                 >
-                  <View style={styles.progressSliderTrack}>
-                    <View
-                      style={[
-                        styles.progressSliderFill,
-                        {
-                          width: `${progressPercentage}%`,
-                          backgroundColor: designTokens.colors.brand.primary,
-                        },
-                      ]}
-                    />
-                    <View
-                      style={{
-                        ...styles.progressThumb,
-                        left: `${progressPercentage}%`,
-                        backgroundColor: designTokens.colors.brand.primary,
-                      }}
-                    />
-                  </View>
-                </PanGestureHandler>
+                  <View
+                    style={[
+                      styles.progressSliderFill,
+                      {
+                        width: `${progressPercentage}%`,
+                        backgroundColor: colors.brand.primary,
+                      },
+                    ]}
+                  />
+                  <View
+                    style={{
+                      ...styles.progressThumb,
+                      left: `${progressPercentage}%`,
+                      backgroundColor: colors.brand.primary,
+                    }}
+                  />
+                </View>
               </View>
               <View style={styles.timeLabels}>
                 <Text variant="caption2" color="secondaryLabel">
@@ -484,25 +571,25 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                 <Ionicons
                   name="play-back"
                   size={32}
-                  color={designTokens.colors.system.label.primary}
+                  color={colors.system.label.primary}
                 />
               </Touchable>
 
               {isLoading ? (
-                <View style={styles.mainPlayButton}>
+                <View style={[styles.mainPlayButton, { backgroundColor: colors.system.fill.secondary }]}>
                   <Loading size="large" />
                 </View>
               ) : (
                 <Touchable
                   onPress={togglePlayPause}
-                  style={styles.mainPlayButton}
+                  style={{ ...styles.mainPlayButton, backgroundColor: colors.system.fill.secondary }}
                   accessibilityLabel={isPlaying ? "Pause" : "Play"}
                   accessibilityRole="button"
                 >
                   <Ionicons
                     name={isPlaying ? "pause" : "play"}
                     size={40}
-                    color={designTokens.colors.system.label.primary}
+                    color={colors.system.label.primary}
                   />
                 </Touchable>
               )}
@@ -516,7 +603,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                 <Ionicons
                   name="play-forward"
                   size={32}
-                  color={designTokens.colors.system.label.primary}
+                  color={colors.system.label.primary}
                 />
               </Touchable>
             </View>
@@ -540,6 +627,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
               </Touchable>
 
               <Touchable
+                onPress={handleShare}
                 style={styles.secondaryButton}
                 accessibilityLabel="Share"
                 accessibilityRole="button"
@@ -547,15 +635,25 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                 <Ionicons
                   name="share-outline"
                   size={24}
-                  color={designTokens.colors.system.label.secondary}
+                  color={colors.system.label.secondary}
                 />
               </Touchable>
 
               <Touchable
-                onPress={() => downloadEpisode(currentEpisode)}
+                onPress={handleDownloadPress}
                 style={styles.secondaryButton}
                 accessibilityLabel={
-                  isDownloading ? "Downloading..." : "Download"
+                  downloadStatus === DownloadStatus.COMPLETED
+                    ? "Downloaded"
+                    : downloadStatus === DownloadStatus.DOWNLOADING
+                      ? "Downloading..."
+                      : downloadStatus === DownloadStatus.PAUSED
+                        ? "Resume download"
+                        : downloadStatus === DownloadStatus.QUEUED
+                          ? "Queued"
+                          : downloadStatus === DownloadStatus.FAILED
+                            ? "Retry download"
+                            : "Download"
                 }
                 accessibilityRole="button"
               >
@@ -572,23 +670,37 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                   </View>
                 ) : (
                   <Ionicons
-                    name="download-outline"
+                    name={
+                      downloadStatus === DownloadStatus.COMPLETED
+                        ? "checkmark-circle"
+                        : downloadStatus === DownloadStatus.PAUSED
+                          ? "play-circle-outline"
+                          : downloadStatus === DownloadStatus.FAILED
+                            ? "alert-circle-outline"
+                            : "download-outline"
+                    }
                     size={24}
-                    color={designTokens.colors.system.label.secondary}
+                    color={
+                      downloadStatus === DownloadStatus.COMPLETED
+                        ? colors.brand.primary
+                        : downloadStatus === DownloadStatus.FAILED
+                          ? colors.semantic.red
+                          : colors.system.label.secondary
+                    }
                   />
                 )}
               </Touchable>
             </View>
 
             {/* Detailed Metadata Section */}
-            <View style={styles.metadataSection}>
+            <View style={[styles.metadataSection, { borderTopColor: colors.system.separator.primary }]}>
               {releasedDateLabel ? (
                 <View style={styles.metadataRow}>
                   <View style={styles.metadataItem}>
                     <Ionicons
                       name="calendar-outline"
                       size={16}
-                      color={designTokens.colors.system.label.tertiary}
+                      color={colors.system.label.tertiary}
                     />
                     <Text
                       variant="caption1"
@@ -614,7 +726,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                     <Ionicons
                       name="language-outline"
                       size={16}
-                      color={designTokens.colors.system.label.tertiary}
+                      color={colors.system.label.tertiary}
                     />
                     <Text
                       variant="caption1"
@@ -640,7 +752,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                     <Ionicons
                       name="albums-outline"
                       size={16}
-                      color={designTokens.colors.system.label.tertiary}
+                      color={colors.system.label.tertiary}
                     />
                     <Text
                       variant="caption1"
@@ -666,7 +778,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                     <Ionicons
                       name="pricetag-outline"
                       size={16}
-                      color={designTokens.colors.system.label.tertiary}
+                      color={colors.system.label.tertiary}
                     />
                     <Text
                       variant="caption1"
@@ -707,7 +819,15 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       >
         <Animated.View
           pointerEvents="auto"
-          style={[styles.player, animatedStyle]}
+          style={[
+            styles.player,
+            {
+              backgroundColor: colors.system.background.secondary,
+              borderTopColor: colors.system.separator.primary,
+              shadowColor: colors.system.label.primary,
+            },
+            animatedStyle,
+          ]}
         >
           {isExpanded ? renderExpandedPlayer() : renderMiniPlayer()}
         </Animated.View>
@@ -725,10 +845,7 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   player: {
-    backgroundColor: designTokens.colors.system.background.secondary,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: designTokens.colors.system.separator.primary,
-    shadowColor: designTokens.colors.system.label.primary,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -744,7 +861,6 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     height: 2,
-    backgroundColor: designTokens.colors.system.fill.quaternary,
   },
   progressFill: {
     height: 2,
@@ -755,8 +871,7 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    transform: [{ translateX: -5 }], // Center the thumb on the progress line
-    shadowColor: designTokens.colors.system.label.primary,
+    marginLeft: -5, // Center the thumb on the progress line
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.3,
     shadowRadius: 2,
@@ -794,7 +909,6 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: designTokens.colors.system.fill.secondary,
   },
   // Expanded Player Styles
   expandedPlayerContainer: {
@@ -842,7 +956,6 @@ const styles = StyleSheet.create({
   },
   progressSliderTrack: {
     height: 4,
-    backgroundColor: designTokens.colors.system.fill.quaternary,
     borderRadius: 2,
     position: "relative",
   },
@@ -856,7 +969,7 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    transform: [{ translateX: -8 }], // Center the thumb on the progress line
+    marginLeft: -8, // Center the thumb on the progress line
   },
   timeLabels: {
     flexDirection: "row",
@@ -882,7 +995,6 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: designTokens.colors.system.fill.secondary,
   },
   secondaryControls: {
     flexDirection: "row",
@@ -906,7 +1018,6 @@ const styles = StyleSheet.create({
     marginTop: designTokens.spacing.xl,
     paddingTop: designTokens.spacing.xl,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: designTokens.colors.system.separator.primary,
   },
   metadataRow: {
     marginBottom: designTokens.spacing.md,
@@ -926,7 +1037,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: designTokens.colors.system.fill.quaternary,
   },
   // ScrollView Styles
   expandedContentScroll: {

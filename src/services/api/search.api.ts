@@ -6,6 +6,7 @@
 import { getLanguageId } from '../../utils/languages';
 import { API_CONFIG } from '../config/api.config';
 import { apiClient, ApiError } from './base.api';
+import { logger } from '@/utils/logger';
 import {
   SearchType,
   SearchResponse,
@@ -27,6 +28,7 @@ export interface SearchParams {
   sortBy?: 'relevance' | 'date' | 'popularity';
   field?: string;
   lecturer_nid?: string;
+  signal?: AbortSignal;
 }
 
 class SearchApiService {
@@ -104,7 +106,7 @@ class SearchApiService {
       }
 
       // Log the API call details
-      console.log('🔍 Search API Call:', {
+      logger.debug('Search API Call:', {
         endpoint: API_CONFIG.ENDPOINTS.SEARCH,
         baseUrl: API_CONFIG.BASE_URL,
         params: requestParams,
@@ -119,11 +121,12 @@ class SearchApiService {
           timeout: params.quick ? 5000 : API_CONFIG.TIMEOUTS.SEARCH,
           useCache: true,
           cacheTTL: params.quick ? 60 : API_CONFIG.CACHE.SEARCH_TTL,
+          signal: params.signal,
         }
       );
 
       // Log response summary (without sensitive data)
-      console.log('📥 Search API Response:', {
+      logger.debug('Search API Response:', {
         status: 'success',
         dataReceived: response.data ? 'Yes' : 'No',
         dataLength: Array.isArray(response.data) ? response.data.length :
@@ -139,7 +142,7 @@ class SearchApiService {
       const normalizedResponse = this.normalizeSearchResponse<T>(response.data, params);
 
       // Log normalized response summary
-      console.log('✅ Normalized Search Response:', {
+      logger.debug('Normalized Search Response:', {
         success: normalizedResponse.success,
         total: normalizedResponse.total,
         dataLength: normalizedResponse.data.length,
@@ -170,7 +173,7 @@ class SearchApiService {
         success: true,
         results: this.transformToQuickResults(response),
       };
-    } catch (error) {
+    } catch {
       // Return empty results on error for better UX
       return {
         success: false,
@@ -356,7 +359,6 @@ class SearchApiService {
   private transformToQuickResults(response: SearchResponse<any>): any[] {
     return response.data.slice(0, 10).map((item: any) => {
       // Determine item type and format accordingly
-      let type: SearchType = response.type;
       let title = '';
       let subtitle = '';
       let imageUrl = '';
@@ -393,7 +395,7 @@ class SearchApiService {
       }
 
       return {
-        type,
+        type: response.type,
         id: item.id || item.nid,
         title,
         subtitle,
@@ -427,7 +429,7 @@ class SearchApiService {
         .slice(0, 5 - recentMatches.length);
 
       return [...recentMatches, ...apiSuggestions];
-    } catch (error) {
+    } catch {
       // Return recent searches as fallback
       return this.recentSearches.slice(0, 5);
     }

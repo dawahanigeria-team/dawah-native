@@ -1,7 +1,9 @@
 import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import { TextInput, View, ViewStyle } from "react-native";
 import { BorderRadius, designTokens } from "../../theme/designTokens";
-import { Icon, Touchable } from "../atoms";
+import { useTheme } from "../../hooks/useTheme";
+import { Icon } from "../atoms/Icon";
+import { Touchable } from "../atoms/Touchable";
 
 interface SearchBarProps {
   placeholder?: string;
@@ -11,7 +13,6 @@ interface SearchBarProps {
   onSubmit?: (query: string) => void;
   onMicPress?: () => void;
   onClear?: () => void;
-  debounceMs?: number;
   borderRadius?: BorderRadius;
   showMic?: boolean;
   showClear?: boolean;
@@ -29,14 +30,14 @@ export const SearchBar: React.FC<SearchBarProps> = memo(
     onSubmit,
     onMicPress,
     onClear,
-    debounceMs = 250,
-    borderRadius = "full",
+    borderRadius = "lg",
     showMic = true,
     showClear = true,
     disabled = false,
     autoFocus = false,
     style,
   }) => {
+    const { colors } = useTheme();
     const [internalValue, setInternalValue] = useState(value || "");
     const inputRef = useRef<TextInput>(null);
 
@@ -80,8 +81,8 @@ export const SearchBar: React.FC<SearchBarProps> = memo(
     const containerStyle: ViewStyle = {
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: designTokens.colors.system.fill.tertiary,
-      borderRadius: designTokens.borderRadius.lg,
+      backgroundColor: colors.system.fill.tertiary,
+      borderRadius: designTokens.borderRadius[borderRadius],
       paddingHorizontal: designTokens.spacing.md,
       paddingVertical: designTokens.spacing.sm,
       marginHorizontal: 0,
@@ -96,7 +97,7 @@ export const SearchBar: React.FC<SearchBarProps> = memo(
       fontSize: designTokens.typography.fontSize.body,
       fontWeight: designTokens.typography.fontWeight.regular,
       fontFamily: designTokens.typography.fontFamily.system,
-      color: designTokens.colors.system.label.primary,
+      color: colors.system.label.primary,
       marginLeft: designTokens.spacing.sm,
       marginRight: designTokens.spacing.sm,
     };
@@ -116,7 +117,7 @@ export const SearchBar: React.FC<SearchBarProps> = memo(
           ref={inputRef}
           style={inputStyle}
           placeholder={placeholder}
-          placeholderTextColor={designTokens.colors.system.label.tertiary}
+          placeholderTextColor={colors.system.label.tertiary}
           value={currentValue}
           onChangeText={handleTextChange}
           onSubmitEditing={() => {

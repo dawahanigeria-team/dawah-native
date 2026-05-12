@@ -6,6 +6,7 @@
 import { entity } from 'simpler-state';
 import { favoritesApi } from '../services/api/favorites.api';
 import { addSentryBreadcrumb, captureSentryException } from '../services/config/sentry.config';
+import { logger } from '@/utils/logger';
 
 interface FavoritesState {
   favoriteIds: string[];
@@ -24,7 +25,7 @@ const favoritesStore = entity(initialState);
 /**
  * Fetch favorite lecture IDs (works offline)
  */
-export const fetchFavorites = async (): Promise<void> => {
+export const fetchFavorites = async (): Promise<string[]> => {
   const currentState = favoritesStore.get() || initialState;
 
   try {
@@ -42,11 +43,12 @@ export const fetchFavorites = async (): Promise<void> => {
       error: null,
     });
 
-    console.log(`✅ Loaded ${ids.length} favorites into store`);
+    logger.debug(`Loaded ${ids.length} favorites into store`);
+    return ids;
   } catch (error: any) {
     // Network errors are normal - don't show as errors
     if (error.isNetworkError) {
-      console.log('📱 Using cached favorites (offline)');
+      logger.debug('Using cached favorites (offline)');
     } else {
       console.warn('⚠️ Could not fetch favorites:', error.message);
       // Don't report network errors to Sentry
@@ -65,6 +67,7 @@ export const fetchFavorites = async (): Promise<void> => {
       loading: false,
       error: error.isNetworkError ? null : (error.message || 'Failed to load favorites'),
     });
+    return Array.isArray(currentState.favoriteIds) ? currentState.favoriteIds : [];
   }
 };
 
@@ -92,7 +95,7 @@ export const toggleFavorite = async (lectureId: string): Promise<boolean> => {
     // Call API
     const response = await favoritesApi.toggleFavorite(lectureId, 'audio');
 
-    console.log(`✅ ${response.message}`);
+    logger.debug(`${response.message}`);
 
     return !wasFavorited; // Return new state
   } catch (error: any) {

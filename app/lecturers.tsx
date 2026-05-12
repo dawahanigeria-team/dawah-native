@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FlashList } from "../src/components/adapters/flashListCompat";
 import {
   ActivityIndicator,
   FlatList,
@@ -12,13 +13,17 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { logger } from "../src/utils/logger";
 import { LecturerCard } from "../src/components/molecules/LecturerCard";
 import { LecturerCardSkeleton } from "../src/components/molecules/LecturerCard.skeleton";
 import { Lecturer, lecturersApi } from "../src/services/api/lecturers.api";
-import { designTokens } from "../src/theme/designTokens";
+import { ApiError } from "../src/services/api/base.api";
+import { useTheme } from "../src/hooks/useTheme";
 import tw from "../src/theme/twrnc";
+import { getLanguageName } from "../src/utils/languages";
 
 export default function LecturersScreen() {
+  const { colors } = useTheme();
   const [lecturers, setLecturers] = useState<Lecturer[]>([]);
   const [filteredLecturers, setFilteredLecturers] = useState<Lecturer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,114 +33,81 @@ export default function LecturersScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalScholars, setTotalScholars] = useState<number>(0);
-  const [allLecturersLoaded, setAllLecturersLoaded] = useState(false);
   const itemsPerPage = 20; // Optimized for Nigerian internet speeds
 
   // Filter & Search states
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'name' | 'popular' | 'lectures'>('popular');
+  const [availableStates, setAvailableStates] = useState<string[]>([]);
+  const [statesLoading, setStatesLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const prevDebouncedQuery = useRef<string | null>(null);
+  const prevNormalizedState = useRef<string | null>(null);
+  const lecturerLanguageByIdRef = useRef<Map<string, string>>(new Map());
+  const lecturerImageByIdRef = useRef<Map<string, string>>(new Map());
 
-  const extractLocationFromName = (name: string): string | null => {
-    // Common pattern: "Full Name (State/City)".
-    // We take the last parentheses group. If none, return null.
-    const match = name.match(/\(([^)]+)\)\s*$/);
-    if (!match?.[1]) return null;
-    const location = match[1].trim();
-    if (!location) return null;
-    return location;
-  };
+  const resolveLecturerLanguage = useCallback((item: Lecturer): string => {
+    const candidate =
+      item.language ||
+      (item as any).lang ||
+      (item as any).language_name ||
+      ((item as any).lang_id ? getLanguageName((item as any).lang_id) : undefined) ||
+      lecturerLanguageByIdRef.current.get(String(item.id));
+
+    return candidate || "Unknown";
+  }, []);
+
+  const normalizeRemoteUrl = useCallback((url?: string): string => {
+    if (!url) {
+      return "";
+    }
+    if (!/^https?:\/\//i.test(url)) {
+      return url;
+    }
+    try {
+      return encodeURI(decodeURI(url));
+    } catch {
+      return encodeURI(url);
+    }
+  }, []);
+
+  const resolveLecturerImage = useCallback((item: Lecturer): string => {
+    const candidate =
+      item.rp_thumbnail ||
+      item.img ||
+      (item as any).rp_image ||
+      (item as any).image ||
+      (item as any).avatarUrl ||
+      lecturerImageByIdRef.current.get(String(item.id)) ||
+      "";
+
+    return normalizeRemoteUrl(candidate);
+  }, [normalizeRemoteUrl]);
+
+  const normalizedState = useMemo(() => {
+    if (!selectedLocation) return null;
+    const match = availableStates.find(
+      (state) => state.toLowerCase() === selectedLocation.toLowerCase()
+    );
+    return match || selectedLocation;
+  }, [availableStates, selectedLocation]);
 
   const handleLecturerPress = useCallback((id: string) => {
     router.push(`/lecturer/${id}`);
   }, []);
 
-  // Load all lecturers for accurate filtering
-  const fetchAllLecturers = useCallback(async () => {
+  const fetchStates = useCallback(async () => {
     try {
-      setLoading(true);
-      setError(null);
-
-      const allData: Lecturer[] = [];
-      let currentPage = 1;
-      let hasMoreData = true;
-      const batchSize = 50; // Larger batches for efficiency
-
-      console.log('📚 Loading all lecturers for filtering...');
-
-      while (hasMoreData) {
-        console.log(`⏳ Fetching page ${currentPage} with batch size ${batchSize}...`);
-
-        const response = await lecturersApi.getAllLecturers({
-          page: currentPage,
-          lim: batchSize,
-        });
-
-        console.log(`📦 Response for page ${currentPage}:`, {
-          dataLength: response.data.length,
-          total: response.total,
-          hasData: response.data.length > 0
-        });
-
-        if (response.data.length > 0) {
-          // Filter out duplicates before adding
-          const existingIds = new Set(allData.map(l => String(l.id)));
-          const newItems = response.data.filter((item: Lecturer) => !existingIds.has(String(item.id)));
-
-          // Log sample names from this batch
-          if (newItems.length > 0) {
-            console.log(`📝 Sample names from page ${currentPage}:`, newItems.slice(0, 3).map(l => l.name));
-          }
-
-          allData.push(...newItems);
-
-          console.log(`📖 Page ${currentPage}: Loaded ${newItems.length} new lecturers (Total: ${allData.length}/${response.total || 'unknown'})`);
-
-          currentPage++;
-          hasMoreData = response.data.length === batchSize;
-
-          console.log(`🔄 Continue loading? ${hasMoreData} (got ${response.data.length}, expected ${batchSize})`);
-        } else {
-          console.log(`🛑 No more data on page ${currentPage}`);
-          hasMoreData = false;
-        }
-
-        // Safety limit to prevent infinite loops
-        if (currentPage > 100) {
-          console.warn('⚠️ Reached safety limit of 100 pages');
-          break;
-        }
-      }
-
-      console.log(`✅ FINAL: Loaded ${allData.length} total lecturers`);
-
-      // Log all unique locations
-      const allLocations = allData
-        .map(l => extractLocationFromName(l.name))
-        .filter(Boolean);
-      const uniqueLocations = Array.from(new Set(allLocations));
-      console.log(`🌍 Unique locations found (${uniqueLocations.length}):`, uniqueLocations.sort());
-
-      // Count lecturers per location
-      const locationCounts: Record<string, number> = {};
-      allData.forEach(l => {
-        const loc = extractLocationFromName(l.name);
-        if (loc) {
-          locationCounts[loc] = (locationCounts[loc] || 0) + 1;
-        }
-      });
-      console.log(`📊 Lecturers per location:`, locationCounts);
-
-      setLecturers(allData);
-      setTotalScholars(allData.length);
-      setAllLecturersLoaded(true);
-      setHasMore(false); // All data is loaded
-
+      setStatesLoading(true);
+      const states = await lecturersApi.getStates();
+      setAvailableStates(states);
     } catch (err) {
-      console.error('❌ Failed to fetch all lecturers:', err);
-      setError('Failed to load scholars');
+      console.error('Failed to load states:', err);
+      setAvailableStates([]);
     } finally {
-      setLoading(false);
+      setStatesLoading(false);
     }
   }, []);
 
@@ -143,7 +115,6 @@ export default function LecturersScreen() {
     try {
       if (isRefresh) {
         setRefreshing(true);
-        setAllLecturersLoaded(false); // Reset on refresh
       } else if (pageNum > 1) {
         setLoadingMore(true);
       } else {
@@ -156,28 +127,48 @@ export default function LecturersScreen() {
         lim: itemsPerPage,
       };
 
+      if (normalizedState) {
+        requestParams.state = normalizedState;
+      }
+
       const response = await lecturersApi.getAllLecturers(requestParams);
 
 
       // Determine if there are more pages based on data received
       const hasMorePages = response.data.length > 0;
 
+      const normalizedLecturers = response.data.map((item) => ({
+        ...item,
+        language: resolveLecturerLanguage(item),
+        rp_thumbnail: resolveLecturerImage(item) || item.rp_thumbnail,
+      }));
+
+      normalizedLecturers.forEach((item) => {
+        if (item.language && item.language !== "Unknown") {
+          lecturerLanguageByIdRef.current.set(String(item.id), item.language);
+        }
+        const imageUrl = resolveLecturerImage(item);
+        if (imageUrl) {
+          lecturerImageByIdRef.current.set(String(item.id), imageUrl);
+        }
+      });
+
       if (isRefresh) {
-        setLecturers(response.data);
+        setLecturers(normalizedLecturers);
         setPage(1);
         setHasMore(hasMorePages);
-        setTotalScholars(response.total || response.data.length);
+        setTotalScholars(response.total || normalizedLecturers.length);
       } else if (pageNum === 1) {
-        setLecturers(response.data);
+        setLecturers(normalizedLecturers);
         // Always try to load page 2, even if page 1 returned less than requested
         setHasMore(true);
-        setTotalScholars(response.total || response.data.length);
+        setTotalScholars(response.total || normalizedLecturers.length);
       } else {
         // Use functional update to avoid stale closure
         setLecturers(prevLecturers => {
           // Filter out duplicates before adding
           const existingIds = new Set(prevLecturers.map(l => String(l.id)));
-          const newItems = response.data.filter((item: Lecturer) => !existingIds.has(String(item.id)));
+          const newItems = normalizedLecturers.filter((item: Lecturer) => !existingIds.has(String(item.id)));
 
           if (newItems.length === 0 && response.data.length > 0) {
             // If we got data but they are all duplicates, it might mean we are fetching the same page or overlapping data.
@@ -196,6 +187,9 @@ export default function LecturersScreen() {
       }
 
     } catch (err) {
+      if (err instanceof ApiError && err.isCancelled) {
+        return;
+      }
       console.error('Failed to fetch lecturers:', err);
       setError('Failed to load scholars');
     } finally {
@@ -203,54 +197,94 @@ export default function LecturersScreen() {
       setLoadingMore(false);
       setRefreshing(false);
     }
-  }, [itemsPerPage]);
+  }, [itemsPerPage, normalizedState]);
 
-  // Initial load
+  // Debounce search input
   useEffect(() => {
-    fetchLecturers(1);
-  }, [fetchLecturers]);
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const fetchSearchResults = useCallback(async (query: string, state?: string | null) => {
+    try {
+      setLoading(true);
+      setSearchLoading(true);
+      setError(null);
+      setPage(1);
+      setHasMore(false);
+      setLecturers([]);
+      const results = await lecturersApi.searchLecturers(query, state || undefined);
+      const normalizedResults = results.map((item) => ({
+        ...item,
+        language: resolveLecturerLanguage(item),
+        rp_thumbnail: resolveLecturerImage(item) || item.rp_thumbnail,
+      }));
+      setLecturers(normalizedResults);
+      setTotalScholars(normalizedResults.length);
+    } catch (err) {
+      if (err instanceof ApiError && err.isCancelled) {
+        return;
+      }
+      console.error('Failed to search lecturers:', err);
+      setError('Failed to search scholars');
+    } finally {
+      setSearchLoading(false);
+      setLoading(false);
+    }
+  }, []);
+
+  // Fetch when state changes (0-1 chars) or when search is cleared
+  useEffect(() => {
+    const prevQuery = prevDebouncedQuery.current;
+    const prevState = prevNormalizedState.current;
+    const stateChanged = prevState !== normalizedState;
+    const queryChanged = prevQuery !== debouncedQuery;
+
+    prevDebouncedQuery.current = debouncedQuery;
+    prevNormalizedState.current = normalizedState;
+
+    if (debouncedQuery.length >= 2) {
+      return;
+    }
+
+    if (stateChanged || (queryChanged && debouncedQuery.length === 0)) {
+      setPage(1);
+      setHasMore(true);
+      setLecturers([]);
+      fetchLecturers(1);
+    }
+  }, [fetchLecturers, normalizedState, debouncedQuery]);
+
+  useEffect(() => {
+    fetchStates();
+  }, [fetchStates]);
+
+  // Server-side search
+  useEffect(() => {
+    if (debouncedQuery.length >= 2) {
+      fetchSearchResults(debouncedQuery, normalizedState);
+    } else if (debouncedQuery.length === 0) {
+      setSearchLoading(false);
+    }
+  }, [debouncedQuery, normalizedState, fetchSearchResults]);
 
   // Apply search and sorting (client-side only)
   useEffect(() => {
     let result = [...lecturers];
 
-    console.log('🔍 Filtering with:', {
+    logger.debug('Filtering with:', {
       totalLecturers: lecturers.length,
       searchQuery,
-      selectedLocation,
       sortBy
     });
 
-    // Apply search filter (client-side)
-    if (searchQuery.trim()) {
+    // Apply search filter (client-side only for short inputs)
+    if (searchQuery.trim() && debouncedQuery.length < 2) {
       result = result.filter(lecturer =>
         lecturer.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
-    }
-
-    // Apply location filter (client-side)
-    if (selectedLocation) {
-      console.log(`📍 Filtering for location: "${selectedLocation}"`);
-
-      // Debug: Log all extracted locations
-      const locationMap = lecturers.map(l => ({
-        name: l.name,
-        extractedLocation: extractLocationFromName(l.name)
-      }));
-      console.log('🗺️ All extracted locations:', locationMap);
-
-      result = result.filter((lecturer) => {
-        const location = extractLocationFromName(lecturer.name);
-        const matches = location === selectedLocation;
-
-        if (matches) {
-          console.log(`✅ Match found: "${lecturer.name}" → "${location}"`);
-        }
-
-        return matches;
-      });
-
-      console.log(`🎯 Filtered to ${result.length} lecturers for location "${selectedLocation}"`);
     }
 
     // Apply sorting
@@ -268,23 +302,15 @@ export default function LecturersScreen() {
     });
 
     setFilteredLecturers(result);
-  }, [lecturers, searchQuery, sortBy, selectedLocation]);
-
-  // Load all lecturers when location filter is applied
-  useEffect(() => {
-    if (selectedLocation && !allLecturersLoaded) {
-      console.log('🔍 Location filter applied, loading all lecturers...');
-      fetchAllLecturers();
-    }
-  }, [selectedLocation, allLecturersLoaded, fetchAllLecturers]);
+  }, [lecturers, searchQuery, sortBy, debouncedQuery]);
 
   const handleLoadMore = () => {
-    // Disable pagination when filters are active or all data is loaded
-    if (searchQuery || selectedLocation || allLecturersLoaded) {
+    // Disable pagination when search is active
+    if (searchQuery || debouncedQuery.length >= 2) {
       return;
     }
 
-    if (!loadingMore && hasMore) {
+    if (!loading && !loadingMore && hasMore) {
       const nextPage = page + 1;
       setPage(nextPage);
       fetchLecturers(nextPage);
@@ -292,16 +318,20 @@ export default function LecturersScreen() {
   };
 
   const handleRefresh = useCallback(() => {
+    if (debouncedQuery.length >= 2) {
+      fetchSearchResults(debouncedQuery, normalizedState);
+      return;
+    }
     fetchLecturers(1, true);
-  }, [fetchLecturers]);
+  }, [fetchLecturers, fetchSearchResults, debouncedQuery, normalizedState]);
 
   const renderLecturer = useCallback(
     ({ item }: { item: Lecturer }) => (
-      <View style={tw`w-1/2 px-2 mb-6`}>
+      <View style={tw`flex-1 px-2 mb-6`}>
         <LecturerCard
           id={String(item.id)}
           name={item.name}
-          imageUrl={item.rp_thumbnail || item.img}
+          imageUrl={resolveLecturerImage(item)}
           totalLectures={item.total_lectures}
           followers={item.followers || item.views}
           language={item.language}
@@ -311,18 +341,18 @@ export default function LecturersScreen() {
         />
       </View>
     ),
-    [handleLecturerPress]
+    [handleLecturerPress, resolveLecturerImage]
   );
 
   const renderEmptyState = useCallback(() => {
-    const hasActiveFilters = searchQuery.trim() || selectedLocation;
+      const hasActiveFilters = searchQuery.trim() || selectedLocation;
 
     return (
       <View style={tw`py-20 items-center px-6`}>
         <Text
           style={[
             tw`text-base text-center`,
-            { color: designTokens.colors.system.label.secondary },
+            { color: colors.system.label.secondary },
           ]}
         >
           {error
@@ -340,14 +370,14 @@ export default function LecturersScreen() {
             }}
             style={[
               tw`mt-4 px-5 py-3 rounded-lg`,
-              { backgroundColor: designTokens.colors.system.background.secondary },
+              { backgroundColor: colors.system.background.secondary },
             ]}
             activeOpacity={0.8}
           >
             <Text
               style={[
                 tw`text-sm font-medium`,
-                { color: designTokens.colors.brand.primary },
+                { color: colors.brand.primary },
               ]}
             >
               Clear Filters
@@ -358,14 +388,14 @@ export default function LecturersScreen() {
             onPress={handleRefresh}
             style={[
               tw`mt-4 px-5 py-3 rounded-lg`,
-              { backgroundColor: designTokens.colors.system.background.secondary },
+              { backgroundColor: colors.system.background.secondary },
             ]}
             activeOpacity={0.8}
           >
             <Text
               style={[
                 tw`text-sm font-medium`,
-                { color: designTokens.colors.brand.primary },
+                { color: colors.brand.primary },
               ]}
             >
               Try Again
@@ -374,37 +404,12 @@ export default function LecturersScreen() {
         )}
       </View>
     );
-  }, [error, handleRefresh, searchQuery, selectedLocation]);
+  }, [error, handleRefresh, searchQuery, selectedLocation, colors]);
 
   const renderFooter = () => {
-    // Show loading when fetching all lecturers for filtering
-    if (loading && selectedLocation && !allLecturersLoaded) {
-      return (
-        <View style={tw`py-8 items-center`}>
-          <ActivityIndicator size="large" color={designTokens.colors.brand.primary} />
-          <Text
-            style={[
-              tw`mt-3 text-sm`,
-              { color: designTokens.colors.system.label.secondary },
-            ]}
-          >
-            Loading all scholars for filtering...
-          </Text>
-          <Text
-            style={[
-              tw`mt-1 text-xs`,
-              { color: designTokens.colors.system.label.tertiary },
-            ]}
-          >
-            This may take a moment
-          </Text>
-        </View>
-      );
-    }
-
     if (!loadingMore) {
-      // Don't show "Load More" hint when filters are active or all data loaded
-      if (searchQuery || selectedLocation || allLecturersLoaded) {
+      // Don't show "Load More" hint when search is active
+      if (searchQuery) {
         return null;
       }
 
@@ -415,7 +420,7 @@ export default function LecturersScreen() {
             <Text
               style={[
                 tw`text-xs`,
-                { color: designTokens.colors.system.label.tertiary },
+                { color: colors.system.label.tertiary },
               ]}
             >
               Scroll to load more scholars
@@ -427,11 +432,11 @@ export default function LecturersScreen() {
     }
     return (
       <View style={tw`py-4 items-center`}>
-        <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
+        <ActivityIndicator size="small" color={colors.brand.primary} />
         <Text
           style={[
             tw`mt-2 text-xs`,
-            { color: designTokens.colors.system.label.secondary },
+            { color: colors.system.label.secondary },
           ]}
         >
           Loading more scholars...
@@ -444,7 +449,7 @@ export default function LecturersScreen() {
     <SafeAreaView
       style={[
         tw`flex-1`,
-        { backgroundColor: designTokens.colors.system.background.primary },
+        { backgroundColor: colors.system.background.primary },
       ]}
     >
       <View style={tw`flex-row items-center px-5 py-4`}>
@@ -452,7 +457,7 @@ export default function LecturersScreen() {
           onPress={() => router.back()}
           style={[
             tw`w-10 h-10 rounded-full items-center justify-center`,
-            { backgroundColor: designTokens.colors.system.background.secondary },
+            { backgroundColor: colors.system.background.secondary },
           ]}
           accessibilityRole="button"
           accessibilityLabel="Go back"
@@ -460,14 +465,14 @@ export default function LecturersScreen() {
           <Ionicons
             name="arrow-back"
             size={22}
-            color={designTokens.colors.system.label.primary}
+            color={colors.system.label.primary}
           />
         </TouchableOpacity>
 
         <Text
           style={[
             tw`text-xl font-bold flex-1 text-center`,
-            { color: designTokens.colors.system.label.primary },
+            { color: colors.system.label.primary },
           ]}
           accessibilityRole="header"
         >
@@ -482,21 +487,21 @@ export default function LecturersScreen() {
         <View
           style={[
             tw`flex-row items-center px-4 py-3 rounded-xl`,
-            { backgroundColor: designTokens.colors.system.background.secondary },
+            { backgroundColor: colors.system.background.secondary },
           ]}
         >
           <Ionicons
             name="search"
             size={20}
-            color={designTokens.colors.system.label.tertiary}
+            color={colors.system.label.tertiary}
           />
           <TextInput
             style={[
               tw`flex-1 ml-2 text-base`,
-              { color: designTokens.colors.system.label.primary },
+              { color: colors.system.label.primary },
             ]}
             placeholder="Search scholars"
-            placeholderTextColor={designTokens.colors.system.label.tertiary}
+            placeholderTextColor={colors.system.label.tertiary}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoCapitalize="none"
@@ -510,7 +515,7 @@ export default function LecturersScreen() {
               <Ionicons
                 name="close-circle"
                 size={20}
-                color={designTokens.colors.system.label.tertiary}
+                color={colors.system.label.tertiary}
               />
             </TouchableOpacity>
           )}
@@ -525,15 +530,7 @@ export default function LecturersScreen() {
           contentContainerStyle={tw`px-5`}
         >
           {(() => {
-            const locations = Array.from(
-              new Set(
-                lecturers
-                  .map((l) => extractLocationFromName(l.name))
-                  .filter(Boolean) as string[]
-              )
-            ).sort((a, b) => a.localeCompare(b));
-
-            const options = ['All', ...locations];
+            const options = ['All', ...availableStates];
 
             return options.map((loc) => {
               const isSelected = selectedLocation === loc || (loc === 'All' && !selectedLocation);
@@ -546,8 +543,8 @@ export default function LecturersScreen() {
                   tw`px-4 py-2 rounded-full mr-2`,
                   {
                     backgroundColor: isSelected
-                      ? designTokens.colors.brand.primary
-                      : designTokens.colors.system.background.secondary,
+                      ? colors.brand.primary
+                      : colors.system.background.secondary,
                   },
                 ]}
               >
@@ -556,8 +553,8 @@ export default function LecturersScreen() {
                     tw`text-sm font-medium`,
                     {
                       color: isSelected
-                        ? designTokens.colors.fixed.white
-                        : designTokens.colors.system.label.primary,
+                        ? colors.fixed.white
+                        : colors.system.label.primary,
                     },
                   ]}
                 >
@@ -568,6 +565,18 @@ export default function LecturersScreen() {
             });
           })()}
         </ScrollView>
+        {statesLoading && (
+          <View style={tw`px-5 pt-2`}>
+            <Text
+              style={[
+                tw`text-xs`,
+                { color: colors.system.label.tertiary },
+              ]}
+            >
+              Loading states...
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Sort and Filter Controls */}
@@ -577,31 +586,21 @@ export default function LecturersScreen() {
             <Text
               style={[
                 tw`text-sm font-medium`,
-                { color: designTokens.colors.system.label.primary },
+                { color: colors.system.label.primary },
               ]}
             >
               {searchQuery || selectedLocation
                 ? `${filteredLecturers.length} found`
                 : `${lecturers.length} scholars`}
             </Text>
-            {!searchQuery && !selectedLocation && !allLecturersLoaded && totalScholars > lecturers.length && (
+            {!searchQuery && hasMore && totalScholars > lecturers.length && (
               <Text
                 style={[
                   tw`text-xs mt-0.5`,
-                  { color: designTokens.colors.system.label.tertiary },
+                  { color: colors.system.label.tertiary },
                 ]}
               >
                 Scroll for more
-              </Text>
-            )}
-            {allLecturersLoaded && (
-              <Text
-                style={[
-                  tw`text-xs mt-0.5`,
-                  { color: designTokens.colors.system.label.tertiary },
-                ]}
-              >
-                All scholars loaded
               </Text>
             )}
           </View>
@@ -616,18 +615,18 @@ export default function LecturersScreen() {
             }}
             style={[
               tw`flex-row items-center px-3 py-2 rounded-lg`,
-              { backgroundColor: designTokens.colors.system.background.secondary },
+              { backgroundColor: colors.system.background.secondary },
             ]}
           >
             <Ionicons
               name="swap-vertical"
               size={16}
-              color={designTokens.colors.system.label.primary}
+              color={colors.system.label.primary}
             />
             <Text
               style={[
                 tw`ml-2 text-sm font-medium`,
-                { color: designTokens.colors.system.label.primary },
+                { color: colors.system.label.primary },
               ]}
             >
               {sortBy === 'popular' ? 'Most Popular' : sortBy === 'name' ? 'A-Z' : 'Most Lectures'}
@@ -641,7 +640,7 @@ export default function LecturersScreen() {
           data={Array.from({ length: 10 })}
           keyExtractor={(_, index) => `skeleton-${index}`}
           renderItem={() => (
-            <View style={tw`w-1/2 px-2 mb-6`}>
+            <View style={tw`flex-1 px-2 mb-6`}>
               <LecturerCardSkeleton />
             </View>
           )}
@@ -651,28 +650,23 @@ export default function LecturersScreen() {
           showsVerticalScrollIndicator={false}
         />
       ) : (
-        <FlatList
+        <FlashList
           data={filteredLecturers}
           keyExtractor={(item) => String(item.id)}
           renderItem={renderLecturer}
           numColumns={2}
           contentContainerStyle={tw`px-3 pb-10`}
-          columnWrapperStyle={tw`justify-between`}
           ListEmptyComponent={renderEmptyState}
           ListFooterComponent={renderFooter}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.5}
           refreshControl={
             <RefreshControl
-              refreshing={refreshing}
+              refreshing={refreshing || searchLoading}
               onRefresh={handleRefresh}
-              tintColor={designTokens.colors.brand.primary}
+              tintColor={colors.brand.primary}
             />
           }
-          initialNumToRender={10}
-          maxToRenderPerBatch={5}
-          windowSize={11}
-          removeClippedSubviews={true}
           showsVerticalScrollIndicator={false}
           accessibilityLabel="List of scholars"
         />

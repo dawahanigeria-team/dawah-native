@@ -21,7 +21,6 @@ export interface Episode {
   durationSec: number;
   coverUrl: string;
   audioUrl: string;
-  videoUrl?: string;
   seriesId: string;
   plays: number;
   liked: boolean;
@@ -29,6 +28,20 @@ export interface Episode {
   downloads: number;
   createdAt: string; // ISO date string
   lecturerName?: string; // Optional lecturer name
+  rpname?: string;
+  reciterName?: string;
+  reciter_name?: string;
+  isReciter?: boolean;
+  is_reciter?: boolean;
+  reciter?: {
+    name?: string;
+    isReciter?: boolean;
+  };
+  raw?: {
+    rpname?: string;
+    reciter_name?: string;
+    is_reciter?: boolean;
+  };
 }
 
 export interface Category {
@@ -57,8 +70,10 @@ export interface PlayerState {
   isDownloaded: boolean;
   isDownloading: boolean;
   downloadProgress: number;
+  errorMessage: string | null;
   // Queue management
   queue: Episode[];
+  originalQueue: Episode[]; // Stores unshuffled order for restoration
   currentQueueIndex: number;
   isShuffled: boolean;
   repeatMode: 'off' | 'all' | 'one';

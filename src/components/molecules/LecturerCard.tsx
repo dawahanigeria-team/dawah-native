@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Image, StyleProp, ViewStyle } from 'react-native';
+import { Image } from 'expo-image';
+import { View, Text, TouchableOpacity, StyleProp, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import tw from '../../theme/twrnc';
-import { designTokens } from '../../theme/designTokens';
+import { useTheme } from '../../hooks/useTheme';
 import { getInitials, getPlaceholderColor } from '../../utils/colorPlaceholder';
+import { logger } from '@/utils/logger';
 
 export interface LecturerCardProps {
   id: string;
@@ -28,15 +30,16 @@ export const LecturerCard: React.FC<LecturerCardProps> = ({
   onPress,
   style,
 }) => {
+  const { colors } = useTheme();
   const initials = getInitials(name);
   const placeholderColor = getPlaceholderColor(id);
 
   const handlePress = () => {
-    console.log('LecturerCard pressed:', name, id);
+    logger.debug('LecturerCard pressed:', name, id);
     if (onPress) {
       onPress();
     } else {
-      console.log('No onPress handler provided');
+      logger.debug('No onPress handler provided');
     }
   };
 
@@ -66,8 +69,12 @@ export const LecturerCard: React.FC<LecturerCardProps> = ({
             source={{ uri: imageUrl }}
             style={[
               tw`w-20 h-20 rounded-full`,
-              { backgroundColor: designTokens.colors.system.fill.secondary }
+              { backgroundColor: colors.system.fill.secondary }
             ]}
+            contentFit="cover"
+            cachePolicy="disk"
+            allowDownscaling
+            recyclingKey={`lecturer-card-${id}`}
           />
         ) : (
           <View
@@ -76,7 +83,7 @@ export const LecturerCard: React.FC<LecturerCardProps> = ({
               { backgroundColor: placeholderColor }
             ]}
           >
-            <Text style={tw`text-white text-2xl font-bold`}>
+            <Text style={{ color: colors.fixed.white, fontSize: 24, fontWeight: 'bold' }}>
               {initials}
             </Text>
           </View>
@@ -87,7 +94,7 @@ export const LecturerCard: React.FC<LecturerCardProps> = ({
           <View
             style={[
               tw`absolute bottom-0 right-0 w-6 h-6 rounded-full items-center justify-center`,
-              { backgroundColor: designTokens.colors.brand.primary }
+              { backgroundColor: colors.brand.primary }
             ]}
           >
             <Ionicons name="checkmark" size={16} color="white" />
@@ -99,7 +106,7 @@ export const LecturerCard: React.FC<LecturerCardProps> = ({
       <Text
         style={[
           tw`text-xs font-medium text-center mb-1`,
-          { color: designTokens.colors.system.label.primary }
+          { color: colors.system.label.primary }
         ]}
         numberOfLines={2}
         pointerEvents="none"
@@ -112,14 +119,14 @@ export const LecturerCard: React.FC<LecturerCardProps> = ({
         <View
           style={[
             tw`px-2 py-0.5 rounded-full mb-1`,
-            { backgroundColor: designTokens.colors.system.fill.tertiary }
+            { backgroundColor: colors.system.fill.tertiary }
           ]}
           pointerEvents="none"
         >
           <Text
             style={[
               tw`text-xs`,
-              { color: designTokens.colors.system.label.secondary }
+              { color: colors.system.label.secondary }
             ]}
           >
             {language}
@@ -134,7 +141,7 @@ export const LecturerCard: React.FC<LecturerCardProps> = ({
             <Text
               style={[
                 tw`text-xs`,
-                { color: designTokens.colors.system.label.secondary }
+                { color: colors.system.label.secondary }
               ]}
             >
               {totalLectures} lectures
@@ -147,7 +154,7 @@ export const LecturerCard: React.FC<LecturerCardProps> = ({
               <Text
                 style={[
                   tw`mx-1 text-xs`,
-                  { color: designTokens.colors.system.label.tertiary }
+                  { color: colors.system.label.tertiary }
                 ]}
               >
                 •
@@ -156,7 +163,7 @@ export const LecturerCard: React.FC<LecturerCardProps> = ({
             <Text
               style={[
                 tw`text-xs`,
-                { color: designTokens.colors.system.label.secondary }
+                { color: colors.system.label.secondary }
               ]}
             >
               {formatNumber(followers)} views

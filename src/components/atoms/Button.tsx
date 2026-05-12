@@ -2,15 +2,22 @@ import * as Haptics from "expo-haptics";
 import React, { memo } from "react";
 import {
   ActivityIndicator,
-  TouchableOpacity,
-  TouchableOpacityProps,
+  Pressable,
+  PressableProps,
   ViewStyle,
 } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from "react-native-reanimated";
 import { BorderRadius, designTokens } from "../../theme/designTokens";
 import { useThemeColors } from "../../hooks/useTheme";
 import { Text } from "./Text";
 
-interface ButtonProps extends Omit<TouchableOpacityProps, "style"> {
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+interface ButtonProps extends Omit<PressableProps, "style"> {
   variant?: "filled" | "tinted" | "gray" | "plain" | "destructive";
   size?: "small" | "medium" | "large";
   borderRadius?: BorderRadius;
@@ -40,6 +47,21 @@ export const Button: React.FC<ButtonProps> = memo(
     ...props
   }) => {
     const colors = useThemeColors();
+
+    const scale = useSharedValue(1);
+    const animatedStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: scale.value }],
+    }));
+
+    const springConfig = { damping: 15, stiffness: 150 };
+
+    const handlePressIn = () => {
+      scale.value = withSpring(0.96, springConfig);
+    };
+
+    const handlePressOut = () => {
+      scale.value = withSpring(1, springConfig);
+    };
 
     const handlePress = (event: any) => {
       if (!disabled && !loading) {
@@ -180,14 +202,15 @@ export const Button: React.FC<ButtonProps> = memo(
       : colors.system.label.primary;
 
     return (
-      <TouchableOpacity
-        style={combinedStyle}
+      <AnimatedPressable
+        style={[combinedStyle, animatedStyle]}
         onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
         disabled={disabled || loading}
-        activeOpacity={0.8}
         accessibilityRole="button"
         accessibilityLabel={finalAccessibilityLabel}
-        accessibilityHint={accessibilityHint || "Tap to activate"}
+        accessibilityHint={accessibilityHint}
         accessibilityState={{ disabled: disabled || loading }}
         {...props}
       >
@@ -211,7 +234,7 @@ export const Button: React.FC<ButtonProps> = memo(
         )}
 
         {rightIcon && !loading && rightIcon}
-      </TouchableOpacity>
+      </AnimatedPressable>
     );
   }
 );

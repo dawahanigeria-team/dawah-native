@@ -3,7 +3,7 @@
  * Provides helpers for VoiceOver, Dynamic Type, and other iOS accessibility features
  */
 
-import { AccessibilityInfo, Platform } from 'react-native';
+import { AccessibilityInfo, EmitterSubscription, Platform } from 'react-native';
 
 export interface AccessibilityState {
   isVoiceOverEnabled: boolean;
@@ -21,6 +21,11 @@ class AccessibilityService {
   };
 
   private listeners: ((state: AccessibilityState) => void)[] = [];
+
+  // Subscriptions returned by AccessibilityInfo.addEventListener (modern API)
+  private screenReaderSubscription?: EmitterSubscription;
+  private reduceMotionSubscription?: EmitterSubscription;
+  private reduceTransparencySubscription?: EmitterSubscription;
 
   constructor() {
     this.initialize();
@@ -42,9 +47,19 @@ class AccessibilityService {
         this.state.isReduceTransparencyEnabled = reduceTransparencyEnabled;
 
         // Setup listeners for accessibility changes
-        AccessibilityInfo.addEventListener('screenReaderChanged', this.handleVoiceOverChange);
-        AccessibilityInfo.addEventListener('reduceMotionChanged', this.handleReduceMotionChange);
-        AccessibilityInfo.addEventListener?.('reduceTransparencyChanged', this.handleReduceTransparencyChange);
+        this.screenReaderSubscription = AccessibilityInfo.addEventListener(
+          'screenReaderChanged',
+          this.handleVoiceOverChange,
+        );
+        this.reduceMotionSubscription = AccessibilityInfo.addEventListener(
+          'reduceMotionChanged',
+          this.handleReduceMotionChange,
+        );
+        // Not all platforms support this event, so guard with optional chaining
+        this.reduceTransparencySubscription = AccessibilityInfo.addEventListener?.(
+          'reduceTransparencyChanged',
+          this.handleReduceTransparencyChange,
+        ) as EmitterSubscription | undefined;
 
       } catch (error) {
         console.warn('AccessibilityService initialization error:', error);
@@ -98,9 +113,11 @@ class AccessibilityService {
   }
 
   public destroy() {
-    AccessibilityInfo.removeEventListener('screenReaderChanged', this.handleVoiceOverChange);
-    AccessibilityInfo.removeEventListener('reduceMotionChanged', this.handleReduceMotionChange);
-    AccessibilityInfo.removeEventListener?.('reduceTransparencyChanged', this.handleReduceTransparencyChange);
+    // Clean up AccessibilityInfo subscriptions using the modern API
+    this.screenReaderSubscription?.remove();
+    this.reduceMotionSubscription?.remove();
+    this.reduceTransparencySubscription?.remove();
+
     this.listeners = [];
   }
 }
@@ -167,7 +184,7 @@ export const isColorContrastSufficient = (
   return level === 'AA' ? contrastRatio >= 4.5 : contrastRatio >= 7;
 };
 
-const calculateContrastRatio = (color1: string, color2: string): number => {
+const calculateContrastRatio = (_color1: string, _color2: string): number => {
   // Simplified implementation - replace with proper color library in production
   return 4.5; // Placeholder
 };

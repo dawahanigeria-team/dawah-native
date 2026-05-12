@@ -4,9 +4,15 @@ import {
   type User,
   type LoginCredentials,
   type RegisterCredentials,
+  type SocialLoginCredentials,
+  type UpdateProfileData,
 } from '../services/api/auth.api';
 import { userService } from '../services/user.service';
-import { apiClient } from '../services/api/base.api'; // Import apiClient
+import { cacheService } from '../services/cache/cache.service';
+import { historyService } from '../services/history.service';
+import { apiClient } from '../services/api/base.api';
+import { clearFavorites } from './favoritesStore';
+import { hydratePremiumFromUser, refreshPremiumFeatures, resetPremiumState } from './premiumStore';
 
 export interface AuthState {
   user: User | null;
@@ -40,8 +46,17 @@ export const initializeAuth = async () => {
         isInitialized: true,
       }));
     });
+    apiClient.setOnRefreshFailure(async () => {
+      await authApi.logout();
+      await apiClient.setAuthToken(null);
+      resetPremiumState();
+      authStore.set({ ...initialState, isLoading: false, isInitialized: true });
+    });
     authListenerRegistered = true;
   }
+
+  // Migrate tokens from AsyncStorage to SecureStore on first launch after upgrade
+  await authApi.migrateTokensToSecureStore();
 
   const [storedUser, accessToken] = await Promise.all([
     authApi.getStoredUser(),
@@ -58,6 +73,12 @@ export const initializeAuth = async () => {
     await apiClient.setAuthToken(null);
   }
 
+  if (accessToken && storedUser) {
+    hydratePremiumFromUser(storedUser);
+  } else {
+    resetPremiumState();
+  }
+
   authStore.set((prev) => ({
     ...prev,
     user: accessToken ? storedUser : null,
@@ -65,6 +86,24 @@ export const initializeAuth = async () => {
     isLoading: false,
     isInitialized: true,
   }));
+
+  if (accessToken) {
+    refreshPremiumFeatures().catch(() => {});
+  }
+};
+
+const clearLocalSessionData = async (): Promise<void> => {
+  apiClient.cancelAllRequests();
+
+  await Promise.allSettled([
+    authApi.logout(),
+    apiClient.setAuthToken(null),
+    clearFavorites(),
+    cacheService.clearAll(),
+    apiClient.clearCache(),
+    historyService.clearHistory(),
+    userService.clearUserId(),
+  ]);
 };
 
 export const useAuthStore = () => {
@@ -90,6 +129,7 @@ export const useAuthStore = () => {
 
       // Set auth token in apiClient and update store
       await apiClient.setAuthToken(user.token ?? null);
+      hydratePremiumFromUser(user);
 
       authStore.set({
         user,
@@ -112,6 +152,39 @@ export const useAuthStore = () => {
   };
 
   /**
+   * Sign in with a social provider (Apple, Google)
+   */
+  const socialLogin = async (credentials: SocialLoginCredentials) => {
+    try {
+      authStore.set((prev) => ({ ...prev, isLoading: true, error: null }));
+
+      const user = await authApi.socialLogin(credentials);
+
+      await userService.setUserId(user.id);
+      await apiClient.setAuthToken(user.token ?? null);
+      hydratePremiumFromUser(user);
+
+      authStore.set({
+        user,
+        isAuthenticated: true,
+        isLoading: false,
+        error: null,
+        isInitialized: true,
+      });
+
+      return user;
+    } catch (error: any) {
+      const errorMessage = error.message || 'Failed to sign in with social provider';
+      authStore.set((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: errorMessage,
+      }));
+      throw error;
+    }
+  };
+
+  /**
    * Register a new user
    */
   const register = async (credentials: RegisterCredentials) => {
@@ -122,6 +195,7 @@ export const useAuthStore = () => {
 
       // Set auth token in apiClient and update store
       await apiClient.setAuthToken(user.token ?? null);
+      hydratePremiumFromUser(user);
 
       authStore.set({
         user,
@@ -154,6 +228,7 @@ export const useAuthStore = () => {
 
       // Clear auth token in apiClient and update store
       await apiClient.setAuthToken(null);
+      resetPremiumState();
 
       authStore.set({
         ...initialState,
@@ -172,10 +247,76 @@ export const useAuthStore = () => {
   };
 
   /**
+   * Permanently delete the current user account
+   */
+  const deleteAccount = async () => {
+    try {
+      authStore.set((prev) => ({ ...prev, isLoading: true, error: null }));
+
+      const currentUser = (authStore.get() || initialState).user;
+      if (!currentUser?.id) {
+        throw new Error('You must be signed in to delete your account');
+      }
+
+      await authApi.deleteAccount(currentUser.id);
+      await clearLocalSessionData();
+      resetPremiumState();
+
+      authStore.set({
+        ...initialState,
+        isLoading: false,
+        isInitialized: true,
+      });
+    } catch (error: any) {
+      const errorMessage = error.message || 'Failed to delete account';
+      authStore.set((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: errorMessage,
+      }));
+      throw error;
+    }
+  };
+
+  /**
    * Clear any error messages
    */
   const clearError = () => {
     authStore.set((prev) => ({ ...prev, error: null }));
+  };
+
+  /**
+   * Update the authenticated user's profile
+   */
+  const updateProfile = async (data: UpdateProfileData) => {
+    try {
+      authStore.set((prev) => ({ ...prev, isLoading: true, error: null }));
+
+      const user = await authApi.updateProfile(data);
+
+      // Update token in apiClient if new tokens were issued
+      if (user.token) {
+        await apiClient.setAuthToken(user.token);
+      }
+      hydratePremiumFromUser(user);
+
+      authStore.set((prev) => ({
+        ...prev,
+        user,
+        isLoading: false,
+        error: null,
+      }));
+
+      return user;
+    } catch (error: any) {
+      const errorMessage = error.message || 'Failed to update profile';
+      authStore.set((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: errorMessage,
+      }));
+      throw error;
+    }
   };
 
   return {
@@ -188,9 +329,12 @@ export const useAuthStore = () => {
 
     // Actions
     login,
+    socialLogin,
     register,
-      logout,
-      clearError,
-      initializeAuth,
+    logout,
+    deleteAccount,
+    clearError,
+    updateProfile,
+    initializeAuth,
   };
 };

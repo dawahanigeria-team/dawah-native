@@ -6,6 +6,29 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { trendingApi, TrendingLecturesParams } from '../services/api/trending.api';
 import { SearchLecture } from '../types/api.types';
 import { Episode } from '../types/types';
+import { ApiError } from '../services/api/base.api';
+import { logger } from '@/utils/logger';
+
+const PLACEHOLDER_SPEAKER_NAMES = new Set([
+  'dawahnigeria',
+  'unknown',
+  'unknown lecturer',
+  'unknown scholar',
+  'n/a',
+]);
+const DAWAH_NIGERIA_PATTERN = /\bdawah\s*nigeria\b/i;
+
+const pickSpeakerName = (candidates: Array<string | undefined | null>): string | undefined => {
+  for (const value of candidates) {
+    if (typeof value !== 'string') continue;
+    const trimmed = value.trim();
+    if (!trimmed) continue;
+    if (PLACEHOLDER_SPEAKER_NAMES.has(trimmed.toLowerCase())) continue;
+    if (DAWAH_NIGERIA_PATTERN.test(trimmed)) continue;
+    return trimmed;
+  }
+  return undefined;
+};
 
 export interface UseTrendingResult {
   lectures: Episode[];
@@ -27,7 +50,18 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
   const [hasMore, setHasMore] = useState(true);
   const isLoadingRef = useRef(false);
 
-  const fetchTrending = async (page: number = 1, append: boolean = false) => {
+  // Store initialParams in a ref to avoid re-creating fetchTrending on every render
+  const paramsRef = useRef(initialParams);
+
+  // Serialize params for stable comparison
+  const paramsKey = JSON.stringify(initialParams);
+
+  // Update ref when params actually change (deep comparison via serialization)
+  useEffect(() => {
+    paramsRef.current = initialParams;
+  }, [paramsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fetchTrending = useCallback(async (page: number = 1, append: boolean = false) => {
     if (isLoadingRef.current) return;
 
     try {
@@ -39,11 +73,11 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
       }
       setError(null);
 
-      const params = { ...initialParams, page, limit: initialParams.limit || 20 };
-      console.log('🔥 Fetching trending lectures with params:', params);
+      const params = { ...paramsRef.current, page, limit: paramsRef.current.limit || 20 };
+      logger.debug('Fetching trending lectures with params:', params);
       const response = await trendingApi.getTrendingLectures(params);
 
-      console.log('✅ Trending lectures fetched successfully:', {
+      logger.debug('Trending lectures fetched successfully:', {
         count: response.data.length,
         page: response.page,
         total: response.total
@@ -63,20 +97,38 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
           }
           return hasRequiredFields;
         })
-        .map((lecture: SearchLecture) => ({
-          id: lecture.nid!.toString(),
-          title: lecture.Title!,
-          durationSec: parseDuration(lecture.duration || lecture.mp3_duration || '0:00:00'),
-          coverUrl: lecture.img || lecture.CoverUrl || '',
-          audioUrl: lecture.audio || lecture.mp3_url || lecture.AudioUrl || '',
-          seriesId: lecture.keyword || '',
-          plays: parseInt(lecture.favorites?.toString() || '0') || 0,
-          liked: false,
-          language: lecture.lang || lecture.language || lecture.Language || '',
-          downloads: parseInt(lecture.share?.toString() || '0') || 0,
-          createdAt: lecture.created_at || '',
-          lecturerName: lecture.rpname || lecture.lecturer_name || lecture.ResourcePerson || (lecture as any).reciter_name || '',
-        }));
+        .map((lecture: SearchLecture) => {
+          const reciterName =
+            (lecture as SearchLecture & { reciter_name?: string; reciterName?: string }).reciter_name
+            || (lecture as SearchLecture & { reciter_name?: string; reciterName?: string }).reciterName
+            || (lecture as any).reciter_name
+            || undefined;
+
+          return {
+            id: lecture.nid!.toString(),
+            title: lecture.Title!,
+            durationSec: parseDuration(lecture.duration || lecture.mp3_duration || '0:00:00'),
+            coverUrl: lecture.img || lecture.CoverUrl || '',
+            audioUrl: lecture.audio || lecture.mp3_url || lecture.AudioUrl || '',
+            seriesId: lecture.keyword || '',
+            plays: parseInt(lecture.favorites?.toString() || '0') || 0,
+            liked: false,
+            language: lecture.lang || lecture.language || lecture.Language || '',
+            downloads: parseInt(lecture.share?.toString() || '0') || 0,
+            createdAt: lecture.created_at || '',
+            lecturerName:
+              pickSpeakerName([
+                lecture.lecturer_name,
+                lecture.rpname,
+                reciterName,
+                lecture.ResourcePerson,
+                (lecture as any).LecturerName,
+              ]) || '',
+            rpname: lecture.rpname,
+            reciter_name: reciterName,
+            isReciter: Boolean((lecture as SearchLecture & { is_reciter?: boolean }).is_reciter),
+          };
+        });
 
       // Append or replace lectures based on pagination
       if (append) {
@@ -90,11 +142,11 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
             console.warn('⚠️ All items were duplicates - this should not happen with client-side pagination');
           }
 
-          console.log(`📊 Loading more: Got ${transformedLectures.length} items, ${newLectures.length} are new, total now: ${prev.length + newLectures.length}`);
+          logger.debug(`Loading more: Got ${transformedLectures.length} items, ${newLectures.length} are new, total now: ${prev.length + newLectures.length}`);
           return [...prev, ...newLectures];
         });
       } else {
-        console.log(`📊 Initial load: Got ${transformedLectures.length} items`);
+        logger.debug(`Initial load: Got ${transformedLectures.length} items`);
         setLectures(transformedLectures);
       }
 
@@ -103,11 +155,14 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
       const totalPages = response.total_pages;
       const hasMorePages = page < totalPages;
 
-      console.log(`📊 Pagination status: Page ${page}/${totalPages}, Total items: ${totalItems}, Has more: ${hasMorePages}`);
+      logger.debug(`Pagination status: Page ${page}/${totalPages}, Total items: ${totalItems}, Has more: ${hasMorePages}`);
 
       setHasMore(hasMorePages);
       setCurrentPage(page);
     } catch (err: any) {
+      if (err instanceof ApiError && err.isCancelled) {
+        return;
+      }
       console.error('❌ Error fetching trending lectures:', err);
       setError(err.message || 'Failed to fetch trending lectures');
     } finally {
@@ -115,13 +170,13 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
       setIsLoadingMore(false);
       isLoadingRef.current = false;
     }
-  };
+  }, []); // Empty deps - uses refs for params
 
   // Load more function for infinite scroll
   const loadMore = useCallback(async () => {
-    if (!hasMore || isLoadingMore || loading) return;
+    if (!hasMore || isLoadingMore || loading || isLoadingRef.current) return;
     await fetchTrending(currentPage + 1, true);
-  }, [hasMore, isLoadingMore, loading, currentPage]);
+  }, [hasMore, isLoadingMore, loading, currentPage, fetchTrending]);
 
   // Helper function to parse duration string to seconds
   function parseDuration(duration: string): number {
@@ -139,11 +194,12 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
     return 0;
   }
 
+  // Fetch initial data on mount and when params change (using serialized key for stable comparison)
   useEffect(() => {
-    console.log('🎯 useTrending mount - initialParams:', initialParams, 'keys:', initialParams ? Object.keys(initialParams) : 'undefined');
+    logger.debug('useTrending mount/update - initialParams:', initialParams);
 
     if (!initialParams) {
-      console.log('⚠️ useTrending: initialParams is undefined/null, skipping fetch');
+      logger.debug('useTrending: initialParams is undefined/null, skipping fetch');
       setLoading(false);
       setHasMore(false);
       return;
@@ -151,22 +207,21 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
 
     const paramKeys = Object.keys(initialParams);
     if (paramKeys.length === 0) {
-      console.log('⚠️ useTrending: initialParams is empty object, skipping fetch');
+      logger.debug('useTrending: initialParams is empty object, skipping fetch');
       setLoading(false);
       setHasMore(false);
       return;
     }
 
-    console.log('✅ useTrending: Fetching initial data with params:', initialParams);
+    logger.debug('useTrending: Fetching data with params:', initialParams);
     fetchTrending(1, false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only fetch on mount
+  }, [paramsKey, fetchTrending]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Refetch function with cache clearing
   const refetch = useCallback(async () => {
     trendingApi.clearCache(); // Clear cache to force fresh data
     await fetchTrending(1, false);
-  }, []);
+  }, [fetchTrending]);
 
   return {
     lectures,

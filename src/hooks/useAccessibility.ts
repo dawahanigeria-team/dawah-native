@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { AccessibilityInfo, Platform } from "react-native";
+import { AccessibilityChangeEventName, AccessibilityInfo, Platform } from "react-native";
 
 export const useAccessibility = () => {
   const announceForAccessibility = useCallback((message: string) => {
@@ -19,15 +19,8 @@ export const useAccessibility = () => {
   }, []);
 
   const addEventListener = useCallback(
-    (event: string, handler: (enabled: boolean) => void) => {
+    (event: AccessibilityChangeEventName, handler: (enabled: boolean) => void) => {
       return AccessibilityInfo.addEventListener(event, handler);
-    },
-    []
-  );
-
-  const removeEventListener = useCallback(
-    (event: string, handler: (enabled: boolean) => void) => {
-      return AccessibilityInfo.removeEventListener(event, handler);
     },
     []
   );
@@ -37,6 +30,5 @@ export const useAccessibility = () => {
     setAccessibilityFocus,
     isScreenReaderEnabled,
     addEventListener,
-    removeEventListener,
   };
 };

@@ -49,22 +49,3 @@ export async function loginWithRequest(request: LoginRequest) {
   return await performLogin(credentials);
 }
 
-// Example usage with your specific credentials:
-export const exampleLoginRequest: LoginRequest = {
-  action: 'login_user',
-  email_or_username: '{{loginIdentifier}}', // Replace with actual email/username
-  password: 'Islam123.'
-};
-
-/**
- * Quick login function for testing
- */
-export async function quickLogin() {
-  const request: LoginRequest = {
-    action: 'login_user',
-    email_or_username: '{{loginIdentifier}}', // Replace with actual email/username
-    password: 'Islam123.'
-  };
-  
-  return await loginWithRequest(request);
-}

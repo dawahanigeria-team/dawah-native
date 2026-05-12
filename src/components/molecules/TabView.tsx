@@ -9,10 +9,14 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
-  Animated,
   StyleProp,
   ViewStyle,
 } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import tw from '../../theme/twrnc';
 import { designTokens } from '../../theme/designTokens';
 
@@ -37,29 +41,22 @@ export const TabView: React.FC<TabViewProps> = ({
 }) => {
   const scrollViewRef = useRef<ScrollView>(null);
   const [tabLayouts, setTabLayouts] = useState<{ [key: string]: { x: number; width: number } }>({});
-  const indicatorPosition = useRef(new Animated.Value(0)).current;
-  const indicatorWidth = useRef(new Animated.Value(0)).current;
+  const indicatorPosition = useSharedValue(0);
+  const indicatorWidth = useSharedValue(0);
 
   // Update indicator position when active tab changes
   useEffect(() => {
     const layout = tabLayouts[activeTab];
     if (layout) {
-      Animated.parallel([
-        Animated.spring(indicatorPosition, {
-          toValue: layout.x,
-          useNativeDriver: false,
-          damping: 20,
-          stiffness: 200,
-        }),
-        Animated.spring(indicatorWidth, {
-          toValue: layout.width,
-          useNativeDriver: false,
-          damping: 20,
-          stiffness: 200,
-        }),
-      ]).start();
+      indicatorPosition.value = withTiming(layout.x, { duration: 180 });
+      indicatorWidth.value = withTiming(layout.width, { duration: 180 });
     }
-  }, [activeTab, tabLayouts]);
+  }, [activeTab, tabLayouts, indicatorPosition, indicatorWidth]);
+
+  const indicatorAnimatedStyle = useAnimatedStyle(() => ({
+    left: indicatorPosition.value,
+    width: indicatorWidth.value,
+  }));
 
   const handleTabPress = (tab: Tab) => {
     onTabChange(tab.key);
@@ -131,10 +128,9 @@ export const TabView: React.FC<TabViewProps> = ({
           <Animated.View
             style={[
               tw`absolute bottom-0 h-0.5`,
+              indicatorAnimatedStyle,
               {
                 backgroundColor: designTokens.colors.brand.primary,
-                left: indicatorPosition,
-                width: indicatorWidth,
               },
             ]}
           />

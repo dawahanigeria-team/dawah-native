@@ -5,6 +5,7 @@
 
 import AsyncStorage from 'expo-sqlite/kv-store';
 import type { Episode } from '../types/types';
+import { logger } from '@/utils/logger';
 
 export interface HistoryItem {
   lectureId: string;
@@ -59,7 +60,7 @@ class HistoryService {
         JSON.stringify(trimmedHistory)
       );
 
-      console.log(`📚 Added to history: ${episode.title}`);
+      logger.debug(`Added to history: ${episode.title}`);
     } catch (error) {
       console.error('Failed to add to history:', error);
     }
@@ -143,7 +144,7 @@ class HistoryService {
 
       await AsyncStorage.setItem(this.HISTORY_KEY, JSON.stringify(filteredHistory));
 
-      console.log(`🗑️ Removed from history: ${lectureId}`);
+      logger.debug(`Removed from history: ${lectureId}`);
     } catch (error) {
       console.error('Failed to remove from history:', error);
     }
@@ -155,7 +156,7 @@ class HistoryService {
   async clearHistory(): Promise<void> {
     try {
       await AsyncStorage.removeItem(this.HISTORY_KEY);
-      console.log('🗑️ History cleared');
+      logger.debug('History cleared');
     } catch (error) {
       console.error('Failed to clear history:', error);
     }

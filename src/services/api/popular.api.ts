@@ -6,6 +6,7 @@
 import { API_CONFIG } from '../config/api.config';
 import { apiClient, ApiError } from './base.api';
 import { SearchLecture } from '../../types/api.types';
+import { logger } from '@/utils/logger';
 
 export interface PopularLecturesParams {
   page?: number;
@@ -45,7 +46,7 @@ class PopularLecturesApiService {
       }
 
       // Log the API call
-      console.log('🔥 Popular Lectures API Call:', {
+      logger.debug('Popular Lectures API Call:', {
         endpoint: '/api/popular_lec_api.php',
         params: requestParams,
         fullUrl: `${API_CONFIG.BASE_URL}/api/popular_lec_api.php?${new URLSearchParams(requestParams).toString()}`
@@ -63,7 +64,7 @@ class PopularLecturesApiService {
       );
 
       // Log response summary (without sensitive data)
-      console.log('📥 Popular Lectures Response:', {
+      logger.debug('Popular Lectures Response:', {
         status: 'success',
         dataReceived: response.data ? 'Yes' : 'No',
         dataLength: Array.isArray(response.data) ? response.data.length :
@@ -110,7 +111,7 @@ class PopularLecturesApiService {
       return lecture.keyword !== 'dn_quran';
     });
 
-    console.log(`📊 Filtered popular lectures: ${lectures.length} total, ${filteredLectures.length} after removing Quran recitations`);
+    logger.debug(`Filtered popular lectures: ${lectures.length} total, ${filteredLectures.length} after removing Quran recitations`);
 
     return {
       success: true,

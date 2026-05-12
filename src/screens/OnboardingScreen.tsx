@@ -1,9 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import Animated, { FadeIn } from "react-native-reanimated";
 import React, { useRef, useState } from "react";
 import {
-  Animated,
   Dimensions,
   Pressable,
   ScrollView,
@@ -96,17 +96,6 @@ const OnboardingSlideComponent = ({
 }: {
   item: OnboardingSlide;
 }) => {
-  const scaleAnim = useRef(new Animated.Value(0)).current;
-
-  React.useEffect(() => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      tension: 50,
-      friction: 7,
-      useNativeDriver: true,
-    }).start();
-  }, [scaleAnim]);
-
   return (
     <View
       style={[
@@ -115,9 +104,7 @@ const OnboardingSlideComponent = ({
       ]}
     >
       <Animated.View
-        style={{
-          transform: [{ scale: scaleAnim }],
-        }}
+        entering={FadeIn.duration(350)}
       >
         <LinearGradient
           colors={item.gradient}

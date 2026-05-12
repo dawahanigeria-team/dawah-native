@@ -1,8 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Text } from "../src/components/atoms";
+import { ErrorBoundary } from "../src/components/atoms/ErrorBoundary";
 import { Dropdown } from "../src/components/atoms/Dropdown";
 import { Card } from "../src/components/molecules/Card";
 import { CardSkeleton } from "../src/components/molecules/Card.skeleton";
@@ -11,7 +19,7 @@ import { SearchBar } from "../src/components/molecules/SearchBar";
 import { surahs } from "../src/data/surahs";
 import { useLecturers } from "../src/hooks/useLecturers";
 import { useSearchLectures } from "../src/hooks/useSearch";
-import { designTokens } from "../src/theme/designTokens";
+import { useTheme } from "../src/hooks/useTheme";
 import tw from "../src/theme/twrnc";
 import { SearchLecture } from "../src/types/api.types";
 import {
@@ -48,11 +56,19 @@ const sortOptions = [
   { label: "Z-A", value: "z-a" as SortOption },
 ];
 
+export default function SearchScreenWithBoundary() {
+  return (
+    <ErrorBoundary>
+      <SearchScreen />
+    </ErrorBoundary>
+  );
+}
 
-export default function SearchScreen() {
+function SearchScreen() {
+  const { colors } = useTheme();
   const searchParams = useLocalSearchParams();
   const initialQuery = (searchParams.q as string) || "";
-  
+
   // Fetch lecturers for filter
   const { lecturerCards } = useLecturers(50);
 
@@ -93,13 +109,13 @@ export default function SearchScreen() {
       setQuery(actualSearchQuery);
     }
   }, [actualSearchQuery, setQuery]);
-  
+
   // Sync filters with search hook
   useEffect(() => {
     // Map UI filters to what the hook expects
     setSearchFilters({
       ...filters,
-      lecturerId: filters.lecturerId === 'All' ? undefined : filters.lecturerId
+      lecturerId: filters.lecturerId === "All" ? undefined : filters.lecturerId,
     });
   }, [filters, setSearchFilters]);
 
@@ -138,7 +154,7 @@ export default function SearchScreen() {
   const convertToEpisode = (lecture: SearchLecture): Episode => {
     const parseDuration = (duration: string | undefined): number => {
       if (!duration) return 0;
-      const parts = duration.split(':').map(Number);
+      const parts = duration.split(":").map(Number);
       if (parts.length === 3) {
         return parts[0] * 3600 + parts[1] * 60 + parts[2];
       } else if (parts.length === 2) {
@@ -151,14 +167,26 @@ export default function SearchScreen() {
     const id = String(lecture.id || lecture.nid || `lecture-${Date.now()}`);
     const title = lecture.mp3_title || lecture.Title || "Untitled Lecture";
     const duration = lecture.mp3_duration || lecture.Duration;
-    const audioUrl = lecture.mp3_url || lecture.AudioUrl || '';
-    const coverUrl = lecture.lecturer_image || lecture.CoverUrl || '';
+    const audioUrl = lecture.mp3_url || lecture.AudioUrl || "";
+    const coverUrl =
+      lecture.img ||
+      lecture.lec_img ||
+      lecture.rp_image ||
+      lecture.lecturer_image ||
+      lecture.CoverUrl ||
+      "";
     const plays = parseInt(lecture.views || lecture.Plays || "0") || 0;
     const language = lecture.language || lecture.Language || "Unknown";
-    const downloads = parseInt(lecture.downloads || lecture.Downloads || "0") || 0;
-    const createdAt = lecture.created_at || lecture.CreatedAt || new Date().toISOString();
+    const downloads =
+      parseInt(lecture.downloads || lecture.Downloads || "0") || 0;
+    const createdAt =
+      lecture.created_at || lecture.CreatedAt || new Date().toISOString();
     // Map lecturer name from various possible fields
-    const lecturerName = lecture.lecturer_name || lecture.rpname || lecture.ResourcePerson || undefined;
+    const lecturerName =
+      lecture.lecturer_name ||
+      lecture.rpname ||
+      lecture.ResourcePerson ||
+      undefined;
 
     return {
       id,
@@ -166,7 +194,7 @@ export default function SearchScreen() {
       durationSec: parseDuration(duration),
       coverUrl,
       audioUrl,
-      seriesId: '',
+      seriesId: "",
       plays,
       liked: false,
       language,
@@ -193,7 +221,8 @@ export default function SearchScreen() {
   };
 
   const renderSearchResult = (item: SearchLecture) => {
-    const resourcePerson = item.lecturer_name || item.ResourcePerson || "Unknown Scholar";
+    const resourcePerson =
+      item.lecturer_name || item.ResourcePerson || "Unknown Scholar";
     const metaValue = resourcePerson;
     const data = convertToEpisode(item);
 
@@ -215,15 +244,24 @@ export default function SearchScreen() {
 
   const renderEmptyState = () => (
     <View style={tw`flex-1 items-center justify-center py-20 px-6`}>
-      <Ionicons
-        name="search"
-        size={56}
-        color={designTokens.colors.palette.gray500}
-        style={tw`mb-6`}
-        accessibilityLabel="Search icon"
-      />
+      <View
+        style={[
+          tw`w-20 h-20 rounded-full items-center justify-center mb-6`,
+          { backgroundColor: colors.system.fill.tertiary },
+        ]}
+      >
+        <Ionicons
+          name="search"
+          size={40}
+          color={colors.system.label.tertiary}
+          accessibilityLabel="Search icon"
+        />
+      </View>
       <Text
-        style={tw`text-white text-xl font-semibold mb-3 text-center`}
+        variant="title2"
+        color="label"
+        weight="semibold"
+        style={tw`mb-3 text-center`}
         accessibilityRole="header"
       >
         {error
@@ -233,10 +271,9 @@ export default function SearchScreen() {
             : "Discover Islamic content"}
       </Text>
       <Text
-        style={[
-          tw`text-center text-base leading-6 max-w-sm`,
-          { color: designTokens.colors.palette.gray400 },
-        ]}
+        variant="body"
+        color="secondaryLabel"
+        style={tw`text-center leading-6 max-w-sm`}
         accessibilityLabel={
           error
             ? error.message
@@ -279,10 +316,7 @@ export default function SearchScreen() {
 
   return (
     <SafeAreaView
-      style={[
-        tw`flex-1`,
-        { backgroundColor: designTokens.colors.palette.slate950 },
-      ]}
+      style={[tw`flex-1`, { backgroundColor: colors.system.background.primary }]}
     >
       {/* Header */}
       <View style={tw`flex-row items-center justify-between px-5 py-4`}>
@@ -295,11 +329,15 @@ export default function SearchScreen() {
             accessibilityRole="button"
             activeOpacity={0.7}
           >
-            <Ionicons name="arrow-back" size={24} color={designTokens.colors.fixed.white} />
+            <Ionicons
+              name="arrow-back"
+              size={24}
+              color={colors.system.label.primary}
+            />
           </TouchableOpacity>
 
           {/* Page Title */}
-          <Text style={tw`text-white text-2xl font-bold tracking-tight`}>
+          <Text variant="title1" color="label" weight="bold">
             Search
           </Text>
         </View>
@@ -308,26 +346,36 @@ export default function SearchScreen() {
         <TouchableOpacity
           style={[
             tw`flex-row items-center px-4 py-2.5 rounded-full min-h-[44px]`,
-            { backgroundColor: designTokens.colors.palette.slate800 },
+            { backgroundColor: colors.system.background.secondary },
           ]}
           onPress={toggleFilters}
           accessibilityLabel="Toggle filters"
           accessibilityRole="button"
         >
-          <Ionicons name="options" size={18} color={designTokens.colors.fixed.white} />
-          <Text style={tw`text-white text-sm ml-2 font-medium`}>Filter</Text>
+          <Ionicons
+            name="options"
+            size={18}
+            color={colors.system.label.primary}
+          />
+          <Text
+            variant="subheadline"
+            color="label"
+            weight="medium"
+            style={tw`ml-2`}
+          >
+            Filter
+          </Text>
           {getActiveFilterCount() > 0 && (
             <View
               style={[
                 tw`w-5 h-5 rounded-full items-center justify-center ml-2`,
-                { backgroundColor: designTokens.colors.palette.lime400 },
+                { backgroundColor: colors.brand.primary },
               ]}
             >
               <Text
-                style={[
-                  tw`text-xs font-bold`,
-                  { color: designTokens.colors.fixed.black },
-                ]}
+                variant="caption2"
+                weight="bold"
+                style={{ color: colors.fixed.black }}
               >
                 {getActiveFilterCount()}
               </Text>
@@ -343,18 +391,20 @@ export default function SearchScreen() {
           value={searchInput}
           onChangeText={setSearchInput}
           onSearch={handleSearch}
-          onMicPress={() => console.log("Voice search")}
+          onMicPress={() => {}}
         />
       </View>
 
       {/* Sort Dropdown */}
       <View style={tw`px-5 mb-5`}>
         <View style={tw`flex-row items-center justify-between`}>
-          <Text style={tw`text-white text-lg font-semibold`}>
+          <Text variant="headline" color="label" weight="semibold">
             {loading ? "Searching..." : `${filteredAndSortedResults.length} Results`}
           </Text>
           <View style={tw`flex-row items-center`}>
-            <Text style={tw`text-white text-sm font-medium mr-3`}>Sort by</Text>
+            <Text variant="subheadline" color="label" weight="medium" style={tw`mr-3`}>
+              Sort by
+            </Text>
             <View style={tw`min-w-32`}>
               <Dropdown
                 options={sortOptions}
@@ -378,40 +428,35 @@ export default function SearchScreen() {
             : filteredAndSortedResults
         }
         keyExtractor={(item, index) => getItemKey(item, index)}
-        renderItem={({ item, index }) => (
-          <View style={tw`px-5`}>
-            {renderSearchResult(item)}
-          </View>
+        renderItem={({ item }) => (
+          <View style={tw`px-5`}>{renderSearchResult(item)}</View>
         )}
         ListHeaderComponent={
           showFilters ? (
             <View
               style={[
-                tw`pt-6 pb-4 mb-6 mx-1 rounded-t-xl`,
+                tw`pt-6 pb-4 mb-6 mx-1 rounded-xl`,
                 {
-                  backgroundColor: designTokens.colors.palette.slate900,
-                  borderTopWidth: StyleSheet.hairlineWidth,
-                  borderTopColor: designTokens.colors.overlay.lightSubtle,
+                  backgroundColor: colors.system.background.secondary,
+                  borderWidth: StyleSheet.hairlineWidth,
+                  borderColor: colors.system.separator.primary,
                 },
               ]}
             >
               {/* Filter Header */}
               <View style={tw`flex-row items-center justify-between px-5 mb-6`}>
-                <Text style={tw`text-white text-xl font-bold`}>Filters</Text>
+                <Text variant="title2" color="label" weight="bold">
+                  Filters
+                </Text>
                 {hasActiveFilters() && (
                   <TouchableOpacity
                     onPress={clearFilters}
                     style={[
                       tw`px-3 py-1 rounded-lg min-h-[44px] justify-center`,
-                      { backgroundColor: designTokens.colors.palette.slate800 },
+                      { backgroundColor: colors.system.fill.tertiary },
                     ]}
                   >
-                    <Text
-                      style={[
-                        tw`text-sm font-semibold`,
-                        { color: designTokens.colors.palette.lime400 },
-                      ]}
-                    >
+                    <Text variant="subheadline" color="brand" weight="semibold">
                       Clear All
                     </Text>
                   </TouchableOpacity>
@@ -437,14 +482,15 @@ export default function SearchScreen() {
               {/* Scholar Filter */}
               <FilterSection
                 title="Scholar"
-                options={["All", ...lecturerCards.map(l => l.name)]}
+                options={["All", ...lecturerCards.map((l) => l.name)]}
                 selectedValue={
-                  filters.lecturerId 
-                    ? lecturerCards.find(l => l.id === filters.lecturerId)?.name || "All" 
+                  filters.lecturerId
+                    ? lecturerCards.find((l) => l.id === filters.lecturerId)
+                        ?.name || "All"
                     : "All"
                 }
                 onSelect={(name) => {
-                  const lecturer = lecturerCards.find(l => l.name === name);
+                  const lecturer = lecturerCards.find((l) => l.name === name);
                   updateFilter("lecturerId", lecturer ? lecturer.id : undefined);
                 }}
                 searchable={true}
@@ -467,7 +513,11 @@ export default function SearchScreen() {
           loading && actualSearchQuery ? (
             <View style={tw`px-5`}>
               {[...Array(5)].map((_, index) => (
-                <CardSkeleton key={`skeleton-${index}`} variant="landscape" style={tw`mb-4`} />
+                <CardSkeleton
+                  key={`skeleton-${index}`}
+                  variant="landscape"
+                  style={tw`mb-4`}
+                />
               ))}
             </View>
           ) : (
@@ -481,7 +531,10 @@ export default function SearchScreen() {
               {hasMore && actualSearchQuery && (
                 <View style={tw`py-6`}>
                   {loading ? (
-                    <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
+                    <ActivityIndicator
+                      size="small"
+                      color={colors.brand.primary}
+                    />
                   ) : null}
                 </View>
               )}
@@ -489,13 +542,9 @@ export default function SearchScreen() {
               {/* Pagination Info */}
               {actualSearchQuery && totalPages > 0 && (
                 <View style={tw`py-4 items-center`}>
-                  <Text
-                    style={[
-                      tw`text-sm`,
-                      { color: designTokens.colors.palette.gray400 },
-                    ]}
-                  >
-                    Page {currentPage} of {totalPages} • {filteredAndSortedResults.length} of {totalResults} results
+                  <Text variant="caption1" color="secondaryLabel">
+                    Page {currentPage} of {totalPages} •{" "}
+                    {filteredAndSortedResults.length} of {totalResults} results
                   </Text>
                 </View>
               )}
@@ -508,6 +557,9 @@ export default function SearchScreen() {
             loadMore();
           }
         }}
+        initialNumToRender={10}
+        maxToRenderPerBatch={5}
+        windowSize={5}
       />
     </SafeAreaView>
   );

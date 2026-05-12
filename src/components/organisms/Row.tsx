@@ -1,7 +1,10 @@
+import { FlashList, ListRenderItem } from "../adapters/flashListCompat";
 import React, { memo } from "react";
-import { ScrollView, View, ViewStyle, FlatList, ListRenderItem } from "react-native";
+import { ScrollView, View, ViewStyle } from "react-native";
 import { designTokens } from "../../theme/designTokens";
-import { Icon, Text, Touchable } from "../atoms";
+import { Icon } from "../atoms/Icon";
+import { Text } from "../atoms/Text";
+import { Touchable } from "../atoms/Touchable";
 
 interface RowProps<T = any> {
   title: string;
@@ -39,16 +42,18 @@ const RowComponent = <T,>({
       ...style,
     };
 
+    const horizontalPadding = designTokens.spacing[contentPadding];
+
     const headerStyle: ViewStyle = {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
       marginBottom: designTokens.spacing.md,
-      paddingHorizontal: designTokens.spacing.lg,
+      paddingHorizontal: horizontalPadding,
     };
 
     const contentContainerStyle = {
-      paddingHorizontal: designTokens.spacing.lg,
+      paddingHorizontal: horizontalPadding,
     };
 
     const Header = (
@@ -113,7 +118,7 @@ const RowComponent = <T,>({
       return (
         <View style={containerStyle}>
           {Header}
-          <FlatList
+          <FlashList
             horizontal
             data={data}
             renderItem={renderItem}
@@ -126,9 +131,7 @@ const RowComponent = <T,>({
             bounces={true}
             scrollEventThrottle={16}
             accessibilityLabel={`Horizontal scrollable list of ${title.toLowerCase()}`}
-            initialNumToRender={4}
-            windowSize={5}
-            maxToRenderPerBatch={4}
+
           />
         </View>
       );
