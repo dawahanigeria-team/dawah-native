@@ -19,7 +19,7 @@ interface EnvConfig {
 
 // Expo requires static access to environment variables, not dynamic
 export const ENV: EnvConfig = {
-  API_BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL || 'https://backend.dawahbox.com',
+  API_BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL || 'https://api.dawahnigeria.com',
   API_PROJECT_KEY: process.env.EXPO_PUBLIC_API_PROJECT_KEY || '206cf92c-8a46-45ef-bf3f-a6ef92fc6f25',
   MEDIA_BASE_URL: process.env.EXPO_PUBLIC_MEDIA_BASE_URL || 'https://media.dawahnigeria.com',
   PUSH_NOTIFICATIONS_REGISTER_URL: process.env.EXPO_PUBLIC_PUSH_REGISTER_URL || '',

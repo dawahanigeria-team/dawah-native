@@ -3,7 +3,7 @@
 ## Base URL
 
 ```
-https://backend.dawahbox.com
+https://api.dawahnigeria.com
 ```
 
 ## Authentication

@@ -48,7 +48,7 @@ src/components/
 - **Haptics**: iOS haptic feedback on tab navigation
 
 ### API Integration
-- **Base URL**: `https://backend.dawahbox.com`
+- **Base URL**: `https://api.dawahnigeria.com`
 - **API Service**: `src/services/api.ts`
 - **Authentication**: Header `x-project: 206cf92c-8a46-45ef-bf3f-a6ef92fc6f25`
 - **Audio Player Service**: `src/services/audioPlayer.ts` with Expo AV integration

@@ -54,7 +54,7 @@ export interface AlbumsParams {
 class AlbumsApiService {
   /**
    * Get albums by lecturer
-   * Uses: https://backend.dawahbox.com/api/albumlisting_rp.php?offset=30&lim=10&page=1&rpid=10
+   * Uses: https://api.dawahnigeria.com/api/albumlisting_rp.php?offset=30&lim=10&page=1&rpid=10
    */
   async getAlbumsByLecturer(
     lecturerId: string,
