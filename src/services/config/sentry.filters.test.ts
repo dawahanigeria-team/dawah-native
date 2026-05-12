@@ -1,6 +1,8 @@
 import {
   isExpectedExpoUpdatesCheckFailure,
+  isExpectedMissingAccessTokenFailure,
   shouldDropExpectedExpoUpdatesCheckEvent,
+  shouldDropExpectedMissingAccessTokenEvent,
   shouldSendSentryEvent,
 } from './sentry.filters';
 
@@ -63,6 +65,48 @@ describe('shouldDropExpectedExpoUpdatesCheckEvent', () => {
       shouldDropExpectedExpoUpdatesCheckEvent({
         exception: {
           values: [{ type: 'Error', value: 'Something else failed' }],
+        },
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('isExpectedMissingAccessTokenFailure', () => {
+  test('matches expected API auth misses', () => {
+    const error = Object.assign(new Error('Access token is required'), { statusCode: 401 });
+
+    expect(isExpectedMissingAccessTokenFailure(error)).toBe(true);
+    expect(
+      isExpectedMissingAccessTokenFailure(new Error('Access token is required'), {
+        statusCode: 401,
+      }),
+    ).toBe(true);
+  });
+
+  test('keeps unrelated API failures', () => {
+    const error = Object.assign(new Error('Token expired'), { statusCode: 401 });
+
+    expect(isExpectedMissingAccessTokenFailure(error)).toBe(false);
+  });
+});
+
+describe('shouldDropExpectedMissingAccessTokenEvent', () => {
+  test('drops Sentry events for expected API auth misses', () => {
+    expect(
+      shouldDropExpectedMissingAccessTokenEvent({
+        exception: {
+          values: [{ type: 'ApiError', value: 'Access token is required' }],
+        },
+        extra: { statusCode: 401 },
+      }),
+    ).toBe(true);
+  });
+
+  test('keeps missing access token text without a 401 status', () => {
+    expect(
+      shouldDropExpectedMissingAccessTokenEvent({
+        exception: {
+          values: [{ type: 'ApiError', value: 'Access token is required' }],
         },
       }),
     ).toBe(false);

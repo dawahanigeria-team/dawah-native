@@ -15,7 +15,9 @@ import {
 import { capturePostHogException } from "./posthog.config";
 import {
   isExpectedExpoUpdatesCheckFailure,
+  isExpectedMissingAccessTokenFailure,
   shouldDropExpectedExpoUpdatesCheckEvent,
+  shouldDropExpectedMissingAccessTokenEvent,
   shouldSendSentryEvent,
 } from "./sentry.filters";
 
@@ -192,6 +194,9 @@ export const initSentry = () => {
       if (shouldDropExpectedExpoUpdatesCheckEvent(event)) {
         return null;
       }
+      if (shouldDropExpectedMissingAccessTokenEvent(event)) {
+        return null;
+      }
       return event;
     },
 
@@ -350,6 +355,9 @@ export const captureSentryException = (
     return;
   }
   if (isExpectedExpoUpdatesCheckFailure(error, context)) {
+    return;
+  }
+  if (isExpectedMissingAccessTokenFailure(error, context)) {
     return;
   }
   const statusCode = (error as { statusCode?: number } | null)?.statusCode;
