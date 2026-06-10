@@ -2,6 +2,7 @@ import type { RequestConfig } from './base.api';
 import {
   createTokenRefreshRetryConfig,
   isMissingAccessTokenError,
+  normalizeAuthToken,
   shouldCaptureApiHttpError,
 } from './base.api';
 
@@ -43,17 +44,29 @@ describe('isMissingAccessTokenError', () => {
   });
 });
 
+describe('normalizeAuthToken', () => {
+  test('normalizes usable stored tokens', () => {
+    expect(normalizeAuthToken(' token ')).toBe('token');
+  });
+
+  test('rejects empty and serialized nullish tokens', () => {
+    expect(normalizeAuthToken(null)).toBeNull();
+    expect(normalizeAuthToken(undefined)).toBeNull();
+    expect(normalizeAuthToken('')).toBeNull();
+    expect(normalizeAuthToken('  ')).toBeNull();
+    expect(normalizeAuthToken('null')).toBeNull();
+    expect(normalizeAuthToken('undefined')).toBeNull();
+  });
+});
+
 describe('shouldCaptureApiHttpError', () => {
-  test('suppresses anonymous missing access token responses', () => {
+  test('suppresses missing access token responses', () => {
     expect(
       shouldCaptureApiHttpError(401, { message: 'Access token is required' }, false),
     ).toBe(false);
-  });
-
-  test('captures missing access token responses when a client token was present', () => {
     expect(
       shouldCaptureApiHttpError(401, { message: 'Access token is required' }, true),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   test('captures other API errors', () => {

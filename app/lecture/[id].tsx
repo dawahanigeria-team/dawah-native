@@ -43,6 +43,7 @@ import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import type { LectureDetail } from "../../src/types/api.types";
 import type { Episode } from "../../src/types/types";
+import { formatRelativeDate } from "../../src/utils/formatDate";
 import { appendShareSignature } from "../../src/utils/shareMessage";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -62,7 +63,8 @@ const createEpisodeFromDetail = (detail: LectureDetail | null): Episode | null =
     liked: false,
     language: detail.language || "",
     downloads: detail.downloads || 0,
-    createdAt: detail.postedDate || new Date().toISOString(),
+    // Never fall back to "now" — undated lectures would render as "just now".
+    createdAt: detail.postedDate || detail.updatedDate || '',
     lecturerName: detail.lecturerName || detail.reciter?.name || "",
     rpname: detail.raw?.rpname,
     reciter_name: detail.raw?.reciter_name || detail.reciter?.name,
@@ -931,11 +933,18 @@ const LectureDetailScreen: React.FC = () => {
 
           {/* Details Section - User-friendly info only */}
           {(() => {
+            // Show both calendar anchor ("Jun 9, 2026") and freshness
+            // signal ("yesterday") — calendar tells when, relative tells
+            // how recent without forcing the user to do date math.
             const releasedDateLabel = formatReleaseDate(lecture.postedDate);
+            const relative = formatRelativeDate(lecture.postedDate);
+            const releasedValue = releasedDateLabel && relative
+              ? `${releasedDateLabel} · ${relative}`
+              : releasedDateLabel;
             const meta = [
               lecture.durationLabel && { label: "Duration", value: lecture.durationLabel, icon: "time-outline" },
               lecture.albumName && { label: "Album", value: lecture.albumName, icon: "albums-outline" },
-              releasedDateLabel && { label: "Released", value: releasedDateLabel, icon: "calendar-outline" },
+              releasedValue && { label: "Released", value: releasedValue, icon: "calendar-outline" },
             ].filter(Boolean);
 
             if (meta.length === 0) return null;

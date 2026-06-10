@@ -59,7 +59,13 @@ export function usePopularLectures(limit = 10) {
     const plays = parseInt(String(lecture.views || lecture.Plays || "0")) || 0;
     const language = lecture.lang || lecture.language || lecture.Language || "Unknown";
     const downloads = parseInt(String(lecture.downloads || lecture.Downloads || "0")) || 0;
-    const createdAt = lecture.created_at || lecture.CreatedAt || new Date().toISOString();
+    // Never fall back to "now" — undated rows would render as "just now".
+    const createdAt =
+      lecture.created_at ||
+      lecture.CreatedAt ||
+      (lecture as any).post_date ||
+      (lecture as any).updated_date ||
+      '';
     const reciterName = (lecture as SearchLecture & { reciter_name?: string; reciterName?: string }).reciter_name
       || (lecture as SearchLecture & { reciter_name?: string; reciterName?: string }).reciterName
       || (lecture as any).reciter_name

@@ -30,8 +30,8 @@ import { useUnreadAnnouncementsCount } from "../../src/hooks/useAnnouncements";
 import { usePopularLecturesWithCache } from "../../src/hooks/usePopularLecturesWithCache";
 import { useQuranAlbums } from "../../src/hooks/useQuranAlbums";
 import { useRecentlyPlayedLectures } from "../../src/hooks/useRecentlyPlayedLectures";
+import { useRecent } from "../../src/hooks/useRecent";
 import { useTheme } from "../../src/hooks/useTheme";
-import { useTrending } from "../../src/hooks/useTrending";
 import { QuranAlbum } from "../../src/services/api/quran.api";
 import { useAuthStore, usePlayerActions } from "../../src/stores";
 import tw from "../../src/theme/twrnc";
@@ -131,7 +131,10 @@ function HomeScreen() {
   const { lectures: popularLectures, isLoading: popularLoading } =
     usePopularLecturesWithCache();
 
-  const { lectures: trendingLectures, loading: trendingLoading } = useTrending({
+  // Both FEATURED hero and "Fresh Content" pull from the recent endpoint
+  // (post_date desc) — not popularity — so push-notification entry never lands
+  // users on stale Ramadan content.
+  const { lectures: recentLectures, loading: recentLoading } = useRecent({
     limit: HOME_SECTION_LIMIT,
   });
 
@@ -155,21 +158,13 @@ function HomeScreen() {
   const [popularEpisodes, setPopularEpisodes] = useState<Episode[]>([]);
 
   const featuredEpisodes = useMemo(() => {
-    if (trendingLectures.length === 0) return [];
-
-    const latestCandidates = trendingLectures.filter(
-      (lecture) => Boolean(lecture.audioUrl) && Boolean(lecture.coverUrl),
-    );
-    if (latestCandidates.length === 0) return [];
-
-    const shuffled = [...latestCandidates];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-
-    return shuffled.slice(0, HOME_HERO_LIMIT);
-  }, [trendingLectures]);
+    if (recentLectures.length === 0) return [];
+    // Take the freshest items that have art + audio. No shuffle —
+    // ordering already reflects newest-first.
+    return recentLectures
+      .filter((l) => Boolean(l.audioUrl) && Boolean(l.coverUrl))
+      .slice(0, HOME_HERO_LIMIT);
+  }, [recentLectures]);
 
   const trendingNowLectures = useMemo(() => {
     const remainingAfterHero = popularEpisodes.slice(HOME_HERO_LIMIT);
@@ -640,7 +635,7 @@ function HomeScreen() {
 
         {/* Hero Carousel */}
         <View style={tw`mt-4`}>
-          {trendingLoading ? (
+          {recentLoading ? (
             <View
               style={[
                 styles.heroSkeleton,
@@ -705,13 +700,13 @@ function HomeScreen() {
             "Latest from our scholars",
             () => router.push("/section/recently-posted"),
           )}
-          {trendingLoading ? (
+          {recentLoading ? (
             renderSkeletons()
-          ) : trendingLectures.length > 0 ? (
+          ) : recentLectures.length > 0 ? (
             <FlashList
-              data={trendingLectures}
+              data={recentLectures}
               renderItem={renderLectureCard}
-              keyExtractor={(item) => `trending-${item.id}`}
+              keyExtractor={(item) => `recent-${item.id}`}
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={tw`px-4`}

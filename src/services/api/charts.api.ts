@@ -1,4 +1,6 @@
-const BASE_URL = "https://backend.dawahbox.com/api/";
+import { API_CONFIG } from '../config/api.config';
+
+const BASE_URL = `${API_CONFIG.BASE_URL}/api/`;
 
 export interface ChartItem {
   _id?: { $oid: string };

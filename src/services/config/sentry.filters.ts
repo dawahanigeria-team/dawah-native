@@ -33,6 +33,24 @@ const hasExpectedExpoUpdatesCheckText = (text: string): boolean => (
   text.includes('failed to check for update')
 );
 
+const hasMissingAccessTokenText = (text: string): boolean => (
+  text.includes('access token') && text.includes('required')
+);
+
+export const isExpectedMissingAccessTokenFailure = (
+  error: unknown,
+  context?: Record<string, unknown>,
+): boolean => {
+  const maybeError = error as { message?: unknown; statusCode?: unknown } | null;
+  const message = normalizeText(maybeError?.message);
+  const statusCode = maybeError?.statusCode ?? context?.statusCode;
+
+  return (
+    (statusCode === 401 || statusCode === '401') &&
+    hasMissingAccessTokenText(message)
+  );
+};
+
 export const isExpectedExpoUpdatesCheckFailure = (
   error: unknown,
   context?: Record<string, unknown>,
@@ -78,5 +96,28 @@ export const shouldDropExpectedExpoUpdatesCheckEvent = (event: EventLike): boole
         message.includes('failed to check for update')
       )
     );
+  });
+};
+
+export const shouldDropExpectedMissingAccessTokenEvent = (event: EventLike): boolean => {
+  const statusCode = event.extra?.statusCode;
+  if (statusCode !== 401 && statusCode !== '401') {
+    return false;
+  }
+
+  const eventMessage = normalizeText(event.message);
+  if (hasMissingAccessTokenText(eventMessage)) {
+    return true;
+  }
+
+  const values = event.exception?.values;
+  if (!Array.isArray(values)) {
+    return false;
+  }
+
+  return values.some((value) => {
+    const type = normalizeText(value?.type);
+    const message = normalizeText(value?.value);
+    return type === 'apierror' && hasMissingAccessTokenText(message);
   });
 };
