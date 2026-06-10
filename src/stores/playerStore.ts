@@ -118,6 +118,8 @@ const PLAYBACK_POLL_INTERVAL_MS = 500;
 const PLAYBACK_RECOVERY_INTERVAL_MS = 3000;
 const PLAYBACK_SOURCE_CHECK_TIMEOUT_MS = 10000;
 const HTTP_URL_REGEX = /^https?:\/\//i;
+const AUDIO_SOURCE_UNAVAILABLE_MESSAGE = 'Audio source unavailable';
+const AUDIO_SOURCE_UNAVAILABLE_USER_MESSAGE = 'This audio file is currently unavailable. Please try another lecture.';
 
 const resolvePlaybackUri = (episode: Episode): string => {
   if (!episode.audioUrl) {
@@ -132,12 +134,23 @@ const sanitizeRemotePlaybackUri = (uri: string): string => {
     return uri;
   }
 
-  const encode = (value: string) => encodeURI(value).replace(/'/g, '%27');
+  const encodePathSegment = (segment: string): string => {
+    try {
+      return encodeURIComponent(decodeURIComponent(segment));
+    } catch {
+      return encodeURIComponent(segment);
+    }
+  };
 
   try {
-    return encode(decodeURI(uri));
+    const url = new URL(uri);
+    url.pathname = url.pathname
+      .split('/')
+      .map(encodePathSegment)
+      .join('/');
+    return url.toString().replace(/'/g, '%27');
   } catch {
-    return encode(uri);
+    return encodeURI(uri).replace(/'/g, '%27');
   }
 };
 
@@ -157,7 +170,7 @@ const assertRemotePlaybackSourceAvailable = async (uri: string): Promise<void> =
     });
 
     if (response.status === 404 || response.status === 410) {
-      throw new Error('Audio source unavailable');
+      throw new Error(AUDIO_SOURCE_UNAVAILABLE_MESSAGE);
     }
 
     if (response.status >= 400 && response.status !== 416) {
@@ -430,13 +443,21 @@ const playEpisode = async (episode: Episode) => {
     const err = error as Error;
     const message = err?.message ?? '';
     const isTimeout = message.toLowerCase().includes('timeout');
-    const isSourceUnavailable = message === 'Audio source unavailable';
+    const isSourceUnavailable = message === AUDIO_SOURCE_UNAVAILABLE_MESSAGE;
 
-    logger.error('❌ PlayerStore: Failed to play episode', err, {
-      episodeId: episode.id,
-      title: episode.title,
-      audioUrl: episode.audioUrl,
-    });
+    if (isSourceUnavailable) {
+      logger.warn('PlayerStore: Audio source unavailable', {
+        episodeId: episode.id,
+        title: episode.title,
+        audioUrl: episode.audioUrl,
+      });
+    } else {
+      logger.error('❌ PlayerStore: Failed to play episode', err, {
+        episodeId: episode.id,
+        title: episode.title,
+        audioUrl: episode.audioUrl,
+      });
+    }
 
     let errorMessage = 'Failed to play audio. Please try again.';
 
@@ -453,10 +474,10 @@ const playEpisode = async (episode: Episode) => {
       }
     }
     if (isSourceUnavailable) {
-      errorMessage = 'This audio file is currently unavailable. Please try another lecture.';
+      errorMessage = AUDIO_SOURCE_UNAVAILABLE_USER_MESSAGE;
     }
 
-    if (!isTimeout) {
+    if (!isTimeout && !isSourceUnavailable) {
       captureSentryException(err, {
         episodeId: episode.id,
         title: episode.title,

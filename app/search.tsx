@@ -50,6 +50,8 @@ const topics: Topic[] = [
 ];
 
 const sortOptions = [
+  { label: "Most Recent", value: "recent" as SortOption },
+  { label: "Oldest First", value: "oldest" as SortOption },
   { label: "Most Followers", value: "followers" as SortOption },
   { label: "Most Views", value: "views" as SortOption },
   { label: "A-Z", value: "a-z" as SortOption },
@@ -179,8 +181,14 @@ function SearchScreen() {
     const language = lecture.language || lecture.Language || "Unknown";
     const downloads =
       parseInt(lecture.downloads || lecture.Downloads || "0") || 0;
+    // Pull the post date from any field the backend might use. Fall back to
+    // '' (NOT "now") so undated rows render without a misleading "just now".
     const createdAt =
-      lecture.created_at || lecture.CreatedAt || new Date().toISOString();
+      lecture.created_at ||
+      lecture.CreatedAt ||
+      (lecture as any).post_date ||
+      (lecture as any).updated_date ||
+      '';
     // Map lecturer name from various possible fields
     const lecturerName =
       lecture.lecturer_name ||
@@ -211,10 +219,33 @@ function SearchScreen() {
     }
   };
 
-  // Only show real API results (no dummy/mock lectures)
+  // Client-side sort for date-based options. The search API also accepts a
+  // sort param, but applying it locally guarantees behavior even if the
+  // backend hasn't shipped these enum values yet, and works on top of the
+  // currently-loaded page set.
   const filteredAndSortedResults = useMemo(() => {
-    return apiResults;
-  }, [apiResults]);
+    const list = apiResults || [];
+    if (filters.sortBy !== 'recent' && filters.sortBy !== 'oldest') {
+      return list;
+    }
+    const dateOf = (it: SearchLecture): number => {
+      const raw =
+        it.created_at ||
+        it.CreatedAt ||
+        (it as any).post_date ||
+        (it as any).updated_date ||
+        '';
+      if (!raw) return 0;
+      const s = String(raw)
+        .replace(/^[A-Za-z]+,\s*/, '')
+        .replace(/\s-\s/, ' ')
+        .replace(/\//g, '-');
+      const t = Date.parse(s);
+      return Number.isFinite(t) ? t : 0;
+    };
+    const sorted = [...list].sort((a, b) => dateOf(b) - dateOf(a));
+    return filters.sortBy === 'oldest' ? sorted.reverse() : sorted;
+  }, [apiResults, filters.sortBy]);
 
   const getItemKey = (item: SearchLecture, index: number) => {
     return `api-${String(item.id || item.nid || index)}-${index}`;

@@ -82,9 +82,13 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
 
 # typescript
 *.tsbuildinfo
 
 # @end expo-cli
 config.bat
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat

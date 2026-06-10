@@ -22,6 +22,7 @@ import { useQuranAlbums } from "../../src/hooks/useQuranAlbums";
 import { useRamadanAlbums } from "../../src/hooks/useRamadanAlbums";
 import { useRecentlyPlayedLectures } from "../../src/hooks/useRecentlyPlayedLectures";
 import { useTheme } from "../../src/hooks/useTheme";
+import { useRecent } from "../../src/hooks/useRecent";
 import { useTrending } from "../../src/hooks/useTrending";
 import { QuranAlbum } from "../../src/services/api/quran.api";
 import { RamadanAlbum } from "../../src/services/api/ramadan.api";
@@ -116,11 +117,17 @@ function SectionScreen() {
   // Guard against runtime module/export issues; always keep FlatList as a safe fallback.
   const canUseFlashList = supportsAutoLayoutView && Boolean(FlashList);
 
-  // Fetch trending data if this is the trending or recently-posted section
-  const trendingParams =
-    type === "trending" || type === "recently-posted"
-      ? { page: 1, limit: 20 }
-      : undefined;
+  // Trending = velocity-scored. Recently-posted = date-sorted. They share a
+  // shape so the rest of the screen can read from one set of locals.
+  const trendingHookParams =
+    type === "trending" ? { page: 1, limit: 20 } : undefined;
+  const recentHookParams =
+    type === "recently-posted" ? { page: 1, limit: 20 } : undefined;
+
+  const trendingResult = useTrending(trendingHookParams);
+  const recentResult = useRecent(recentHookParams);
+  const activeFeed =
+    type === "recently-posted" ? recentResult : trendingResult;
 
   const {
     lectures: trendingLectures,
@@ -130,7 +137,7 @@ function SectionScreen() {
     loadMore: loadMoreTrending,
     hasMore: hasMoreTrending,
     isLoadingMore: isLoadingMoreTrending,
-  } = useTrending(trendingParams);
+  } = activeFeed;
 
   // Fetch recently played lectures if this is the recently-played section
   const {

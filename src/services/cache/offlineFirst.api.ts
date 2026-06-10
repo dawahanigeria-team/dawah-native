@@ -13,6 +13,7 @@ import { apiClient } from '../api/base.api';
 import { cacheService, CACHE_CONFIG } from './cache.service';
 import { addSentryBreadcrumb, captureSentryException } from '../config/sentry.config';
 import { logger } from '@/utils/logger';
+import { API_CONFIG } from '../config/api.config';
 
 export interface OfflineApiOptions {
   /**
@@ -57,7 +58,7 @@ class OfflineFirstApi {
   private async isOnline(): Promise<boolean> {
     try {
       // Try a simple HEAD request to check connectivity
-      const response = await fetch('https://backend.dawahbox.com/health', {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/health`, {
         method: 'HEAD',
         timeout: 3000,
       } as any);

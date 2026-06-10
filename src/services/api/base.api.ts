@@ -55,13 +55,30 @@ export const isMissingAccessTokenError = (errorData: any): boolean => {
   return text.includes('access token') && text.includes('required');
 };
 
+export const normalizeAuthToken = (token: string | null | undefined): string | null => {
+  if (typeof token !== 'string') {
+    return null;
+  }
+
+  const trimmed = token.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const lowered = trimmed.toLowerCase();
+  if (lowered === 'null' || lowered === 'undefined') {
+    return null;
+  }
+
+  return trimmed;
+};
+
 export const shouldCaptureApiHttpError = (
   statusCode: number,
   errorData: any,
-  hasAuthToken: boolean,
+  _hasAuthToken: boolean,
 ): boolean => !(
   statusCode === 401 &&
-  !hasAuthToken &&
   isMissingAccessTokenError(errorData)
 );
 
@@ -139,8 +156,8 @@ class ApiClient {
     this.authTokenHydrationPromise = (async () => {
       let token: string | null = null;
       try {
-        const accessToken = await secureStoreCompat.getItemAsync('access_token');
-        token = accessToken ?? (await secureStoreCompat.getItemAsync('auth_token'));
+        const accessToken = normalizeAuthToken(await secureStoreCompat.getItemAsync('access_token'));
+        token = accessToken ?? normalizeAuthToken(await secureStoreCompat.getItemAsync('auth_token'));
       } catch (error) {
         console.error('Failed to load auth token:', error);
       } finally {
@@ -162,13 +179,14 @@ class ApiClient {
    * Set auth token
    */
   public async setAuthToken(token: string | null): Promise<void> {
-    this.authToken = token;
+    const normalizedToken = normalizeAuthToken(token);
+    this.authToken = normalizedToken;
     this.hasHydratedAuthToken = true;
-    this._authTokenChangeListener?.(token);
+    this._authTokenChangeListener?.(normalizedToken);
     if (typeof window === 'undefined') return;
     try {
-      if (token) {
-        await secureStoreCompat.setItemAsync('auth_token', token);
+      if (normalizedToken) {
+        await secureStoreCompat.setItemAsync('auth_token', normalizedToken);
       } else {
         await secureStoreCompat.deleteItemAsync('auth_token');
       }
