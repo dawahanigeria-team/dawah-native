@@ -33,7 +33,6 @@ yarn-error.*
 *.pem
 
 # local env files
-.env
 .google-service-account.json
 google-service-account.json
 .env*.local
@@ -88,3 +87,4 @@ yarn-error.*
 *.tsbuildinfo
 
 # @end expo-cli
+config.bat
