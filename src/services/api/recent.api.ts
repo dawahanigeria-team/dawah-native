@@ -2,23 +2,28 @@
  * Recent / Trending Lectures API Service
  *
  * Single source for two related feeds:
- *   - getRecentLectures()   — newest first (Fresh Content, Featured hero)
- *   - getTrendingLectures() — highest-velocity within a recency window
+ *   - getRecentLectures()   — newest-first (Fresh Content, Featured hero,
+ *                             /section/recently-posted)
+ *   - getTrendingLectures() — velocity-scored within a recency window
  *                             (home "Trending Now" rail, /section/trending)
  *
- * Both feeds are computed from one merged dataset: a parallel fan-out
- * across every real langid returned by /api/all_lang_api.php. This
- * replaces /api/popular_lec_api.php for trending — that endpoint has no
- * date field, so it cannot express "trending now" and was returning
- * lifetime-popular content (e.g. Ramadan lectures from 3 months ago
- * still ranking first in June).
+ * Both feeds are computed from one shared pool fetched from
+ *   /api/leclisting_recent.php?action=get_recent_audio
+ * — the same endpoint the dawahnigeria.com web app uses for its
+ * "recently posted lectures" surface. The backend returns items
+ * server-sorted by updated_date desc, mixed across all languages, with
+ * native page-based pagination (30 items per page).
+ *
+ * We pull a small pool (POOL_PAGES × 30 items) into memory, cached for
+ * 5 minutes, so the same fetch backs both feeds without duplicating
+ * work. The previous /api/popular_lec_api.php source had no date field
+ * and surfaced years-old content — abandoned.
  */
 
 import { SearchLecture } from '../../types/api.types';
 import { API_CONFIG } from '../config/api.config';
 import { apiClient, ApiError } from './base.api';
 import { logger } from '@/utils/logger';
-import { languagesApi } from './languages.api';
 
 export interface RecentLecturesParams {
   page?: number;
@@ -35,19 +40,39 @@ export interface RecentLecturesResponse {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const TRENDING_WINDOW_DAYS = 90; // "Trending" = posted within the last 90 days.
-const PER_LANG_FETCH_LIMIT = 30; // Per-langid request size — small payload, parallel.
+const TRENDING_WINDOW_DAYS = 90;
+const POOL_PAGES = 5; // 5 × 30 = ~150 lectures in the shared pool.
 const MERGED_CACHE_TTL_MS = 5 * 60 * 1000;
+const RECENT_ENDPOINT = '/api/leclisting_recent.php';
+const RECENT_ACTION = 'get_recent_audio';
 
-// post_date format on /api/leclistingapi.php: "Thu, 2026/05/28 - 06:52"
+// updated_date format: "Tue, 2026/06/09 - 15:09" (also matches post_date elsewhere).
 function parsePostDate(item: any): number {
-  const raw = item?.post_date || item?.updated_date || item?.created_at || '';
+  const raw =
+    item?.updated_date || item?.post_date || item?.created_at || '';
   const normalized = String(raw)
     .replace(/^[A-Za-z]+,\s*/, '')
     .replace(/\s-\s/, ' ')
     .replace(/\//g, '-');
   const t = Date.parse(normalized);
   return Number.isFinite(t) ? t : 0;
+}
+
+/**
+ * leclisting_recent returns mp3_title / mp3_url / mp3_duration /
+ * updated_date instead of Title / audio / duration / post_date. Map them
+ * onto the canonical fields so downstream transforms (useRecent etc.)
+ * don't have to know which endpoint produced the row.
+ */
+function normalizeItem(raw: any): SearchLecture {
+  const item: any = { ...raw };
+  if (!item.Title && item.mp3_title) item.Title = item.mp3_title;
+  if (!item.audio && item.mp3_url) item.audio = item.mp3_url;
+  if (!item.duration && item.mp3_duration) item.duration = item.mp3_duration;
+  if (!item.post_date && item.updated_date) item.post_date = item.updated_date;
+  if (!item.img && item.lec_img) item.img = item.lec_img;
+  if (item.lang_id != null && item.langid == null) item.langid = item.lang_id;
+  return item as SearchLecture;
 }
 
 function extractItems(body: any): any[] {
@@ -59,34 +84,34 @@ function extractItems(body: any): any[] {
 }
 
 class RecentLecturesApiService {
-  private mergedCache: SearchLecture[] | null = null;
+  private pool: SearchLecture[] | null = null;
   private cacheTimestamp = 0;
   private inFlight: Promise<SearchLecture[]> | null = null;
 
   /**
-   * Fetch /api/leclistingapi.php in parallel for every real langid,
-   * merge, dedupe by nid, sort newest-first. Cached for 5 minutes;
-   * concurrent callers share the in-flight promise.
+   * Fetch POOL_PAGES pages from /api/leclisting_recent.php in parallel,
+   * concat, dedupe by nid, sort newest-first as a defensive belt.
+   * Cached for 5 minutes; concurrent callers share the in-flight promise.
    */
-  private async fetchAllMerged(): Promise<SearchLecture[]> {
+  private async fetchPool(): Promise<SearchLecture[]> {
     const now = Date.now();
-    if (this.mergedCache && now - this.cacheTimestamp < MERGED_CACHE_TTL_MS) {
-      return this.mergedCache;
+    if (this.pool && now - this.cacheTimestamp < MERGED_CACHE_TTL_MS) {
+      return this.pool;
     }
     if (this.inFlight) return this.inFlight;
 
     this.inFlight = (async () => {
       try {
-        const languages = await languagesApi.getLanguages();
+        const pageNumbers = Array.from({ length: POOL_PAGES }, (_, i) => i + 1);
         logger.debug(
-          `Fanning out recent lectures across ${languages.length} langids`,
+          `Fetching ${POOL_PAGES} pages from ${RECENT_ENDPOINT}?action=${RECENT_ACTION}`,
         );
 
         const results = await Promise.allSettled(
-          languages.map((lang) =>
+          pageNumbers.map((page) =>
             apiClient.get<any>(
-              '/api/leclistingapi.php',
-              { langid: lang.id, lim: PER_LANG_FETCH_LIMIT },
+              RECENT_ENDPOINT,
+              { action: RECENT_ACTION, page },
               {
                 timeout: API_CONFIG.TIMEOUTS.DEFAULT,
                 useCache: false,
@@ -103,33 +128,35 @@ class RecentLecturesApiService {
 
         const merged: SearchLecture[] = [];
         const seen = new Set<string | number>();
-        let okCount = 0;
+        let okPages = 0;
 
         for (let i = 0; i < results.length; i++) {
           const r = results[i];
           if (r.status !== 'fulfilled') {
             logger.debug(
-              `Lang fan-out failed for ${languages[i].name}: ${(r as any).reason?.message || 'unknown'}`,
+              `Recent page ${pageNumbers[i]} failed: ${(r as any).reason?.message || 'unknown'}`,
             );
             continue;
           }
-          okCount++;
-          for (const item of extractItems(r.value.data)) {
-            if (item?.keyword === 'dn_quran') continue; // Quran has its own surface.
-            const id = item?.nid;
+          okPages++;
+          for (const raw of extractItems(r.value.data)) {
+            if (raw?.keyword === 'dn_quran') continue;
+            const id = raw?.nid;
             if (id == null || seen.has(id)) continue;
             seen.add(id);
-            merged.push(item);
+            merged.push(normalizeItem(raw));
           }
         }
 
+        // Defensive sort — server already returns newest-first but pages
+        // arrive concurrently, so concat order isn't guaranteed.
         merged.sort((a: any, b: any) => parsePostDate(b) - parsePostDate(a));
 
         logger.debug(
-          `Merged ${merged.length} lectures from ${okCount}/${languages.length} langs (newest first)`,
+          `Recent pool: ${merged.length} unique items from ${okPages}/${POOL_PAGES} pages`,
         );
 
-        this.mergedCache = merged;
+        this.pool = merged;
         this.cacheTimestamp = now;
         return merged;
       } finally {
@@ -162,8 +189,8 @@ class RecentLecturesApiService {
     params: RecentLecturesParams = {},
   ): Promise<RecentLecturesResponse> {
     try {
-      const all = await this.fetchAllMerged();
-      return this.paginate(all, params);
+      const pool = await this.fetchPool();
+      return this.paginate(pool, params);
     } catch (error) {
       console.error('❌ Recent Lectures API Error:', error);
       if (error instanceof ApiError) throw error;
@@ -172,19 +199,19 @@ class RecentLecturesApiService {
   }
 
   /**
-   * "Trending" = views-per-day score among lectures posted within
+   * Trending = views-per-day among lectures posted within
    * TRENDING_WINDOW_DAYS. Velocity beats raw views so a 14-day-old
-   * lecture with 1k views ranks above a 90-day-old lecture with 1k.
+   * lecture with 1k views ranks above a 90-day-old one with 1k.
    */
   async getTrendingLectures(
     params: RecentLecturesParams = {},
   ): Promise<RecentLecturesResponse> {
     try {
-      const all = await this.fetchAllMerged();
+      const pool = await this.fetchPool();
       const now = Date.now();
       const cutoff = now - TRENDING_WINDOW_DAYS * DAY_MS;
 
-      const scored = all
+      const scored = pool
         .map((item) => {
           const t = parsePostDate(item);
           if (!t || t < cutoff) return null;
@@ -209,9 +236,9 @@ class RecentLecturesApiService {
   }
 
   clearCache(): void {
-    this.mergedCache = null;
+    this.pool = null;
     this.cacheTimestamp = 0;
-    logger.debug('Recent/Trending lectures cache cleared');
+    logger.debug('Recent/Trending lectures pool cleared');
   }
 }
 
