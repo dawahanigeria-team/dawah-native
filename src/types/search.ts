@@ -1,4 +1,10 @@
-export type SortOption = 'followers' | 'views' | 'a-z' | 'z-a';
+export type SortOption =
+  | 'followers'
+  | 'views'
+  | 'a-z'
+  | 'z-a'
+  | 'recent'   // newest post first
+  | 'oldest';  // oldest post first
 
 export type Language = 'All' | 'English' | 'Yoruba' | 'Hausa' | 'Igala' | 'Fulani' | 'Igbo';
 

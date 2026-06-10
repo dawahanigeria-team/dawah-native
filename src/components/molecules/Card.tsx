@@ -7,6 +7,7 @@ import { useTheme } from "../../hooks/useTheme";
 import { Episode, Series } from "../../types/types";
 import { getInitials, getPlaceholderStyle } from "../../utils/colorPlaceholder";
 import { formatDuration } from "../../utils/formatTime";
+import { formatRelativeDate, formatAbsoluteDate } from "../../utils/formatDate";
 import { Badge } from "../atoms/Badge";
 import { Icon } from "../atoms/Icon";
 import { Text } from "../atoms/Text";
@@ -72,6 +73,13 @@ export const Card: React.FC<CardProps> = memo(
       accessibilityIgnoresInvertColors: true,
     };
 
+    const relativeDate = isEpisode && episode
+      ? formatRelativeDate((episode as Episode).createdAt)
+      : '';
+    const absoluteDate = isEpisode && episode
+      ? formatAbsoluteDate((episode as Episode).createdAt)
+      : '';
+
     const getAccessibilityLabel = () => {
       let label = `${data.title}`;
       if (isEpisode && episode && showTime) {
@@ -80,6 +88,9 @@ export const Card: React.FC<CardProps> = memo(
       }
       if (showMeta && metaValue) {
         label += `, ${metaValue}`;
+      }
+      if (absoluteDate) {
+        label += `, posted ${absoluteDate}`;
       }
       return label;
     };
@@ -370,6 +381,26 @@ export const Card: React.FC<CardProps> = memo(
                     {formatDuration(episode.durationSec)}
                   </Text>
                 </View>
+                {relativeDate && (
+                  <>
+                    <View
+                      style={{
+                        width: 3,
+                        height: 3,
+                        borderRadius: 1.5,
+                        backgroundColor: colors.system.label.tertiary,
+                        marginHorizontal: 8,
+                      }}
+                    />
+                    <Text
+                      variant="caption1"
+                      color="tertiaryLabel"
+                      style={{ fontSize: 12, fontWeight: "500" }}
+                    >
+                      {relativeDate}
+                    </Text>
+                  </>
+                )}
               </View>
             )}
           </View>
@@ -664,6 +695,26 @@ export const Card: React.FC<CardProps> = memo(
                   >
                     {formatDuration(episode.durationSec)}
                   </Text>
+                  {relativeDate && (
+                    <>
+                      <View
+                        style={{
+                          width: 4,
+                          height: 4,
+                          borderRadius: 2,
+                          backgroundColor: colors.system.label.tertiary,
+                          marginHorizontal: designTokens.spacing.sm,
+                        }}
+                      />
+                      <Text
+                        variant="caption1"
+                        color="tertiaryLabel"
+                        style={{ fontSize: 13, fontWeight: "500" }}
+                      >
+                        {relativeDate}
+                      </Text>
+                    </>
+                  )}
                 </View>
               )}
             </View>

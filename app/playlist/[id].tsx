@@ -58,7 +58,11 @@ const lectureToEpisode = (lecture: SearchLecture, index: number = 0): Episode =>
   const downloads =
     parseInt(lecture.downloads || lecture.Downloads || "0", 10) || 0;
   const createdAt =
-    lecture.created_at || lecture.CreatedAt || new Date().toISOString();
+    lecture.created_at ||
+    lecture.CreatedAt ||
+    (lecture as any).post_date ||
+    (lecture as any).updated_date ||
+    '';
   const lecturerName =
     lecture.lecturer_name || lecture.rpname || lecture.ResourcePerson || undefined;
 
