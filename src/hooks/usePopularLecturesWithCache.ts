@@ -1,19 +1,27 @@
 /**
- * Use Popular Lectures with Caching
- * Offline-first hook for fetching popular lectures
+ * usePopularLecturesWithCache
  *
- * Features:
- * - Automatic caching (first 20 lectures)
- * - Offline support
- * - Stale-while-revalidate strategy
+ * Backs the "Trending Now" rail on the home screen. Previously hit
+ * /api/popular_lec_api.php through `offlineFirstApi`, which sorted by
+ * lifetime views and could surface multi-year-old lectures.
+ *
+ * Now delegates to `recentApi.getTrendingLectures()`, which computes a
+ * velocity score (views ÷ days-since-post) across all langids within a
+ * recency window. Same return shape as before — callers don't change.
+ *
+ * Note: the previous offline-storage cache via `offlineFirstApi` is no
+ * longer used here. The in-memory cache inside `recentApi` (5 min) is
+ * sufficient for typical session use; if cold-launch-while-offline is
+ * needed for this rail, layer AsyncStorage on top — out of scope here.
  */
 
-import { useState, useEffect } from 'react';
-import { offlineFirstApi } from '../services/cache/offlineFirst.api';
-import { CACHE_CONFIG } from '../services/cache/cache.service';
+import { useCallback, useEffect, useState } from 'react';
+import { recentApi } from '../services/api/recent.api';
 import { SearchLecture } from '../types/api.types';
 import { captureSentryException } from '../services/config/sentry.config';
 import { logger } from '../utils/logger';
+
+const TRENDING_RAIL_LIMIT = 20;
 
 export interface UsePopularLecturesResult {
   lectures: SearchLecture[];
@@ -29,56 +37,45 @@ export const usePopularLecturesWithCache = (): UsePopularLecturesResult => {
   const [error, setError] = useState<string | null>(null);
   const [isFromCache, setIsFromCache] = useState(false);
 
-  const fetchLectures = async (forceFresh = false) => {
+  const fetchLectures = useCallback(async (forceFresh = false) => {
     try {
       setIsLoading(true);
       setError(null);
+      if (forceFresh) recentApi.clearCache();
 
-      logger.debug('🔍 Fetching popular lectures with cache...');
-
-      // Use offline-first API with correct endpoint
-      const data = await offlineFirstApi.get<SearchLecture[]>(
-        '/api/popular_lec_api.php',
-        {
-          page: 1,
-          limit: CACHE_CONFIG.LIMITS.POPULAR_LECTURES,
-        },
-        {
-          cacheKey: CACHE_CONFIG.KEYS.POPULAR_LECTURES,
-          ttl: CACHE_CONFIG.TTL.LECTURES,
-          forceFresh,
-          allowStale: true,
-        }
-      );
-
-      setLectures(data || []);
-      setIsFromCache(!forceFresh);
-      logger.debug(`✅ Loaded ${data?.length || 0} popular lectures`);
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to fetch lectures';
-      setError(errorMessage);
-      logger.error('Error fetching popular lectures', err, {
-        operation: 'fetch_popular_lectures_with_cache',
-        forceFresh,
+      const response = await recentApi.getTrendingLectures({
+        page: 1,
+        limit: TRENDING_RAIL_LIMIT,
       });
 
+      setLectures(response.data);
+      setIsFromCache(!forceFresh);
+      logger.debug(
+        `Loaded ${response.data.length} trending-rail lectures (${response.total} candidates)`,
+      );
+    } catch (err: any) {
+      const message = err?.message || 'Failed to fetch lectures';
+      setError(message);
+      logger.error('Error fetching trending-rail lectures', err, {
+        operation: 'fetch_trending_rail',
+        forceFresh,
+      });
       captureSentryException(err, {
-        operation: 'fetch_popular_lectures_with_cache',
+        operation: 'fetch_trending_rail',
         forceFresh,
       });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchLectures();
-     
-  }, []);
+  }, [fetchLectures]);
 
-  const refresh = async () => {
-    await fetchLectures(true); // Force fresh fetch
-  };
+  const refresh = useCallback(async () => {
+    await fetchLectures(true);
+  }, [fetchLectures]);
 
   return {
     lectures,
