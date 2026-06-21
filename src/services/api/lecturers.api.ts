@@ -292,45 +292,32 @@ class LecturersApiService {
 
   /**
    * Get lecturer details
-   * Tries to find lecturer in all lecturers list first,
-   * falls back to extracting info from their lectures if not found
+   * Uses the exact resource-person lookup. Do not fall back to the lectures
+   * endpoint: the lecturer screen loads that endpoint independently.
    */
   async getLecturerDetails(lecturerId: string | number): Promise<Lecturer | null> {
     try {
       logger.debug('Fetching lecturer details for:', lecturerId);
 
-      // Try to find in all lecturers list first
-      const response = await this.getAllLecturers({ lim: 50 });
-      const lecturer = response.data.find(l =>
+      const response = await apiClient.get<any>(
+        '/api/all_rps_api.php',
+        { rpid: lecturerId },
+        {
+          timeout: API_CONFIG.TIMEOUTS.DEFAULT,
+          useCache: true,
+          cacheTTL: 600,
+        },
+      );
+      const lecturer = this.normalizeResponse(response.data, {}).data.find(l =>
         String(l.id) === String(lecturerId)
       );
 
       if (lecturer) {
-        logger.debug('Lecturer found in list:', lecturer.name);
+        logger.debug('Lecturer found by exact ID:', lecturer.name);
         return lecturer;
       }
 
-      // Lecturer not in first 50, fetch their lectures to get info
-      logger.debug('Lecturer not in list, fetching from lectures...');
-      const lecturesResponse = await this.getLecturesByLecturer(lecturerId, 1);
-
-      if (lecturesResponse.data.length > 0) {
-        const firstLecture = lecturesResponse.data[0];
-        const constructedLecturer: Lecturer = {
-          id: lecturerId,
-          name: firstLecture.rpname || 'Unknown Lecturer',
-          img: firstLecture.rp_image || '',
-          language: firstLecture.lang || 'Unknown',
-          views: firstLecture.views || 0,
-          favorites: firstLecture.favorites || 0,
-          share: firstLecture.share || 0,
-          comment: firstLecture.comment || 0,
-        };
-        logger.debug('Lecturer constructed from lectures:', constructedLecturer.name);
-        return constructedLecturer;
-      }
-
-      logger.debug('No lectures found for lecturer:', lecturerId);
+      logger.debug('No lecturer found for ID:', lecturerId);
       return null;
     } catch (error) {
       console.error('Failed to fetch lecturer details:', error);
