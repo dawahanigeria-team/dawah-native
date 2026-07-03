@@ -7,12 +7,18 @@ import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from 'expo-sqlite/kv-store';
+import { getCalendars } from 'expo-localization';
 import { Platform } from 'react-native';
 
 import { designTokens } from '../theme/designTokens';
 import { registerPushToken } from './api/notifications.api';
 import { linkingService } from './linking.service';
 import { userService } from './user.service';
+import {
+  defaultReligiousReminderPreferences,
+  normalizeReligiousReminderPreferences,
+  type ReligiousReminderPreferences,
+} from './religiousReminderPreferences';
 
 export type NotificationPrefs = {
   enabled: boolean;
@@ -20,6 +26,7 @@ export type NotificationPrefs = {
   favoritesActivity: boolean;
   downloadsComplete: boolean;
   announcements: boolean;
+  religiousReminders: ReligiousReminderPreferences;
 };
 
 export const NOTIFICATION_PREFS_STORAGE_KEY = 'NOTIFICATION_PREFS';
@@ -31,6 +38,7 @@ export const defaultNotificationPrefs: NotificationPrefs = {
   favoritesActivity: false,
   downloadsComplete: false,
   announcements: true,
+  religiousReminders: defaultReligiousReminderPreferences,
 };
 
 Notifications.setNotificationHandler({
@@ -47,8 +55,15 @@ export const getNotificationPrefs = async (): Promise<NotificationPrefs> => {
     const stored = await AsyncStorage.getItem(NOTIFICATION_PREFS_STORAGE_KEY);
     if (!stored) return defaultNotificationPrefs;
     const parsed = JSON.parse(stored) as Partial<NotificationPrefs>;
-    const merged = { ...defaultNotificationPrefs, ...parsed, announcements: true };
-    if (parsed.announcements !== true) {
+    const merged: NotificationPrefs = {
+      ...defaultNotificationPrefs,
+      ...parsed,
+      announcements: true,
+      religiousReminders: normalizeReligiousReminderPreferences(
+        parsed.religiousReminders,
+      ),
+    };
+    if (parsed.announcements !== true || !parsed.religiousReminders) {
       await AsyncStorage.setItem(NOTIFICATION_PREFS_STORAGE_KEY, JSON.stringify(merged));
     }
     return merged;
@@ -104,11 +119,26 @@ const syncPushTokenAsync = async (
   preferences?: NotificationPrefs,
 ): Promise<void> => {
   const userId = await userService.getUserId();
+  const resolvedPreferences = preferences ?? (await getNotificationPrefs());
+  const normalizedReminders = normalizeReligiousReminderPreferences(
+    resolvedPreferences.religiousReminders,
+  );
+  const { customized: _customized, ...religiousReminders } = normalizedReminders;
+  const deviceTimezone = getCalendars()[0]?.timeZone;
+  const timezone = normalizedReminders.customized && deviceTimezone
+    ? deviceTimezone
+    : 'Africa/Lagos';
+  const {
+    religiousReminders: _localReligiousReminders,
+    ...generalPreferences
+  } = resolvedPreferences;
   await registerPushToken({
     userId,
     expoPushToken,
     platform: Platform.OS as 'ios' | 'android' | 'web',
-    preferences: preferences ?? (await getNotificationPrefs()),
+    preferences: generalPreferences,
+    timezone,
+    religiousReminders,
     device: {
       model: Device.modelName,
       os: Device.osName && Device.osVersion
@@ -195,7 +225,18 @@ export const syncNotificationPreferencesAsync = async (
   await syncPushTokenAsync(storedToken, prefs);
 };
 
-export const disablePushNotificationsAsync = async (): Promise<void> => {
+export const disablePushNotificationsAsync = async (
+  preferences?: NotificationPrefs,
+): Promise<void> => {
+  const storedToken = await getStoredPushToken();
+  if (storedToken && preferences) {
+    try {
+      await syncPushTokenAsync(storedToken, preferences);
+    } catch (error) {
+      console.warn('Failed to sync disabled push preferences:', error);
+    }
+  }
+
   try {
     await Notifications.unregisterForNotificationsAsync();
   } catch (error) {
