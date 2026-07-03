@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   heroGlow: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     opacity: 0.6,
   },
   heroRow: {

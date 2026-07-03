@@ -137,9 +137,9 @@
           }
         }
       ],
-      "./plugins/withExpo55MainApplicationHostFix",
       "expo-image",
-      "expo-iap"
+      "expo-iap",
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true,

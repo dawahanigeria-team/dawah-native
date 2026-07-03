@@ -1,6 +1,3 @@
 allowBuilds:
   '@sentry/cli': true
   unrs-resolver: true
-patchedDependencies:
-  "@expo/dom-webview": patches/expo-dom-webview.patch
-  react-native-screens: patches/react-native-screens.patch
