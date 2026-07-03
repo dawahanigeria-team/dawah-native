@@ -133,7 +133,7 @@
         "expo-build-properties",
         {
           "android": {
-            "reactNativeReleaseLevel": "experimental"
+            "reactNativeReleaseLevel": "stable"
           }
         }
       ],
