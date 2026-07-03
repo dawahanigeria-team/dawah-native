@@ -5,12 +5,15 @@
 
 import { ENV } from '@/config/env';
 import { apiClient, type ApiResponse } from './base.api';
+import type { ReligiousReminderPreferences } from '../religiousReminderPreferences';
 
 export interface RegisterPushTokenPayload {
   userId: string;
   expoPushToken: string;
   platform: 'ios' | 'android' | 'web';
   preferences?: Record<string, boolean>;
+  timezone: string;
+  religiousReminders: Omit<ReligiousReminderPreferences, 'customized'>;
   device?: {
     model?: string | null;
     os?: string | null;
