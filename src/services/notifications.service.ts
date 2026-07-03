@@ -326,6 +326,16 @@ export const getNotificationRouteFromData = (
 ): string | null => {
   if (!data) return null;
 
+  if (data.type === 'surah_al_kahf_reminder') {
+    return '/search?q=Al-Kahf';
+  }
+  if (
+    data.type === 'monday_fast_reminder'
+    || data.type === 'thursday_fast_reminder'
+  ) {
+    return '/';
+  }
+
   const url = data.url;
   if (typeof url === 'string' && url.length > 0) {
     const normalizedRoute = normalizeNotificationRoute(url);

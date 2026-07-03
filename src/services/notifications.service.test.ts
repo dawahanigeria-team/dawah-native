@@ -5,6 +5,7 @@ import { registerPushToken } from './api/notifications.api'
 import {
   disablePushNotificationsAsync,
   getNotificationPrefs,
+  getNotificationRouteFromData,
   syncNotificationPreferencesAsync,
   type NotificationPrefs,
 } from './notifications.service'
@@ -131,4 +132,16 @@ test('syncs global opt-out before unregistering and deleting the token', async (
   expect(mockRegisterPushToken.mock.invocationCallOrder[0]).toBeLessThan(
     (Notifications.unregisterForNotificationsAsync as jest.Mock).mock.invocationCallOrder[0],
   )
+})
+
+test('routes trusted religious reminder types without accepting push-supplied queries', () => {
+  expect(getNotificationRouteFromData({ type: 'surah_al_kahf_reminder' }))
+    .toBe('/search?q=Al-Kahf')
+  expect(getNotificationRouteFromData({ type: 'monday_fast_reminder' })).toBe('/')
+  expect(getNotificationRouteFromData({ type: 'thursday_fast_reminder' })).toBe('/')
+  expect(getNotificationRouteFromData({
+    type: 'surah_al_kahf_reminder',
+    q: 'javascript:bad',
+    url: '/lecture/999',
+  })).toBe('/search?q=Al-Kahf')
 })
