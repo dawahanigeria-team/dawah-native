@@ -63,8 +63,9 @@ export const getNotificationPrefs = async (): Promise<NotificationPrefs> => {
         parsed.religiousReminders,
       ),
     };
-    if (parsed.announcements !== true || !parsed.religiousReminders) {
-      await AsyncStorage.setItem(NOTIFICATION_PREFS_STORAGE_KEY, JSON.stringify(merged));
+    const serialized = JSON.stringify(merged);
+    if (serialized !== stored) {
+      await AsyncStorage.setItem(NOTIFICATION_PREFS_STORAGE_KEY, serialized);
     }
     return merged;
   } catch (error) {

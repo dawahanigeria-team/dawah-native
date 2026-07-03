@@ -86,6 +86,24 @@ test('migrates legacy stored notification preferences', async () => {
   )
 })
 
+test('rewrites malformed stored reminder settings with normalized values', async () => {
+  mockGetItem.mockResolvedValue(JSON.stringify({
+    ...basePrefs(),
+    religiousReminders: {
+      ...defaultReligiousReminderPreferences,
+      surahAlKahf: { enabled: true, time: '7:00' },
+    },
+  }))
+
+  const preferences = await getNotificationPrefs()
+
+  expect(preferences.religiousReminders.surahAlKahf.time).toBe('07:00')
+  expect(mockSetItem).toHaveBeenCalledWith(
+    'NOTIFICATION_PREFS',
+    expect.stringContaining('"time":"07:00"'),
+  )
+})
+
 test('syncs customized reminders in the device timezone without local metadata', async () => {
   mockGetItem.mockResolvedValue('ExponentPushToken[token]')
   const prefs = basePrefs()
