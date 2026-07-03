@@ -2,7 +2,10 @@
 import fs from 'fs'
 import path from 'path'
 
-const source = fs.readFileSync(path.join(__dirname, 'notifications.tsx'), 'utf8')
+const source = fs.readFileSync(
+  path.join(__dirname, '../../app/notifications.tsx'),
+  'utf8',
+)
 
 test('renders religious reminder controls and timezone explanation', () => {
   expect(source).toContain('Religious reminders')
