@@ -45,6 +45,12 @@ const getPurchasePayload = (purchase: Purchase) => ({
   receipt: purchase.purchaseToken ?? undefined,
 });
 
+const formatIapError = (error: unknown): string => {
+  const code = (error as { code?: string })?.code;
+  const message = (error as { message?: string })?.message ?? String(error);
+  return code ? `${code}: ${message}` : message;
+};
+
 export default function PremiumScreen() {
   const router = useRouter();
   const { colors, spacing, borderRadius } = useTheme();
@@ -60,6 +66,8 @@ export default function PremiumScreen() {
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
   const syncedPurchaseIdsRef = useRef(new Set<string>());
+  const [productLoadError, setProductLoadError] = useState<string | null>(null);
+  const [lastIapError, setLastIapError] = useState<string | null>(null);
 
   const {
     connected,
@@ -126,6 +134,7 @@ export default function PremiumScreen() {
     },
     onError: (error) => {
       logger.warn("IAP error:", error);
+      setLastIapError(formatIapError(error));
     },
   });
 
@@ -150,6 +159,26 @@ export default function PremiumScreen() {
     ].filter(([, enabled]) => enabled) as [string, boolean][];
   }, [feature_flags]);
 
+  // Surfaced only when products fail to load, so a real "billing unavailable"
+  // can be told apart from an empty product list (IDs/state/build-origin issue).
+  const iapDiagnostics = useMemo(() => {
+    return [
+      `Store connected: ${connected ? "yes" : "no"}`,
+      `Platform: ${Platform.OS}`,
+      `Requested (${PREMIUM_PRODUCT_IDS.length}): ${PREMIUM_PRODUCT_IDS.join(", ")}`,
+      `Products returned: ${subscriptions.length}`,
+      lastIapError ? `Connection error: ${lastIapError}` : null,
+      productLoadError
+        ? `Fetch error: ${productLoadError}`
+        : connected && subscriptions.length === 0
+          ? "Fetch error: none — store returned an empty list (product IDs not found, not approved, or app not installed from the store)"
+          : null,
+    ].filter(Boolean) as string[];
+  }, [connected, subscriptions.length, lastIapError, productLoadError]);
+
+  const showIapDiagnostics =
+    (connected && subscriptions.length === 0) || !!productLoadError || !!lastIapError;
+
   useEffect(() => {
     if (!isAuthenticated) {
       router.replace({
@@ -168,7 +197,9 @@ export default function PremiumScreen() {
 
   useEffect(() => {
     if (!connected || PREMIUM_PRODUCT_IDS.length === 0) return;
+    setProductLoadError(null);
     fetchProducts({ skus: PREMIUM_PRODUCT_IDS, type: "subs" }).catch((error) => {
+      setProductLoadError(formatIapError(error));
       logger.warn("Failed to fetch subscription products", error);
     });
     getActiveSubscriptions(PREMIUM_PRODUCT_IDS).catch((error) => {
@@ -394,6 +425,29 @@ export default function PremiumScreen() {
               {"\n"}
               {PREMIUM_PRODUCT_IDS.join("\n")}
             </Text>
+          </View>
+        )}
+
+        {showIapDiagnostics && (
+          <View
+            style={[
+              tw`p-4 mb-4`,
+              {
+                borderRadius: borderRadius.lg,
+                borderWidth: 1,
+                borderColor: colors.system.separator.primary,
+                backgroundColor: colors.system.background.secondary,
+              },
+            ]}
+          >
+            <Text variant="caption1" color="secondaryLabel" weight="semibold" style={tw`mb-2`}>
+              IAP diagnostics
+            </Text>
+            {iapDiagnostics.map((line) => (
+              <Text key={line} variant="caption1" color="secondaryLabel" selectable style={tw`mb-1`}>
+                {line}
+              </Text>
+            ))}
           </View>
         )}
 
