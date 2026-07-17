@@ -139,6 +139,7 @@ const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
     currentEpisode,
     isPlaying,
     progress: currentProgress,
+    duration: measuredDuration,
     playbackSpeed,
     setPlaybackSpeed,
     playEpisode,
@@ -148,7 +149,12 @@ const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
   const isCurrentLecture = Boolean(episode && currentEpisode?.id === episode.id);
   const isCurrentlyPlaying = isCurrentLecture && isPlaying;
   const progress = isCurrentLecture ? currentProgress : 0;
-  const duration = episode?.durationSec || 0;
+  // Some newly imported lectures have a backend duration of "0". Once the
+  // native player reads the MP3 metadata, prefer that measured duration so the
+  // progress bar and total time recover without waiting for backend cleanup.
+  const duration = isCurrentLecture && measuredDuration > 0
+    ? measuredDuration
+    : episode?.durationSec || 0;
   const progressPercent = duration > 0 ? (progress / duration) * 100 : 0;
 
   const handlePlayPress = useCallback(() => {
