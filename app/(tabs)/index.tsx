@@ -78,10 +78,10 @@ const QUICK_ACTIONS = [
     route: "/playlists",
   },
   {
-    id: "ramadan",
-    title: "Ramadan",
-    icon: "moon" as const,
-    route: "/ramadan-tafsir",
+    id: "latest",
+    title: "Latest",
+    icon: "sparkles" as const,
+    route: "/section/recently-posted",
   },
   {
     id: "quran",
@@ -90,10 +90,10 @@ const QUICK_ACTIONS = [
     route: "/section/quran-recitations",
   },
   {
-    id: "trending",
-    title: "Trending",
-    icon: "flame" as const,
-    route: "/section/trending",
+    id: "library",
+    title: "Library",
+    icon: "library" as const,
+    route: "/(tabs)/library",
   },
 ];
 
@@ -167,10 +167,6 @@ function HomeScreen() {
   }, [recentLectures]);
 
   const trendingNowLectures = useMemo(() => {
-    const remainingAfterHero = popularEpisodes.slice(HOME_HERO_LIMIT);
-    if (remainingAfterHero.length > 0) {
-      return remainingAfterHero.slice(0, HOME_SECTION_LIMIT);
-    }
     return popularEpisodes.slice(0, HOME_SECTION_LIMIT);
   }, [popularEpisodes]);
 
@@ -433,6 +429,45 @@ function HomeScreen() {
     [handleCarouselItemPress],
   );
 
+  const renderTrendingCard = useCallback(
+    ({ item, index }: { item: Episode; index: number }) => {
+      if (!item?.id) return null;
+      return (
+        <Animated.View
+          entering={IS_ANDROID ? undefined : FadeInRight.delay(index * 50).duration(300)}
+          style={{ width: CARD_WIDTH, marginRight: CARD_SPACING }}
+        >
+          <View style={styles.trendingCardWrapper}>
+            <View
+              style={[
+                styles.rankBadge,
+                { backgroundColor: index < 3 ? colors.brand.primary : colors.system.fill.tertiary },
+              ]}
+            >
+              <Text
+                variant="caption1"
+                weight="bold"
+                style={{ color: index < 3 ? colors.fixed.black : colors.system.label.secondary }}
+              >
+                #{index + 1}
+              </Text>
+            </View>
+            <Card
+              variant="landscape"
+              data={item}
+              onPress={() => handleCarouselItemPress(item)}
+              playOnPress={false}
+              showTime={true}
+              showMeta={true}
+              metaValue={item.lecturerName || "Unknown Scholar"}
+            />
+          </View>
+        </Animated.View>
+      );
+    },
+    [colors, handleCarouselItemPress],
+  );
+
   // Render Quran Album Card
   const renderQuranCard = useCallback(
     ({ item, index }: { item: QuranAlbum; index: number }) => {
@@ -657,6 +692,25 @@ function HomeScreen() {
           ) : null}
         </View>
 
+        {/* Trending is the primary discovery shelf, immediately after hero. */}
+        <View style={tw`mt-7`}>
+          {renderSectionHeader("Trending Now", "What the community is listening to", () =>
+            router.push("/section/trending"),
+          )}
+          {popularLoading ? (
+            renderSkeletons()
+          ) : trendingNowLectures.length > 0 ? (
+            <FlashList
+              data={trendingNowLectures}
+              renderItem={renderTrendingCard}
+              keyExtractor={(item) => `popular-${item.id}`}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={tw`px-4`}
+            />
+          ) : null}
+        </View>
+
         {/* Quick Actions */}
         <View style={tw`px-4 mt-6`}>
           <Text variant="title3" color="label" weight="bold" style={tw`mb-4`}>
@@ -735,24 +789,6 @@ function HomeScreen() {
           ) : null}
         </View>
 
-        {/* Trending */}
-        <View style={tw`mt-8`}>
-          {renderSectionHeader("Trending Now", "Most popular this week", () =>
-            router.push("/section/trending"),
-          )}
-          {popularLoading ? (
-            renderSkeletons()
-          ) : trendingNowLectures.length > 0 ? (
-            <FlashList
-              data={trendingNowLectures}
-              renderItem={renderLectureCard}
-              keyExtractor={(item) => `popular-${item.id}`}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={tw`px-4`}
-            />
-          ) : null}
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -855,6 +891,22 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     marginBottom: 16,
+  },
+  trendingCardWrapper: {
+    position: "relative",
+    paddingTop: 12,
+  },
+  rankBadge: {
+    position: "absolute",
+    zIndex: 2,
+    top: 0,
+    left: 12,
+    minWidth: 38,
+    height: 24,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
   },
   notificationBadge: {
     position: "absolute",

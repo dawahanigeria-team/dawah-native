@@ -29,6 +29,8 @@ import { RamadanAlbum } from "../../src/services/api/ramadan.api";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Episode, Series } from "../../src/types/types";
+import { usePlayerActions } from "../../src/stores";
+import { formatDuration } from "../../src/utils/formatTime";
 
 type AlbumType = QuranAlbum | RamadanAlbum;
 
@@ -97,7 +99,7 @@ const getSectionInfo = (type: string) => {
   }
 };
 
-type SortOption = "recent" | "most-played" | "downloads";
+type SortOption = "trending" | "recent" | "most-played" | "downloads";
 type LanguageFilter = "all" | "hausa" | "english" | "yoruba" | "arabic";
 
 export default function SectionScreenWithBoundary() {
@@ -110,6 +112,7 @@ export default function SectionScreenWithBoundary() {
 
 function SectionScreen() {
   const { colors } = useTheme();
+  const { playEpisode } = usePlayerActions();
   const { type } = useLocalSearchParams<{ type: string }>();
   const supportsAutoLayoutView = Boolean(
     UIManager.getViewManagerConfig?.("AutoLayoutView"),
@@ -178,7 +181,7 @@ function SectionScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLanguage, setSelectedLanguage] =
     useState<LanguageFilter>("all");
-  const [sortBy, setSortBy] = useState<SortOption>("recent");
+  const [sortBy, setSortBy] = useState<SortOption>("trending");
   const [filtersExpanded, setFiltersExpanded] = useState(false);
 
   const showFilters = type === "trending";
@@ -331,11 +334,14 @@ function SectionScreen() {
           episodes.sort((a, b) => b.downloads - a.downloads);
           break;
         case "recent":
-        default:
           episodes.sort(
             (a, b) =>
               new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
           );
+          break;
+        case "trending":
+        default:
+          // The API has already velocity-ranked this feed.
           break;
       }
       data = episodes;
@@ -385,7 +391,7 @@ function SectionScreen() {
 
   // Render item for list
   const renderItem = useCallback(
-    ({ item }: { item: Episode | Series | AlbumType }) => {
+    ({ item, index }: { item: Episode | Series | AlbumType; index: number }) => {
       // Handle Ramadan Tafsir albums
       if (
         sectionInfo.variant === "ramadan" &&
@@ -543,6 +549,64 @@ function SectionScreen() {
           type === "recently-posted" ||
           type === "recently-played";
 
+        if (type === "trending") {
+          const episode = item as Episode;
+          const durationLabel = episode.durationSec > 0
+            ? formatDuration(episode.durationSec)
+            : "Duration updating";
+
+          return (
+            <TouchableOpacity
+              onPress={() => handleLecturePress(episode)}
+              activeOpacity={0.82}
+              style={[
+                styles.chartRow,
+                { borderBottomColor: colors.system.separator.primary },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={`Number ${index + 1}, ${episode.title}, ${durationLabel}`}
+            >
+              <Text
+                variant={index < 3 ? "title2" : "headline"}
+                weight="bold"
+                style={[
+                  styles.chartRank,
+                  { color: index < 3 ? colors.brand.primary : colors.system.label.tertiary },
+                ]}
+              >
+                {index + 1}
+              </Text>
+              <Image
+                source={{ uri: episode.coverUrl }}
+                style={styles.chartArtwork}
+                resizeMode="cover"
+              />
+              <View style={styles.chartContent}>
+                <Text variant="headline" color="label" weight="semibold" numberOfLines={2}>
+                  {episode.title}
+                </Text>
+                <Text variant="caption1" color="secondaryLabel" numberOfLines={1} style={tw`mt-1`}>
+                  {episode.lecturerName || "Unknown Scholar"}
+                </Text>
+                <Text variant="caption2" color="tertiaryLabel" numberOfLines={1} style={tw`mt-1`}>
+                  {[episode.language, durationLabel].filter(Boolean).join(" • ")}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={(event) => {
+                  event.stopPropagation?.();
+                  playEpisode(episode);
+                }}
+                style={[styles.chartPlayButton, { backgroundColor: colors.brand.primary }]}
+                accessibilityRole="button"
+                accessibilityLabel={`Play ${episode.title}`}
+              >
+                <Ionicons name="play" size={18} color={colors.fixed.black} />
+              </TouchableOpacity>
+            </TouchableOpacity>
+          );
+        }
+
         return (
           <Card
             variant="section"
@@ -597,6 +661,7 @@ function SectionScreen() {
       sectionInfo.variant,
       type,
       colors,
+      playEpisode,
     ],
   );
 
@@ -934,6 +999,7 @@ function SectionScreen() {
                       contentContainerStyle={tw`gap-2`}
                     >
                       {[
+                        { key: "trending", label: "Trending" },
                         { key: "recent", label: "Recent" },
                         { key: "most-played", label: "Most Played" },
                         { key: "downloads", label: "Downloads" },
@@ -1000,6 +1066,37 @@ function SectionScreen() {
 }
 
 const styles = StyleSheet.create({
+  chartRow: {
+    minHeight: 100,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  chartRank: {
+    width: 32,
+    textAlign: "center",
+    marginRight: 8,
+  },
+  chartArtwork: {
+    width: 68,
+    height: 68,
+    borderRadius: 12,
+    backgroundColor: "#252529",
+  },
+  chartContent: {
+    flex: 1,
+    minWidth: 0,
+    marginLeft: 12,
+    marginRight: 10,
+  },
+  chartPlayButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   quranAlbumCard: {
     shadowOpacity: 0.08,
     shadowRadius: 8,

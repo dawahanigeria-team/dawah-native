@@ -111,11 +111,15 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
             coverUrl: lecture.img || lecture.CoverUrl || '',
             audioUrl: lecture.audio || lecture.mp3_url || lecture.AudioUrl || '',
             seriesId: lecture.keyword || '',
-            plays: parseInt(lecture.favorites?.toString() || '0') || 0,
+            plays: parseInt((lecture.views ?? lecture.Plays ?? lecture.favorites)?.toString() || '0') || 0,
             liked: false,
             language: lecture.lang || lecture.language || lecture.Language || '',
-            downloads: parseInt(lecture.share?.toString() || '0') || 0,
-            createdAt: lecture.created_at || '',
+            downloads: parseInt((lecture.downloads ?? lecture.Downloads ?? lecture.share)?.toString() || '0') || 0,
+            createdAt:
+              lecture.created_at
+              || (lecture as SearchLecture & { post_date?: string }).post_date
+              || (lecture as SearchLecture & { updated_date?: string }).updated_date
+              || '',
             lecturerName:
               pickSpeakerName([
                 lecture.lecturer_name,
