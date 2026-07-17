@@ -289,7 +289,7 @@ const AlbumDetailScreen: React.FC = () => {
             <View style={styles.actionsRow}>
               <TouchableOpacity
                 style={[styles.secondaryAction, { backgroundColor: colors.system.fill.secondary }]}
-                onPress={() => startQueue(0, true)}
+                onPress={() => startQueue(Math.floor(Math.random() * episodes.length), true)}
                 accessibilityRole="button"
                 accessibilityLabel="Shuffle this album"
               >
