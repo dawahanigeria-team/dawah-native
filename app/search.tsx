@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -20,8 +21,13 @@ import { surahs } from "../src/data/surahs";
 import { useLecturers } from "../src/hooks/useLecturers";
 import { useSearchLectures } from "../src/hooks/useSearch";
 import { useTheme } from "../src/hooks/useTheme";
+import { searchApi } from "../src/services/api/search.api";
 import tw from "../src/theme/twrnc";
-import { SearchLecture } from "../src/types/api.types";
+import {
+  SearchAlbum,
+  SearchLecture,
+  SearchLecturer,
+} from "../src/types/api.types";
 import {
   Language,
   SearchFilters,
@@ -58,6 +64,8 @@ const sortOptions = [
   { label: "Z-A", value: "z-a" as SortOption },
 ];
 
+type SearchSection = "overview" | "lecturers" | "lectures" | "albums";
+
 export default function SearchScreenWithBoundary() {
   return (
     <ErrorBoundary>
@@ -86,6 +94,12 @@ function SearchScreen() {
   // Local state for search input - separate from actual search query
   const [searchInput, setSearchInput] = useState(initialQuery);
   const [actualSearchQuery, setActualSearchQuery] = useState(initialQuery);
+  const [activeSection, setActiveSection] = useState<SearchSection>("overview");
+  const [lecturerResults, setLecturerResults] = useState<SearchLecturer[]>([]);
+  const [lecturerTotal, setLecturerTotal] = useState(0);
+  const [albumResults, setAlbumResults] = useState<SearchAlbum[]>([]);
+  const [albumTotal, setAlbumTotal] = useState(0);
+  const [discoveryLoading, setDiscoveryLoading] = useState(false);
 
   // Use the search API hook - only searches when actualSearchQuery changes
   const {
@@ -112,6 +126,40 @@ function SearchScreen() {
     }
   }, [actualSearchQuery, setQuery]);
 
+  useEffect(() => {
+    let active = true;
+    const query = actualSearchQuery.trim();
+
+    if (query.length < 2) {
+      setLecturerResults([]);
+      setLecturerTotal(0);
+      setAlbumResults([]);
+      setAlbumTotal(0);
+      setDiscoveryLoading(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    setDiscoveryLoading(true);
+    void searchApi
+      .searchDiscovery(query)
+      .then((result) => {
+        if (!active) return;
+        setLecturerResults(result.lecturers);
+        setLecturerTotal(result.lecturerTotal);
+        setAlbumResults(result.albums);
+        setAlbumTotal(result.albumTotal);
+      })
+      .finally(() => {
+        if (active) setDiscoveryLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [actualSearchQuery]);
+
   // Sync filters with search hook
   useEffect(() => {
     // Map UI filters to what the hook expects
@@ -123,6 +171,7 @@ function SearchScreen() {
 
   // Handle search submission (Enter key or search button)
   const handleSearch = (searchText: string) => {
+    setActiveSection("overview");
     setActualSearchQuery(searchText);
   };
 
@@ -272,6 +321,208 @@ function SearchScreen() {
       />
     );
   };
+
+  const renderSectionHeader = (
+    title: string,
+    total: number,
+    section: Exclude<SearchSection, "overview">,
+    showSeeAll: boolean,
+  ) => (
+    <View style={tw`flex-row items-center justify-between mb-3`}>
+      <View style={tw`flex-row items-center`}>
+        <Text variant="title3" color="label" weight="bold">
+          {title}
+        </Text>
+        <View
+          style={[
+            tw`ml-2 px-2 py-0.5 rounded-full`,
+            { backgroundColor: colors.system.fill.tertiary },
+          ]}
+        >
+          <Text variant="caption1" color="secondaryLabel">
+            {total}
+          </Text>
+        </View>
+      </View>
+      {showSeeAll && total > 0 && (
+        <TouchableOpacity
+          onPress={() => setActiveSection(section)}
+          accessibilityRole="button"
+          accessibilityLabel={`See all ${title.toLowerCase()}`}
+          style={tw`min-h-[44px] px-2 justify-center`}
+        >
+          <Text variant="subheadline" color="brand" weight="semibold">
+            See all
+          </Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
+  const renderLecturerResult = (item: SearchLecturer) => {
+    const raw = item as SearchLecturer & {
+      img?: string;
+      rp_thumbnail?: string;
+      views?: number;
+    };
+    const name = raw.name || "Unknown Scholar";
+    const initial = name.trim().charAt(0).toUpperCase() || "S";
+    const imageUrl = raw.avatarUrl || raw.rp_thumbnail || raw.img;
+
+    return (
+      <TouchableOpacity
+        key={`lecturer-${raw.id}`}
+        onPress={() =>
+          router.push({
+            pathname: "/lecturer/[id]",
+            params: { id: String(raw.id), name },
+          })
+        }
+        activeOpacity={0.75}
+        style={[
+          tw`flex-row items-center p-4 mb-3 rounded-xl`,
+          {
+            backgroundColor: colors.system.background.secondary,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: colors.system.separator.primary,
+          },
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel={`Open scholar ${name}`}
+      >
+        {imageUrl ? (
+          <Image
+            source={{ uri: imageUrl }}
+            style={tw`w-12 h-12 rounded-full`}
+            contentFit="cover"
+            transition={150}
+            accessibilityLabel={`${name} profile photo`}
+          />
+        ) : (
+          <View
+            style={[
+              tw`w-12 h-12 rounded-full items-center justify-center`,
+              { backgroundColor: colors.system.fill.secondary },
+            ]}
+          >
+            <Text variant="headline" color="label" weight="bold">
+              {initial}
+            </Text>
+          </View>
+        )}
+        <View style={tw`flex-1 ml-3`}>
+          <Text variant="headline" color="label" weight="semibold" numberOfLines={1}>
+            {name}
+          </Text>
+          <Text variant="caption1" color="secondaryLabel" numberOfLines={1}>
+            Scholar{raw.language ? ` • ${String(raw.language)}` : ""}
+          </Text>
+        </View>
+        <Ionicons
+          name="chevron-forward"
+          size={20}
+          color={colors.system.label.tertiary}
+        />
+      </TouchableOpacity>
+    );
+  };
+
+  const renderAlbumResult = (item: SearchAlbum) => {
+    const raw = item as SearchAlbum & {
+      name?: string;
+      lecturer_name?: string;
+      lec_no?: number;
+      img?: string;
+      alb_thumbnail?: string;
+    };
+    const title = raw.title || raw.name || "Untitled album";
+    const lecturerName = raw.lecturerName || raw.lecturer_name || "Unknown Scholar";
+    const trackCount = raw.trackCount || raw.lec_no || 0;
+    const imageUrl = raw.coverUrl || raw.alb_thumbnail || raw.img;
+
+    return (
+      <TouchableOpacity
+        key={`album-${raw.id}`}
+        onPress={() => router.push(`/album/${raw.id}`)}
+        activeOpacity={0.75}
+        style={[
+          tw`flex-row items-center p-4 mb-3 rounded-xl`,
+          {
+            backgroundColor: colors.system.background.secondary,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: colors.system.separator.primary,
+          },
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel={`Open album ${title}`}
+      >
+        {imageUrl ? (
+          <Image
+            source={{ uri: imageUrl }}
+            style={tw`w-12 h-12 rounded-lg`}
+            contentFit="cover"
+            transition={150}
+            accessibilityLabel={`${title} album artwork`}
+          />
+        ) : (
+          <View
+            style={[
+              tw`w-12 h-12 rounded-lg items-center justify-center`,
+              { backgroundColor: colors.system.fill.secondary },
+            ]}
+          >
+            <Ionicons
+              name="albums"
+              size={22}
+              color={colors.system.label.secondary}
+            />
+          </View>
+        )}
+        <View style={tw`flex-1 ml-3`}>
+          <Text variant="headline" color="label" weight="semibold" numberOfLines={2}>
+            {title}
+          </Text>
+          <Text variant="caption1" color="secondaryLabel" numberOfLines={1}>
+            {lecturerName}{trackCount > 0 ? ` • ${trackCount} lectures` : ""}
+          </Text>
+        </View>
+        <Ionicons
+          name="chevron-forward"
+          size={20}
+          color={colors.system.label.tertiary}
+        />
+      </TouchableOpacity>
+    );
+  };
+
+  const visibleLecturers =
+    activeSection === "lecturers" ? lecturerResults : lecturerResults.slice(0, 2);
+  const visibleAlbums =
+    activeSection === "albums" ? albumResults : albumResults.slice(0, 2);
+  const visibleLectures =
+    activeSection === "overview"
+      ? filteredAndSortedResults.slice(0, 5)
+      : activeSection === "lectures"
+        ? filteredAndSortedResults
+        : [];
+  const combinedTotal = lecturerTotal + totalResults + albumTotal;
+  const currentSectionTotal =
+    activeSection === "lecturers"
+      ? lecturerTotal
+      : activeSection === "lectures"
+        ? totalResults
+        : activeSection === "albums"
+          ? albumTotal
+          : combinedTotal;
+  const searchLoading = loading || discoveryLoading;
+  const hasVisibleResults =
+    activeSection === "lecturers"
+      ? visibleLecturers.length > 0
+      : activeSection === "albums"
+        ? visibleAlbums.length > 0
+        : activeSection === "lectures"
+          ? visibleLectures.length > 0
+          : visibleLecturers.length + visibleLectures.length + visibleAlbums.length > 0;
 
   const renderEmptyState = () => (
     <View style={tw`flex-1 items-center justify-center py-20 px-6`}>
@@ -426,12 +677,13 @@ function SearchScreen() {
         />
       </View>
 
-      {/* Sort Dropdown */}
+      {/* Results summary and lecture sorting */}
       <View style={tw`px-5 mb-5`}>
         <View style={tw`flex-row items-center justify-between`}>
           <Text variant="headline" color="label" weight="semibold">
-            {loading ? "Searching..." : `${filteredAndSortedResults.length} Results`}
+            {searchLoading ? "Searching..." : `${currentSectionTotal} Results`}
           </Text>
+          {(activeSection === "overview" || activeSection === "lectures") && (
           <View style={tw`flex-row items-center`}>
             <Text variant="subheadline" color="label" weight="medium" style={tw`mr-3`}>
               Sort by
@@ -445,6 +697,7 @@ function SearchScreen() {
               />
             </View>
           </View>
+          )}
         </View>
       </View>
 
@@ -454,16 +707,34 @@ function SearchScreen() {
         // Extra bottom padding so the last search results clear the mini-player
         contentContainerStyle={tw`pb-40`}
         data={
-          loading && actualSearchQuery && filteredAndSortedResults.length === 0
+          searchLoading && actualSearchQuery && !hasVisibleResults
             ? []
-            : filteredAndSortedResults
+            : visibleLectures
         }
         keyExtractor={(item, index) => getItemKey(item, index)}
         renderItem={({ item }) => (
           <View style={tw`px-5`}>{renderSearchResult(item)}</View>
         )}
         ListHeaderComponent={
-          showFilters ? (
+          <View style={tw`px-5`}>
+            {activeSection !== "overview" && (
+              <TouchableOpacity
+                onPress={() => setActiveSection("overview")}
+                accessibilityRole="button"
+                style={tw`flex-row items-center min-h-[44px] mb-3`}
+              >
+                <Ionicons
+                  name="arrow-back"
+                  size={18}
+                  color={colors.brand.primary}
+                />
+                <Text variant="subheadline" color="brand" weight="semibold" style={tw`ml-2`}>
+                  All search results
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {showFilters && (activeSection === "overview" || activeSection === "lectures") ? (
             <View
               style={[
                 tw`pt-6 pb-4 mb-6 mx-1 rounded-xl`,
@@ -538,10 +809,38 @@ function SearchScreen() {
                 />
               )}
             </View>
-          ) : null
+            ) : null}
+
+            {(activeSection === "overview" || activeSection === "lecturers") && (
+              <View style={tw`mb-6`}>
+                {renderSectionHeader(
+                  "Scholars",
+                  lecturerTotal,
+                  "lecturers",
+                  activeSection === "overview" && lecturerTotal > 2,
+                )}
+                {visibleLecturers.map(renderLecturerResult)}
+              </View>
+            )}
+
+            {(activeSection === "overview" || activeSection === "lectures") &&
+              renderSectionHeader(
+                "Lectures",
+                totalResults,
+                "lectures",
+                activeSection === "overview" && totalResults > 5,
+              )}
+
+            {activeSection === "albums" && (
+              <View style={tw`mb-6`}>
+                {renderSectionHeader("Albums", albumTotal, "albums", false)}
+                {visibleAlbums.map(renderAlbumResult)}
+              </View>
+            )}
+          </View>
         }
         ListEmptyComponent={
-          loading && actualSearchQuery ? (
+          searchLoading && actualSearchQuery ? (
             <View style={tw`px-5`}>
               {[...Array(5)].map((_, index) => (
                 <CardSkeleton
@@ -551,15 +850,27 @@ function SearchScreen() {
                 />
               ))}
             </View>
-          ) : (
+          ) : !hasVisibleResults ? (
             <View style={tw`px-5`}>{renderEmptyState()}</View>
-          )
+          ) : null
         }
         ListFooterComponent={
-          filteredAndSortedResults.length > 0 ? (
+          hasVisibleResults ? (
             <View style={tw`px-5`}>
+              {activeSection === "overview" && (
+                <View style={tw`pt-5`}>
+                  {renderSectionHeader(
+                    "Albums",
+                    albumTotal,
+                    "albums",
+                    albumTotal > 2,
+                  )}
+                  {visibleAlbums.map(renderAlbumResult)}
+                </View>
+              )}
+
               {/* Load More Indicator */}
-              {hasMore && actualSearchQuery && (
+              {activeSection === "lectures" && hasMore && actualSearchQuery && (
                 <View style={tw`py-6`}>
                   {loading ? (
                     <ActivityIndicator
@@ -571,7 +882,7 @@ function SearchScreen() {
               )}
 
               {/* Pagination Info */}
-              {actualSearchQuery && totalPages > 0 && (
+              {activeSection === "lectures" && actualSearchQuery && totalPages > 0 && (
                 <View style={tw`py-4 items-center`}>
                   <Text variant="caption1" color="secondaryLabel">
                     Page {currentPage} of {totalPages} •{" "}
@@ -584,7 +895,7 @@ function SearchScreen() {
         }
         onEndReachedThreshold={0.5}
         onEndReached={() => {
-          if (hasMore && !loading && actualSearchQuery) {
+          if (activeSection === "lectures" && hasMore && !loading && actualSearchQuery) {
             loadMore();
           }
         }}

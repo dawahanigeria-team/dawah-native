@@ -293,6 +293,7 @@ function LecturerDetailScreen() {
   const fetchLecturerDetails = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
       const data = await lecturersApi.getLecturerDetails(lecturerId);
 
       // If we arrived here via name-hint flow (id=0), prefer showing the name hint
@@ -307,9 +308,13 @@ function LecturerDetailScreen() {
         );
       } else {
         setLecturer(buildLecturerDetails(data));
+        if (!data) {
+          setError("Lecturer not found");
+        }
       }
     } catch (err) {
       console.error("Failed to fetch lecturer details:", err);
+      setLecturer(null);
       setError("Failed to load lecturer details");
     } finally {
       setLoading(false);
@@ -468,6 +473,8 @@ function LecturerDetailScreen() {
 
   // Fetch lecturer details
   useEffect(() => {
+    setLecturer(null);
+    setError(null);
     setIsFollowLoading(false);
     autoFollowHandledRef.current = false;
     fetchLecturerDetails();
@@ -923,13 +930,23 @@ function LecturerDetailScreen() {
             Failed to load lecturer
           </Text>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => {
+              void fetchLecturerDetails();
+              void fetchLecturerLectures();
+              void fetchAlbums();
+            }}
             style={[
               tw`px-6 py-3 rounded-lg`,
               { backgroundColor: colors.system.fill.tertiary },
             ]}
           >
-            <Text style={{ color: colors.system.label.primary }}>Go Back</Text>
+            <Text style={{ color: colors.system.label.primary }}>Try Again</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={tw`px-6 py-3 mt-2`}
+          >
+            <Text style={{ color: colors.system.label.secondary }}>Go Back</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>

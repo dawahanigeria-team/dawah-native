@@ -40,6 +40,7 @@ export interface LecturersParams {
   lim?: number;
   language?: string | number; // Can be language ID (number) or name (string)
   state?: string;
+  rpid?: string | number;
 }
 
 export interface LecturersResponse {
@@ -103,6 +104,10 @@ class LecturersApiService {
 
       if (params.state && params.state !== 'All') {
         requestParams.state = params.state;
+      }
+
+      if (params.rpid !== undefined && String(params.rpid).trim() !== '') {
+        requestParams.rpid = params.rpid;
       }
 
       // Log the API call
@@ -292,50 +297,19 @@ class LecturersApiService {
 
   /**
    * Get lecturer details
-   * Tries to find lecturer in all lecturers list first,
-   * falls back to extracting info from their lectures if not found
+   * Uses the exact lecturer lookup so this request never collides with the
+   * lecture-list request made by the lecturer screen.
    */
   async getLecturerDetails(lecturerId: string | number): Promise<Lecturer | null> {
-    try {
-      logger.debug('Fetching lecturer details for:', lecturerId);
+    logger.debug('Fetching lecturer directly by id:', lecturerId);
+    const response = await this.getAllLecturers({
+      page: 1,
+      lim: 1,
+      offset: 0,
+      rpid: lecturerId,
+    });
 
-      // Try to find in all lecturers list first
-      const response = await this.getAllLecturers({ lim: 50 });
-      const lecturer = response.data.find(l =>
-        String(l.id) === String(lecturerId)
-      );
-
-      if (lecturer) {
-        logger.debug('Lecturer found in list:', lecturer.name);
-        return lecturer;
-      }
-
-      // Lecturer not in first 50, fetch their lectures to get info
-      logger.debug('Lecturer not in list, fetching from lectures...');
-      const lecturesResponse = await this.getLecturesByLecturer(lecturerId, 1);
-
-      if (lecturesResponse.data.length > 0) {
-        const firstLecture = lecturesResponse.data[0];
-        const constructedLecturer: Lecturer = {
-          id: lecturerId,
-          name: firstLecture.rpname || 'Unknown Lecturer',
-          img: firstLecture.rp_image || '',
-          language: firstLecture.lang || 'Unknown',
-          views: firstLecture.views || 0,
-          favorites: firstLecture.favorites || 0,
-          share: firstLecture.share || 0,
-          comment: firstLecture.comment || 0,
-        };
-        logger.debug('Lecturer constructed from lectures:', constructedLecturer.name);
-        return constructedLecturer;
-      }
-
-      logger.debug('No lectures found for lecturer:', lecturerId);
-      return null;
-    } catch (error) {
-      console.error('Failed to fetch lecturer details:', error);
-      return null;
-    }
+    return response.data[0] ?? null;
   }
 
   /**
