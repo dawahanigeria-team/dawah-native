@@ -254,7 +254,14 @@ function HomeScreen() {
   }, []);
 
   const handleAlbumPress = useCallback((album: QuranAlbum) => {
-    router.push(`/quran-reciter/${album.id}`);
+    router.push({
+      pathname: `/quran-reciter/${album.id}`,
+      params: {
+        albumIds: (album.albumIds || [album.id]).join(','),
+        reciterId: album.reciterId,
+        reciterName: album.name,
+      },
+    });
   }, []);
 
   // Render Hero Carousel Item

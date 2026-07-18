@@ -151,7 +151,7 @@ function SectionScreen() {
 
   // Fetch Quran albums if this is the quran-recitations section
   const quranParams =
-    type === "quran-recitations" ? { page: 1, limit: 20 } : undefined;
+    type === "quran-recitations" ? { page: 1, limit: 50 } : undefined;
 
   const {
     albums: quranAlbums,
@@ -361,8 +361,14 @@ function SectionScreen() {
 
   const handleQuranAlbumPress = useCallback((album: QuranAlbum) => {
     if (!album?.id) return;
-    // Navigate to reciter detail page
-    router.push(`/quran-reciter/${album.id}`);
+    router.push({
+      pathname: `/quran-reciter/${album.id}`,
+      params: {
+        albumIds: (album.albumIds || [album.id]).join(','),
+        reciterId: album.reciterId,
+        reciterName: album.name,
+      },
+    });
   }, []);
 
   const handleRamadanAlbumPress = useCallback((album: RamadanAlbum) => {
@@ -452,11 +458,20 @@ function SectionScreen() {
             <View style={tw`flex-row`}>
               {/* Image Section */}
               <View style={tw`w-28 h-28 relative`}>
-                <Image
-                  source={{ uri: album.alb_thumbnail || album.img }}
-                  style={tw`w-full h-full`}
-                  resizeMode="cover"
-                />
+                {album.alb_thumbnail || album.img ? (
+                  <Image
+                    source={{ uri: album.alb_thumbnail || album.img }}
+                    style={tw`w-full h-full`}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <LinearGradient
+                    colors={["#0B5B3D", "#159565"]}
+                    style={tw`w-full h-full items-center justify-center`}
+                  >
+                    <Ionicons name="book-outline" size={38} color="rgba(255,255,255,0.82)" />
+                  </LinearGradient>
+                )}
                 <LinearGradient
                   colors={["transparent", "rgba(0,0,0,0.4)"]}
                   style={tw`absolute inset-0`}
@@ -815,18 +830,41 @@ function SectionScreen() {
           </Text>
         </View>
 
-        {/* Description */}
-        <Text
-          variant="body"
-          color="secondaryLabel"
-          style={tw`mb-3 leading-6`}
-          numberOfLines={2}
-        >
-          {sectionInfo.description}
-        </Text>
-
-        {/* Stats */}
-        <View style={tw`flex-row items-center`}>
+        {type === "quran-recitations" ? (
+          <LinearGradient
+            colors={["#073B2A", "#0B6845", "#18A46F"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.quranHero}
+          >
+            <View style={styles.quranHeroCopy}>
+              <Text style={styles.quranKicker}>القرآن الكريم</Text>
+              <Text variant="title2" weight="bold" style={styles.quranHeroTitle}>
+                Listen. Reflect. Continue.
+              </Text>
+              <Text variant="subheadline" style={styles.quranHeroDescription}>
+                Complete recitations and treasured Nigerian voices, ready to play in order or shuffle.
+              </Text>
+              <View style={styles.quranHeroStat}>
+                <Ionicons name="mic-outline" size={16} color="#D9FBE9" />
+                <Text variant="caption1" weight="semibold" style={styles.quranHeroStatText}>
+                  {quranAlbums.length} collections available
+                </Text>
+              </View>
+            </View>
+            <Ionicons name="book-outline" size={78} color="rgba(255,255,255,0.14)" />
+          </LinearGradient>
+        ) : (
+          <>
+            <Text
+              variant="body"
+              color="secondaryLabel"
+              style={tw`mb-3 leading-6`}
+              numberOfLines={2}
+            >
+              {sectionInfo.description}
+            </Text>
+            <View style={tw`flex-row items-center`}>
           <View
             style={[
               tw`px-3 py-1.5 rounded-full mr-3`,
@@ -853,7 +891,9 @@ function SectionScreen() {
                         : `${sectionInfo.count} lectures`}
             </Text>
           </View>
-        </View>
+            </View>
+          </>
+        )}
       </View>
 
       {/* Search Bar and Filters */}
@@ -1101,5 +1141,42 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
+  },
+  quranHero: {
+    minHeight: 178,
+    borderRadius: 24,
+    padding: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  quranHeroCopy: {
+    flex: 1,
+    gap: 7,
+  },
+  quranKicker: {
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 17,
+  },
+  quranHeroTitle: {
+    color: "#FFFFFF",
+  },
+  quranHeroDescription: {
+    color: "rgba(255,255,255,0.78)",
+    lineHeight: 20,
+  },
+  quranHeroStat: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+    marginTop: 4,
+  },
+  quranHeroStatText: {
+    color: "#D9FBE9",
   },
 });
