@@ -253,7 +253,7 @@ const NotificationsScreen = () => {
         title="Choose reminder time"
         value={activeTimePicker
           ? prefs.religiousReminders[activeTimePicker].time
-          : "07:00"}
+          : "06:30"}
         onCancel={() => setActiveTimePicker(null)}
         onConfirm={(time) => {
           if (activeTimePicker) {

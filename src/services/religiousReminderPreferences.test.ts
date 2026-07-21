@@ -22,9 +22,9 @@ test('normalizes each malformed reminder time independently', () => {
   ).toEqual({
     enabled: false,
     customized: true,
-    surahAlKahf: { enabled: false, time: '07:00' },
+    surahAlKahf: { enabled: false, time: '06:30' },
     mondayFast: { enabled: true, time: '21:15' },
-    thursdayFast: { enabled: false, time: '20:00' },
+    thursdayFast: { enabled: false, time: '20:30' },
   })
 })
 
@@ -38,7 +38,7 @@ test('updates one reminder immutably and marks preferences customized', () => {
   expect(updated.surahAlKahf).toEqual({ enabled: true, time: '08:30' })
   expect(updated.mondayFast).toBe(current.mondayFast)
   expect(updated.customized).toBe(true)
-  expect(current.surahAlKahf.time).toBe('07:00')
+  expect(current.surahAlKahf.time).toBe('06:30')
 })
 
 test('rejects malformed updates by preserving the current valid time', () => {
@@ -48,5 +48,20 @@ test('rejects malformed updates by preserving the current valid time', () => {
     { time: '99:00' },
   )
 
-  expect(updated.mondayFast.time).toBe('20:00')
+  expect(updated.mondayFast.time).toBe('20:30')
+})
+
+test('migrates previous uncustomized times to the new WAT defaults', () => {
+  expect(normalizeReligiousReminderPreferences({
+    customized: false,
+    surahAlKahf: { enabled: true, time: '07:00' },
+    mondayFast: { enabled: false, time: '20:00' },
+    thursdayFast: { enabled: true, time: '20:00' },
+  })).toEqual({
+    enabled: true,
+    customized: false,
+    surahAlKahf: { enabled: true, time: '06:30' },
+    mondayFast: { enabled: false, time: '20:30' },
+    thursdayFast: { enabled: true, time: '20:30' },
+  })
 })

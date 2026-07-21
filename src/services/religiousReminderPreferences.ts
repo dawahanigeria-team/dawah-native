@@ -16,9 +16,9 @@ export type ReligiousReminderPreferences = {
 export const defaultReligiousReminderPreferences: ReligiousReminderPreferences = {
   enabled: true,
   customized: false,
-  surahAlKahf: { enabled: true, time: '07:00' },
-  mondayFast: { enabled: true, time: '20:00' },
-  thursdayFast: { enabled: true, time: '20:00' },
+  surahAlKahf: { enabled: true, time: '06:30' },
+  mondayFast: { enabled: true, time: '20:30' },
+  thursdayFast: { enabled: true, time: '20:30' },
 }
 
 const VALID_TIME = /^(?:[01]\d|2[0-3]):[0-5]\d$/
@@ -48,22 +48,26 @@ export const normalizeReligiousReminderPreferences = (
   const candidate = value && typeof value === 'object'
     ? value as Partial<ReligiousReminderPreferences>
     : {}
+  const customized = candidate.customized === true
+
+  const settingValue = (setting: ReminderSetting | undefined): unknown =>
+    customized ? setting : { enabled: setting?.enabled }
 
   return {
     enabled: typeof candidate.enabled === 'boolean'
       ? candidate.enabled
       : defaultReligiousReminderPreferences.enabled,
-    customized: candidate.customized === true,
+    customized,
     surahAlKahf: normalizeSetting(
-      candidate.surahAlKahf,
+      settingValue(candidate.surahAlKahf),
       defaultReligiousReminderPreferences.surahAlKahf,
     ),
     mondayFast: normalizeSetting(
-      candidate.mondayFast,
+      settingValue(candidate.mondayFast),
       defaultReligiousReminderPreferences.mondayFast,
     ),
     thursdayFast: normalizeSetting(
-      candidate.thursdayFast,
+      settingValue(candidate.thursdayFast),
       defaultReligiousReminderPreferences.thursdayFast,
     ),
   }

@@ -97,10 +97,10 @@ test('rewrites malformed stored reminder settings with normalized values', async
 
   const preferences = await getNotificationPrefs()
 
-  expect(preferences.religiousReminders.surahAlKahf.time).toBe('07:00')
+  expect(preferences.religiousReminders.surahAlKahf.time).toBe('06:30')
   expect(mockSetItem).toHaveBeenCalledWith(
     'NOTIFICATION_PREFS',
-    expect.stringContaining('"time":"07:00"'),
+    expect.stringContaining('"time":"06:30"'),
   )
 })
 
@@ -120,8 +120,8 @@ test('syncs customized reminders in the device timezone without local metadata',
     religiousReminders: {
       enabled: true,
       surahAlKahf: { enabled: true, time: '08:30' },
-      mondayFast: { enabled: true, time: '20:00' },
-      thursdayFast: { enabled: true, time: '20:00' },
+      mondayFast: { enabled: true, time: '20:30' },
+      thursdayFast: { enabled: true, time: '20:30' },
     },
   }))
 })
