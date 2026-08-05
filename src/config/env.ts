@@ -25,8 +25,21 @@ export const ENV: EnvConfig = {
   PUSH_NOTIFICATIONS_REGISTER_URL: process.env.EXPO_PUBLIC_PUSH_REGISTER_URL || '',
   POSTHOG_KEY: process.env.EXPO_PUBLIC_POSTHOG_KEY || '',
   POSTHOG_HOST: process.env.EXPO_PUBLIC_POSTHOG_HOST || 'https://eu.i.posthog.com',
-  GOOGLE_WEB_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '',
-  GOOGLE_IOS_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '',
+  // Fallbacks, not just defaults. EXPO_PUBLIC_* values are inlined into the JS
+  // bundle when it is built, so an OTA published without the environment
+  // loaded ships an empty string here — and ensureGoogleSigninConfigured then
+  // throws "Google Sign-In is not configured for this build" for every user
+  // who takes that update. That happened on the 1.0.0 production channel.
+  //
+  // These are OAuth *client* ids, not secrets: they are public by design and
+  // already committed in eas.json and in app.json's iosUrlScheme. Hardcoding
+  // them costs nothing and removes a whole class of outage.
+  GOOGLE_WEB_CLIENT_ID:
+    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
+    '739832430566-5prajbumn1so6557o1f95cgslutmaqum.apps.googleusercontent.com',
+  GOOGLE_IOS_CLIENT_ID:
+    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ||
+    '739832430566-i4h4ftr4hedrg6anghbv2bnvvdlgrvus.apps.googleusercontent.com',
   PREMIUM_MONTHLY_PRODUCT_ID: process.env.EXPO_PUBLIC_PREMIUM_MONTHLY_PRODUCT_ID || 'dawahnigeria_premium_monthly',
   PREMIUM_YEARLY_PRODUCT_ID: process.env.EXPO_PUBLIC_PREMIUM_YEARLY_PRODUCT_ID || 'dawahnigeria_premium_yearly',
   NODE_ENV: (__DEV__ ? 'development' : 'production') as EnvConfig['NODE_ENV'],
