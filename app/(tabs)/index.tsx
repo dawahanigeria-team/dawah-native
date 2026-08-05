@@ -4,7 +4,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Dimensions,
   FlatList,
   Image,
   InteractionManager,
@@ -13,6 +12,7 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import Animated, {
@@ -38,7 +38,6 @@ import tw from "../../src/theme/twrnc";
 import { SearchLecture } from "../../src/types/api.types";
 import { Episode } from "../../src/types/types";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = 280;
 const CARD_SPACING = 12;
 const HERO_HEIGHT = 200;
@@ -106,6 +105,9 @@ export default function HomeScreenWithBoundary() {
 }
 
 function HomeScreen() {
+  // useWindowDimensions rather than a module-scope Dimensions.get(), which
+  // was captured at import and never updated on rotation or resize.
+  const { width: SCREEN_WIDTH } = useWindowDimensions();
   const { playEpisode } = usePlayerActions();
   const { colors } = useTheme();
   const [greeting] = useState(getGreeting());
@@ -351,6 +353,9 @@ function HomeScreen() {
           }
           style={[
             styles.quickAction,
+            // Width is applied here rather than in StyleSheet.create, which is
+            // evaluated once at module load and so cannot read a hook value.
+            { width: (SCREEN_WIDTH - 48) / 3 },
             { backgroundColor: colors.system.background.secondary },
           ]}
           activeOpacity={0.8}
@@ -373,7 +378,7 @@ function HomeScreen() {
         </TouchableOpacity>
       </Animated.View>
     ),
-    [colors],
+    [colors, SCREEN_WIDTH],
   );
 
   // Render Section Header
@@ -878,7 +883,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   quickAction: {
-    width: (SCREEN_WIDTH - 48) / 3,
+    // width is set at the call site from useWindowDimensions — see above.
     paddingVertical: 16,
     borderRadius: 16,
     alignItems: "center",

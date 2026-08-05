@@ -4,10 +4,10 @@ import { router } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Dimensions,
   Image,
   ScrollView,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import Animated, {
@@ -21,7 +21,6 @@ import { useTheme } from "../src/hooks/useTheme";
 import { ramadanApi, RamadanAlbum } from "../src/services/api/ramadan.api";
 import tw from "../src/theme/twrnc";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = (SCREEN_WIDTH - 48 - 12) / 2; // 2 columns with padding and gap
 
 interface YearGroup {
@@ -33,6 +32,9 @@ interface YearGroup {
 }
 
 export default function RamadanTafsirScreen() {
+  // useWindowDimensions, not a module-scope Dimensions.get(): the old
+  // value was captured at import and never updated on rotation or resize.
+  const { width: SCREEN_WIDTH } = useWindowDimensions();
   const { colors } = useTheme();
   const [yearGroups, setYearGroups] = useState<YearGroup[]>([]);
   const [loading, setLoading] = useState(true);

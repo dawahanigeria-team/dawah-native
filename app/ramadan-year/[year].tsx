@@ -4,12 +4,12 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Dimensions,
   FlatList,
   Image,
   ScrollView,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
@@ -19,7 +19,6 @@ import { useTheme } from "../../src/hooks/useTheme";
 import { ramadanApi, RamadanAlbum } from "../../src/services/api/ramadan.api";
 import tw from "../../src/theme/twrnc";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = (SCREEN_WIDTH - 48 - 12) / 2;
 type ThemeColors = ReturnType<typeof useTheme>["colors"];
 
@@ -273,6 +272,9 @@ const RamadanYearHeader = React.memo(
 RamadanYearHeader.displayName = "RamadanYearHeader";
 
 export default function RamadanYearScreen() {
+  // useWindowDimensions, not a module-scope Dimensions.get(): the old
+  // value was captured at import and never updated on rotation or resize.
+  const { width: SCREEN_WIDTH } = useWindowDimensions();
   const { colors } = useTheme();
   const { year } = useLocalSearchParams<{ year: string }>();
   const yearNum = parseInt(year || "0", 10);

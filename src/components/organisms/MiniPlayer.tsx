@@ -5,12 +5,12 @@ import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActionSheetIOS,
   Alert,
-  Dimensions,
   GestureResponderEvent,
   Platform,
   Pressable,
   ScrollView,
   Share,
+  useWindowDimensions,
   StyleSheet,
   View,
 } from "react-native";
@@ -45,8 +45,6 @@ import { Loading } from "../atoms/Loading";
 import { Text } from "../atoms/Text";
 import { Touchable } from "../atoms/Touchable";
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
-
 const MINI_PLAYER_HEIGHT = 72;
 
 interface MiniPlayerProps {
@@ -58,6 +56,11 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
   ({ onExpand, onMinimize }) => {
     const pathname = usePathname();
     const insets = useSafeAreaInsets();
+    // Hook, not Dimensions.get(): the module-scope version was read once at
+    // import and never updated, so the expanded player kept its original
+    // height and the progress track its original width after a rotation or
+    // split-view resize.
+    const { width: screenWidth, height: screenHeight } = useWindowDimensions();
     const {
       currentEpisode,
       isPlaying,
@@ -159,11 +162,14 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
     }, [insets.top, tabBarHeight, isTabScreen]);
 
     // Calculate expanded height reactively using derived value
+    // screenHeight is a plain JS value captured by the worklet, not a shared
+    // value, so it is listed explicitly — otherwise the derived height could
+    // keep using the pre-rotation screen size.
     const expandedPlayerHeight = useDerivedValue(() => {
       return isTabScreenShared.value === 1
         ? screenHeight - tabBarHeightShared.value - insetsTopShared.value
         : screenHeight - insetsTopShared.value;
-    });
+    }, [screenHeight]);
 
     useEffect(() => {
       isExpandedShared.value = isExpanded ? 1 : 0;

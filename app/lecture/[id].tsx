@@ -13,10 +13,10 @@ import React, { useCallback, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
-    Dimensions,
     ScrollView,
     Share,
     TouchableOpacity,
+    useWindowDimensions,
     View,
 } from "react-native";
 import Animated, {
@@ -46,7 +46,6 @@ import type { Episode } from "../../src/types/types";
 import { formatRelativeDate } from "../../src/utils/formatDate";
 import { appendShareSignature } from "../../src/utils/shareMessage";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HEADER_HEIGHT = 300;
 
 const createEpisodeFromDetail = (detail: LectureDetail | null): Episode | null => {
@@ -361,6 +360,9 @@ const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
 };
 
 const LectureDetailScreen: React.FC = () => {
+  // useWindowDimensions, not a module-scope Dimensions.get(): the old
+  // value was captured at import and never updated on rotation or resize.
+  const { width: SCREEN_WIDTH } = useWindowDimensions();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();

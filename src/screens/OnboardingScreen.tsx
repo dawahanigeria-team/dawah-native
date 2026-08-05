@@ -4,9 +4,9 @@ import { useRouter } from "expo-router";
 import Animated, { FadeIn } from "react-native-reanimated";
 import React, { useRef, useState } from "react";
 import {
-  Dimensions,
   Pressable,
   ScrollView,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,7 +15,6 @@ import { Text } from "../components/atoms";
 import { designTokens } from "../theme/designTokens";
 import tw from "../theme/twrnc";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface OnboardingSlide {
   id: number;
@@ -153,6 +152,9 @@ const OnboardingSlideComponent = ({
 };
 
 export default function OnboardingScreen() {
+  // useWindowDimensions, not a module-scope Dimensions.get(): the old
+  // value was captured at import and never updated on rotation or resize.
+  const { width: SCREEN_WIDTH } = useWindowDimensions();
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);

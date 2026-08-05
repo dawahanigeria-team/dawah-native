@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import React, { memo, useCallback, useEffect, useRef, useState } from "react";
-import { Dimensions, ScrollView, View, ViewStyle } from "react-native";
+import { ScrollView, View, ViewStyle, useWindowDimensions } from "react-native";
 import { BorderRadius, designTokens } from "../../theme/designTokens";
 import { useTheme } from "../../hooks/useTheme";
 import { Episode } from "../../types/types";
@@ -194,8 +194,6 @@ const CarouselItem = memo<CarouselItemProps>(({
 
 CarouselItem.displayName = "CarouselItem";
 
-const { width: screenWidth } = Dimensions.get("window");
-
 export const HeroCarousel: React.FC<HeroCarouselProps> = memo(
   ({
     items,
@@ -211,6 +209,10 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = memo(
     const { colors } = useTheme();
     const [currentIndex, setCurrentIndex] = useState(0);
     const scrollViewRef = useRef<ScrollView>(null);
+    // Hook rather than a module-scope Dimensions.get(): card width drives the
+    // paging offsets below, so a stale width after rotation left the carousel
+    // snapping to the wrong card.
+    const { width: screenWidth } = useWindowDimensions();
 
     const CARD_WIDTH = screenWidth - designTokens.spacing.lg * 2;
     const CARD_SPACING = designTokens.spacing.sm;

@@ -1,11 +1,13 @@
 import React from "react";
-import { View, Dimensions } from "react-native";
+import { View, useWindowDimensions } from "react-native";
 import { designTokens } from "src/theme/designTokens";
 import { Skeleton } from "../atoms/Skeleton";
 
-const { width: screenWidth } = Dimensions.get("window");
 
 export const HeroCarouselSkeleton = () => {
+  // useWindowDimensions, not a module-scope Dimensions.get(): the old
+  // value was captured at import and never updated on rotation or resize.
+  const { width: screenWidth } = useWindowDimensions();
   const CARD_WIDTH = screenWidth - designTokens.spacing.lg * 2;
   const CARD_HEIGHT = 220;
 
