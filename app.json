@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "assetBundlePatterns": [
       "assets/**/*",
-      "node_modules/**/node_modules/@expo/vector-icons/**/Fonts/*"
+      "node_modules/**/node_modules/@expo/vector-icons/**/Fonts/Ionicons.ttf"
     ],
     "scheme": "dawahnigeria",
     "userInterfaceStyle": "automatic",
