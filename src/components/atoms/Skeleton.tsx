@@ -116,6 +116,6 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   shimmer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
 });

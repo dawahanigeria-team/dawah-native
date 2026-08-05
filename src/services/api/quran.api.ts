@@ -7,6 +7,7 @@ import { API_CONFIG } from '../config/api.config';
 import { apiClient, ApiError } from './base.api';
 import { addSentryBreadcrumb, captureSentryException } from '../config/sentry.config';
 import { logger } from '@/utils/logger';
+import { getSurahNumber, sortRecitationsInQuranOrder } from '@/utils/quran';
 
 export interface QuranAlbum {
   id: string;
@@ -24,6 +25,8 @@ export interface QuranAlbum {
     monthly: number;
     weekly: number;
   };
+  reciterId?: string;
+  albumIds?: string[];
 }
 
 export interface QuranAlbumsParams {
@@ -63,6 +66,7 @@ class QuranApiService {
       action: 'get_quran_album',
       page: page.toString(),
       limit: limit.toString(),
+      include_meta: '1',
     };
 
     try {
@@ -78,8 +82,9 @@ class QuranApiService {
         }
       );
 
-      // The API returns an array of albums directly
-      const rawAlbums = Array.isArray(response.data) ? response.data : [];
+      const payload = response.data;
+      const rawAlbums = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : []);
+      const pagination = !Array.isArray(payload) ? payload?.pagination : undefined;
 
       const albums: QuranAlbum[] = rawAlbums.map((item: any) => ({
         id: String(item.id),
@@ -93,15 +98,17 @@ class QuranApiService {
         categories: item.categories || '',
         post_date: item.post_date || '',
         charts: item.charts || { daily: 0, monthly: 0, weekly: 0 },
+        reciterId: item.reciter_id ? String(item.reciter_id) : undefined,
+        albumIds: Array.isArray(item.album_ids) ? item.album_ids.map(String) : [String(item.id)],
       }));
 
       logger.debug(`Fetched ${albums.length} Quran albums`);
 
       return {
         albums,
-        total: albums.length,
+        total: Number(pagination?.total) || albums.length,
         page,
-        hasMore: albums.length >= limit,
+        hasMore: typeof pagination?.has_more === 'boolean' ? pagination.has_more : albums.length >= limit,
       };
     } catch (error) {
       if (error instanceof ApiError && error.isTimeout) {
@@ -110,7 +117,11 @@ class QuranApiService {
           requestParams
         );
         if (cached) {
-          const rawAlbums = Array.isArray(cached.data) ? cached.data : [];
+          const cachedPayload = cached.data;
+          const rawAlbums = Array.isArray(cachedPayload)
+            ? cachedPayload
+            : (Array.isArray(cachedPayload?.data) ? cachedPayload.data : []);
+          const pagination = !Array.isArray(cachedPayload) ? cachedPayload?.pagination : undefined;
           const albums: QuranAlbum[] = rawAlbums.map((item: any) => ({
             id: String(item.id),
             name: item.name || 'Unknown Reciter',
@@ -123,6 +134,8 @@ class QuranApiService {
             categories: item.categories || '',
             post_date: item.post_date || '',
             charts: item.charts || { daily: 0, monthly: 0, weekly: 0 },
+            reciterId: item.reciter_id ? String(item.reciter_id) : undefined,
+            albumIds: Array.isArray(item.album_ids) ? item.album_ids.map(String) : [String(item.id)],
           }));
 
           addSentryBreadcrumb('Quran albums timeout: using cached data', 'cache', {
@@ -133,9 +146,9 @@ class QuranApiService {
 
           return {
             albums,
-            total: albums.length,
+            total: Number(pagination?.total) || albums.length,
             page,
-            hasMore: albums.length >= limit,
+            hasMore: typeof pagination?.has_more === 'boolean' ? pagination.has_more : albums.length >= limit,
           };
         }
       }
@@ -156,7 +169,7 @@ class QuranApiService {
   /**
    * Get Quran album details with recitations
    */
-  async getQuranAlbumDetails(albumId: string): Promise<QuranAlbumDetail> {
+  async getQuranAlbumDetails(albumId: string, albumIds: string[] = [albumId]): Promise<QuranAlbumDetail> {
     try {
       logger.debug('Fetching Quran album details:', albumId);
 
@@ -165,21 +178,21 @@ class QuranApiService {
         endpoint: '/api/albumapi3.php',
       });
 
-      const response = await apiClient.get<any>(
+      const uniqueAlbumIds = Array.from(new Set([albumId, ...albumIds].filter(Boolean)));
+      const responses = await Promise.all(uniqueAlbumIds.map((id) => apiClient.get<any>(
         '/api/albumapi3.php',
-        {
-          aid: albumId,
-          page: 1,
-        },
+        { aid: id, page: 1 },
         {
           timeout: API_CONFIG.TIMEOUTS.DEFAULT,
           useCache: true,
-          cacheTTL: 600, // Cache for 10 minutes
-        }
-      );
+          cacheTTL: 600,
+        },
+      )));
 
       // API returns array of lectures directly
-      const lecturesArray = Array.isArray(response) ? response : (Array.isArray(response.data) ? response.data : []);
+      const lecturesArray = responses.flatMap((response) => (
+        Array.isArray(response) ? response : (Array.isArray(response.data) ? response.data : [])
+      ));
 
       if (lecturesArray.length === 0) {
         throw new ApiError('No recitations found in album', 404);
@@ -199,17 +212,27 @@ class QuranApiService {
         categories: 'Quran & Tafsir',
         post_date: firstLecture.post_date || '',
         charts: { daily: 0, monthly: 0, weekly: 0 },
+        reciterId: firstLecture.rp_id ? String(firstLecture.rp_id) : undefined,
+        albumIds: uniqueAlbumIds,
       };
 
       // Normalize lectures as recitations
-      const recitations: QuranRecitation[] = lecturesArray.map((lecture: any, index: number) => ({
+      const seenIds = new Set<string>();
+      const recitations = sortRecitationsInQuranOrder(lecturesArray.map((lecture: any, index: number) => ({
         id: String(lecture.id || lecture.nid || `recitation-${index}`),
         title: lecture.title || lecture.lectitle || lecture.Title || 'Untitled Recitation',
         duration: lecture.duration || lecture.Duration || '00:00',
         audioUrl: lecture.audio || lecture.mp3_url || lecture.AudioUrl || lecture.mp3 || '',
         trackNumber: index + 1,
         plays: parseInt(String(lecture.views || lecture.plays || lecture.favorites || '0')),
-        surahNumber: lecture.surah_number || undefined,
+        surahNumber: getSurahNumber(
+          lecture.title || lecture.lectitle || lecture.Title || '',
+          Number(lecture.surah_number) || undefined,
+        ),
+      })).filter((recitation) => {
+        if (seenIds.has(recitation.id)) return false;
+        seenIds.add(recitation.id);
+        return true;
       }));
 
       logger.debug(`Fetched Quran album: ${album.name} with ${recitations.length} recitations`);

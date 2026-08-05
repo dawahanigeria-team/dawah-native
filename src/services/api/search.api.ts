@@ -31,6 +31,13 @@ export interface SearchParams {
   signal?: AbortSignal;
 }
 
+export interface SearchDiscoveryResult {
+  lecturers: SearchLecturer[];
+  lecturerTotal: number;
+  albums: SearchAlbum[];
+  albumTotal: number;
+}
+
 class SearchApiService {
   private recentSearches: string[] = [];
   private readonly MAX_RECENT_SEARCHES = 10;
@@ -233,6 +240,35 @@ class SearchApiService {
       page,
       language,
     });
+  }
+
+  /**
+   * Fetch the non-lecture sections used by the main search overview.
+   * Lecture results remain owned by useSearchLectures so its filters and
+   * pagination continue to work without issuing the same request twice.
+   */
+  async searchDiscovery(query: string): Promise<SearchDiscoveryResult> {
+    const [lecturers, albums] = await Promise.allSettled([
+      this.search<SearchLecturer>({
+        type: 'lecturers',
+        query,
+        page: 1,
+        limit: 50,
+      }),
+      this.search<SearchAlbum>({
+        type: 'albums',
+        query,
+        page: 1,
+        limit: 50,
+      }),
+    ]);
+
+    return {
+      lecturers: lecturers.status === 'fulfilled' ? lecturers.value.data : [],
+      lecturerTotal: lecturers.status === 'fulfilled' ? lecturers.value.total : 0,
+      albums: albums.status === 'fulfilled' ? albums.value.data : [],
+      albumTotal: albums.status === 'fulfilled' ? albums.value.total : 0,
+    };
   }
 
   /**

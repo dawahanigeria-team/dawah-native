@@ -1,6 +1,7 @@
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -38,15 +39,25 @@ import {
   parseAutoFollowFlag,
 } from '../../src/utils/lecturerFollowAuth';
 import { appendShareSignature } from '../../src/utils/shareMessage';
+import { durationToSeconds } from '../../src/utils/quran';
 
 const QuranReciterScreen: React.FC = () => {
   const router = useRouter();
-  const { id, autoFollow } = useLocalSearchParams<{
+  const { id, autoFollow, albumIds, reciterId, reciterName } = useLocalSearchParams<{
     id: string;
     autoFollow?: string;
+    albumIds?: string;
+    reciterId?: string;
+    reciterName?: string;
   }>();
   const albumId = Array.isArray(id) ? id[0] : id;
   const shouldAutoFollow = parseAutoFollowFlag(autoFollow);
+  const requestedAlbumIds = useMemo(() => (
+    typeof albumIds === 'string'
+      ? albumIds.split(',').map((value) => value.trim()).filter(Boolean)
+      : [albumId]
+  ), [albumId, albumIds]);
+  const followEntityId = typeof reciterId === 'string' && reciterId !== '0' ? reciterId : albumId;
   const { playQueue, currentEpisode } = usePlayerStore();
   const { isAuthenticated, user } = useAuthStore();
   const { canFollowMore, requireFollowAccess } = useFollowGate();
@@ -92,8 +103,13 @@ const QuranReciterScreen: React.FC = () => {
         albumId,
       });
 
-      const response = await quranApi.getQuranAlbumDetails(albumId);
-      setAlbum(response.album);
+      const response = await quranApi.getQuranAlbumDetails(albumId, requestedAlbumIds);
+      setAlbum({
+        ...response.album,
+        name: typeof reciterName === 'string' && reciterName.trim() ? reciterName : response.album.name,
+        reciterId: followEntityId,
+        albumIds: requestedAlbumIds,
+      });
       setRecitations(response.recitations);
 
       addSentryBreadcrumb('Quran reciter data loaded', 'info', {
@@ -114,9 +130,11 @@ const QuranReciterScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [albumId]);
+  }, [albumId, requestedAlbumIds, reciterName, followEntityId]);
 
   useEffect(() => {
+    // The route id is the external input that starts this async synchronization.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchReciterData();
   }, [fetchReciterData]);
 
@@ -124,7 +142,7 @@ const QuranReciterScreen: React.FC = () => {
     let isActive = true;
 
     const hydrateFollowState = async () => {
-      if (!albumId || String(albumId) === '0' || !isAuthenticated || !user?.id) {
+      if (!followEntityId || String(followEntityId) === '0' || !isAuthenticated || !user?.id) {
         if (isActive) {
           setIsFollowing(false);
           setIsFollowStateHydrating(false);
@@ -139,7 +157,7 @@ const QuranReciterScreen: React.FC = () => {
       try {
         const following = await getCachedLecturerFollowState({
           userId: user.id,
-          lecturerId: albumId,
+          lecturerId: followEntityId,
           type: 'reciter',
         });
         if (isActive) {
@@ -157,9 +175,11 @@ const QuranReciterScreen: React.FC = () => {
     return () => {
       isActive = false;
     };
-  }, [albumId, isAuthenticated, user?.id]);
+  }, [followEntityId, isAuthenticated, user?.id]);
 
   useEffect(() => {
+    // Reset transient controls when navigating between reciters.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsFollowLoading(false);
     autoFollowHandledRef.current = false;
   }, [albumId]);
@@ -216,7 +236,7 @@ const QuranReciterScreen: React.FC = () => {
 
   const handleFollowPress = useCallback(
     async (options: { skipAuthCheck?: boolean; forceFollow?: boolean } = {}) => {
-      if (!albumId || String(albumId) === '0') {
+      if (!followEntityId || String(followEntityId) === '0') {
         Alert.alert('Please wait', 'Reciter details are still loading.');
         return;
       }
@@ -259,7 +279,7 @@ const QuranReciterScreen: React.FC = () => {
             }
           }
 
-          const response = await followLecturer(albumId, 'reciter');
+          const response = await followLecturer(followEntityId, 'reciter');
           addSentryBreadcrumb('Follow reciter response', 'info', {
             response: JSON.stringify(response),
           });
@@ -269,13 +289,13 @@ const QuranReciterScreen: React.FC = () => {
           if (user?.id) {
             await setCachedLecturerFollowState({
               userId: user.id,
-              lecturerId: albumId,
+              lecturerId: followEntityId,
               type: 'reciter',
               following,
             });
           }
         } else {
-          const response = await unfollowLecturer(albumId, 'reciter');
+          const response = await unfollowLecturer(followEntityId, 'reciter');
           addSentryBreadcrumb('Unfollow reciter response', 'info', {
             response: JSON.stringify(response),
           });
@@ -285,7 +305,7 @@ const QuranReciterScreen: React.FC = () => {
           if (user?.id) {
             await setCachedLecturerFollowState({
               userId: user.id,
-              lecturerId: albumId,
+              lecturerId: followEntityId,
               type: 'reciter',
               following,
             });
@@ -322,6 +342,7 @@ const QuranReciterScreen: React.FC = () => {
     },
     [
       albumId,
+      followEntityId,
       isFollowLoading,
       isAuthenticated,
       confirmSignIn,
@@ -329,7 +350,7 @@ const QuranReciterScreen: React.FC = () => {
       isFollowing,
       confirmEnableNotifications,
       requireFollowAccess,
-      user?.id,
+      user,
       router,
     ],
   );
@@ -368,7 +389,7 @@ const QuranReciterScreen: React.FC = () => {
     return {
       id: String(recitation.id),
       title: recitation.title,
-      durationSec: Number(recitation.duration) || 0,
+      durationSec: durationToSeconds(recitation.duration),
       audioUrl: recitation.audioUrl,
       coverUrl: album.alb_thumbnail || album.img,
       seriesId: album.id,
@@ -454,7 +475,7 @@ const QuranReciterScreen: React.FC = () => {
   }, [album, recitations, albumId, playQueue, recitationToEpisode]);
 
   const handleRecitationPress = useCallback(
-    (recitation: QuranRecitation, index: number) => {
+    async (recitation: QuranRecitation, index: number) => {
       if (!album) return;
 
       try {
@@ -467,8 +488,15 @@ const QuranReciterScreen: React.FC = () => {
           trackIndex: index,
         });
 
-        // Navigate to recitation detail page instead of auto-playing
-        router.push(`/lecture/${recitation.id}`);
+        const episodes = recitations
+          .map((item) => recitationToEpisode(item, album))
+          .filter((episode) => Boolean(episode.audioUrl));
+        const selectedIndex = episodes.findIndex((episode) => episode.id === String(recitation.id));
+        if (selectedIndex < 0) {
+          Alert.alert('Unavailable', 'This recitation does not have a playable audio file.');
+          return;
+        }
+        await playQueue(episodes, selectedIndex, false);
       } catch (err: any) {
         console.error('Recitation press error:', err);
         captureSentryException(err, {
@@ -480,7 +508,7 @@ const QuranReciterScreen: React.FC = () => {
         });
       }
     },
-    [albumId, album, router]
+    [albumId, album, recitations, recitationToEpisode, playQueue]
   );
 
   const handleShare = useCallback(async () => {
@@ -543,7 +571,7 @@ const QuranReciterScreen: React.FC = () => {
         activeOpacity={0.7}
         accessibilityRole="button"
         accessibilityLabel={`Play ${item.title}`}
-        accessibilityHint="Tap to view details"
+        accessibilityHint="Starts here and continues in Quran order"
       >
         <View style={styles.trackNumberContainer}>
           {isPlaying ? (
@@ -585,7 +613,7 @@ const QuranReciterScreen: React.FC = () => {
           </View>
         </View>
 
-        <Icon name="ellipsis-horizontal" size="sm" color="tertiaryLabel" />
+        <Icon name="play-circle-outline" size="lg" color={isPlaying ? 'brand' : 'secondaryLabel'} />
       </TouchableOpacity>
     );
   }, [currentEpisode, handleRecitationPress, colors]);
@@ -702,18 +730,14 @@ const QuranReciterScreen: React.FC = () => {
         data={recitations}
         keyExtractor={(item, index) => `${item.id}-${index}`}
         renderItem={renderRecitationItem}
-        stickyHeaderIndices={[0]}
         ListHeaderComponent={
-          <View
-            style={[
-              styles.headerContainer,
-              styles.stickyHeader,
-              {
-                backgroundColor: colors.system.background.primary,
-                borderBottomColor: colors.system.separator.primary,
-              },
-            ]}
+          <LinearGradient
+            colors={['#073B2A', '#0B5B3D', '#14855A']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.headerContainer}
           >
+            <Text style={styles.arabicMark}>القرآن الكريم</Text>
             <View style={[styles.artworkContainer, { shadowColor: colors.system.label.primary }]}>
               {album.alb_thumbnail || album.img ? (
                 <Image 
@@ -739,18 +763,18 @@ const QuranReciterScreen: React.FC = () => {
               <Text variant="title3" weight="bold" align="center" style={styles.title}>
                 {album.name}
               </Text>
-              <Text variant="subheadline" color="secondaryLabel" align="center" style={styles.subtitle}>
-                Quran Recitation • {album.language}
+              <Text variant="subheadline" align="center" style={styles.heroSubtitle}>
+                Quran recitation • {album.language || 'Arabic'}
               </Text>
               
               <View style={styles.statsContainer}>
-                 <Text variant="caption1" color="secondaryLabel" weight="medium">
+                 <Text variant="caption1" weight="medium" style={styles.heroMeta}>
                     {recitations.length} {recitations.length === 1 ? 'Surah' : 'Surahs'}
                  </Text>
                  {album.views > 0 && (
                    <>
-                     <Text variant="caption1" color="secondaryLabel"> • </Text>
-                     <Text variant="caption1" color="secondaryLabel" weight="medium">
+                     <Text variant="caption1" style={styles.heroMeta}> • </Text>
+                     <Text variant="caption1" weight="medium" style={styles.heroMeta}>
                        {album.views.toLocaleString()} Views
                      </Text>
                    </>
@@ -799,7 +823,13 @@ const QuranReciterScreen: React.FC = () => {
                 {isFollowing ? 'Following' : 'Follow'}
               </Button>
             </View>
-          </View>
+            <View style={styles.queueHint}>
+              <Icon name="list" size="sm" color="white" />
+              <Text variant="caption1" style={styles.queueHintText}>
+                Tap any Surah to continue in Quran order
+              </Text>
+            </View>
+          </LinearGradient>
         }
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
@@ -852,13 +882,18 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     alignItems: 'center',
-    paddingTop: designTokens.spacing.sm,
+    paddingTop: designTokens.spacing.lg,
     paddingHorizontal: designTokens.spacing.lg,
-    paddingBottom: designTokens.spacing.lg,
+    paddingBottom: designTokens.spacing.xl,
+    marginHorizontal: designTokens.spacing.md,
+    marginBottom: designTokens.spacing.lg,
+    borderRadius: designTokens.borderRadius['2xl'],
+    overflow: 'hidden',
   },
-  stickyHeader: {
-    width: '100%',
-    borderBottomWidth: StyleSheet.hairlineWidth,
+  arabicMark: {
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 18,
+    marginBottom: designTokens.spacing.md,
   },
   artworkContainer: {
     marginBottom: designTokens.spacing.md,
@@ -883,9 +918,14 @@ const styles = StyleSheet.create({
   },
   title: {
     marginBottom: 4,
+    color: '#FFFFFF',
   },
-  subtitle: {
+  heroSubtitle: {
     marginBottom: 4,
+    color: 'rgba(255,255,255,0.78)',
+  },
+  heroMeta: {
+    color: 'rgba(255,255,255,0.72)',
   },
   statsContainer: {
     flexDirection: 'row',
@@ -908,6 +948,15 @@ const styles = StyleSheet.create({
   },
   followButton: {
     width: '100%',
+  },
+  queueHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: designTokens.spacing.sm,
+    marginTop: designTokens.spacing.lg,
+  },
+  queueHintText: {
+    color: 'rgba(255,255,255,0.78)',
   },
   recitationItem: {
     flexDirection: 'row',

@@ -44,6 +44,63 @@ export interface AlbumTrack {
   albumId?: string;
 }
 
+export const parseAlbumTrackDuration = (duration: string | number | undefined): number => {
+  if (typeof duration === 'number') return Number.isFinite(duration) ? Math.max(0, duration) : 0;
+  if (!duration) return 0;
+
+  const value = duration.trim();
+  if (/^0+(?::0+){0,2}$/.test(value)) return 0;
+  const parts = value.split(':').map(Number);
+  if (parts.some((part) => !Number.isFinite(part))) return 0;
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+
+  const seconds = Number(value);
+  return Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+};
+
+const titleSequence = (title: string): number | null => {
+  const match = title.match(/\b(?:dars|lesson|part|episode|ep|lecture|hadith|class)\s*(?:no\.?\s*)?[-:#]?\s*(\d+)\b/i);
+  return match ? Number(match[1]) : null;
+};
+
+const titleDate = (title: string): number | null => {
+  const match = title.match(/(?:^|\D)(\d{1,2})[-/](\d{1,2})[-/](\d{2}|\d{4})(?:\D|$)/);
+  if (!match) return null;
+  const year = Number(match[3]) < 100 ? 2000 + Number(match[3]) : Number(match[3]);
+  const timestamp = Date.UTC(year, Number(match[2]) - 1, Number(match[1]));
+  return Number.isFinite(timestamp) ? timestamp : null;
+};
+
+/** Stable teaching order: explicit track number, series number, date, then upload id. */
+export const sortAlbumTracksForPlayback = (tracks: AlbumTrack[]): AlbumTrack[] => {
+  return tracks
+    .map((track, sourceIndex) => ({ track, sourceIndex }))
+    .sort((left, right) => {
+      const a = left.track;
+      const b = right.track;
+      if (a.trackNumber != null && b.trackNumber != null && a.trackNumber !== b.trackNumber) {
+        return a.trackNumber - b.trackNumber;
+      }
+
+      const aSequence = titleSequence(a.title);
+      const bSequence = titleSequence(b.title);
+      if (aSequence != null && bSequence != null && aSequence !== bSequence) {
+        return aSequence - bSequence;
+      }
+
+      const aDate = titleDate(a.title);
+      const bDate = titleDate(b.title);
+      if (aDate != null && bDate != null && aDate !== bDate) return aDate - bDate;
+
+      const aId = Number(a.id);
+      const bId = Number(b.id);
+      if (Number.isFinite(aId) && Number.isFinite(bId) && aId !== bId) return aId - bId;
+      return left.sourceIndex - right.sourceIndex;
+    })
+    .map(({ track }) => track);
+};
+
 export interface AlbumsParams {
   page?: number;
   limit?: number;
@@ -177,7 +234,7 @@ class AlbumsApiService {
       };
 
       // Normalize lectures as tracks
-      const tracks = this.normalizeAlbumTracks(lecturesArray);
+      const tracks = sortAlbumTracksForPlayback(this.normalizeAlbumTracks(lecturesArray));
 
       logger.debug('Album details fetched:', {
         album: album.title,
@@ -325,7 +382,7 @@ class AlbumsApiService {
       title: track.title || track.lectitle || track.mp3_title || track.Title || 'Untitled Track',
       duration: track.duration || track.mp3_duration || track.Duration || '00:00',
       audioUrl: track.audio || track.mp3_url || track.audioUrl || '',
-      trackNumber: track.track_number || track.trackNumber || index + 1,
+      trackNumber: track.track_number || track.trackNumber || undefined,
       plays: parseInt(String(track.views || track.plays || track.favorites || track.Plays || '0')),
       albumId: String(track.album_id || track.albumId || ''),
     }));

@@ -338,6 +338,24 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       }
       if (status.duration !== currentState.duration && status.duration > 0) {
         updates.duration = status.duration
+
+        // Keep the episode and queue metadata in sync with the duration that
+        // the native player measured. This repairs records whose API duration
+        // is missing/zero for every player surface during this session.
+        updates.currentEpisode = {
+          ...currentState.currentEpisode,
+          durationSec: status.duration,
+        }
+        updates.queue = currentState.queue.map((episode) =>
+          String(episode.id) === String(currentState.currentEpisode?.id)
+            ? { ...episode, durationSec: status.duration }
+            : episode
+        )
+        updates.originalQueue = currentState.originalQueue.map((episode) =>
+          String(episode.id) === String(currentState.currentEpisode?.id)
+            ? { ...episode, durationSec: status.duration }
+            : episode
+        )
       }
 
       if (status.isBuffering !== currentState.isLoading) {

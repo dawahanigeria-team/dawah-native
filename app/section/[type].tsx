@@ -29,6 +29,8 @@ import { RamadanAlbum } from "../../src/services/api/ramadan.api";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Episode, Series } from "../../src/types/types";
+import { usePlayerActions } from "../../src/stores";
+import { formatDuration } from "../../src/utils/formatTime";
 
 type AlbumType = QuranAlbum | RamadanAlbum;
 
@@ -97,7 +99,7 @@ const getSectionInfo = (type: string) => {
   }
 };
 
-type SortOption = "recent" | "most-played" | "downloads";
+type SortOption = "trending" | "recent" | "most-played" | "downloads";
 type LanguageFilter = "all" | "hausa" | "english" | "yoruba" | "arabic";
 
 export default function SectionScreenWithBoundary() {
@@ -110,6 +112,7 @@ export default function SectionScreenWithBoundary() {
 
 function SectionScreen() {
   const { colors } = useTheme();
+  const { playEpisode } = usePlayerActions();
   const { type } = useLocalSearchParams<{ type: string }>();
   const supportsAutoLayoutView = Boolean(
     UIManager.getViewManagerConfig?.("AutoLayoutView"),
@@ -148,7 +151,7 @@ function SectionScreen() {
 
   // Fetch Quran albums if this is the quran-recitations section
   const quranParams =
-    type === "quran-recitations" ? { page: 1, limit: 20 } : undefined;
+    type === "quran-recitations" ? { page: 1, limit: 50 } : undefined;
 
   const {
     albums: quranAlbums,
@@ -178,7 +181,7 @@ function SectionScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLanguage, setSelectedLanguage] =
     useState<LanguageFilter>("all");
-  const [sortBy, setSortBy] = useState<SortOption>("recent");
+  const [sortBy, setSortBy] = useState<SortOption>("trending");
   const [filtersExpanded, setFiltersExpanded] = useState(false);
 
   const showFilters = type === "trending";
@@ -331,11 +334,14 @@ function SectionScreen() {
           episodes.sort((a, b) => b.downloads - a.downloads);
           break;
         case "recent":
-        default:
           episodes.sort(
             (a, b) =>
               new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
           );
+          break;
+        case "trending":
+        default:
+          // The API has already velocity-ranked this feed.
           break;
       }
       data = episodes;
@@ -355,8 +361,14 @@ function SectionScreen() {
 
   const handleQuranAlbumPress = useCallback((album: QuranAlbum) => {
     if (!album?.id) return;
-    // Navigate to reciter detail page
-    router.push(`/quran-reciter/${album.id}`);
+    router.push({
+      pathname: `/quran-reciter/${album.id}`,
+      params: {
+        albumIds: (album.albumIds || [album.id]).join(','),
+        reciterId: album.reciterId,
+        reciterName: album.name,
+      },
+    });
   }, []);
 
   const handleRamadanAlbumPress = useCallback((album: RamadanAlbum) => {
@@ -385,7 +397,7 @@ function SectionScreen() {
 
   // Render item for list
   const renderItem = useCallback(
-    ({ item }: { item: Episode | Series | AlbumType }) => {
+    ({ item, index }: { item: Episode | Series | AlbumType; index: number }) => {
       // Handle Ramadan Tafsir albums
       if (
         sectionInfo.variant === "ramadan" &&
@@ -446,11 +458,20 @@ function SectionScreen() {
             <View style={tw`flex-row`}>
               {/* Image Section */}
               <View style={tw`w-28 h-28 relative`}>
-                <Image
-                  source={{ uri: album.alb_thumbnail || album.img }}
-                  style={tw`w-full h-full`}
-                  resizeMode="cover"
-                />
+                {album.alb_thumbnail || album.img ? (
+                  <Image
+                    source={{ uri: album.alb_thumbnail || album.img }}
+                    style={tw`w-full h-full`}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <LinearGradient
+                    colors={["#0B5B3D", "#159565"]}
+                    style={tw`w-full h-full items-center justify-center`}
+                  >
+                    <Ionicons name="book-outline" size={38} color="rgba(255,255,255,0.82)" />
+                  </LinearGradient>
+                )}
                 <LinearGradient
                   colors={["transparent", "rgba(0,0,0,0.4)"]}
                   style={tw`absolute inset-0`}
@@ -543,6 +564,64 @@ function SectionScreen() {
           type === "recently-posted" ||
           type === "recently-played";
 
+        if (type === "trending") {
+          const episode = item as Episode;
+          const durationLabel = episode.durationSec > 0
+            ? formatDuration(episode.durationSec)
+            : "Duration updating";
+
+          return (
+            <TouchableOpacity
+              onPress={() => handleLecturePress(episode)}
+              activeOpacity={0.82}
+              style={[
+                styles.chartRow,
+                { borderBottomColor: colors.system.separator.primary },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={`Number ${index + 1}, ${episode.title}, ${durationLabel}`}
+            >
+              <Text
+                variant={index < 3 ? "title2" : "headline"}
+                weight="bold"
+                style={[
+                  styles.chartRank,
+                  { color: index < 3 ? colors.brand.primary : colors.system.label.tertiary },
+                ]}
+              >
+                {index + 1}
+              </Text>
+              <Image
+                source={{ uri: episode.coverUrl }}
+                style={styles.chartArtwork}
+                resizeMode="cover"
+              />
+              <View style={styles.chartContent}>
+                <Text variant="headline" color="label" weight="semibold" numberOfLines={2}>
+                  {episode.title}
+                </Text>
+                <Text variant="caption1" color="secondaryLabel" numberOfLines={1} style={tw`mt-1`}>
+                  {episode.lecturerName || "Unknown Scholar"}
+                </Text>
+                <Text variant="caption2" color="tertiaryLabel" numberOfLines={1} style={tw`mt-1`}>
+                  {[episode.language, durationLabel].filter(Boolean).join(" • ")}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={(event) => {
+                  event.stopPropagation?.();
+                  playEpisode(episode);
+                }}
+                style={[styles.chartPlayButton, { backgroundColor: colors.brand.primary }]}
+                accessibilityRole="button"
+                accessibilityLabel={`Play ${episode.title}`}
+              >
+                <Ionicons name="play" size={18} color={colors.fixed.black} />
+              </TouchableOpacity>
+            </TouchableOpacity>
+          );
+        }
+
         return (
           <Card
             variant="section"
@@ -597,6 +676,7 @@ function SectionScreen() {
       sectionInfo.variant,
       type,
       colors,
+      playEpisode,
     ],
   );
 
@@ -750,18 +830,41 @@ function SectionScreen() {
           </Text>
         </View>
 
-        {/* Description */}
-        <Text
-          variant="body"
-          color="secondaryLabel"
-          style={tw`mb-3 leading-6`}
-          numberOfLines={2}
-        >
-          {sectionInfo.description}
-        </Text>
-
-        {/* Stats */}
-        <View style={tw`flex-row items-center`}>
+        {type === "quran-recitations" ? (
+          <LinearGradient
+            colors={["#073B2A", "#0B6845", "#18A46F"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.quranHero}
+          >
+            <View style={styles.quranHeroCopy}>
+              <Text style={styles.quranKicker}>القرآن الكريم</Text>
+              <Text variant="title2" weight="bold" style={styles.quranHeroTitle}>
+                Listen. Reflect. Continue.
+              </Text>
+              <Text variant="subheadline" style={styles.quranHeroDescription}>
+                Complete recitations and treasured Nigerian voices, ready to play in order or shuffle.
+              </Text>
+              <View style={styles.quranHeroStat}>
+                <Ionicons name="mic-outline" size={16} color="#D9FBE9" />
+                <Text variant="caption1" weight="semibold" style={styles.quranHeroStatText}>
+                  {quranAlbums.length} collections available
+                </Text>
+              </View>
+            </View>
+            <Ionicons name="book-outline" size={78} color="rgba(255,255,255,0.14)" />
+          </LinearGradient>
+        ) : (
+          <>
+            <Text
+              variant="body"
+              color="secondaryLabel"
+              style={tw`mb-3 leading-6`}
+              numberOfLines={2}
+            >
+              {sectionInfo.description}
+            </Text>
+            <View style={tw`flex-row items-center`}>
           <View
             style={[
               tw`px-3 py-1.5 rounded-full mr-3`,
@@ -788,7 +891,9 @@ function SectionScreen() {
                         : `${sectionInfo.count} lectures`}
             </Text>
           </View>
-        </View>
+            </View>
+          </>
+        )}
       </View>
 
       {/* Search Bar and Filters */}
@@ -934,6 +1039,7 @@ function SectionScreen() {
                       contentContainerStyle={tw`gap-2`}
                     >
                       {[
+                        { key: "trending", label: "Trending" },
                         { key: "recent", label: "Recent" },
                         { key: "most-played", label: "Most Played" },
                         { key: "downloads", label: "Downloads" },
@@ -1000,9 +1106,77 @@ function SectionScreen() {
 }
 
 const styles = StyleSheet.create({
+  chartRow: {
+    minHeight: 100,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  chartRank: {
+    width: 32,
+    textAlign: "center",
+    marginRight: 8,
+  },
+  chartArtwork: {
+    width: 68,
+    height: 68,
+    borderRadius: 12,
+    backgroundColor: "#252529",
+  },
+  chartContent: {
+    flex: 1,
+    minWidth: 0,
+    marginLeft: 12,
+    marginRight: 10,
+  },
+  chartPlayButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   quranAlbumCard: {
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
+  },
+  quranHero: {
+    minHeight: 178,
+    borderRadius: 24,
+    padding: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  quranHeroCopy: {
+    flex: 1,
+    gap: 7,
+  },
+  quranKicker: {
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 17,
+  },
+  quranHeroTitle: {
+    color: "#FFFFFF",
+  },
+  quranHeroDescription: {
+    color: "rgba(255,255,255,0.78)",
+    lineHeight: 20,
+  },
+  quranHeroStat: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+    marginTop: 4,
+  },
+  quranHeroStatText: {
+    color: "#D9FBE9",
   },
 });

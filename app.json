@@ -2,7 +2,7 @@
   "expo": {
     "name": "dawahnigeria",
     "slug": "dawah-nigeria",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "assetBundlePatterns": [
@@ -132,14 +132,26 @@
       [
         "expo-build-properties",
         {
+          "ios": {
+            "extraPods": [
+              {
+                "name": "GoogleUtilities",
+                "modular_headers": true
+              },
+              {
+                "name": "RecaptchaInterop",
+                "modular_headers": true
+              }
+            ]
+          },
           "android": {
-            "reactNativeReleaseLevel": "experimental"
+            "reactNativeReleaseLevel": "stable"
           }
         }
       ],
-      "./plugins/withExpo55MainApplicationHostFix",
       "expo-image",
-      "expo-iap"
+      "expo-iap",
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true,
