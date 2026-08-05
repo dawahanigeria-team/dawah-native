@@ -71,6 +71,10 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       setProgress,
       playbackSpeed,
       setPlaybackSpeed,
+      repeatMode,
+      setRepeatMode,
+      isShuffled,
+      toggleShuffle,
     } = usePlayerStore();
     const {
       addToQueue,
@@ -626,6 +630,82 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                 </Text>
               </Touchable>
 
+              {/* Shuffle and repeat were already implemented in the store and
+                  persisted with the queue, but had no control anywhere in the
+                  app — the only way to reach either was to already be in the
+                  state. Both are surfaced here rather than in a submenu since
+                  they change what plays next and belong beside the transport. */}
+              <Touchable
+                onPress={toggleShuffle}
+                style={styles.secondaryButton}
+                accessibilityLabel={isShuffled ? "Shuffle on" : "Shuffle off"}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isShuffled }}
+              >
+                <Ionicons
+                  name="shuffle"
+                  size={24}
+                  color={
+                    isShuffled
+                      ? colors.brand.primary
+                      : colors.system.label.secondary
+                  }
+                />
+              </Touchable>
+
+              <Touchable
+                // off -> all -> one -> off. Matches the order the store's
+                // playNext() already handles, so the cycle cannot land the
+                // queue in a mode playback does not implement.
+                onPress={() =>
+                  setRepeatMode(
+                    repeatMode === "off"
+                      ? "all"
+                      : repeatMode === "all"
+                        ? "one"
+                        : "off"
+                  )
+                }
+                style={styles.secondaryButton}
+                accessibilityLabel={
+                  repeatMode === "one"
+                    ? "Repeat this lecture"
+                    : repeatMode === "all"
+                      ? "Repeat queue"
+                      : "Repeat off"
+                }
+                accessibilityRole="button"
+                accessibilityState={{ selected: repeatMode !== "off" }}
+              >
+                {/* Ionicons has no repeat-one glyph, so the active mode is
+                    shown by tinting plus a small 1 rather than a second icon. */}
+                <View>
+                  <Ionicons
+                    name="repeat"
+                    size={24}
+                    color={
+                      repeatMode !== "off"
+                        ? colors.brand.primary
+                        : colors.system.label.secondary
+                    }
+                  />
+                  {repeatMode === "one" && (
+                    <Text
+                      variant="caption2"
+                      weight="bold"
+                      style={{
+                        position: "absolute",
+                        bottom: -2,
+                        right: -2,
+                        color: colors.brand.primary,
+                      }}
+                    >
+                      1
+                    </Text>
+                  )}
+                </View>
+              </Touchable>
+
               <Touchable
                 onPress={handleShare}
                 style={styles.secondaryButton}
@@ -1007,7 +1087,10 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: "center",
     alignItems: "center",
-    marginHorizontal: designTokens.spacing.lg,
+    // Row went from three controls to five. At spacing.lg each button occupies
+    // 76pt, so five would need 380pt and overflow a 375pt phone; sm keeps the
+    // row at 300pt while leaving the 44pt hit target intact.
+    marginHorizontal: designTokens.spacing.sm,
   },
   downloadProgress: {
     flexDirection: "row",
