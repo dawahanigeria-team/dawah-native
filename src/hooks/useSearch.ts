@@ -161,6 +161,21 @@ export function useSearch<T = any>(
           apiParams.lecturer_nid = searchFilters.lecturerId;
         }
 
+        // Date sort belongs on the server: a query can match tens of thousands
+        // of rows paginated 20 at a time, so reordering the loaded page would
+        // look right and be wrong. Only the date options map — the rest
+        // (followers/views/A-Z) are lecturer-list concerns the search API
+        // doesn't accept, and sending them through would be ignored anyway.
+        const dateSort: Record<string, 'desc' | 'asc'> = {
+          recent: 'desc',
+          oldest: 'asc',
+        };
+        if (dateSort[searchFilters.sortBy]) {
+          apiParams.sortBy = dateSort[searchFilters.sortBy];
+        } else {
+          delete apiParams.sortBy;
+        }
+
         const response = await searchApi.search<T>({
           ...apiParams,
           signal: abortControllerRef.current?.signal,

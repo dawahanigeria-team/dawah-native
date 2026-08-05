@@ -268,33 +268,11 @@ function SearchScreen() {
     }
   };
 
-  // Client-side sort for date-based options. The search API also accepts a
-  // sort param, but applying it locally guarantees behavior even if the
-  // backend hasn't shipped these enum values yet, and works on top of the
-  // currently-loaded page set.
-  const filteredAndSortedResults = useMemo(() => {
-    const list = apiResults || [];
-    if (filters.sortBy !== 'recent' && filters.sortBy !== 'oldest') {
-      return list;
-    }
-    const dateOf = (it: SearchLecture): number => {
-      const raw =
-        it.created_at ||
-        it.CreatedAt ||
-        (it as any).post_date ||
-        (it as any).updated_date ||
-        '';
-      if (!raw) return 0;
-      const s = String(raw)
-        .replace(/^[A-Za-z]+,\s*/, '')
-        .replace(/\s-\s/, ' ')
-        .replace(/\//g, '-');
-      const t = Date.parse(s);
-      return Number.isFinite(t) ? t : 0;
-    };
-    const sorted = [...list].sort((a, b) => dateOf(b) - dateOf(a));
-    return filters.sortBy === 'oldest' ? sorted.reverse() : sorted;
-  }, [apiResults, filters.sortBy]);
+  // Date sorting is applied by the search API across the whole result set
+  // (see useSearch's sortBy mapping). Sorting here instead would only reorder
+  // the currently-loaded page out of tens of thousands of matches, which reads
+  // as working while showing the wrong rows.
+  const filteredAndSortedResults = useMemo(() => apiResults || [], [apiResults]);
 
   const getItemKey = (item: SearchLecture, index: number) => {
     return `api-${String(item.id || item.nid || index)}-${index}`;
