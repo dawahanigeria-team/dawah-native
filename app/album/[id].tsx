@@ -30,6 +30,7 @@ import { usePlayerStore } from '../../src/stores';
 import { designTokens } from '../../src/theme/designTokens';
 import { Episode } from '../../src/types/types';
 import { appendShareSignature } from '../../src/utils/shareMessage';
+import { boxShadow } from "../../src/utils/shadow";
 
 const formatCollectionDuration = (seconds: number): string => {
   if (seconds <= 0) return '';
@@ -354,11 +355,8 @@ const styles = StyleSheet.create({
     width: 190,
     height: 190,
     borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.3,
-    shadowRadius: 22,
-    elevation: 12,
+    // elevation 12 folded in: boxShadow renders on both platforms.
+    boxShadow: boxShadow('#000', 0.3, 22, 12, 0),
   },
   albumCoverPlaceholder: { justifyContent: 'center', alignItems: 'center' },
   albumInfo: { width: '100%', marginTop: 24 },

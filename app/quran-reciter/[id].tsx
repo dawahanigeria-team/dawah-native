@@ -40,6 +40,7 @@ import {
 } from '../../src/utils/lecturerFollowAuth';
 import { appendShareSignature } from '../../src/utils/shareMessage';
 import { durationToSeconds } from '../../src/utils/quran';
+import { boxShadow } from "../../src/utils/shadow";
 
 const QuranReciterScreen: React.FC = () => {
   const router = useRouter();
@@ -689,11 +690,8 @@ const QuranReciterScreen: React.FC = () => {
             styles.headerButton,
             {
               backgroundColor: colors.system.background.primary,
-              shadowColor: colors.system.label.primary,
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.15,
-              shadowRadius: 4,
-              elevation: 4,
+              // elevation 4 folded in: boxShadow renders on both platforms.
+              boxShadow: boxShadow(colors.system.label.primary, 0.15, 4, 2, 0),
             }
           ]}
           accessibilityRole="button"
@@ -712,11 +710,8 @@ const QuranReciterScreen: React.FC = () => {
             styles.headerButton,
             {
               backgroundColor: colors.system.background.primary,
-              shadowColor: colors.system.label.primary,
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.15,
-              shadowRadius: 4,
-              elevation: 4,
+              // elevation 4 folded in: boxShadow renders on both platforms.
+              boxShadow: boxShadow(colors.system.label.primary, 0.15, 4, 2, 0),
             }
           ]}
           accessibilityRole="button"

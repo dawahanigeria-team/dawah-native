@@ -10,6 +10,7 @@ import { Icon } from "../atoms/Icon";
 import { Text } from "../atoms/Text";
 import { Touchable } from "../atoms/Touchable";
 import { logger } from "../../utils/logger";
+import { boxShadow } from "../../utils/shadow";
 
 interface HeroCarouselProps {
   items: Episode[];
@@ -169,11 +170,8 @@ const CarouselItem = memo<CarouselItemProps>(({
                 height: 48,
                 justifyContent: "center",
                 alignItems: "center",
-                shadowColor: colors.fixed.black,
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.25,
-                shadowRadius: 4,
-                elevation: 5,
+                // elevation 5 folded in: boxShadow renders on both platforms.
+                boxShadow: boxShadow(colors.fixed.black, 0.25, 4, 2, 0),
               }}
               accessibilityLabel="Play episode"
               accessibilityRole="button"

@@ -21,6 +21,7 @@ import {
   captureSentryException,
 } from "../src/services/config/sentry.config";
 import tw from "../src/theme/twrnc";
+import { boxShadow } from "../src/utils/shadow";
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -275,11 +276,8 @@ export default function ForgotPasswordScreen() {
                 {
                   backgroundColor: colors.brand.primary,
                   opacity: isLoading ? 0.7 : 1,
-                  shadowColor: colors.brand.primary,
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 8,
-                  elevation: 4,
+                  // elevation 4 folded in: boxShadow renders on both platforms.
+                  boxShadow: boxShadow(colors.brand.primary, 0.3, 8, 4, 0),
                 },
               ]}
             >

@@ -45,6 +45,7 @@ import type { LectureDetail } from "../../src/types/api.types";
 import type { Episode } from "../../src/types/types";
 import { formatRelativeDate } from "../../src/utils/formatDate";
 import { appendShareSignature } from "../../src/utils/shareMessage";
+import { boxShadow } from "../../src/utils/shadow";
 
 const HEADER_HEIGHT = 300;
 
@@ -233,11 +234,8 @@ const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
             tw`w-20 h-20 rounded-full items-center justify-center mx-6`,
             {
               backgroundColor: canPlay ? colors.brand.primary : colors.system.fill.tertiary,
-              shadowColor: colors.brand.primary,
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.3,
-              shadowRadius: 8,
-              elevation: 8,
+              // elevation 8 folded in: boxShadow renders on both platforms.
+              boxShadow: boxShadow(colors.brand.primary, 0.3, 8, 4, 0),
             }
           ]}
         >

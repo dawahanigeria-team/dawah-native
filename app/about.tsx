@@ -8,6 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../src/components/atoms";
 import { useTheme } from "../src/hooks/useTheme";
 import tw from "../src/theme/twrnc";
+import { boxShadow } from "../src/utils/shadow";
 
 const appVersion = Constants.expoConfig?.version || "1.0.0";
 const buildNumber =
@@ -67,11 +68,8 @@ const AboutScreen = () => {
               tw`w-20 h-20 rounded-2xl items-center justify-center mb-4`,
               {
                 backgroundColor: colors.brand.primary,
-                shadowColor: colors.brand.primary,
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 8,
-                elevation: 4,
+                // elevation 4 folded in: boxShadow renders on both platforms.
+                boxShadow: boxShadow(colors.brand.primary, 0.3, 8, 4, 0),
               },
             ]}
           >

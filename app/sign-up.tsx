@@ -22,6 +22,7 @@ import { addSentryBreadcrumb, captureSentryException } from "../src/services/con
 import { ensureGoogleSigninConfigured } from "../src/services/googleSignIn.service";
 import { useAuthStore } from "../src/stores";
 import tw from "../src/theme/twrnc";
+import { boxShadow } from "../src/utils/shadow";
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -411,11 +412,8 @@ export default function SignUpScreen() {
                 tw`w-16 h-16 rounded-2xl items-center justify-center mb-4`,
                 { 
                   backgroundColor: colors.brand.primary,
-                  shadowColor: colors.brand.primary,
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 8,
-                  elevation: 4,
+                  // elevation 4 folded in: boxShadow renders on both platforms.
+                  boxShadow: boxShadow(colors.brand.primary, 0.3, 8, 4, 0),
                 },
               ]}
             >
@@ -564,11 +562,8 @@ export default function SignUpScreen() {
                 {
                   backgroundColor: colors.brand.primary,
                   opacity: isLoading ? 0.7 : 1,
-                  shadowColor: colors.brand.primary,
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 8,
-                  elevation: 4,
+                  // elevation 4 folded in: boxShadow renders on both platforms.
+                  boxShadow: boxShadow(colors.brand.primary, 0.3, 8, 4, 0),
                 },
               ]}
             >

@@ -14,6 +14,7 @@ import { usePremiumStore } from "../../src/stores/premiumStore";
 import { useTheme } from "../../src/hooks/useTheme";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
+import { boxShadow } from "../../src/utils/shadow";
 
 interface MenuItem {
   id: string;
@@ -492,11 +493,8 @@ const ProfileScreen = () => {
               tw`rounded-3xl p-5`,
               {
                 backgroundColor: colors.system.background.secondary,
-                shadowColor: colors.system.label.primary,
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.08,
-                shadowRadius: 16,
-                elevation: 8,
+                // elevation 8 folded in: boxShadow renders on both platforms.
+                boxShadow: boxShadow(colors.system.label.primary, 0.08, 16, 4, 0),
               },
             ]}
           >
@@ -507,11 +505,8 @@ const ProfileScreen = () => {
                   tw`w-16 h-16 rounded-2xl items-center justify-center`,
                   { 
                     backgroundColor: colors.brand.primary,
-                    shadowColor: colors.brand.primary,
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.3,
-                    shadowRadius: 8,
-                    elevation: 4,
+                    // elevation 4 folded in: boxShadow renders on both platforms.
+                    boxShadow: boxShadow(colors.brand.primary, 0.3, 8, 4, 0),
                   },
                 ]}
               >

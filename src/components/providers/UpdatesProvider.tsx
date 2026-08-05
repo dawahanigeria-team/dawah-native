@@ -22,6 +22,7 @@ import {
   setDismissedUpdateId,
 } from './UpdatesProvider.dismissal';
 import { getUpdatesBannerTop } from './UpdatesProvider.layout';
+import { boxShadow } from "../../utils/shadow";
 
 const CHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 
@@ -174,11 +175,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    // elevation 8 folded in: boxShadow renders on both platforms.
+    boxShadow: boxShadow('#000', 0.3, 8, 4, 0),
   },
   bannerText: {
     color: '#FFFFFF',

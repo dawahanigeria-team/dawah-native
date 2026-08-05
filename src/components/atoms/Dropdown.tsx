@@ -5,6 +5,7 @@ import { designTokens } from "../../theme/designTokens";
 import { Icon } from "./Icon";
 import { Text } from "./Text";
 import { Touchable } from "./Touchable";
+import { boxShadow } from "../../utils/shadow";
 
 interface DropdownOption {
   label: string;
@@ -66,11 +67,8 @@ export const Dropdown: React.FC<DropdownProps> = memo(
       borderRadius: designTokens.borderRadius.xl,
       maxHeight: 300,
       padding: designTokens.spacing.md,
-      shadowColor: colors.fixed.black,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 12,
-      elevation: 8,
+      // elevation 8 folded in: boxShadow renders on both platforms.
+      boxShadow: boxShadow(colors.fixed.black, 0.15, 12, 4, 0),
     };
 
     const optionStyle: ViewStyle = {

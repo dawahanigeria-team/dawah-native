@@ -12,6 +12,7 @@ import { Badge } from "../atoms/Badge";
 import { Icon } from "../atoms/Icon";
 import { Text } from "../atoms/Text";
 import { Touchable } from "../atoms/Touchable";
+import { boxShadow } from "../../utils/shadow";
 
 interface CardProps {
   variant: "square" | "landscape" | "list" | "section";
@@ -240,11 +241,8 @@ export const Card: React.FC<CardProps> = memo(
         marginBottom: designTokens.spacing.md,
         minHeight: 88, // Optimized height to fit 4+ items on screen
         // Apple-style subtle shadow
-        shadowColor: colors.system.label.primary,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
-        elevation: 4,
+        // elevation 4 folded in: boxShadow renders on both platforms.
+        boxShadow: boxShadow(colors.system.label.primary, 0.06, 12, 2, 0),
         // Remove border for cleaner look
         ...style,
       };
@@ -445,11 +443,8 @@ export const Card: React.FC<CardProps> = memo(
                   alignItems: "center",
                   justifyContent: "center",
                   // Apple-style play button shadow
-                  shadowColor: colors.brand.primary,
-                  shadowOffset: { width: 0, height: 3 },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 6,
-                  elevation: 5,
+                  // elevation 5 folded in: boxShadow renders on both platforms.
+                  boxShadow: boxShadow(colors.brand.primary, 0.3, 6, 3, 0),
                   // Subtle inner shadow effect
                   borderWidth: 1,
                   borderColor: colors.overlay.lightSubtle,
@@ -558,11 +553,8 @@ export const Card: React.FC<CardProps> = memo(
         borderRadius: designTokens.borderRadius["2xl"], // More rounded for modern look
         marginBottom: designTokens.spacing.md, // Reduced margin for tighter spacing
         // Apple-style subtle shadow
-        shadowColor: colors.system.label.primary,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
-        elevation: 4,
+        // elevation 4 folded in: boxShadow renders on both platforms.
+        boxShadow: boxShadow(colors.system.label.primary, 0.06, 12, 2, 0),
         // Remove border for cleaner look
         ...style,
       };
@@ -736,11 +728,8 @@ export const Card: React.FC<CardProps> = memo(
                   alignItems: "center",
                   justifyContent: "center",
                   // Apple-style play button shadow
-                  shadowColor: colors.brand.primary,
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 6,
-                  elevation: 4,
+                  // elevation 4 folded in: boxShadow renders on both platforms.
+                  boxShadow: boxShadow(colors.brand.primary, 0.25, 6, 2, 0),
                   // Subtle inner shadow effect
                   borderWidth: 1,
                   borderColor: colors.overlay.lightSubtle,
