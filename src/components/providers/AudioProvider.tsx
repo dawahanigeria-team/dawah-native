@@ -20,7 +20,13 @@ import TrackPlayer, {
 import { loadQueueSnapshot, saveQueueSnapshot } from '../../services/playerQueue.service'
 import { buildPlaylistKey, buildQueue } from '../../services/trackPlayerQueue.service'
 import { ensureTrackPlayerReady } from '../../services/trackPlayerReady.service'
-import { playerStore, resolveEpisodeArtistName, setAudioControls } from '../../stores/playerStore'
+import {
+  checkSleepTimer,
+  handleTrackEndedForSleepTimer,
+  playerStore,
+  resolveEpisodeArtistName,
+  setAudioControls,
+} from '../../stores/playerStore'
 import type { Episode, PlayerState } from '../../types/types'
 
 interface AudioProviderProps {
@@ -128,6 +134,11 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   const audioControlsRef = useRef<ReturnType<typeof useAudioPlayback> | null>(null)
   const playbackErrorEvents = useMemo(() => [Event.PlaybackError], [])
   const activeTrackEvents = useMemo(() => [Event.PlaybackActiveTrackChanged], [])
+  // The sleep timer is checked from the progress tick rather than a
+  // setTimeout: it needs to fire while the app is backgrounded and the screen
+  // is off, which is exactly when JS timers get throttled. This event keeps
+  // firing for as long as audio is playing.
+  const progressEvents = useMemo(() => [Event.PlaybackProgressUpdated], [])
 
   useEffect(() => {
     const setupTrackPlayer = async () => {
@@ -449,6 +460,12 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     index?: number
     track?: { id?: string | number }
   }) => {
+    // "Stop at the end of this lecture" resolves here, because a track change
+    // is the signal that the lecture the user armed the timer on has finished.
+    // A manual skip also counts as finishing it, which matches the intent —
+    // they are done with that lecture either way.
+    void handleTrackEndedForSleepTimer()
+
     const currentState = playerStore.get()
     if (!currentState.queue.length) return
 
@@ -480,6 +497,12 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   }, [])
 
   useTrackPlayerEvents(activeTrackEvents, handlePlaybackActiveTrackChanged)
+
+  const handleProgressForSleepTimer = useCallback(() => {
+    void checkSleepTimer()
+  }, [])
+
+  useTrackPlayerEvents(progressEvents, handleProgressForSleepTimer)
 
   useEffect(() => {
     if (!isInitializedRef.current) {

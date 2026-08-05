@@ -3,8 +3,11 @@ import { Image } from "expo-image";
 import { usePathname } from "expo-router";
 import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ActionSheetIOS,
+  Alert,
   Dimensions,
   GestureResponderEvent,
+  Platform,
   Pressable,
   ScrollView,
   Share,
@@ -75,6 +78,11 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       setRepeatMode,
       isShuffled,
       toggleShuffle,
+      sleepTimerEndsAt,
+      sleepTimerEndOfTrack,
+      setSleepTimer,
+      setSleepTimerEndOfTrack,
+      clearSleepTimer,
     } = usePlayerStore();
     const {
       addToQueue,
@@ -259,6 +267,62 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       opacity.value = withTiming(0, { duration: 200 }, () => {
         runOnJS(closePlayer)();
       });
+    };
+
+    // Minutes offered by the picker. Kept short at the front because the
+    // common case is "I am already falling asleep", not planning an hour.
+    const SLEEP_TIMER_MINUTES = [5, 15, 30, 45, 60];
+
+    const isSleepTimerArmed = Boolean(sleepTimerEndsAt) || sleepTimerEndOfTrack;
+
+    // Minutes left, rounded up so it never reads "0 min" while still counting.
+    const sleepMinutesRemaining = sleepTimerEndsAt
+      ? Math.max(0, Math.ceil((sleepTimerEndsAt - Date.now()) / 60_000))
+      : null;
+
+    const handleSleepTimerPress = () => {
+      // Armed timer: one tap cancels rather than making the user hunt for an
+      // "off" row in the picker.
+      if (isSleepTimerArmed) {
+        clearSleepTimer();
+        return;
+      }
+
+      const labels = [
+        ...SLEEP_TIMER_MINUTES.map((m) => `${m} minutes`),
+        "End of this lecture",
+      ];
+
+      const apply = (index: number) => {
+        if (index < SLEEP_TIMER_MINUTES.length) {
+          setSleepTimer(SLEEP_TIMER_MINUTES[index]);
+        } else {
+          setSleepTimerEndOfTrack();
+        }
+      };
+
+      if (Platform.OS === "ios") {
+        ActionSheetIOS.showActionSheetWithOptions(
+          {
+            title: "Sleep timer",
+            options: [...labels, "Cancel"],
+            cancelButtonIndex: labels.length,
+          },
+          (index) => {
+            if (index < labels.length) apply(index);
+          }
+        );
+        return;
+      }
+
+      // Android has no action sheet primitive. Alert caps out at three
+      // buttons on older versions, so the options are listed in the message
+      // and chosen from a compact set rather than rendering one button each.
+      Alert.alert("Sleep timer", "Stop playback after…", [
+        { text: "15 min", onPress: () => setSleepTimer(15) },
+        { text: "30 min", onPress: () => setSleepTimer(30) },
+        { text: "End of lecture", onPress: setSleepTimerEndOfTrack },
+      ]);
     };
 
     const handleShare = async () => {
@@ -707,6 +771,38 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
               </Touchable>
 
               <Touchable
+                onPress={handleSleepTimerPress}
+                style={styles.secondaryButton}
+                accessibilityLabel={
+                  sleepTimerEndOfTrack
+                    ? "Sleep timer on, stops at end of lecture. Tap to cancel"
+                    : sleepMinutesRemaining !== null
+                      ? `Sleep timer on, ${sleepMinutesRemaining} minutes left. Tap to cancel`
+                      : "Set sleep timer"
+                }
+                accessibilityRole="button"
+                accessibilityState={{ selected: isSleepTimerArmed }}
+              >
+                {sleepMinutesRemaining !== null ? (
+                  // Show the remaining minutes rather than a generic icon, so
+                  // the timer can be read at a glance without opening anything.
+                  <Text variant="caption2" weight="bold" style={{ color: colors.brand.primary }}>
+                    {sleepMinutesRemaining}m
+                  </Text>
+                ) : (
+                  <Ionicons
+                    name="moon-outline"
+                    size={24}
+                    color={
+                      sleepTimerEndOfTrack
+                        ? colors.brand.primary
+                        : colors.system.label.secondary
+                    }
+                  />
+                )}
+              </Touchable>
+
+              <Touchable
                 onPress={handleShare}
                 style={styles.secondaryButton}
                 accessibilityLabel="Share"
@@ -1087,10 +1183,12 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: "center",
     alignItems: "center",
-    // Row went from three controls to five. At spacing.lg each button occupies
-    // 76pt, so five would need 380pt and overflow a 375pt phone; sm keeps the
-    // row at 300pt while leaving the 44pt hit target intact.
-    marginHorizontal: designTokens.spacing.sm,
+    // Row grew from three controls to six (speed, shuffle, repeat, sleep,
+    // share, download). Each button is 44pt wide, so the margin is what
+    // decides whether the row fits: at spacing.lg six would need 456pt and at
+    // sm 360pt, both wider than a 375pt phone once container padding is taken
+    // off. xs lands at 312pt and leaves the 44pt hit target untouched.
+    marginHorizontal: designTokens.spacing.xs,
   },
   downloadProgress: {
     flexDirection: "row",

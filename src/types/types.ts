@@ -77,6 +77,13 @@ export interface PlayerState {
   currentQueueIndex: number;
   isShuffled: boolean;
   repeatMode: 'off' | 'all' | 'one';
+  // Sleep timer. Stored as an absolute epoch-ms deadline rather than a
+  // remaining duration so it stays correct across backgrounding, where JS
+  // timers are throttled but playback continues.
+  sleepTimerEndsAt: number | null;
+  // "Stop at the end of this lecture" — has no deadline, so it is tracked
+  // separately from sleepTimerEndsAt.
+  sleepTimerEndOfTrack: boolean;
 }
 
 export type RootTabParamList = {

@@ -31,6 +31,8 @@ const initialState: PlayerState = {
   currentQueueIndex: -1,
   isShuffled: false,
   repeatMode: 'off',
+  sleepTimerEndsAt: null,
+  sleepTimerEndOfTrack: false,
 };
 
 export const playerStore = entity(initialState);
@@ -1092,6 +1094,84 @@ const toggleShuffle = async () => {
   }
 };
 
+/**
+ * Sleep timer.
+ *
+ * Deliberately not implemented with setTimeout. The timer matters precisely
+ * when the app is backgrounded and the screen is off, and that is exactly
+ * when the OS throttles or suspends JS timers — a setTimeout scheduled for
+ * 30 minutes may fire late or not at all. Instead we record an absolute
+ * deadline and check it from the playback progress tick, which keeps firing
+ * for as long as audio is playing.
+ *
+ * Passing null clears the timer.
+ */
+const setSleepTimer = (minutes: number | null) => {
+  const nextState = {
+    ...playerStore.get(),
+    sleepTimerEndsAt: minutes === null ? null : Date.now() + minutes * 60_000,
+    // The two modes are mutually exclusive; choosing a duration cancels
+    // "end of lecture" and vice versa.
+    sleepTimerEndOfTrack: false,
+  };
+  setAndPersistPlayerState(nextState);
+};
+
+const setSleepTimerEndOfTrack = () => {
+  const nextState = {
+    ...playerStore.get(),
+    sleepTimerEndsAt: null,
+    sleepTimerEndOfTrack: true,
+  };
+  setAndPersistPlayerState(nextState);
+};
+
+const clearSleepTimer = () => {
+  const nextState = {
+    ...playerStore.get(),
+    sleepTimerEndsAt: null,
+    sleepTimerEndOfTrack: false,
+  };
+  setAndPersistPlayerState(nextState);
+};
+
+/**
+ * Called from the playback progress tick. Pauses and clears the timer once
+ * the deadline has passed. Safe to call on every tick — it returns
+ * immediately when no timer is armed.
+ */
+export const checkSleepTimer = async () => {
+  const state = playerStore.get();
+  const endsAt = state.sleepTimerEndsAt;
+  if (!endsAt || Date.now() < endsAt) return;
+
+  try {
+    await TrackPlayer.pause();
+  } catch (error) {
+    logger.error('Sleep timer failed to pause playback', error as Error);
+  } finally {
+    // Clear regardless of whether the pause succeeded, so a failure cannot
+    // leave a stale deadline that pauses the next thing the user plays.
+    clearSleepTimer();
+  }
+};
+
+/**
+ * Called when a track finishes. Only acts in "end of lecture" mode; the
+ * duration mode is handled by checkSleepTimer.
+ */
+export const handleTrackEndedForSleepTimer = async () => {
+  if (!playerStore.get().sleepTimerEndOfTrack) return;
+
+  try {
+    await TrackPlayer.pause();
+  } catch (error) {
+    logger.error('Sleep timer failed to pause at end of track', error as Error);
+  } finally {
+    clearSleepTimer();
+  }
+};
+
 const setRepeatMode = (mode: 'off' | 'all' | 'one') => {
   logger.debug('🔁 PlayerStore: Set repeat mode:', mode);
 
@@ -1147,6 +1227,11 @@ const actions = {
   toggleShuffle,
   setRepeatMode,
   clearQueue,
+  setSleepTimer,
+  setSleepTimerEndOfTrack,
+  clearSleepTimer,
+  checkSleepTimer,
+  handleTrackEndedForSleepTimer,
 };
 
 // Keep playNextRef available for AudioProvider without relying on a hook.
