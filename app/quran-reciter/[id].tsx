@@ -733,7 +733,7 @@ const QuranReciterScreen: React.FC = () => {
             style={styles.headerContainer}
           >
             <Text style={styles.arabicMark}>القرآن الكريم</Text>
-            <View style={[styles.artworkContainer, { shadowColor: colors.system.label.primary }]}>
+            <View style={styles.artworkContainer}>
               {album.alb_thumbnail || album.img ? (
                 <Image 
                   source={{ uri: album.alb_thumbnail || album.img }}
@@ -893,7 +893,6 @@ const styles = StyleSheet.create({
   artworkContainer: {
     marginBottom: designTokens.spacing.md,
     ...designTokens.shadows.xl,
-    // Shadow color handled dynamically
   },
   artwork: {
     width: 120,

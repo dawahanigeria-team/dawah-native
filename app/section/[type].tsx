@@ -31,6 +31,7 @@ import tw from "../../src/theme/twrnc";
 import { Episode, Series } from "../../src/types/types";
 import { usePlayerActions } from "../../src/stores";
 import { formatDuration } from "../../src/utils/formatTime";
+import { boxShadow } from "../../src/utils/shadow";
 
 type AlbumType = QuranAlbum | RamadanAlbum;
 
@@ -448,8 +449,7 @@ function SectionScreen() {
               styles.quranAlbumCard,
               {
                 backgroundColor: colors.system.background.secondary,
-                shadowColor: colors.fixed.black,
-                shadowOffset: { width: 0, height: 2 },
+                boxShadow: boxShadow(colors.fixed.black, 0.08, 8, 2, 0),
               },
             ]}
             accessibilityLabel={`${album.name}, ${surahCount} Surahs in ${album.language}`}
@@ -642,11 +642,11 @@ function SectionScreen() {
           <View style={tw`items-center mb-6`}>
             <View
               style={[
-                tw`p-4 rounded-xl shadow-sm`,
+                tw`p-4 rounded-xl`,
                 {
                   backgroundColor: colors.system.background.secondary,
-                  shadowColor: colors.system.label.primary,
-                  shadowOffset: { width: 0, height: 1 },
+                  // Matches Tailwind's shadow-sm, previously supplied by tw.
+                  boxShadow: boxShadow(colors.system.label.primary, 0.05, 2, 1, 0),
                 },
               ]}
             >
@@ -1138,9 +1138,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   quranAlbumCard: {
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    // Shadow moved to the merge site: the colour is a theme value and
+    // boxShadow needs the opacity folded into it.
   },
   quranHero: {
     minHeight: 178,

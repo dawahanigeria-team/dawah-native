@@ -44,6 +44,7 @@ import { DownloadStatus } from "../../services/downloads/downloadQueue.service";
 import { Loading } from "../atoms/Loading";
 import { Text } from "../atoms/Text";
 import { Touchable } from "../atoms/Touchable";
+import { boxShadow } from "../../utils/shadow";
 
 const MINI_PLAYER_HEIGHT = 72;
 
@@ -404,7 +405,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                 {
                   left: `${progressPercentage}%`,
                   backgroundColor: colors.brand.primary,
-                  shadowColor: colors.system.label.primary,
+                  boxShadow: boxShadow(colors.system.label.primary, 0.3, 2, 1, 0),
                 },
               ]}
             />
@@ -1006,7 +1007,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
             {
               backgroundColor: colors.system.background.secondary,
               borderTopColor: colors.system.separator.primary,
-              shadowColor: colors.system.label.primary,
+              boxShadow: boxShadow(colors.system.label.primary, 0.1, 8, -2, 0),
             },
             animatedStyle,
           ]}
@@ -1028,10 +1029,8 @@ const styles = StyleSheet.create({
   },
   player: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
+    // Shadow moved to the merge site: boxShadow needs the opacity folded into
+    // the colour, and the colour is a theme value only available there.
   },
   // Mini Player Styles
   miniPlayerContainer: {
@@ -1054,10 +1053,7 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     marginLeft: -5, // Center the thumb on the progress line
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 3,
+    // Shadow moved to the merge site — see `player` above.
   },
   miniPlayerContent: {
     flex: 1,

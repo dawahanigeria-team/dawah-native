@@ -22,6 +22,7 @@ import {
   captureSentryException,
 } from "../src/services/config/sentry.config";
 import tw from "../src/theme/twrnc";
+import { boxShadow } from "../src/utils/shadow";
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
@@ -500,7 +501,7 @@ export default function ResetPasswordScreen() {
                 {
                   backgroundColor: colors.brand.primary,
                   opacity: submitButtonOpacity,
-                  shadowColor: colors.brand.primary,
+                  boxShadow: boxShadow(colors.brand.primary, 0.3, 8, 4, 0),
                 },
               ]}
             >
@@ -609,10 +610,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   submitButton: {
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    // Shadow moved to the merge site: the colour is a theme value and
+    // boxShadow needs the opacity folded into it.
   },
   submitButtonText: {
     fontSize: 16,

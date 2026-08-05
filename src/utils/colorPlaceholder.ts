@@ -1,4 +1,5 @@
 import { designTokens } from "../theme/designTokens";
+import { boxShadow } from "./shadow";
 
 // Generate consistent colors based on string hash
 export const getPlaceholderColor = (id: string | undefined): string => {
@@ -44,11 +45,9 @@ export const getPlaceholderStyle = (id: string | undefined, size: number) => {
     alignItems: "center" as const,
     justifyContent: "center" as const,
     borderRadius: designTokens.borderRadius.lg,
-    // Add subtle gradient effect
-    shadowColor: color,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    // Add subtle gradient effect. The shadow is tinted with the placeholder's
+    // own colour, so the opacity has to be folded into it — see utils/shadow.
+    // elevation 3 folded in: boxShadow renders on both platforms.
+    boxShadow: boxShadow(color, 0.3, 4, 2, 0),
   };
 };
