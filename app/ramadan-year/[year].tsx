@@ -19,7 +19,6 @@ import { useTheme } from "../../src/hooks/useTheme";
 import { ramadanApi, RamadanAlbum } from "../../src/services/api/ramadan.api";
 import tw from "../../src/theme/twrnc";
 
-const CARD_WIDTH = (SCREEN_WIDTH - 48 - 12) / 2;
 type ThemeColors = ReturnType<typeof useTheme>["colors"];
 
 interface RamadanYearHeaderProps {
@@ -275,6 +274,7 @@ export default function RamadanYearScreen() {
   // useWindowDimensions, not a module-scope Dimensions.get(): the old
   // value was captured at import and never updated on rotation or resize.
   const { width: SCREEN_WIDTH } = useWindowDimensions();
+  const CARD_WIDTH = (SCREEN_WIDTH - 48 - 12) / 2;
   const { colors } = useTheme();
   const { year } = useLocalSearchParams<{ year: string }>();
   const yearNum = parseInt(year || "0", 10);
@@ -445,7 +445,7 @@ export default function RamadanYearScreen() {
         </Animated.View>
       );
     },
-    [colors, handleAlbumPress]
+    [colors, handleAlbumPress, CARD_WIDTH]
   );
 
   const listHeader = (

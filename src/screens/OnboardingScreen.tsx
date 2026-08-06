@@ -92,14 +92,16 @@ const PageIndicator = ({
 
 const OnboardingSlideComponent = ({
   item,
+  width,
 }: {
   item: OnboardingSlide;
+  width: number;
 }) => {
   return (
     <View
       style={[
         tw`flex-1 items-center justify-center px-8`,
-        { width: SCREEN_WIDTH },
+        { width },
       ]}
     >
       <Animated.View
@@ -112,8 +114,8 @@ const OnboardingSlideComponent = ({
           style={[
             tw`rounded-full items-center justify-center mb-12`,
             {
-              width: SCREEN_WIDTH * 0.5,
-              height: SCREEN_WIDTH * 0.5,
+              width: width * 0.5,
+              height: width * 0.5,
               maxWidth: 240,
               maxHeight: 240,
             },
@@ -235,7 +237,11 @@ export default function OnboardingScreen() {
           bounces={false}
         >
           {slides.map((slide) => (
-            <OnboardingSlideComponent key={slide.id} item={slide} />
+            <OnboardingSlideComponent
+              key={slide.id}
+              item={slide}
+              width={SCREEN_WIDTH}
+            />
           ))}
         </ScrollView>
       </View>
