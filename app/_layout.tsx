@@ -1,11 +1,10 @@
 import * as Notifications from "expo-notifications";
-import { Image as ExpoImage } from "expo-image";
 import { Stack, usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useFonts } from "expo-font";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AppState, Linking, View } from "react-native";
+import { InteractionManager, Linking, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { PostHogProvider, PostHogErrorBoundary, usePostHog } from "posthog-react-native";
 
@@ -19,7 +18,7 @@ import { MiniPlayer } from "../src/components/organisms";
 import { AudioProvider } from "../src/components/providers/AudioProvider";
 import { UpdatesProvider } from "../src/components/providers/UpdatesProvider";
 import { usePushNotifications } from "../src/hooks/usePushNotifications";
-import { offlineFirstApi } from "../src/services/cache/offlineFirst.api";
+import { analytics } from "../src/services/analytics.service";
 import { addSentryBreadcrumb, captureSentryException, initSentry, Sentry } from "../src/services/config/sentry.config";
 import { downloadsService } from "../src/services/downloads.service";
 import { linkingService } from "../src/services/linking.service";
@@ -34,13 +33,9 @@ initSentry();
 
 const NAVIGATION_DEDUPE_WINDOW_MS = 1500;
 const FONT_LOAD_GRACE_MS = 4000;
-const IMAGE_CACHE_CLEANUP_THROTTLE_MS = 15000;
 const PLAYER_NAVIGATION_PENDING_TIMEOUT_MS = 10000;
 const recentNavigationState = {
   route: "",
-  timestamp: 0,
-};
-const imageCacheCleanupState = {
   timestamp: 0,
 };
 
@@ -132,6 +127,11 @@ function PostHogAnalytics() {
   const identifiedRef = useRef<string | null>(null);
 
   useEffect(() => {
+    analytics.capture("app_opened");
+    return analytics.trackAppSession();
+  }, []);
+
+  useEffect(() => {
     if (!posthog || !pathname) return;
     if (lastScreenRef.current === pathname) return;
     lastScreenRef.current = pathname;
@@ -147,7 +147,9 @@ function PostHogAnalytics() {
         if (!isMounted || !userId) return;
         if (identifiedRef.current === userId) return;
         identifiedRef.current = userId;
-        posthog?.identify(userId);
+        posthog?.identify(userId, {
+          account_type: userId.startsWith("guest_") ? "guest" : "registered",
+        });
       } catch (error) {
         console.warn("PostHog identify failed:", error);
       }
@@ -216,26 +218,6 @@ function RootLayout() {
     addSentryBreadcrumb("Route changed", "navigation", { pathname });
   }, [pathname]);
 
-  useEffect(() => {
-    const subscription = AppState.addEventListener("change", (nextState) => {
-      if (nextState === "active") return;
-
-      const now = Date.now();
-      if (now - imageCacheCleanupState.timestamp < IMAGE_CACHE_CLEANUP_THROTTLE_MS) {
-        return;
-      }
-
-      imageCacheCleanupState.timestamp = now;
-      ExpoImage.clearMemoryCache().catch(() => {
-        logger.debug("Failed to clear image memory cache");
-      });
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, []);
-
   // Initialize user, auth, and favorites on app start
   useEffect(() => {
     if (hasInitializedApp.current) {
@@ -258,20 +240,26 @@ function RootLayout() {
         if (!isMounted) return;
         logger.debug("User initialized");
 
-        // Load favorites from API
-        await fetchFavorites();
-        if (!isMounted) return;
-        logger.debug('Favorites loaded');
+        // These stores are independent. Hydrate them after the first frame and
+        // in parallel instead of creating a startup waterfall. Home owns its
+        // own cached requests, so the old eager API warmup only duplicated
+        // network traffic and has intentionally been removed.
+        const task = InteractionManager.runAfterInteractions(() => {
+          void Promise.allSettled([
+            fetchFavorites(),
+            downloadsService.ensureInitialized(),
+          ]).then((results) => {
+            if (!isMounted) return;
+            const rejected = results.filter((result) => result.status === "rejected");
+            if (rejected.length > 0) {
+              logger.debug("Some background stores failed to hydrate", {
+                rejected: rejected.length,
+              });
+            }
+          });
+        });
 
-        // Ensure downloads service is initialized
-        await downloadsService.ensureInitialized();
-        if (!isMounted) return;
-        logger.debug('Downloads service initialized');
-
-        // Warm up essential cached data (popular lectures, lecturers list)
-        await offlineFirstApi.warmupEssentialData();
-        if (!isMounted) return;
-        logger.debug('Offline cache warmed');
+        if (!isMounted) task.cancel?.();
       } catch (error) {
         if (!isMounted) return;
         console.error("Failed to initialize app:", error);

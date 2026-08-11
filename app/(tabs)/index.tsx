@@ -5,7 +5,6 @@ import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FlatList,
-  Image,
   InteractionManager,
   Platform,
   ScrollView,
@@ -303,10 +302,12 @@ function HomeScreen() {
           onPress={() => handleCarouselItemPress(item)}
           style={tw`flex-1`}
         >
-          <Image
+          <ExpoImage
             source={{ uri: item.coverUrl }}
             style={styles.heroImage}
-            resizeMode="cover"
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            transition={150}
           />
           <LinearGradient
             colors={["transparent", "rgba(0,0,0,0.9)"]}
@@ -362,7 +363,7 @@ function HomeScreen() {
         </TouchableOpacity>
       </Animated.View>
     ),
-    [colors, handleCarouselItemPress, handleEpisodePress],
+    [SCREEN_WIDTH, colors, handleCarouselItemPress, handleEpisodePress],
   );
 
   // Render Quick Action
@@ -522,10 +523,12 @@ function HomeScreen() {
               { backgroundColor: colors.system.background.secondary },
             ]}
           >
-            <Image
+            <ExpoImage
               source={{ uri: item.img || item.alb_thumbnail }}
               style={tw`w-full aspect-square`}
-              resizeMode="cover"
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={150}
             />
             <View style={tw`p-2`}>
               <Text

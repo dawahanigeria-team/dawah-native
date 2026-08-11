@@ -18,6 +18,7 @@ import { Button, Text } from "../src/components/atoms";
 import { ENV } from "../src/config/env";
 import { useTheme } from "../src/hooks/useTheme";
 import { addSentryBreadcrumb } from "../src/services/config/sentry.config";
+import { analytics } from "../src/services/analytics.service";
 import { useAuthStore, usePremiumStore } from "../src/stores";
 import tw from "../src/theme/twrnc";
 import { logger } from "../src/utils/logger";
@@ -112,6 +113,10 @@ export default function PremiumScreen() {
         // A valid receipt may still be expired/cancelled — server returns
         // success:true with plan:"free". Don't claim activation in that case.
         if (snapshot.plan === "premium") {
+          analytics.capture("subscription_activated", {
+            product_id: purchase.productId,
+            platform: Platform.OS,
+          });
           Alert.alert("Premium activated", "Your subscription is now active.");
         } else {
           Alert.alert(
@@ -197,8 +202,9 @@ export default function PremiumScreen() {
 
   useEffect(() => {
     if (!connected || PREMIUM_PRODUCT_IDS.length === 0) return;
-    setProductLoadError(null);
-    fetchProducts({ skus: PREMIUM_PRODUCT_IDS, type: "subs" }).catch((error) => {
+    const request = fetchProducts({ skus: PREMIUM_PRODUCT_IDS, type: "subs" });
+    queueMicrotask(() => setProductLoadError(null));
+    request.catch((error) => {
       setProductLoadError(formatIapError(error));
       logger.warn("Failed to fetch subscription products", error);
     });
@@ -260,6 +266,10 @@ export default function PremiumScreen() {
       }
 
       setSelectedProductId(subscription.id);
+      analytics.capture("subscription_checkout_started", {
+        product_id: subscription.id,
+        platform: Platform.OS,
+      });
 
       try {
         const androidOffers =
@@ -289,7 +299,7 @@ export default function PremiumScreen() {
         );
       }
     },
-    [connected, reconnect, requestPurchase, user?.id],
+    [connected, reconnect, requestPurchase, user],
   );
 
   const handleRestore = useCallback(async () => {

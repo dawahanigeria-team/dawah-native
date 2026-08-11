@@ -11,6 +11,7 @@ import { buildPlaylistKey, buildQueue } from "../services/trackPlayerQueue.servi
 import { ensureTrackPlayerReady } from "../services/trackPlayerReady.service";
 import { Episode, PlayerState } from "../types/types";
 import { logger } from "../utils/logger";
+import { analytics } from "../services/analytics.service";
 import { resolvePlaybackSpeakerName } from "../utils/speakerName";
 
 const initialState: PlayerState = {
@@ -429,6 +430,13 @@ const playEpisode = async (episode: Episode) => {
       };
       setAndPersistPlayerState(nextState);
       persistQueueSnapshot(nextState);
+      analytics.capture('lecture_played', {
+        lecture_id: String(episode.id),
+        lecture_title: episode.title,
+        lecturer: resolveEpisodeArtistName(episode),
+        duration_seconds: episode.durationSec || null,
+        source: isOffline ? 'download' : 'stream',
+      });
     } else {
       logger.error('❌ PlayerStore: No audio URL provided!', new Error('No audio URL provided for episode'), {
         episodeId: episode.id,
@@ -739,8 +747,20 @@ const togglePlayPause = async () => {
     // Use TrackPlayer for playback control to ensure correct player instance
     if (currentState.isPlaying) {
       await TrackPlayer.pause();
+      analytics.capture('lecture_paused', {
+        lecture_id: String(currentState.currentEpisode.id),
+        position_seconds: Math.round(currentState.progress),
+      });
     } else {
       await TrackPlayer.play();
+      analytics.capture('lecture_played', {
+        lecture_id: String(currentState.currentEpisode.id),
+        lecture_title: currentState.currentEpisode.title,
+        lecturer: resolveEpisodeArtistName(currentState.currentEpisode),
+        duration_seconds: currentState.duration || null,
+        source: currentState.isDownloaded ? 'download' : 'stream',
+        resumed: true,
+      });
     }
 
     playerStore.set({

@@ -1,40 +1,8 @@
-import AsyncStorage from "expo-sqlite/kv-store";
 import { Redirect } from "expo-router";
-import { useEffect, useState } from "react";
-import OnboardingScreen from "../src/screens/OnboardingScreen";
-import { Loading } from "../src/components/atoms/Loading";
-import { withTimeoutFallback } from "../src/utils/withTimeoutFallback";
-
-const STARTUP_STORAGE_TIMEOUT_MS = 2500;
 
 export default function Index() {
-  const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    const checkOnboardingStatus = async () => {
-      try {
-        const value = await withTimeoutFallback(
-          AsyncStorage.getItem("hasSeenOnboarding"),
-          null,
-          STARTUP_STORAGE_TIMEOUT_MS,
-        );
-        setHasSeenOnboarding(value === "true");
-      } catch (error) {
-        console.error("Error checking onboarding status:", error);
-        setHasSeenOnboarding(false);
-      }
-    };
-
-    checkOnboardingStatus();
-  }, []);
-
-  if (hasSeenOnboarding === null) {
-    return <Loading fullScreen />;
-  }
-
-  if (hasSeenOnboarding) {
-    return <Redirect href="/(tabs)" />;
-  }
-
-  return <OnboardingScreen />;
+  // Listening and browsing are available to guests. Send every first launch
+  // straight to useful content; account prompts remain contextual (downloads,
+  // follows, favourites and subscription) instead of blocking discovery.
+  return <Redirect href="/(tabs)" />;
 }

@@ -3,11 +3,11 @@
  * Manages download state by integrating with DownloadQueueService
  */
 
-import { useRef } from 'react';
 import { entity } from 'simpler-state';
 import { downloadsService, DownloadMetadata } from '../services/downloads.service';
 import { downloadQueueService, QueuedDownload, DownloadStatus } from '../services/downloads/downloadQueue.service';
 import type { Episode } from '../types/types';
+import { analytics } from '../services/analytics.service';
 
 export interface DownloadState {
   queue: Map<string, QueuedDownload>;
@@ -61,6 +61,10 @@ if (typeof window !== 'undefined') {
 
 // Standalone action functions (no hooks, stable references)
 const addToQueue = async (episode: Episode) => {
+  analytics.capture('download_started', {
+    lecture_id: String(episode.id),
+    lecture_title: episode.title,
+  });
   await downloadQueueService.addToQueue(episode);
 };
 
@@ -119,6 +123,30 @@ const actions = {
   clearAllData,
 };
 
+const downloadGetters = {
+  getDownloadStatus: (lectureId: string): DownloadStatus | null => {
+    const queue = downloadsStore.get()?.queue;
+    return queue instanceof Map ? queue.get(lectureId)?.status || null : null;
+  },
+  getQueuedDownload: (lectureId: string): QueuedDownload | null => {
+    const queue = downloadsStore.get()?.queue;
+    return queue instanceof Map ? queue.get(lectureId) || null : null;
+  },
+  isDownloading: (lectureId: string): boolean => {
+    const queue = downloadsStore.get()?.queue;
+    const status = queue instanceof Map ? queue.get(lectureId)?.status : null;
+    return status === DownloadStatus.DOWNLOADING || status === DownloadStatus.QUEUED;
+  },
+  getDownloadProgress: (lectureId: string): number => {
+    const queue = downloadsStore.get()?.queue;
+    return queue instanceof Map ? queue.get(lectureId)?.progress || 0 : 0;
+  },
+  getDownloadError: (lectureId: string): string | null => {
+    const queue = downloadsStore.get()?.queue;
+    return queue instanceof Map ? queue.get(lectureId)?.error || null : null;
+  },
+};
+
 export const useDownloadsStore = () => {
   const rawState = downloadsStore.use();
 
@@ -130,42 +158,9 @@ export const useDownloadsStore = () => {
     downloads: Array.isArray(rawState?.downloads) ? rawState.downloads : [],
   };
 
-  // Create stable getter function references using useRef
-  // These functions always read the latest state from the store when called
-  const gettersRef = useRef({
-    getDownloadStatus: (lectureId: string): DownloadStatus | null => {
-      const currentState = downloadsStore.get();
-      const queue = currentState?.queue instanceof Map ? currentState.queue : new Map();
-      const download = queue.get(lectureId);
-      return download?.status || null;
-    },
-    getQueuedDownload: (lectureId: string): QueuedDownload | null => {
-      const currentState = downloadsStore.get();
-      const queue = currentState?.queue instanceof Map ? currentState.queue : new Map();
-      return queue.get(lectureId) || null;
-    },
-    isDownloading: (lectureId: string): boolean => {
-      const currentState = downloadsStore.get();
-      const queue = currentState?.queue instanceof Map ? currentState.queue : new Map();
-      const download = queue.get(lectureId);
-      const status = download?.status || null;
-      return status === DownloadStatus.DOWNLOADING || status === DownloadStatus.QUEUED;
-    },
-    getDownloadProgress: (lectureId: string): number => {
-      const currentState = downloadsStore.get();
-      const queue = currentState?.queue instanceof Map ? currentState.queue : new Map();
-      return queue.get(lectureId)?.progress || 0;
-    },
-    getDownloadError: (lectureId: string): string | null => {
-      const currentState = downloadsStore.get();
-      const queue = currentState?.queue instanceof Map ? currentState.queue : new Map();
-      return queue.get(lectureId)?.error || null;
-    },
-  });
-
   return {
     ...state,
     ...actions,
-    ...gettersRef.current,
+    ...downloadGetters,
   };
 };

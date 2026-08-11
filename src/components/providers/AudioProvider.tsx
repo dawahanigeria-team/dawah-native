@@ -10,6 +10,7 @@ import { useAudioPlayback } from '../../hooks/useAudioPlayback'
 import { lectureDetailApi } from '../../services/api/lectureDetail.api'
 import { addSentryBreadcrumb, captureSentryException } from '../../services/config/sentry.config'
 import { downloadsService } from '../../services/downloads.service'
+import { analytics } from '../../services/analytics.service'
 import TrackPlayer, {
   Event,
   RepeatMode,
@@ -389,6 +390,13 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     },
     onPlaybackFinished: () => {
       const currentState = playerStore.get()
+      if (currentState.currentEpisode) {
+        analytics.capture('lecture_completed', {
+          lecture_id: String(currentState.currentEpisode.id),
+          lecture_title: currentState.currentEpisode.title,
+          duration_seconds: currentState.duration || currentState.currentEpisode.durationSec || null,
+        })
+      }
       const nextState = {
         ...currentState,
         isPlaying: false,

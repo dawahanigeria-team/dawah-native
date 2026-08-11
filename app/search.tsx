@@ -22,6 +22,7 @@ import { useLecturers } from "../src/hooks/useLecturers";
 import { useSearchLectures } from "../src/hooks/useSearch";
 import { useTheme } from "../src/hooks/useTheme";
 import { searchApi } from "../src/services/api/search.api";
+import { analytics } from "../src/services/analytics.service";
 import tw from "../src/theme/twrnc";
 import {
   SearchAlbum,
@@ -131,19 +132,24 @@ function SearchScreen() {
     const query = actualSearchQuery.trim();
 
     if (query.length < 2) {
-      setLecturerResults([]);
-      setLecturerTotal(0);
-      setAlbumResults([]);
-      setAlbumTotal(0);
-      setDiscoveryLoading(false);
+      queueMicrotask(() => {
+        if (!active) return;
+        setLecturerResults([]);
+        setLecturerTotal(0);
+        setAlbumResults([]);
+        setAlbumTotal(0);
+        setDiscoveryLoading(false);
+      });
       return () => {
         active = false;
       };
     }
 
-    setDiscoveryLoading(true);
-    void searchApi
-      .searchDiscovery(query)
+    const searchPromise = searchApi.searchDiscovery(query);
+    queueMicrotask(() => {
+      if (active) setDiscoveryLoading(true);
+    });
+    void searchPromise
       .then((result) => {
         if (!active) return;
         setLecturerResults(result.lecturers);
@@ -171,8 +177,16 @@ function SearchScreen() {
 
   // Handle search submission (Enter key or search button)
   const handleSearch = (searchText: string) => {
+    const query = searchText.trim();
+    if (query.length >= 2) {
+      analytics.capture("search_performed", {
+        query,
+        language: filters.language,
+        topic: filters.topic,
+      });
+    }
     setActiveSection("overview");
-    setActualSearchQuery(searchText);
+    setActualSearchQuery(query);
   };
 
   const updateFilter = <K extends keyof SearchFilters>(
@@ -215,7 +229,11 @@ function SearchScreen() {
     };
 
     // Support both new API fields and legacy fields
-    const id = String(lecture.id || lecture.nid || `lecture-${Date.now()}`);
+    const id = String(
+      lecture.id ||
+        lecture.nid ||
+        `lecture-${lecture.mp3_url || lecture.AudioUrl || lecture.mp3_title || lecture.Title || "unknown"}`,
+    );
     const title = lecture.mp3_title || lecture.Title || "Untitled Lecture";
     const duration = lecture.mp3_duration || lecture.Duration;
     const audioUrl = lecture.mp3_url || lecture.AudioUrl || "";

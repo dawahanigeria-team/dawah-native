@@ -88,6 +88,53 @@ class RecentLecturesApiService {
   private pool: SearchLecture[] | null = null;
   private cacheTimestamp = 0;
   private inFlight: Promise<SearchLecture[]> | null = null;
+  private firstPage: SearchLecture[] | null = null;
+  private firstPageTimestamp = 0;
+  private firstPageInFlight: Promise<SearchLecture[]> | null = null;
+
+  private async fetchPage(page: number): Promise<SearchLecture[]> {
+    const response = await apiClient.get<any>(
+      RECENT_ENDPOINT,
+      { action: RECENT_ACTION, page },
+      {
+        timeout: RECENT_REQUEST_TIMEOUT_MS,
+        retryAttempts: 2,
+        useCache: true,
+        cacheTTL: API_CONFIG.CACHE.LECTURES_TTL,
+        headers: {
+          Origin: API_CONFIG.ORIGIN,
+          Referer: API_CONFIG.REFERER,
+          'User-Agent': API_CONFIG.USER_AGENT,
+          'X-Project-Key': API_CONFIG.X_PROJECT_KEY,
+        },
+      },
+    );
+
+    return extractItems(response.data)
+      .filter((raw) => raw?.keyword !== 'dn_quran')
+      .map(normalizeItem);
+  }
+
+  /** First paint only needs page one. Trending can build its wider pool later. */
+  private async fetchFirstPage(): Promise<SearchLecture[]> {
+    const now = Date.now();
+    if (this.firstPage && now - this.firstPageTimestamp < MERGED_CACHE_TTL_MS) {
+      return this.firstPage;
+    }
+    if (this.firstPageInFlight) return this.firstPageInFlight;
+
+    this.firstPageInFlight = this.fetchPage(1)
+      .then((items) => {
+        this.firstPage = items;
+        this.firstPageTimestamp = Date.now();
+        return items;
+      })
+      .finally(() => {
+        this.firstPageInFlight = null;
+      });
+
+    return this.firstPageInFlight;
+  }
 
   /**
    * Fetch POOL_PAGES pages from /api/leclisting_recent.php in parallel,
@@ -103,34 +150,15 @@ class RecentLecturesApiService {
 
     this.inFlight = (async () => {
       try {
-        const pageNumbers = Array.from({ length: POOL_PAGES }, (_, i) => i + 1);
+        const pageNumbers = Array.from({ length: POOL_PAGES - 1 }, (_, i) => i + 2);
         logger.debug(
           `Fetching ${POOL_PAGES} pages from ${RECENT_ENDPOINT}?action=${RECENT_ACTION}`,
         );
 
-        const results = await Promise.allSettled(
-          pageNumbers.map((page) =>
-            apiClient.get<any>(
-              RECENT_ENDPOINT,
-              { action: RECENT_ACTION, page },
-              {
-                // Home must fail fast enough to leave skeleton state and show
-                // recovery UI. The base client default could otherwise keep a
-                // cold launch waiting for roughly 90 seconds (3 × 30s).
-                timeout: RECENT_REQUEST_TIMEOUT_MS,
-                retryAttempts: 2,
-                useCache: true,
-                cacheTTL: API_CONFIG.CACHE.LECTURES_TTL,
-                headers: {
-                  Origin: API_CONFIG.ORIGIN,
-                  Referer: API_CONFIG.REFERER,
-                  'User-Agent': API_CONFIG.USER_AGENT,
-                  'X-Project-Key': API_CONFIG.X_PROJECT_KEY,
-                },
-              },
-            ),
-          ),
-        );
+        const results = await Promise.allSettled([
+          this.fetchFirstPage(),
+          ...pageNumbers.map((page) => this.fetchPage(page)),
+        ]);
 
         const merged: SearchLecture[] = [];
         const seen = new Set<string | number>();
@@ -140,17 +168,16 @@ class RecentLecturesApiService {
           const r = results[i];
           if (r.status !== 'fulfilled') {
             logger.debug(
-              `Recent page ${pageNumbers[i]} failed: ${(r as any).reason?.message || 'unknown'}`,
+              `Recent page ${i + 1} failed: ${(r as any).reason?.message || 'unknown'}`,
             );
             continue;
           }
           okPages++;
-          for (const raw of extractItems(r.value.data)) {
-            if (raw?.keyword === 'dn_quran') continue;
-            const id = raw?.nid;
+          for (const item of r.value) {
+            const id = (item as any)?.nid;
             if (id == null || seen.has(id)) continue;
             seen.add(id);
-            merged.push(normalizeItem(raw));
+            merged.push(item);
           }
         }
 
@@ -205,6 +232,12 @@ class RecentLecturesApiService {
     params: RecentLecturesParams = {},
   ): Promise<RecentLecturesResponse> {
     try {
+      // Page one powers the home hero and Fresh Content. Do not make it wait
+      // for the additional pages needed only for trending rank quality.
+      if ((params.page || 1) === 1 && (params.limit || 20) <= 30) {
+        const firstPage = await this.fetchFirstPage();
+        return this.paginate(firstPage, params);
+      }
       const pool = await this.fetchPool();
       return this.paginate(pool, params);
     } catch (error) {
@@ -254,6 +287,8 @@ class RecentLecturesApiService {
   clearCache(): void {
     this.pool = null;
     this.cacheTimestamp = 0;
+    this.firstPage = null;
+    this.firstPageTimestamp = 0;
     logger.debug('Recent/Trending lectures pool cleared');
   }
 }
