@@ -3,6 +3,9 @@ import { Redirect } from "expo-router";
 import { useEffect, useState } from "react";
 import OnboardingScreen from "../src/screens/OnboardingScreen";
 import { Loading } from "../src/components/atoms/Loading";
+import { withTimeoutFallback } from "../src/utils/withTimeoutFallback";
+
+const STARTUP_STORAGE_TIMEOUT_MS = 2500;
 
 export default function Index() {
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean | null>(null);
@@ -10,7 +13,11 @@ export default function Index() {
   useEffect(() => {
     const checkOnboardingStatus = async () => {
       try {
-        const value = await AsyncStorage.getItem("hasSeenOnboarding");
+        const value = await withTimeoutFallback(
+          AsyncStorage.getItem("hasSeenOnboarding"),
+          null,
+          STARTUP_STORAGE_TIMEOUT_MS,
+        );
         setHasSeenOnboarding(value === "true");
       } catch (error) {
         console.error("Error checking onboarding status:", error);

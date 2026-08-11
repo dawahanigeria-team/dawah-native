@@ -130,15 +130,22 @@ function HomeScreen() {
   }, []);
 
   // Data fetching
-  const { lectures: popularLectures, isLoading: popularLoading } =
-    usePopularLecturesWithCache();
+  const {
+    lectures: popularLectures,
+    isLoading: popularLoading,
+    error: popularError,
+    refresh: refreshPopular,
+  } = usePopularLecturesWithCache();
 
   // Both FEATURED hero and "Fresh Content" pull from the recent endpoint
   // (post_date desc) — not popularity — so push-notification entry never lands
   // users on stale Ramadan content.
-  const { lectures: recentLectures, loading: recentLoading } = useRecent({
-    limit: HOME_SECTION_LIMIT,
-  });
+  const {
+    lectures: recentLectures,
+    loading: recentLoading,
+    error: recentError,
+    refetch: refetchRecent,
+  } = useRecent({ limit: HOME_SECTION_LIMIT });
 
   const { albums: quranAlbumsRaw, loading: quranLoading } = useQuranAlbums({
     limit: HOME_SECTION_LIMIT,
@@ -158,6 +165,24 @@ function HomeScreen() {
     useRecentlyPlayedLectures(HOME_SECTION_LIMIT);
 
   const [popularEpisodes, setPopularEpisodes] = useState<Episode[]>([]);
+  const [isRetryingHome, setIsRetryingHome] = useState(false);
+
+  const retryPrimaryContent = useCallback(async () => {
+    if (isRetryingHome) return;
+    setIsRetryingHome(true);
+    try {
+      await Promise.allSettled([refetchRecent(), refreshPopular()]);
+    } finally {
+      setIsRetryingHome(false);
+    }
+  }, [isRetryingHome, refetchRecent, refreshPopular]);
+
+  const primaryContentFailed =
+    !recentLoading &&
+    !popularLoading &&
+    recentLectures.length === 0 &&
+    popularLectures.length === 0 &&
+    Boolean(recentError || popularError);
 
   const featuredEpisodes = useMemo(() => {
     if (recentLectures.length === 0) return [];
@@ -709,7 +734,44 @@ function HomeScreen() {
           {renderSectionHeader("Trending Now", "What the community is listening to", () =>
             router.push("/section/trending"),
           )}
-          {popularLoading ? (
+          {primaryContentFailed ? (
+            <View
+              style={[
+                styles.contentRecoveryCard,
+                { backgroundColor: colors.system.background.secondary },
+              ]}
+            >
+              <Ionicons
+                name="cloud-offline-outline"
+                size={28}
+                color={colors.system.label.secondary}
+              />
+              <View style={tw`flex-1 ml-3`}>
+                <Text variant="headline" color="label" weight="semibold">
+                  Content is taking longer to load
+                </Text>
+                <Text variant="footnote" color="secondaryLabel" style={tw`mt-1`}>
+                  Check your connection and try again. You can still browse the app below.
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={retryPrimaryContent}
+                disabled={isRetryingHome}
+                style={[
+                  styles.retryButton,
+                  { backgroundColor: colors.brand.primary },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Retry loading home content"
+              >
+                <Ionicons
+                  name={isRetryingHome ? "hourglass-outline" : "refresh"}
+                  size={20}
+                  color={colors.fixed.black}
+                />
+              </TouchableOpacity>
+            </View>
+          ) : popularLoading ? (
             renderSkeletons()
           ) : trendingNowLectures.length > 0 ? (
             <FlashList
@@ -821,6 +883,21 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     fontSize: 16,
+  },
+  contentRecoveryCard: {
+    marginHorizontal: 16,
+    padding: 16,
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  retryButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 12,
   },
   heroCard: {
     height: HERO_HEIGHT,

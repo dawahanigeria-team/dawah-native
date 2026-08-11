@@ -4,12 +4,11 @@ import { Stack, usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useFonts } from "expo-font";
-import { useCallback, useEffect, useRef } from "react";
-import { AppState, Linking, StyleSheet, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AppState, Linking, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { PostHogProvider, PostHogErrorBoundary, usePostHog } from "posthog-react-native";
 
-import { useStorageState } from "../src/hooks/useStorageState";
 import { useTheme } from "../src/hooks/useTheme";
 import { getPostHog } from "../src/services/config/posthog.config";
 import { logger } from "../src/utils/logger";
@@ -33,9 +32,8 @@ import { usePlayerActions, usePlayerStore } from "../src/stores";
 // Initialize Sentry as early as possible
 initSentry();
 
-const NAVIGATION_PERSISTENCE_KEY = "NAVIGATION_STATE";
-const PLAYER_STATE_KEY = "PLAYER_STATE";
 const NAVIGATION_DEDUPE_WINDOW_MS = 1500;
+const FONT_LOAD_GRACE_MS = 4000;
 const IMAGE_CACHE_CLEANUP_THROTTLE_MS = 15000;
 const PLAYER_NAVIGATION_PENDING_TIMEOUT_MS = 10000;
 const recentNavigationState = {
@@ -168,8 +166,6 @@ function PostHogAnalytics() {
 function RootLayout() {
   const pathname = usePathname();
   const safePush = useSafeRoutePush();
-  const [isNavigationLoading] = useStorageState(NAVIGATION_PERSISTENCE_KEY);
-  const [isPlayerStateLoading] = useStorageState(PLAYER_STATE_KEY);
   const hasInitializedApp = useRef(false);
   const { isDark } = useTheme();
   const { expandPlayer } = usePlayerActions();
@@ -178,6 +174,7 @@ function RootLayout() {
   const pendingPlayerNavigationRef = useRef(false);
   const pendingPlayerNavigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [fontsLoaded, fontError] = useFonts(Ionicons.font);
+  const [fontLoadGraceExpired, setFontLoadGraceExpired] = useState(false);
 
   const clearPendingPlayerNavigationTimeout = useCallback(() => {
     const timeout = pendingPlayerNavigationTimeoutRef.current;
@@ -198,6 +195,15 @@ function RootLayout() {
       });
     }
   }, [fontError]);
+
+  useEffect(() => {
+    if (fontsLoaded || fontError) return;
+    const timeoutId = setTimeout(() => {
+      setFontLoadGraceExpired(true);
+      addSentryBreadcrumb("Font loading grace period expired", "startup");
+    }, FONT_LOAD_GRACE_MS);
+    return () => clearTimeout(timeoutId);
+  }, [fontError, fontsLoaded]);
 
   useEffect(() => {
     logger.debug("RootLayout mounted");
@@ -383,9 +389,7 @@ function RootLayout() {
   // Hide mini player on lecture detail page since it has full playback controls
   const shouldShowMiniPlayer = !pathname.startsWith("/lecture/");
 
-  const isHydrating = isNavigationLoading || isPlayerStateLoading;
-
-  if (!fontsLoaded) {
+  if (!fontsLoaded && !fontError && !fontLoadGraceExpired) {
     return (
       <SafeAreaProvider>
         <Loading fullScreen message="Loading assets..." />
@@ -441,14 +445,6 @@ function RootLayout() {
             {shouldShowMiniPlayer && <MiniPlayer />}
             <UpdatesProvider />
 
-            {isHydrating && (
-              <View
-                style={StyleSheet.absoluteFill}
-                onStartShouldSetResponder={() => true}
-              >
-                <Loading fullScreen />
-              </View>
-            )}
           </View>
         </AudioProvider>
       </ErrorBoundary>

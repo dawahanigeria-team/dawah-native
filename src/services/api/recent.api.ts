@@ -42,6 +42,7 @@ export interface RecentLecturesResponse {
 const DAY_MS = 24 * 60 * 60 * 1000;
 const TRENDING_WINDOW_DAYS = 90;
 const POOL_PAGES = 5; // 5 × 30 = ~150 lectures in the shared pool.
+const RECENT_REQUEST_TIMEOUT_MS = 12000;
 const MERGED_CACHE_TTL_MS = 5 * 60 * 1000;
 const RECENT_ENDPOINT = '/api/leclisting_recent.php';
 const RECENT_ACTION = 'get_recent_audio';
@@ -113,8 +114,13 @@ class RecentLecturesApiService {
               RECENT_ENDPOINT,
               { action: RECENT_ACTION, page },
               {
-                timeout: API_CONFIG.TIMEOUTS.DEFAULT,
-                useCache: false,
+                // Home must fail fast enough to leave skeleton state and show
+                // recovery UI. The base client default could otherwise keep a
+                // cold launch waiting for roughly 90 seconds (3 × 30s).
+                timeout: RECENT_REQUEST_TIMEOUT_MS,
+                retryAttempts: 2,
+                useCache: true,
+                cacheTTL: API_CONFIG.CACHE.LECTURES_TTL,
                 headers: {
                   Origin: API_CONFIG.ORIGIN,
                   Referer: API_CONFIG.REFERER,
@@ -155,6 +161,16 @@ class RecentLecturesApiService {
         logger.debug(
           `Recent pool: ${merged.length} unique items from ${okPages}/${POOL_PAGES} pages`,
         );
+
+        // Promise.allSettled deliberately tolerates partial page failures, but
+        // treating five failures as a successful empty catalog leaves the home
+        // screen blank forever and gives callers no way to retry.
+        if (okPages === 0) {
+          const firstFailure = results.find(
+            (result): result is PromiseRejectedResult => result.status === 'rejected',
+          );
+          throw firstFailure?.reason || new ApiError('Unable to load recent lectures');
+        }
 
         this.pool = merged;
         this.cacheTimestamp = now;
