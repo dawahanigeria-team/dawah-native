@@ -20,6 +20,13 @@ export interface Episode {
   title: string;
   durationSec: number;
   coverUrl: string;
+  /**
+   * High-resolution art for full-width surfaces, from the API's `lec_img`.
+   * `coverUrl` resolves to /dc_images/ at 250x200, which a full-width hero
+   * upscales past 4x; this is the 1920x1080 source. Separate field rather
+   * than a swap so the small slots keep the lighter image.
+   */
+  coverUrlLarge?: string;
   audioUrl: string;
   seriesId: string;
   plays: number;

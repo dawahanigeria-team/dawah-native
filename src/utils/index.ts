@@ -4,6 +4,8 @@ export {
   performLogin,
 } from './authHelper';
 export { formatDuration, formatTime } from './formatTime';
+export { imageUrlForSlot } from './imageUrl';
+export type { ImageSlot } from './imageUrl';
 export { appendShareSignature, SHARE_SIGNATURE } from './shareMessage';
 export { logger } from './logger';
 export {

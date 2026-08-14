@@ -7,6 +7,7 @@ interface EnvConfig {
   API_BASE_URL: string;
   API_PROJECT_KEY: string;
   MEDIA_BASE_URL: string;
+  MEDIA_HAS_MEDIUM: boolean;
   PUSH_NOTIFICATIONS_REGISTER_URL: string;
   POSTHOG_KEY: string;
   POSTHOG_HOST: string;
@@ -22,6 +23,10 @@ export const ENV: EnvConfig = {
   API_BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL || 'https://api.dawahnigeria.com',
   API_PROJECT_KEY: process.env.EXPO_PUBLIC_API_PROJECT_KEY || '206cf92c-8a46-45ef-bf3f-a6ef92fc6f25',
   MEDIA_BASE_URL: process.env.EXPO_PUBLIC_MEDIA_BASE_URL || 'https://media.dawahnigeria.com',
+  // Whether /dnimages/medium/ derivatives have been generated on the media
+  // server. Defaults to false: see imageUrl.ts for why requesting a variant
+  // before it exists is worse than serving an oversized one.
+  MEDIA_HAS_MEDIUM: process.env.EXPO_PUBLIC_MEDIA_HAS_MEDIUM === 'true',
   PUSH_NOTIFICATIONS_REGISTER_URL: process.env.EXPO_PUBLIC_PUSH_REGISTER_URL || '',
   POSTHOG_KEY: process.env.EXPO_PUBLIC_POSTHOG_KEY || '',
   POSTHOG_HOST: process.env.EXPO_PUBLIC_POSTHOG_HOST || 'https://eu.i.posthog.com',

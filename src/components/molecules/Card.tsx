@@ -8,6 +8,7 @@ import { Episode, Series } from "../../types/types";
 import { getInitials, getPlaceholderStyle } from "../../utils/colorPlaceholder";
 import { formatDuration } from "../../utils/formatTime";
 import { formatRelativeDate, formatAbsoluteDate } from "../../utils/formatDate";
+import { imageUrlForSlot } from "../../utils/imageUrl";
 import { Badge } from "../atoms/Badge";
 import { Icon } from "../atoms/Icon";
 import { Text } from "../atoms/Text";
@@ -66,7 +67,13 @@ export const Card: React.FC<CardProps> = memo(
     const { playEpisode } = usePlayerActions();
     const { colors } = useTheme();
 
-    const coverUrl = (data as any).coverUrl;
+    // Each variant renders art at a different size, so each asks the media
+    // server for a different derivative: square is 140pt, the rest are 48-80pt
+    // and have no business downloading a 1920px source.
+    const coverUrl = imageUrlForSlot(
+      (data as any).coverUrl,
+      variant === 'square' ? 'card' : 'row',
+    );
     const sharedImageProps = {
       contentFit: "cover" as const,
       cachePolicy: "disk" as const,

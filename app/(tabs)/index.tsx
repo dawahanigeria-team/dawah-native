@@ -36,6 +36,7 @@ import { useAuthStore, usePlayerActions } from "../../src/stores";
 import tw from "../../src/theme/twrnc";
 import { SearchLecture } from "../../src/types/api.types";
 import { Episode } from "../../src/types/types";
+import { imageUrlForSlot } from "../../src/utils/imageUrl";
 
 const CARD_WIDTH = 280;
 const CARD_SPACING = 12;
@@ -303,11 +304,18 @@ function HomeScreen() {
           style={tw`flex-1`}
         >
           <ExpoImage
-            source={{ uri: item.coverUrl }}
+            source={{ uri: imageUrlForSlot(item.coverUrlLarge || item.coverUrl, 'hero') }}
+            // The 1920x1080 hero source is ~11x the bytes of the small cover it
+            // replaced, so paint the small one first — it is usually already in
+            // cache from the card rows — and let the sharp one land over it
+            // rather than holding a blank card until the download finishes.
+            placeholder={item.coverUrlLarge ? { uri: item.coverUrl } : undefined}
+            placeholderContentFit="cover"
             style={styles.heroImage}
             contentFit="cover"
             cachePolicy="memory-disk"
             transition={150}
+            recyclingKey={`hero-${item.id}`}
           />
           <LinearGradient
             colors={["transparent", "rgba(0,0,0,0.9)"]}

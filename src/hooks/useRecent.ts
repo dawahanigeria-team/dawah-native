@@ -110,6 +110,7 @@ export const useRecent = (
                 lecture.duration || lecture.mp3_duration || '0:00:00',
               ),
               coverUrl: lecture.img || lecture.CoverUrl || anyLec.lec_img || '',
+              coverUrlLarge: anyLec.lec_img || undefined,
               audioUrl:
                 lecture.audio || lecture.mp3_url || lecture.AudioUrl || '',
               seriesId: lecture.keyword || '',
