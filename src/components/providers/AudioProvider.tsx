@@ -23,6 +23,7 @@ import { buildPlaylistKey, buildQueue } from '../../services/trackPlayerQueue.se
 import { ensureTrackPlayerReady } from '../../services/trackPlayerReady.service'
 import {
   checkSleepTimer,
+  getPlaybackRequestId,
   handleTrackEndedForSleepTimer,
   playerStore,
   resolveEpisodeArtistName,
@@ -158,8 +159,17 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
 
         if (!hasRestoredRef.current && !isRestoringRef.current) {
           isRestoringRef.current = true
+          const restoreRequestId = getPlaybackRequestId()
+          const restorationWasSuperseded = () => restoreRequestId !== getPlaybackRequestId()
+          const stopSupersededRestoration = () => {
+            if (!restorationWasSuperseded()) return false
+            hasRestoredRef.current = true
+            addSentryBreadcrumb('Skipped stale queue restoration after a newer playback choice', 'playback')
+            return true
+          }
           try {
             const snapshot = await loadQueueSnapshot()
+            if (stopSupersededRestoration()) return
             if (!snapshot || snapshot.trackIds.length === 0) {
               hasRestoredRef.current = true
               return
@@ -175,6 +185,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
 
               try {
                 const detail = await lectureDetailApi.getLectureDetail({ lectureId: id, useCache: true })
+                if (stopSupersededRestoration()) return
                 episodes.push(detailToEpisode(detail))
               } catch (error) {
                 captureSentryException(error as Error, {
@@ -203,9 +214,13 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
               return
             }
 
+            if (stopSupersededRestoration()) return
             await TrackPlayer.reset()
+            if (stopSupersededRestoration()) return
             await TrackPlayer.add(tracks, { activate: false })
+            if (stopSupersededRestoration()) return
             await TrackPlayer.setPlaylistKey(buildPlaylistKey(filteredQueue))
+            if (stopSupersededRestoration()) return
 
             const snapshotTrackId = snapshot.trackIds[snapshot.currentIndex]
             const matchedIndex = snapshotTrackId
@@ -216,9 +231,11 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
                 ? matchedIndex
                 : Math.max(0, Math.min(snapshot.currentIndex, tracks.length - 1))
             await TrackPlayer.skip(safeIndex)
+            if (stopSupersededRestoration()) return
 
             if (snapshot.position > 0) {
               await TrackPlayer.seekTo(snapshot.position)
+              if (stopSupersededRestoration()) return
             }
 
             const repeatModeValue =
@@ -228,9 +245,11 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
                   ? RepeatMode.Queue
                   : RepeatMode.Off
             await TrackPlayer.setRepeatMode(repeatModeValue)
+            if (stopSupersededRestoration()) return
 
             if (snapshot.playbackRate) {
               await TrackPlayer.setRate(snapshot.playbackRate)
+              if (stopSupersededRestoration()) return
             }
 
             const currentEpisode = filteredQueue[safeIndex]

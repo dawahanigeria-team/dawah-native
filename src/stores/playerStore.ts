@@ -114,7 +114,12 @@ function buildLockScreenInfo(episode: Episode): { title: string; artist: string;
   };
 }
 
+// Every explicit content selection gets a monotonically increasing token.
+// Long-running startup restoration and older queue loads must never overwrite
+// a lecture the listener selected afterwards.
 let currentPlayRequestId = 0;
+const beginPlaybackRequest = (): number => ++currentPlayRequestId;
+export const getPlaybackRequestId = (): number => currentPlayRequestId;
 const PLAYBACK_START_TIMEOUT_MS = 20000;
 const PLAYBACK_BUFFERING_GRACE_MS = 45000;
 const PLAYBACK_POLL_INTERVAL_MS = 500;
@@ -296,7 +301,7 @@ const persistQueueSnapshot = (state: PlayerState) => {
 // ----------------------------------------------------------------------
 
 const playEpisode = async (episode: Episode) => {
-  const requestId = ++currentPlayRequestId;
+  const requestId = beginPlaybackRequest();
   logger.debug('🎮 PlayerStore: playEpisode called with:', episode.title);
 
   addSentryBreadcrumb(
@@ -361,15 +366,21 @@ const playEpisode = async (episode: Episode) => {
 
     // Set loading state
     logger.debug('📊 PlayerStore: Setting initial state...');
-    setAndPersistPlayerState({
+    const selectedEpisodeState = {
       ...playerStore.get(),
+      queue: [episode],
+      originalQueue: [],
+      currentQueueIndex: 0,
       currentEpisode: episode,
       isPlaying: false,
       progress: 0,
       duration: episode.durationSec,
       isExpanded: false,
       isLoading: true,
-    });
+      isShuffled: false,
+    };
+    setAndPersistPlayerState(selectedEpisodeState);
+    persistQueueSnapshot(selectedEpisodeState);
 
     // Load and play the audio (use downloaded file if available)
     if (episode.audioUrl) {
@@ -647,6 +658,7 @@ const playPrevious = async () => {
 };
 
 const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: boolean = false) => {
+  const requestId = beginPlaybackRequest();
   logger.debug('🎵 PlayerStore: playQueue called with', episodes.length, 'episodes, startIndex:', startIndex);
 
   addSentryBreadcrumb(
@@ -700,14 +712,21 @@ const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: b
     }
 
     await assertRemotePlaybackSourceAvailable(tracks[safeFilteredStartIndex].url);
+    if (requestId !== currentPlayRequestId) return;
 
     await ensureTrackPlayerReady();
+    if (requestId !== currentPlayRequestId) return;
     await TrackPlayer.reset();
+    if (requestId !== currentPlayRequestId) return;
     await TrackPlayer.add(tracks, { activate: false });
+    if (requestId !== currentPlayRequestId) return;
     await TrackPlayer.setPlaylistKey(buildPlaylistKey(filteredQueue));
+    if (requestId !== currentPlayRequestId) return;
     await TrackPlayer.skip(safeFilteredStartIndex);
+    if (requestId !== currentPlayRequestId) return;
     await TrackPlayer.play();
-    await waitForPlaybackReady(PLAYBACK_START_TIMEOUT_MS);
+    await waitForPlaybackReady(PLAYBACK_START_TIMEOUT_MS, requestId);
+    if (requestId !== currentPlayRequestId) return;
 
     const nextState = {
       ...playerStore.get(),
@@ -723,6 +742,7 @@ const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: b
     setAndPersistPlayerState(nextState);
     persistQueueSnapshot(nextState);
   } catch (error) {
+    if (requestId !== currentPlayRequestId) return;
     logger.error('Failed to play queue', error as Error);
     captureSentryException(error as Error, { action: 'playQueue', episodeCount: episodes.length });
     setAndPersistPlayerState({
@@ -1210,6 +1230,7 @@ const setRepeatMode = (mode: 'off' | 'all' | 'one') => {
 };
 
 const clearQueue = () => {
+  beginPlaybackRequest();
   logger.debug('🗑️ PlayerStore: Clearing queue');
 
   setAndPersistPlayerState({

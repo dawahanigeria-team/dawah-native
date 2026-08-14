@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { FlashList } from "../../src/components/adapters/flashListCompat";
 import {
   ActivityIndicator,
+  Share,
   TouchableOpacity,
   View
 } from "react-native";
@@ -14,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Button, Text } from "../../src/components/atoms";
 import { ApiError } from "../../src/services/api/base.api";
 import { lectureDetailApi } from "../../src/services/api/lectureDetail.api";
+import { linkingService } from "../../src/services/linking.service";
 import { playlistApi } from "../../src/services/api/playlist.api";
 import { usePlayerStore } from "../../src/stores";
 import { useAuthStore } from "../../src/stores/authStore";
@@ -21,6 +23,7 @@ import { useTheme } from "../../src/hooks/useTheme";
 import tw from "../../src/theme/twrnc";
 import { SearchLecture } from "../../src/types/api.types";
 import { Episode } from "../../src/types/types";
+import { appendShareSignature } from "../../src/utils/shareMessage";
 
 const parseDuration = (duration: string | number | undefined): number => {
   if (typeof duration === "number") {
@@ -122,6 +125,21 @@ const PlaylistDetailScreen: React.FC = () => {
     }
   }, [playlistContents, playQueue]);
 
+  const handleShare = useCallback(async () => {
+    if (!playlistId) return;
+    const title = playlistName || "Dawahnigeria playlist";
+    const webLink = linkingService.createPlaylistLink(playlistId);
+    const message = appendShareSignature(
+      `🎧 ${title}\n\nOpen this playlist in the Dawahnigeria app or listen on the web:\n${webLink}`,
+    );
+
+    try {
+      await Share.share({ title, message, url: webLink });
+    } catch (shareError) {
+      console.warn("Failed to share playlist", shareError);
+    }
+  }, [playlistId, playlistName]);
+
   const fetchPlaylistDetails = useCallback(async () => {
     if (!isAuthenticated || !user?.id) {
       setLoading(false);
@@ -187,7 +205,9 @@ const PlaylistDetailScreen: React.FC = () => {
   }, [isAuthenticated, user?.id, playlistId]);
 
   useEffect(() => {
-    fetchPlaylistDetails();
+    queueMicrotask(() => {
+      void fetchPlaylistDetails();
+    });
   }, [fetchPlaylistDetails]);
 
 
@@ -223,8 +243,17 @@ const PlaylistDetailScreen: React.FC = () => {
         <TouchableOpacity onPress={() => router.back()} style={tw`mr-4`}>
           <Ionicons name="arrow-back" size={24} color={colors.system.label.primary} />
         </TouchableOpacity>
-        <Text style={[tw`text-xl font-bold`, { color: colors.system.label.primary }]}>{playlistName || "Playlist"}</Text>
-
+        <Text style={[tw`text-xl font-bold flex-1`, { color: colors.system.label.primary }]} numberOfLines={1}>
+          {playlistName || "Playlist"}
+        </Text>
+        <TouchableOpacity
+          onPress={handleShare}
+          style={tw`w-10 h-10 items-center justify-center`}
+          accessibilityRole="button"
+          accessibilityLabel="Share playlist"
+        >
+          <Ionicons name="share-outline" size={24} color={colors.system.label.primary} />
+        </TouchableOpacity>
       </View>
 
       {playlistContents.length > 0 && (
