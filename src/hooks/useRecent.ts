@@ -22,7 +22,7 @@ const PLACEHOLDER_SPEAKER_NAMES = new Set([
 const DAWAH_NIGERIA_PATTERN = /\bdawah\s*nigeria\b/i;
 
 const pickSpeakerName = (
-  candidates: Array<string | undefined | null>,
+  candidates: (string | undefined | null)[],
 ): string | undefined => {
   for (const value of candidates) {
     if (typeof value !== 'string') continue;
@@ -61,14 +61,16 @@ export interface UseRecentResult {
 }
 
 export const useRecent = (
-  initialParams: RecentLecturesParams = {},
+  initialParams: RecentLecturesParams & { enabled?: boolean } = {},
 ): UseRecentResult => {
+  const initiallyEnabled =
+    initialParams.enabled !== false && Object.keys(initialParams).length > 0;
   const [lectures, setLectures] = useState<Episode[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(initiallyEnabled);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(initialParams.page || 1);
-  const [hasMore, setHasMore] = useState(true);
+  const [hasMore, setHasMore] = useState(initiallyEnabled);
   const isLoadingRef = useRef(false);
   const paramsRef = useRef(initialParams);
   const paramsKey = JSON.stringify(initialParams);
@@ -86,8 +88,9 @@ export const useRecent = (
         else setLoading(true);
         setError(null);
 
+        const { enabled: _enabled, ...requestParams } = paramsRef.current;
         const params = {
-          ...paramsRef.current,
+          ...requestParams,
           page,
           limit: paramsRef.current.limit || 20,
         };
@@ -169,13 +172,17 @@ export const useRecent = (
   }, [hasMore, isLoadingMore, loading, currentPage, fetchRecent]);
 
   useEffect(() => {
-    if (!initialParams || Object.keys(initialParams).length === 0) {
-      logger.debug('useRecent: empty params, skipping fetch');
-      setLoading(false);
-      setHasMore(false);
+    if (initialParams.enabled === false) {
       return;
     }
-    fetchRecent(1, false);
+    if (!initialParams || Object.keys(initialParams).length === 0) {
+      logger.debug('useRecent: empty params, skipping fetch');
+      return;
+    }
+    const timer = setTimeout(() => {
+      void fetchRecent(1, false);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [paramsKey, fetchRecent]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const refetch = useCallback(async () => {

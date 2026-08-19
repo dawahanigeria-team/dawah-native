@@ -3,7 +3,7 @@ import { Stack, usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useFonts } from "expo-font";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { InteractionManager, Linking, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { PostHogProvider, PostHogErrorBoundary, usePostHog } from "posthog-react-native";
@@ -13,7 +13,6 @@ import { getPostHog } from "../src/services/config/posthog.config";
 import { logger } from "../src/utils/logger";
 
 import { ErrorBoundary } from "../src/components/atoms";
-import { Loading } from "../src/components/atoms/Loading";
 import { MiniPlayer } from "../src/components/organisms";
 import { AudioProvider } from "../src/components/providers/AudioProvider";
 import { UpdatesProvider } from "../src/components/providers/UpdatesProvider";
@@ -32,7 +31,6 @@ import { usePlayerActions, usePlayerStore } from "../src/stores";
 initSentry();
 
 const NAVIGATION_DEDUPE_WINDOW_MS = 1500;
-const FONT_LOAD_GRACE_MS = 4000;
 const PLAYER_NAVIGATION_PENDING_TIMEOUT_MS = 10000;
 const recentNavigationState = {
   route: "",
@@ -175,8 +173,7 @@ function RootLayout() {
   const currentEpisodeRef = useRef<typeof currentEpisode | null>(null);
   const pendingPlayerNavigationRef = useRef(false);
   const pendingPlayerNavigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [fontsLoaded, fontError] = useFonts(Ionicons.font);
-  const [fontLoadGraceExpired, setFontLoadGraceExpired] = useState(false);
+  const [, fontError] = useFonts(Ionicons.font);
 
   const clearPendingPlayerNavigationTimeout = useCallback(() => {
     const timeout = pendingPlayerNavigationTimeoutRef.current;
@@ -197,15 +194,6 @@ function RootLayout() {
       });
     }
   }, [fontError]);
-
-  useEffect(() => {
-    if (fontsLoaded || fontError) return;
-    const timeoutId = setTimeout(() => {
-      setFontLoadGraceExpired(true);
-      addSentryBreadcrumb("Font loading grace period expired", "startup");
-    }, FONT_LOAD_GRACE_MS);
-    return () => clearTimeout(timeoutId);
-  }, [fontError, fontsLoaded]);
 
   useEffect(() => {
     logger.debug("RootLayout mounted");
@@ -377,14 +365,6 @@ function RootLayout() {
   // Hide mini player on lecture detail page since it has full playback controls
   const shouldShowMiniPlayer = !pathname.startsWith("/lecture/");
 
-  if (!fontsLoaded && !fontError && !fontLoadGraceExpired) {
-    return (
-      <SafeAreaProvider>
-        <Loading fullScreen message="Loading assets..." />
-      </SafeAreaProvider>
-    );
-  }
-
   return (
     <SafeAreaProvider>
       <ErrorBoundary>
@@ -417,6 +397,13 @@ function RootLayout() {
               />
               <Stack.Screen
                 name="edit-profile"
+                options={{
+                  presentation: "modal",
+                  animation: "slide_from_bottom",
+                }}
+              />
+              <Stack.Screen
+                name="listening-preferences"
                 options={{
                   presentation: "modal",
                   animation: "slide_from_bottom",

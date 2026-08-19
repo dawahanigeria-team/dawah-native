@@ -13,6 +13,7 @@ import { historyService } from '../services/history.service';
 import { apiClient } from '../services/api/base.api';
 import { clearFavorites } from './favoritesStore';
 import { hydratePremiumFromUser, refreshPremiumFeatures, resetPremiumState } from './premiumStore';
+import { clearListeningPreferencesForSignedOutSession } from './listeningPreferencesStore';
 
 export interface AuthState {
   user: User | null;
@@ -49,6 +50,7 @@ export const initializeAuth = async () => {
     apiClient.setOnRefreshFailure(async () => {
       await authApi.logout();
       await apiClient.setAuthToken(null);
+      await clearListeningPreferencesForSignedOutSession();
       resetPremiumState();
       authStore.set({ ...initialState, isLoading: false, isInitialized: true });
     });
@@ -103,6 +105,7 @@ const clearLocalSessionData = async (): Promise<void> => {
     apiClient.clearCache(),
     historyService.clearHistory(),
     userService.clearUserId(),
+    clearListeningPreferencesForSignedOutSession(),
   ]);
 };
 
@@ -229,6 +232,7 @@ export const useAuthStore = () => {
       // Clear auth token in apiClient and update store
       await apiClient.setAuthToken(null);
       resetPremiumState();
+      await clearListeningPreferencesForSignedOutSession();
 
       authStore.set({
         ...initialState,

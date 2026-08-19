@@ -9,19 +9,21 @@
  * velocity score (views ÷ days-since-post) across all langids within a
  * recency window. Same return shape as before — callers don't change.
  *
- * Note: the previous offline-storage cache via `offlineFirstApi` is no
- * longer used here. The in-memory cache inside `recentApi` (5 min) is
- * sufficient for typical session use; if cold-launch-while-offline is
- * needed for this rail, layer AsyncStorage on top — out of scope here.
+ * The last successful result is also stored persistently. A cold offline
+ * launch can therefore render useful discovery content immediately instead
+ * of showing an empty home rail.
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { recentApi } from '../services/api/recent.api';
+import { recentApi, type RecentLecturesParams } from '../services/api/recent.api';
+import { cacheService } from '../services/cache/cache.service';
 import { SearchLecture } from '../types/api.types';
 import { captureSentryException } from '../services/config/sentry.config';
 import { logger } from '../utils/logger';
 
 const TRENDING_RAIL_LIMIT = 20;
+const TRENDING_CACHE_KEY = 'cache_trending_lectures_v3';
+const TRENDING_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 export interface UsePopularLecturesResult {
   lectures: SearchLecture[];
@@ -31,47 +33,86 @@ export interface UsePopularLecturesResult {
   refresh: () => Promise<void>;
 }
 
-export const usePopularLecturesWithCache = (): UsePopularLecturesResult => {
+type PopularLecturesOptions = Pick<
+  RecentLecturesParams,
+  'languageIds' | 'lecturerIds'
+> & { enabled?: boolean };
+
+export const usePopularLecturesWithCache = (
+  options: PopularLecturesOptions = {},
+): UsePopularLecturesResult => {
   const [lectures, setLectures] = useState<SearchLecture[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFromCache, setIsFromCache] = useState(false);
 
+  const languageKey = [...(options.languageIds ?? [])].sort((a, b) => a - b).join(',');
+  const lecturerKey = [...(options.lecturerIds ?? [])].sort((a, b) => a - b).join(',');
+  const enabled = options.enabled ?? true;
+  const cacheKey = `${TRENDING_CACHE_KEY}:l:${languageKey}:r:${lecturerKey}`;
+
   const fetchLectures = useCallback(async (forceFresh = false) => {
+    if (!enabled) return;
+    let cachedLectures: SearchLecture[] | null = null;
     try {
-      setIsLoading(true);
-      setError(null);
       if (forceFresh) recentApi.clearCache();
+
+      if (!forceFresh) {
+        cachedLectures = await cacheService.get<SearchLecture[]>(
+          cacheKey,
+        );
+        if (cachedLectures?.length) {
+          setLectures(cachedLectures);
+          setIsFromCache(true);
+          setIsLoading(false);
+        }
+      }
+
+      setIsLoading(!cachedLectures?.length);
+      setError(null);
 
       const response = await recentApi.getTrendingLectures({
         page: 1,
         limit: TRENDING_RAIL_LIMIT,
+        languageIds: options.languageIds,
+        lecturerIds: options.lecturerIds,
       });
 
       setLectures(response.data);
-      setIsFromCache(!forceFresh);
+      setIsFromCache(false);
+      await cacheService.set(
+        cacheKey,
+        response.data,
+        TRENDING_CACHE_TTL_SECONDS,
+      );
       logger.debug(
         `Loaded ${response.data.length} trending-rail lectures (${response.total} candidates)`,
       );
-    } catch (err: any) {
-      const message = err?.message || 'Failed to fetch lectures';
-      setError(message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch lectures';
+      if (!cachedLectures?.length) setError(message);
       logger.error('Error fetching trending-rail lectures', err, {
         operation: 'fetch_trending_rail',
         forceFresh,
       });
-      captureSentryException(err, {
+      captureSentryException(err instanceof Error ? err : new Error(message), {
         operation: 'fetch_trending_rail',
         forceFresh,
       });
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [cacheKey, enabled, options.languageIds, options.lecturerIds]);
 
   useEffect(() => {
-    fetchLectures();
-  }, [fetchLectures]);
+    if (!enabled) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      void fetchLectures();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [enabled, fetchLectures]);
 
   const refresh = useCallback(async () => {
     await fetchLectures(true);

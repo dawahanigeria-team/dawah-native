@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 import * as AppleAuthentication from "expo-apple-authentication";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
     Alert,
@@ -26,6 +26,8 @@ import { boxShadow } from "../src/utils/shadow";
 
 export default function SignUpScreen() {
   const router = useRouter();
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
+  const returnToRoute = Array.isArray(returnTo) ? returnTo[0] : returnTo;
   const { colors } = useTheme();
   const { register, socialLogin, isLoading, error, clearError } = useAuthStore();
 
@@ -133,7 +135,7 @@ export default function SignUpScreen() {
         email,
         password,
       });
-      router.replace('/(tabs)');
+      router.replace((returnToRoute || '/(tabs)') as any);
     } catch (err: unknown) {
       const error = err as Error;
       captureSentryException(error, {
@@ -189,7 +191,7 @@ export default function SignUpScreen() {
         fullName: fullName || null,
       });
 
-      router.replace("/");
+      router.replace((returnToRoute || "/") as any);
     } catch (err: unknown) {
       const error = err as Error & { code?: string };
       if (error.code === "ERR_REQUEST_CANCELED") {
@@ -230,7 +232,7 @@ export default function SignUpScreen() {
         fullName,
       });
 
-      router.replace("/");
+      router.replace((returnToRoute || "/") as any);
     } catch (err: unknown) {
       const error = err as Error & { code?: string };
       if (

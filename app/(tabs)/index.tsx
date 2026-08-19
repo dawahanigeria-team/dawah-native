@@ -1,10 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  FlatList,
   InteractionManager,
   Platform,
   ScrollView,
@@ -32,19 +30,20 @@ import { useRecentlyPlayedLectures } from "../../src/hooks/useRecentlyPlayedLect
 import { useRecent } from "../../src/hooks/useRecent";
 import { useTheme } from "../../src/hooks/useTheme";
 import { QuranAlbum } from "../../src/services/api/quran.api";
-import { useAuthStore, usePlayerActions } from "../../src/stores";
+import { useAuthStore } from "../../src/stores";
+import {
+  initializeListeningPreferences,
+  useListeningPreferencesStore,
+} from "../../src/stores/listeningPreferencesStore";
 import tw from "../../src/theme/twrnc";
 import { SearchLecture } from "../../src/types/api.types";
 import { Episode } from "../../src/types/types";
-import { imageUrlForSlot } from "../../src/utils/imageUrl";
 
 const CARD_WIDTH = 280;
 const CARD_SPACING = 12;
-const HERO_HEIGHT = 200;
 const PREFETCH_LIMIT = 5;
 const IS_ANDROID = Platform.OS === "android";
 const HOME_SECTION_LIMIT = IS_ANDROID ? 6 : 10;
-const HOME_HERO_LIMIT = IS_ANDROID ? 3 : 5;
 const HOME_SKELETON_COUNT = IS_ANDROID ? 2 : 3;
 const HOME_QURAN_SKELETON_COUNT = IS_ANDROID ? 2 : 4;
 
@@ -108,11 +107,26 @@ function HomeScreen() {
   // useWindowDimensions rather than a module-scope Dimensions.get(), which
   // was captured at import and never updated on rotation or resize.
   const { width: SCREEN_WIDTH } = useWindowDimensions();
-  const { playEpisode } = usePlayerActions();
   const { colors } = useTheme();
   const [greeting] = useState(getGreeting());
   const [searchValue, setSearchValue] = useState("");
-  const { user } = useAuthStore();
+  const { user, isAuthenticated, isInitialized } = useAuthStore();
+  const { preferences, isHydrated: preferencesHydrated } =
+    useListeningPreferencesStore();
+
+  useEffect(() => {
+    if (!isInitialized) return;
+    void initializeListeningPreferences(isAuthenticated);
+  }, [isAuthenticated, isInitialized]);
+
+  const feedFilter = useMemo(
+    () => ({
+      languageIds: preferences.languageIds,
+      lecturerIds: preferences.lecturerIds,
+      enabled: preferencesHydrated,
+    }),
+    [preferences.languageIds, preferences.lecturerIds, preferencesHydrated],
+  );
 
   const unreadCount = useUnreadAnnouncementsCount();
 
@@ -135,17 +149,14 @@ function HomeScreen() {
     isLoading: popularLoading,
     error: popularError,
     refresh: refreshPopular,
-  } = usePopularLecturesWithCache();
+  } = usePopularLecturesWithCache(feedFilter);
 
-  // Both FEATURED hero and "Fresh Content" pull from the recent endpoint
-  // (post_date desc) — not popularity — so push-notification entry never lands
-  // users on stale Ramadan content.
   const {
     lectures: recentLectures,
     loading: recentLoading,
     error: recentError,
     refetch: refetchRecent,
-  } = useRecent({ limit: HOME_SECTION_LIMIT });
+  } = useRecent({ limit: HOME_SECTION_LIMIT, ...feedFilter });
 
   const { albums: quranAlbumsRaw, loading: quranLoading } = useQuranAlbums({
     limit: HOME_SECTION_LIMIT,
@@ -183,15 +194,6 @@ function HomeScreen() {
     recentLectures.length === 0 &&
     popularLectures.length === 0 &&
     Boolean(recentError || popularError);
-
-  const featuredEpisodes = useMemo(() => {
-    if (recentLectures.length === 0) return [];
-    // Take the freshest items that have art + audio. No shuffle —
-    // ordering already reflects newest-first.
-    return recentLectures
-      .filter((l) => Boolean(l.audioUrl) && Boolean(l.coverUrl))
-      .slice(0, HOME_HERO_LIMIT);
-  }, [recentLectures]);
 
   const trendingNowLectures = useMemo(() => {
     return popularEpisodes.slice(0, HOME_SECTION_LIMIT);
@@ -265,17 +267,6 @@ function HomeScreen() {
   }, [popularEpisodes]);
 
   // Handlers
-  const handleEpisodePress = useCallback(
-    async (episode: Episode) => {
-      try {
-        await playEpisode(episode);
-      } catch (error) {
-        console.error("Error playing episode:", error);
-      }
-    },
-    [playEpisode],
-  );
-
   const handleCarouselItemPress = useCallback((episode: Episode) => {
     router.push(`/lecture/${episode.id}`);
   }, []);
@@ -288,91 +279,8 @@ function HomeScreen() {
         reciterId: album.reciterId,
         reciterName: album.name,
       },
-    });
+    } as any);
   }, []);
-
-  // Render Hero Carousel Item
-  const renderHeroItem = useCallback(
-    ({ item, index }: { item: Episode; index: number }) => (
-      <Animated.View
-        entering={IS_ANDROID ? undefined : FadeInRight.delay(index * 100).duration(400)}
-        style={[styles.heroCard, { width: SCREEN_WIDTH - 32 }]}
-      >
-        <TouchableOpacity
-          activeOpacity={0.95}
-          onPress={() => handleCarouselItemPress(item)}
-          style={tw`flex-1`}
-        >
-          <ExpoImage
-            source={{ uri: imageUrlForSlot(item.coverUrlLarge || item.coverUrl, 'hero') }}
-            // The 1920x1080 hero source is ~11x the bytes of the small cover it
-            // replaced, so paint the small one first — it is usually already in
-            // cache from the card rows — and let the sharp one land over it
-            // rather than holding a blank card until the download finishes.
-            placeholder={item.coverUrlLarge ? { uri: item.coverUrl } : undefined}
-            placeholderContentFit="cover"
-            style={styles.heroImage}
-            contentFit="cover"
-            cachePolicy="memory-disk"
-            transition={150}
-            recyclingKey={`hero-${item.id}`}
-          />
-          <LinearGradient
-            colors={["transparent", "rgba(0,0,0,0.9)"]}
-            style={styles.heroGradient}
-          />
-          {/* Play Button */}
-          <TouchableOpacity
-            onPress={() => handleEpisodePress(item)}
-            style={[
-              styles.heroPlayButton,
-              { backgroundColor: colors.brand.primary },
-            ]}
-            activeOpacity={0.9}
-          >
-            <Ionicons name="play" size={24} color={colors.fixed.black} />
-          </TouchableOpacity>
-          {/* Content */}
-          <View style={styles.heroContent}>
-            <View
-              style={[
-                styles.heroBadge,
-                { backgroundColor: colors.brand.primary },
-              ]}
-            >
-              <Text
-                variant="caption2"
-                weight="bold"
-                style={{ color: colors.fixed.black }}
-              >
-                FEATURED
-              </Text>
-            </View>
-            <Text
-              variant="title2"
-              weight="bold"
-              numberOfLines={2}
-              style={[styles.heroTitle, { color: colors.fixed.white }]}
-            >
-              {item.title}
-            </Text>
-            <View style={tw`flex-row items-center mt-1`}>
-              <Text variant="caption1" style={styles.heroMetaText}>
-                {item.lecturerName || "Unknown Scholar"}
-              </Text>
-              <View
-                style={[tw`w-1 h-1 rounded-full mx-2`, styles.heroMetaDot]}
-              />
-              <Text variant="caption1" style={styles.heroMetaText}>
-                {Math.floor(item.durationSec / 60)} min
-              </Text>
-            </View>
-          </View>
-        </TouchableOpacity>
-      </Animated.View>
-    ),
-    [SCREEN_WIDTH, colors, handleCarouselItemPress, handleEpisodePress],
-  );
 
   // Render Quick Action
   const renderQuickAction = useCallback(
@@ -630,32 +538,49 @@ function HomeScreen() {
                 </Text>
               </View>
             </View>
-            <TouchableOpacity
-              onPress={() => router.push("/inbox")}
-              style={[
-                tw`w-10 h-10 rounded-full items-center justify-center`,
-                { backgroundColor: colors.system.background.secondary },
-              ]}
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name="notifications-outline"
-                size={22}
-                color={colors.system.label.primary}
-              />
-              {unreadCount > 0 && (
-                <View
-                  style={[
-                    styles.notificationBadge,
-                    { backgroundColor: colors.semantic.red },
-                  ]}
-                >
-                  <Text style={styles.notificationBadgeText}>
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
+            <View style={tw`flex-row gap-2`}>
+              <TouchableOpacity
+                onPress={() => router.push("/listening-preferences" as any)}
+                style={[
+                  tw`w-10 h-10 rounded-full items-center justify-center`,
+                  { backgroundColor: colors.system.background.secondary },
+                ]}
+                activeOpacity={0.8}
+                accessibilityLabel="Edit listening preferences"
+              >
+                <Ionicons
+                  name="options-outline"
+                  size={21}
+                  color={colors.system.label.primary}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => router.push("/inbox")}
+                style={[
+                  tw`w-10 h-10 rounded-full items-center justify-center`,
+                  { backgroundColor: colors.system.background.secondary },
+                ]}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name="notifications-outline"
+                  size={22}
+                  color={colors.system.label.primary}
+                />
+                {unreadCount > 0 && (
+                  <View
+                    style={[
+                      styles.notificationBadge,
+                      { backgroundColor: colors.semantic.red },
+                    ]}
+                  >
+                    <Text style={styles.notificationBadgeText}>
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Search Bar */}
@@ -716,33 +641,37 @@ function HomeScreen() {
           </View>
         </Animated.View>
 
-        {/* Hero Carousel */}
-        <View style={tw`mt-4`}>
-          {recentLoading ? (
-            <View
-              style={[
-                styles.heroSkeleton,
-                { backgroundColor: colors.system.background.secondary },
-              ]}
-            />
-          ) : featuredEpisodes.length > 0 ? (
-            <FlatList
-              data={featuredEpisodes}
-              renderItem={renderHeroItem}
-              keyExtractor={(item) => `hero-${item.id}`}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={tw`px-4`}
-              snapToInterval={SCREEN_WIDTH - 16}
-              snapToAlignment="start"
-              decelerationRate="fast"
-            />
-          ) : null}
-        </View>
+        {!preferences.configured && preferencesHydrated && (
+          <TouchableOpacity
+            onPress={() => router.push("/listening-preferences" as any)}
+            activeOpacity={0.85}
+            style={[
+              styles.preferencePrompt,
+              { backgroundColor: colors.brand.primary + "18" },
+            ]}
+          >
+            <View style={[styles.preferencePromptIcon, { backgroundColor: colors.brand.primary }]}>
+              <Ionicons name="sparkles" size={20} color={colors.fixed.black} />
+            </View>
+            <View style={tw`flex-1`}>
+              <Text variant="headline" color="label" weight="semibold">
+                Make Home yours
+              </Text>
+              <Text variant="footnote" color="secondaryLabel" style={tw`mt-1`}>
+                Choose the languages and scholars you want to hear.
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.system.label.secondary} />
+          </TouchableOpacity>
+        )}
 
-        {/* Trending is the primary discovery shelf, immediately after hero. */}
         <View style={tw`mt-7`}>
-          {renderSectionHeader("Trending Now", "What the community is listening to", () =>
+          {renderSectionHeader(
+            preferences.configured ? "For You" : "Trending Now",
+            preferences.configured
+              ? "Based on your languages and scholars"
+              : "What the community is listening to",
+            () =>
             router.push("/section/trending"),
           )}
           {primaryContentFailed ? (
@@ -910,60 +839,21 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginLeft: 12,
   },
-  heroCard: {
-    height: HERO_HEIGHT,
-    borderRadius: 20,
-    overflow: "hidden",
-    marginRight: 16,
+  preferencePrompt: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    padding: 14,
+    borderRadius: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
-  heroImage: {
-    width: "100%",
-    height: "100%",
-    position: "absolute",
-  },
-  heroGradient: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: "70%",
-  },
-  heroPlayButton: {
-    position: "absolute",
-    top: 16,
-    right: 16,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  preferencePromptIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: "center",
     justifyContent: "center",
-  },
-  heroContent: {
-    position: "absolute",
-    bottom: 16,
-    left: 16,
-    right: 16,
-  },
-  heroBadge: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-    marginBottom: 8,
-  },
-  heroTitle: {
-    lineHeight: 26,
-  },
-  heroMetaText: {
-    color: "rgba(255,255,255,0.8)",
-  },
-  heroMetaDot: {
-    backgroundColor: "rgba(255,255,255,0.5)",
-  },
-  heroSkeleton: {
-    height: HERO_HEIGHT,
-    marginHorizontal: 16,
-    borderRadius: 20,
   },
   quickActionsGrid: {
     flexDirection: "row",

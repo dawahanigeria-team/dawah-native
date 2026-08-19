@@ -49,7 +49,6 @@ Simple combinations of atoms:
 Complex UI sections:
 
 - **Row**: Horizontal scrolling sections with headers and "see all" functionality
-- **HeroCarousel**: Featured content carousel with autoplay
 - **ActionGrid**: Grid of action buttons for navigation
 - **MiniPlayer**: Persistent bottom player interface
 

@@ -34,7 +34,7 @@ React Native Expo app using file-based routing with the following structure:
 src/components/
 ├── atoms/       # Basic UI elements (Button, Text, Icon, ErrorBoundary)
 ├── molecules/   # Composed components (SearchBar, LectureCard)
-├── organisms/   # Complex components (MiniPlayer, HeroCarousel, LectureList)
+├── organisms/   # Complex components (MiniPlayer, LectureList)
 └── templates/   # Page layouts
 ```
 

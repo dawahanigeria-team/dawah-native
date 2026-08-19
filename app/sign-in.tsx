@@ -245,7 +245,10 @@ export default function SignInScreen() {
   };
 
   const handleSignUp = () => {
-    router.push("/sign-up");
+    router.push({
+      pathname: "/sign-up",
+      params: returnToRoute ? { returnTo: returnToRoute } : {},
+    });
   };
 
   const getInputBorderColor = (hasError: boolean, isFocused: boolean) => {

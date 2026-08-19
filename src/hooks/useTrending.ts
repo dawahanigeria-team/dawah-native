@@ -18,6 +18,22 @@ const PLACEHOLDER_SPEAKER_NAMES = new Set([
 ]);
 const DAWAH_NIGERIA_PATTERN = /\bdawah\s*nigeria\b/i;
 
+function parseDuration(duration: string): number {
+  if (!duration) return 0;
+
+  const parts = duration.split(':');
+  if (parts.length === 3) {
+    const [hours, minutes, seconds] = parts.map(Number);
+    return hours * 3600 + minutes * 60 + seconds;
+  }
+  if (parts.length === 2) {
+    const [minutes, seconds] = parts.map(Number);
+    return minutes * 60 + seconds;
+  }
+
+  return 0;
+}
+
 const pickSpeakerName = (candidates: Array<string | undefined | null>): string | undefined => {
   for (const value of candidates) {
     if (typeof value !== 'string') continue;
@@ -42,12 +58,14 @@ export interface UseTrendingResult {
 }
 
 export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTrendingResult => {
+  const initiallyEnabled =
+    initialParams.enabled !== false && Object.keys(initialParams).length > 0;
   const [lectures, setLectures] = useState<Episode[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(initiallyEnabled);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(initialParams.page || 1);
-  const [hasMore, setHasMore] = useState(true);
+  const [hasMore, setHasMore] = useState(initiallyEnabled);
   const isLoadingRef = useRef(false);
 
   // Store initialParams in a ref to avoid re-creating fetchTrending on every render
@@ -182,43 +200,28 @@ export const useTrending = (initialParams: TrendingLecturesParams = {}): UseTren
     await fetchTrending(currentPage + 1, true);
   }, [hasMore, isLoadingMore, loading, currentPage, fetchTrending]);
 
-  // Helper function to parse duration string to seconds
-  function parseDuration(duration: string): number {
-    if (!duration) return 0;
-
-    const parts = duration.split(':');
-    if (parts.length === 3) {
-      const [hours, minutes, seconds] = parts.map(Number);
-      return hours * 3600 + minutes * 60 + seconds;
-    } else if (parts.length === 2) {
-      const [minutes, seconds] = parts.map(Number);
-      return minutes * 60 + seconds;
-    }
-
-    return 0;
-  }
-
   // Fetch initial data on mount and when params change (using serialized key for stable comparison)
   useEffect(() => {
     logger.debug('useTrending mount/update - initialParams:', initialParams);
 
     if (!initialParams) {
       logger.debug('useTrending: initialParams is undefined/null, skipping fetch');
-      setLoading(false);
-      setHasMore(false);
       return;
     }
+
+    if (initialParams.enabled === false) return;
 
     const paramKeys = Object.keys(initialParams);
     if (paramKeys.length === 0) {
       logger.debug('useTrending: initialParams is empty object, skipping fetch');
-      setLoading(false);
-      setHasMore(false);
       return;
     }
 
     logger.debug('useTrending: Fetching data with params:', initialParams);
-    fetchTrending(1, false);
+    const timer = setTimeout(() => {
+      void fetchTrending(1, false);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [paramsKey, fetchTrending]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Refetch function with cache clearing

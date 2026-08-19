@@ -28,7 +28,14 @@ import { logger } from '@/utils/logger';
 export interface RecentLecturesParams {
   page?: number;
   limit?: number;
+  languageIds?: number[];
+  lecturerIds?: number[];
 }
+
+type FeedPreferenceFilter = Pick<
+  RecentLecturesParams,
+  'languageIds' | 'lecturerIds'
+>;
 
 export interface RecentLecturesResponse {
   success: boolean;
@@ -91,11 +98,40 @@ class RecentLecturesApiService {
   private firstPage: SearchLecture[] | null = null;
   private firstPageTimestamp = 0;
   private firstPageInFlight: Promise<SearchLecture[]> | null = null;
+  private activeFilterKey = 'all';
 
-  private async fetchPage(page: number): Promise<SearchLecture[]> {
+  private preferenceFilter(params: RecentLecturesParams): FeedPreferenceFilter {
+    return {
+      languageIds: params.languageIds?.filter((id) => id > 0) ?? [],
+      lecturerIds: params.lecturerIds?.filter((id) => id > 0) ?? [],
+    };
+  }
+
+  private filterKey(filter: FeedPreferenceFilter): string {
+    const languages = [...(filter.languageIds ?? [])].sort((a, b) => a - b);
+    const lecturers = [...(filter.lecturerIds ?? [])].sort((a, b) => a - b);
+    return `l:${languages.join(',')}|r:${lecturers.join(',')}`;
+  }
+
+  private activateFilter(filter: FeedPreferenceFilter): void {
+    const key = this.filterKey(filter);
+    if (key === this.activeFilterKey) return;
+    this.clearCache();
+    this.activeFilterKey = key;
+  }
+
+  private async fetchPage(
+    page: number,
+    filter: FeedPreferenceFilter,
+  ): Promise<SearchLecture[]> {
     const response = await apiClient.get<any>(
       RECENT_ENDPOINT,
-      { action: RECENT_ACTION, page },
+      {
+        action: RECENT_ACTION,
+        page,
+        language_ids: filter.languageIds?.join(',') || undefined,
+        lecturer_ids: filter.lecturerIds?.join(',') || undefined,
+      },
       {
         timeout: RECENT_REQUEST_TIMEOUT_MS,
         retryAttempts: 2,
@@ -116,14 +152,16 @@ class RecentLecturesApiService {
   }
 
   /** First paint only needs page one. Trending can build its wider pool later. */
-  private async fetchFirstPage(): Promise<SearchLecture[]> {
+  private async fetchFirstPage(
+    filter: FeedPreferenceFilter,
+  ): Promise<SearchLecture[]> {
     const now = Date.now();
     if (this.firstPage && now - this.firstPageTimestamp < MERGED_CACHE_TTL_MS) {
       return this.firstPage;
     }
     if (this.firstPageInFlight) return this.firstPageInFlight;
 
-    this.firstPageInFlight = this.fetchPage(1)
+    this.firstPageInFlight = this.fetchPage(1, filter)
       .then((items) => {
         this.firstPage = items;
         this.firstPageTimestamp = Date.now();
@@ -141,7 +179,7 @@ class RecentLecturesApiService {
    * concat, dedupe by nid, sort newest-first as a defensive belt.
    * Cached for 5 minutes; concurrent callers share the in-flight promise.
    */
-  private async fetchPool(): Promise<SearchLecture[]> {
+  private async fetchPool(filter: FeedPreferenceFilter): Promise<SearchLecture[]> {
     const now = Date.now();
     if (this.pool && now - this.cacheTimestamp < MERGED_CACHE_TTL_MS) {
       return this.pool;
@@ -156,8 +194,8 @@ class RecentLecturesApiService {
         );
 
         const results = await Promise.allSettled([
-          this.fetchFirstPage(),
-          ...pageNumbers.map((page) => this.fetchPage(page)),
+          this.fetchFirstPage(filter),
+          ...pageNumbers.map((page) => this.fetchPage(page, filter)),
         ]);
 
         const merged: SearchLecture[] = [];
@@ -232,13 +270,15 @@ class RecentLecturesApiService {
     params: RecentLecturesParams = {},
   ): Promise<RecentLecturesResponse> {
     try {
+      const filter = this.preferenceFilter(params);
+      this.activateFilter(filter);
       // Page one powers the home hero and Fresh Content. Do not make it wait
       // for the additional pages needed only for trending rank quality.
       if ((params.page || 1) === 1 && (params.limit || 20) <= 30) {
-        const firstPage = await this.fetchFirstPage();
+        const firstPage = await this.fetchFirstPage(filter);
         return this.paginate(firstPage, params);
       }
-      const pool = await this.fetchPool();
+      const pool = await this.fetchPool(filter);
       return this.paginate(pool, params);
     } catch (error) {
       console.error('❌ Recent Lectures API Error:', error);
@@ -256,7 +296,9 @@ class RecentLecturesApiService {
     params: RecentLecturesParams = {},
   ): Promise<RecentLecturesResponse> {
     try {
-      const pool = await this.fetchPool();
+      const filter = this.preferenceFilter(params);
+      this.activateFilter(filter);
+      const pool = await this.fetchPool(filter);
       const now = Date.now();
       const cutoff = now - TRENDING_WINDOW_DAYS * DAY_MS;
 

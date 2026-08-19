@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "expo-sqlite/kv-store";
 import { useRouter } from "expo-router";
 import React from "react";
 import { Alert, Linking, ScrollView, TouchableOpacity, View } from "react-native";
@@ -209,27 +208,6 @@ const ProfileScreen = () => {
     );
   };
 
-  const handleResetOnboarding = () => {
-    Alert.alert(
-      "Reset Onboarding",
-      "Are you sure you want to see the welcome screens again?",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Reset",
-          style: "destructive",
-          onPress: async () => {
-            await AsyncStorage.removeItem("hasSeenOnboarding");
-            Alert.alert("Onboarding Reset", "Please restart the app to see the welcome screens again.");
-          },
-        },
-      ]
-    );
-  };
-
   // Menu items organized by section
   const accountItems: MenuItem[] = isAuthenticated
     ? [
@@ -272,6 +250,15 @@ const ProfileScreen = () => {
   })();
 
   const settingsItems: MenuItem[] = [
+    {
+      id: "listening-preferences",
+      title: "Listening Preferences",
+      subtitle: "Choose your languages and scholars",
+      icon: "options-outline",
+      iconColor: colors.brand.primary,
+      onPress: () => router.push("/listening-preferences" as any),
+      showChevron: true,
+    },
     {
       id: "premium",
       title: "Premium",
@@ -339,15 +326,6 @@ const ProfileScreen = () => {
       icon: "refresh-outline",
       iconColor: colors.semantic.orange,
       onPress: handleResetUserId,
-      showChevron: false,
-    },
-    {
-      id: "reset-onboarding",
-      title: "Reset Onboarding",
-      subtitle: "Show welcome screens again",
-      icon: "refresh-circle-outline",
-      iconColor: colors.semantic.orange,
-      onPress: handleResetOnboarding,
       showChevron: false,
     },
   ];

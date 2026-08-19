@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "../../src/components/adapters/flashListCompat";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -30,6 +30,11 @@ import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import { Episode, Series } from "../../src/types/types";
 import { usePlayerActions } from "../../src/stores";
+import { useAuthStore } from "../../src/stores/authStore";
+import {
+  initializeListeningPreferences,
+  useListeningPreferencesStore,
+} from "../../src/stores/listeningPreferencesStore";
 import { formatDuration } from "../../src/utils/formatTime";
 import { boxShadow } from "../../src/utils/shadow";
 
@@ -115,6 +120,18 @@ function SectionScreen() {
   const { colors } = useTheme();
   const { playEpisode } = usePlayerActions();
   const { type } = useLocalSearchParams<{ type: string }>();
+  const { isAuthenticated, isInitialized } = useAuthStore();
+  const { preferences, isHydrated: preferencesHydrated } =
+    useListeningPreferencesStore();
+  useEffect(() => {
+    if (!isInitialized) return;
+    void initializeListeningPreferences(isAuthenticated);
+  }, [isAuthenticated, isInitialized]);
+  const preferenceParams = {
+    languageIds: preferences.languageIds,
+    lecturerIds: preferences.lecturerIds,
+    enabled: preferencesHydrated,
+  };
   const supportsAutoLayoutView = Boolean(
     UIManager.getViewManagerConfig?.("AutoLayoutView"),
   );
@@ -124,9 +141,9 @@ function SectionScreen() {
   // Trending = velocity-scored. Recently-posted = date-sorted. They share a
   // shape so the rest of the screen can read from one set of locals.
   const trendingHookParams =
-    type === "trending" ? { page: 1, limit: 20 } : undefined;
+    type === "trending" ? { page: 1, limit: 20, ...preferenceParams } : undefined;
   const recentHookParams =
-    type === "recently-posted" ? { page: 1, limit: 20 } : undefined;
+    type === "recently-posted" ? { page: 1, limit: 20, ...preferenceParams } : undefined;
 
   const trendingResult = useTrending(trendingHookParams);
   const recentResult = useRecent(recentHookParams);

@@ -21,7 +21,5 @@ export { LecturerCardSkeleton } from "./molecules/LecturerCard.skeleton";
 export { SearchBar } from "./molecules/SearchBar";
 
 export { ActionGrid } from "./organisms/ActionGrid";
-export { HeroCarousel } from "./organisms/HeroCarousel";
-export { HeroCarouselSkeleton } from "./organisms/HeroCarousel.skeleton";
 export { MiniPlayer } from "./organisms/MiniPlayer";
 export { Row } from "./organisms/Row";

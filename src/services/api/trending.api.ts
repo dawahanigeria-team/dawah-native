@@ -12,13 +12,14 @@
  * need import-site changes.
  */
 
-import { recentApi, RecentLecturesResponse } from './recent.api';
+import {
+  recentApi,
+  RecentLecturesResponse,
+  type RecentLecturesParams,
+} from './recent.api';
 import { SearchLecture } from '../../types/api.types';
 
-export interface TrendingLecturesParams {
-  page?: number;
-  limit?: number;
-}
+export type TrendingLecturesParams = RecentLecturesParams & { enabled?: boolean };
 
 export type TrendingLecturesResponse = RecentLecturesResponse;
 
@@ -26,7 +27,8 @@ class TrendingLecturesApiService {
   async getTrendingLectures(
     params: TrendingLecturesParams = {},
   ): Promise<TrendingLecturesResponse> {
-    return recentApi.getTrendingLectures(params);
+    const { enabled: _enabled, ...requestParams } = params;
+    return recentApi.getTrendingLectures(requestParams);
   }
 
   async getTrendingForCarousel(limit = 10): Promise<SearchLecture[]> {
