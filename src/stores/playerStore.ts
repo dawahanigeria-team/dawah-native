@@ -6,7 +6,11 @@ import { addSentryBreadcrumb, captureSentryException } from "../services/config/
 import { downloadsService } from "../services/downloads.service";
 import TrackPlayer, { RepeatMode, State } from '../services/expoTrackPlayerCompat';
 import { historyService } from "../services/history.service";
-import { clearQueueSnapshot, saveQueueSnapshot } from "../services/playerQueue.service";
+import {
+  clearQueueSnapshot,
+  saveQueueSnapshot,
+  toQueueEpisodeSnapshot,
+} from "../services/playerQueue.service";
 import { buildPlaylistKey, buildQueue } from "../services/trackPlayerQueue.service";
 import { ensureTrackPlayerReady } from "../services/trackPlayerReady.service";
 import { Episode, PlayerState } from "../types/types";
@@ -283,6 +287,10 @@ const persistQueueSnapshot = (state: PlayerState) => {
     playbackRate: state.playbackSpeed,
     repeatMode: state.repeatMode,
     isShuffled: state.isShuffled,
+    episodes: state.queue.map(toQueueEpisodeSnapshot),
+    originalEpisodes: state.originalQueue.length > 0
+      ? state.originalQueue.map(toQueueEpisodeSnapshot)
+      : undefined,
     currentTrack: currentEpisode
       ? {
         id: String(currentEpisode.id),
@@ -772,6 +780,13 @@ const togglePlayPause = async () => {
         position_seconds: Math.round(currentState.progress),
       });
     } else {
+      const activeTrackIndex = await TrackPlayer.getActiveTrackIndex();
+      if (activeTrackIndex !== currentState.currentQueueIndex) {
+        await TrackPlayer.skip(currentState.currentQueueIndex);
+        if (currentState.progress > 0) {
+          await TrackPlayer.seekTo(currentState.progress);
+        }
+      }
       await TrackPlayer.play();
       analytics.capture('lecture_played', {
         lecture_id: String(currentState.currentEpisode.id),

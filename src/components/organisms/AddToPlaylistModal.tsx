@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { playlistApi } from '../../services/api/playlist.api';
 import { UserPlaylist } from '../../types/api.types';
 import { useThemeColors } from '../../hooks/useTheme';

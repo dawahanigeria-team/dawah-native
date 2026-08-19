@@ -149,9 +149,13 @@ const syncPushTokenAsync = async (
   });
 };
 
-export const registerForPushNotificationsAsync = async (): Promise<string | null> => {
-  await ensureNotificationChannelsAsync();
+export type PushRegistrationOptions = {
+  requestPermission?: boolean;
+};
 
+export const registerForPushNotificationsAsync = async (
+  { requestPermission = true }: PushRegistrationOptions = {},
+): Promise<string | null> => {
   if (!Device.isDevice) {
     console.warn('Push notifications require a physical device.');
     return null;
@@ -167,6 +171,13 @@ export const registerForPushNotificationsAsync = async (): Promise<string | null
   let iosStatus = current.ios?.status;
 
   if (finalStatus !== 'granted') {
+    if (!requestPermission) {
+      return null;
+    }
+
+    // Android 13 only presents the notification permission prompt after at
+    // least one channel exists. Keep this on the explicit opt-in path.
+    await ensureNotificationChannelsAsync();
     const request = await Notifications.requestPermissionsAsync();
     finalStatus = request.status;
     iosStatus = request.ios?.status;
@@ -180,6 +191,10 @@ export const registerForPushNotificationsAsync = async (): Promise<string | null
     console.warn('Notification permissions not granted.');
     return null;
   }
+
+  // Existing opt-ins still need channels kept in sync, but fresh installs no
+  // longer create them as part of critical startup work.
+  await ensureNotificationChannelsAsync();
 
   const projectId = getProjectId();
   if (!projectId) {

@@ -146,7 +146,9 @@
             ]
           },
           "android": {
-            "reactNativeReleaseLevel": "stable"
+            "reactNativeReleaseLevel": "stable",
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
           }
         }
       ],

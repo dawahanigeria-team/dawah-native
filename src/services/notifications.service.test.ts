@@ -6,6 +6,7 @@ import {
   disablePushNotificationsAsync,
   getNotificationPrefs,
   getNotificationRouteFromData,
+  registerForPushNotificationsAsync,
   syncNotificationPreferencesAsync,
   type NotificationPrefs,
 } from './notifications.service'
@@ -32,6 +33,9 @@ jest.mock('expo-notifications', () => ({
   IosAuthorizationStatus: { PROVISIONAL: 3 },
   setNotificationHandler: jest.fn(),
   setNotificationChannelAsync: jest.fn(),
+  getPermissionsAsync: jest.fn(),
+  requestPermissionsAsync: jest.fn(),
+  getExpoPushTokenAsync: jest.fn(),
   unregisterForNotificationsAsync: jest.fn(),
 }))
 
@@ -84,6 +88,34 @@ test('migrates legacy stored notification preferences', async () => {
     'NOTIFICATION_PREFS',
     expect.stringContaining('religiousReminders'),
   )
+})
+
+test('does not prompt or fetch a token during passive startup registration', async () => {
+  mockGetItem.mockResolvedValue(JSON.stringify(basePrefs()))
+  ;(Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({
+    status: 'undetermined',
+  })
+
+  await expect(registerForPushNotificationsAsync({ requestPermission: false }))
+    .resolves.toBeNull()
+
+  expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled()
+  expect(Notifications.getExpoPushTokenAsync).not.toHaveBeenCalled()
+  expect(Notifications.setNotificationChannelAsync).not.toHaveBeenCalled()
+})
+
+test('refreshes an existing notification opt-in without requesting permission', async () => {
+  mockGetItem.mockResolvedValue(JSON.stringify(basePrefs()))
+  ;(Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'granted' })
+  ;(Notifications.getExpoPushTokenAsync as jest.Mock).mockResolvedValue({
+    data: 'ExponentPushToken[token]',
+  })
+
+  await expect(registerForPushNotificationsAsync({ requestPermission: false }))
+    .resolves.toBe('ExponentPushToken[token]')
+
+  expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled()
+  expect(mockRegisterPushToken).toHaveBeenCalledTimes(1)
 })
 
 test('rewrites malformed stored reminder settings with normalized values', async () => {

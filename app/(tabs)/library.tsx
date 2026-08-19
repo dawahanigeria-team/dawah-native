@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { FlashList } from "../../src/components/adapters/flashListCompat";
 import { Text, TouchableOpacity, View, Alert, ActivityIndicator } from "react-native";

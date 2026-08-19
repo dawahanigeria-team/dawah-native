@@ -28,6 +28,7 @@ jest.mock('../services/expoTrackPlayerCompat', () => ({
   reset: jest.fn(),
   add: jest.fn(),
   skip: jest.fn(),
+  seekTo: jest.fn(),
   play: jest.fn(),
   stop: jest.fn(),
   remove: jest.fn(),
@@ -154,7 +155,9 @@ beforeEach(() => {
   ;(TrackPlayer.reset as jest.Mock).mockReset()
   ;(TrackPlayer.add as jest.Mock).mockReset()
   ;(TrackPlayer.skip as jest.Mock).mockReset()
+  ;(TrackPlayer.seekTo as jest.Mock).mockReset()
   ;(TrackPlayer.play as jest.Mock).mockReset()
+  ;(TrackPlayer.getActiveTrackIndex as jest.Mock).mockReset().mockResolvedValue(0)
   mockSetItem.mockReset()
   mockGetPlaybackState.mockReset()
   mockGetProgress.mockReset()
@@ -196,6 +199,37 @@ test('playEpisode builds queue and uses TrackPlayer', async () => {
   expect(mockEnsureReady).toHaveBeenCalledTimes(1)
   expect(TrackPlayer.reset).toHaveBeenCalledTimes(1)
   expect(TrackPlayer.add).toHaveBeenCalledTimes(1)
+  expect(TrackPlayer.play).toHaveBeenCalledTimes(1)
+})
+
+test('activates and seeks a restored queue only when the user resumes it', async () => {
+  const episode = {
+    id: 'restored-1',
+    title: 'Restored lecture',
+    audioUrl: 'https://example.com/restored.mp3',
+    lecturerName: 'Scholar',
+    coverUrl: 'cover.png',
+    durationSec: 120,
+    seriesId: '',
+    plays: 0,
+    liked: false,
+    language: 'Hausa',
+    downloads: 0,
+    createdAt: new Date().toISOString(),
+  }
+  playerStore.set({
+    ...playerStore.get(),
+    queue: [episode],
+    currentQueueIndex: 0,
+    currentEpisode: episode,
+    progress: 42,
+  })
+  ;(TrackPlayer.getActiveTrackIndex as jest.Mock).mockResolvedValue(null)
+
+  await usePlayerActions().togglePlayPause()
+
+  expect(TrackPlayer.skip).toHaveBeenCalledWith(0)
+  expect(TrackPlayer.seekTo).toHaveBeenCalledWith(42)
   expect(TrackPlayer.play).toHaveBeenCalledTimes(1)
 })
 

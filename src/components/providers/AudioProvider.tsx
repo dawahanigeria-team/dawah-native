@@ -18,7 +18,11 @@ import TrackPlayer, {
   releasePlayer,
   useTrackPlayerEvents,
 } from '../../services/expoTrackPlayerCompat'
-import { loadQueueSnapshot, saveQueueSnapshot } from '../../services/playerQueue.service'
+import {
+  loadQueueSnapshot,
+  saveQueueSnapshot,
+  toQueueEpisodeSnapshot,
+} from '../../services/playerQueue.service'
 import { buildPlaylistKey, buildQueue } from '../../services/trackPlayerQueue.service'
 import { ensureTrackPlayerReady } from '../../services/trackPlayerReady.service'
 import {
@@ -34,6 +38,8 @@ import type { Episode, PlayerState } from '../../types/types'
 interface AudioProviderProps {
   children: React.ReactNode
 }
+
+const STARTUP_AUDIO_SETUP_DELAY_MS = 2000
 
 const resolvePlaybackUri = (episode: Episode): string => {
   return downloadsService.getPlaybackUri(episode.id, episode.audioUrl)
@@ -105,11 +111,18 @@ const buildQueueSnapshotFromState = (state: PlayerState) => {
 
   return {
     trackIds: state.queue.map((episode) => String(episode.id)),
+    originalTrackIds: state.originalQueue.length > 0
+      ? state.originalQueue.map((episode) => String(episode.id))
+      : undefined,
     currentIndex: state.currentQueueIndex,
     position: state.progress,
     playbackRate: state.playbackSpeed,
     repeatMode: state.repeatMode,
     isShuffled: state.isShuffled,
+    episodes: state.queue.map(toQueueEpisodeSnapshot),
+    originalEpisodes: state.originalQueue.length > 0
+      ? state.originalQueue.map(toQueueEpisodeSnapshot)
+      : undefined,
     currentTrack: currentEpisode
       ? {
         id: String(currentEpisode.id),
@@ -143,9 +156,17 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   const progressEvents = useMemo(() => [Event.PlaybackProgressUpdated], [])
 
   useEffect(() => {
+    let setupTimeout: ReturnType<typeof setTimeout> | null = null
+    let cancelled = false
+    // Capture this before deferring. A playback choice made during startup
+    // must always win over restoration of the previous session.
+    const restoreRequestId = getPlaybackRequestId()
+
     const setupTrackPlayer = async () => {
       try {
         await ensureTrackPlayerReady()
+
+        if (cancelled) return
 
         await TrackPlayer.updateOptions({
           forwardJumpInterval: 15,
@@ -159,10 +180,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
 
         if (!hasRestoredRef.current && !isRestoringRef.current) {
           isRestoringRef.current = true
-          const restoreRequestId = getPlaybackRequestId()
           const restorationWasSuperseded = () => restoreRequestId !== getPlaybackRequestId()
           const stopSupersededRestoration = () => {
-            if (!restorationWasSuperseded()) return false
+            if (!cancelled && !restorationWasSuperseded()) return false
             hasRestoredRef.current = true
             addSentryBreadcrumb('Skipped stale queue restoration after a newer playback choice', 'playback')
             return true
@@ -176,7 +196,16 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
             }
 
             const episodes: Episode[] = []
+            const persistedEpisodesById = new Map(
+              (snapshot.episodes ?? []).map((episode) => [String(episode.id), episode as Episode]),
+            )
             for (const id of snapshot.trackIds) {
+              const persistedEpisode = persistedEpisodesById.get(String(id))
+              if (persistedEpisode?.audioUrl) {
+                episodes.push(persistedEpisode)
+                continue
+              }
+
               const downloaded = downloadsService.getDownloadMetadata(id)
               if (downloaded) {
                 episodes.push(downloadMetadataToEpisode(downloaded))
@@ -230,14 +259,6 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
               matchedIndex >= 0
                 ? matchedIndex
                 : Math.max(0, Math.min(snapshot.currentIndex, tracks.length - 1))
-            await TrackPlayer.skip(safeIndex)
-            if (stopSupersededRestoration()) return
-
-            if (snapshot.position > 0) {
-              await TrackPlayer.seekTo(snapshot.position)
-              if (stopSupersededRestoration()) return
-            }
-
             const repeatModeValue =
               snapshot.repeatMode === 'one'
                 ? RepeatMode.Track
@@ -252,10 +273,24 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
               if (stopSupersededRestoration()) return
             }
 
+            // Keep the restored queue inactive. Loading the selected remote
+            // media here would spend bandwidth and show a spinner before the
+            // user has asked to resume. togglePlayPause activates and seeks it
+            // on demand.
+
             const currentEpisode = filteredQueue[safeIndex]
-            playerStore.set({
+            const filteredEpisodeById = new Map(
+              filteredQueue.map((episode) => [String(episode.id), episode]),
+            )
+            const restoredOriginalQueue = snapshot.originalEpisodes?.length
+              ? snapshot.originalEpisodes as Episode[]
+              : (snapshot.originalTrackIds ?? [])
+                .map((id) => filteredEpisodeById.get(String(id)))
+                .filter((episode): episode is Episode => Boolean(episode))
+            const restoredState = {
               ...playerStore.get(),
               queue: filteredQueue,
+              originalQueue: restoredOriginalQueue,
               currentQueueIndex: safeIndex,
               currentEpisode,
               progress: snapshot.position ?? 0,
@@ -264,7 +299,11 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
               repeatMode: snapshot.repeatMode ?? 'off',
               isShuffled: snapshot.isShuffled ?? false,
               isPlaying: false,
-            })
+            }
+            playerStore.set(restoredState)
+            // Migrate legacy ID-only snapshots after their one-time restore so
+            // following launches can rebuild the queue without API requests.
+            persistQueueSnapshot(restoredState)
 
             hasRestoredRef.current = true
           } finally {
@@ -280,13 +319,25 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       }
     }
 
-    setupTrackPlayer().catch((error) => {
-      captureSentryException(error as Error, {
-        component: 'AudioProvider',
-        action: 'setupTrackPlayer-unhandled',
-        level: 'error',
-      })
-    })
+    const idleTask = requestIdleCallback(() => {
+      setupTimeout = setTimeout(() => {
+        setupTrackPlayer().catch((error) => {
+          captureSentryException(error as Error, {
+            component: 'AudioProvider',
+            action: 'setupTrackPlayer-unhandled',
+            level: 'error',
+          })
+        })
+      }, STARTUP_AUDIO_SETUP_DELAY_MS)
+    }, { timeout: 1500 })
+
+    return () => {
+      cancelled = true
+      cancelIdleCallback(idleTask)
+      if (setupTimeout) {
+        clearTimeout(setupTimeout)
+      }
+    }
   }, [])
 
   useEffect(() => {

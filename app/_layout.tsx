@@ -1,7 +1,7 @@
 import * as Notifications from "expo-notifications";
 import { Stack, usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFonts } from "expo-font";
 import { useCallback, useEffect, useRef } from "react";
 import { InteractionManager, Linking, View } from "react-native";

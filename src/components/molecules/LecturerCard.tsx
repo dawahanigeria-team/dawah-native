@@ -1,7 +1,7 @@
 import React from 'react';
 import { Image } from 'expo-image';
 import { View, Text, TouchableOpacity, StyleProp, ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import tw from '../../theme/twrnc';
 import { useTheme } from '../../hooks/useTheme';
 import { getInitials, getPlaceholderColor } from '../../utils/colorPlaceholder';

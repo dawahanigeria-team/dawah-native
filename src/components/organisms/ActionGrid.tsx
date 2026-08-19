@@ -1,4 +1,5 @@
 import React, { memo } from 'react';
+import type Ionicons from '@expo/vector-icons/Ionicons';
 import { View, ViewStyle, FlatList } from 'react-native';
 import { useRouter } from 'expo-router';
 import { designTokens, BorderRadius } from '../../theme/designTokens';
@@ -10,7 +11,7 @@ import { Touchable } from '../atoms/Touchable';
 interface ActionItem {
   id: string;
   title: string;
-  icon: keyof typeof import('@expo/vector-icons').Ionicons.glyphMap;
+  icon: keyof typeof Ionicons.glyphMap;
   color: string;
   description?: string;
 }

@@ -3,7 +3,7 @@
  * Displays announcements and notifications for users
  */
 
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
 import { useState, useCallback } from "react";
 import {

@@ -1,5 +1,10 @@
 import AsyncStorage from 'expo-sqlite/kv-store'
-import { clearQueueSnapshot, loadQueueSnapshot, saveQueueSnapshot } from './playerQueue.service'
+import {
+  clearQueueSnapshot,
+  loadQueueSnapshot,
+  saveQueueSnapshot,
+  toQueueEpisodeSnapshot,
+} from './playerQueue.service'
 
 jest.mock('expo-sqlite/kv-store', () => ({
   setItem: jest.fn(),
@@ -41,4 +46,31 @@ test('saves and loads a minimal queue snapshot', async () => {
 test('clears snapshot', async () => {
   await clearQueueSnapshot()
   expect(mockRemoveItem).toHaveBeenCalledTimes(1)
+})
+
+test('stores only the queue metadata needed for offline restoration', () => {
+  const snapshot = toQueueEpisodeSnapshot({
+    id: 'lecture-1',
+    title: 'Lecture',
+    durationSec: 60,
+    coverUrl: 'cover-small',
+    coverUrlLarge: 'cover-large',
+    audioUrl: 'https://example.com/audio.mp3',
+    seriesId: 'series-1',
+    plays: 10,
+    liked: false,
+    language: 'Hausa',
+    downloads: 2,
+    createdAt: '2026-08-19T00:00:00.000Z',
+    lecturerName: 'Scholar',
+    raw: { rpname: 'unused raw payload' },
+  })
+
+  expect(snapshot).toMatchObject({
+    id: 'lecture-1',
+    audioUrl: 'https://example.com/audio.mp3',
+    lecturerName: 'Scholar',
+  })
+  expect(snapshot).not.toHaveProperty('coverUrlLarge')
+  expect(snapshot).not.toHaveProperty('raw')
 })

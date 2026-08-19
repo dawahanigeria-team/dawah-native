@@ -728,10 +728,14 @@ export const usePlaybackState = (): PlaybackState => {
   return currentState
 }
 
-export const useProgress = (intervalMs: number = 500): Progress => {
+export const useProgress = (intervalMs: number = 500, enabled: boolean = true): Progress => {
   const [currentProgress, setCurrentProgress] = useState<Progress>(progress)
 
   useEffect(() => {
+    if (!enabled) {
+      return
+    }
+
     const subscription = addEventListener(Event.PlaybackProgressUpdated, (payload) => {
       setCurrentProgress(payload as Progress)
     })
@@ -747,7 +751,7 @@ export const useProgress = (intervalMs: number = 500): Progress => {
       subscription.remove()
       clearInterval(interval)
     }
-  }, [intervalMs])
+  }, [enabled, intervalMs])
 
   return currentProgress
 }
