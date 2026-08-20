@@ -25,6 +25,7 @@ import Animated, {
     useAnimatedScrollHandler,
     useAnimatedStyle,
     useSharedValue,
+    withSequence,
     withSpring,
 } from "react-native-reanimated";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -526,9 +527,7 @@ const LectureDetailScreen: React.FC = () => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
       // Animate the heart
-      likeScale.value = withSpring(1.3, {}, () => {
-        likeScale.value = withSpring(1);
-      });
+      likeScale.value = withSequence(withSpring(1.3), withSpring(1));
 
       // Toggle favorite (works offline!)
       await toggleFavorite(lectureId);
