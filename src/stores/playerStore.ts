@@ -981,7 +981,15 @@ const addToQueue = async (episodes: Episode | Episode[]) => {
     { episodeCount: episodeArray.length }
   );
 
-  const queue = [...existingQueue, ...episodeArray];
+  // The TrackPlayer queue only ever receives episodes with a resolvable URL, so the
+  // stored queue must be filtered identically or currentQueueIndex drifts past its end.
+  const playableEpisodes = episodeArray.filter((episode) => resolvePlaybackUri(episode));
+  if (playableEpisodes.length === 0) {
+    logger.error('No valid tracks to add to queue', new Error('No playable tracks'));
+    return;
+  }
+
+  const queue = [...existingQueue, ...playableEpisodes];
 
   const nextState = {
     ...currentState,
@@ -990,11 +998,7 @@ const addToQueue = async (episodes: Episode | Episode[]) => {
   setAndPersistPlayerState(nextState);
   persistQueueSnapshot(nextState);
 
-  const tracks = buildQueue(episodeArray, resolvePlaybackUri).filter((track) => track.url);
-  if (tracks.length === 0) {
-    logger.error('No valid tracks to add to queue', new Error('No playable tracks'));
-    return;
-  }
+  const tracks = buildQueue(playableEpisodes, resolvePlaybackUri);
 
   try {
     await ensureTrackPlayerReady();
@@ -1066,9 +1070,11 @@ const toggleShuffle = async () => {
       [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
     }
 
-    const newQueue = [currentEpisode, ...remaining];
+    const newQueue = [currentEpisode, ...remaining].filter((episode) =>
+      resolvePlaybackUri(episode)
+    );
 
-    const tracks = buildQueue(newQueue, resolvePlaybackUri).filter((track) => track.url);
+    const tracks = buildQueue(newQueue, resolvePlaybackUri);
     if (tracks.length === 0) {
       logger.error('No valid tracks to shuffle', new Error('No playable tracks'));
       return;
@@ -1104,12 +1110,15 @@ const toggleShuffle = async () => {
   } else if (originalQueue.length > 0) {
     // SHUFFLE OFF: Restore original queue order, continue from current track
     const currentEpisode = currentState.currentEpisode;
+    // originalQueue is stored unfiltered, so resolve the resume index against the
+    // filtered queue that TrackPlayer actually receives.
+    const playableQueue = originalQueue.filter((episode) => resolvePlaybackUri(episode));
     const newIndex = currentEpisode
-      ? originalQueue.findIndex((ep) => String(ep.id) === String(currentEpisode.id))
+      ? playableQueue.findIndex((ep) => String(ep.id) === String(currentEpisode.id))
       : 0;
     const safeNewIndex = newIndex >= 0 ? newIndex : 0;
 
-    const tracks = buildQueue(originalQueue, resolvePlaybackUri).filter((track) => track.url);
+    const tracks = buildQueue(playableQueue, resolvePlaybackUri);
     if (tracks.length === 0) {
       logger.error('No valid tracks to restore', new Error('No playable tracks'));
       return;
@@ -1117,9 +1126,9 @@ const toggleShuffle = async () => {
 
     const nextState = {
       ...currentState,
-      queue: originalQueue,
+      queue: playableQueue,
       currentQueueIndex: safeNewIndex,
-      currentEpisode: originalQueue[safeNewIndex],
+      currentEpisode: playableQueue[safeNewIndex],
       isShuffled: false,
     };
 
@@ -1127,7 +1136,7 @@ const toggleShuffle = async () => {
       await ensureTrackPlayerReady();
       await TrackPlayer.reset();
       await TrackPlayer.add(tracks, { activate: false });
-      await TrackPlayer.setPlaylistKey(buildPlaylistKey(originalQueue));
+      await TrackPlayer.setPlaylistKey(buildPlaylistKey(playableQueue));
       await TrackPlayer.skip(safeNewIndex);
       if (currentState.isPlaying) {
         await TrackPlayer.play();

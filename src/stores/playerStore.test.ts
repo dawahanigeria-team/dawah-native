@@ -526,3 +526,51 @@ test('resolveEpisodeArtistName prefers lecturer name then reciter fields', () =>
     } as any)
   ).toBe('Qari Preferred')
 })
+
+test('unshuffling keeps currentQueueIndex within the filtered TrackPlayer queue', async () => {
+  const makeEpisode = (id: string, audioUrl: string) => ({
+    id,
+    title: `Lecture ${id}`,
+    audioUrl,
+    lecturerName: 'Ustadh',
+    coverUrl: 'cover.png',
+    durationSec: 120,
+    seriesId: '',
+    plays: 0,
+    liked: false,
+    language: 'Unknown',
+    downloads: 0,
+    createdAt: new Date().toISOString(),
+  })
+
+  // Two unplayable lectures ahead of the active one: TrackPlayer only ever receives
+  // the third, so an index resolved against the unfiltered queue would be out of bounds.
+  const broken1 = makeEpisode('1', '')
+  const broken2 = makeEpisode('2', '')
+  const playable = makeEpisode('3', 'https://example.com/audio.mp3')
+  const originalQueue = [broken1, broken2, playable]
+
+  mockGetPlaybackUri.mockReturnValue('https://example.com/audio.mp3')
+
+  playerStore.set({
+    ...playerStore.get(),
+    queue: [playable, broken1, broken2],
+    originalQueue,
+    currentEpisode: playable,
+    currentQueueIndex: 0,
+    isShuffled: true,
+  })
+
+  await usePlayerActions().toggleShuffle()
+
+  const addedTracks = (TrackPlayer.add as jest.Mock).mock.calls[0][0]
+  const skippedIndex = (TrackPlayer.skip as jest.Mock).mock.calls[0][0]
+
+  expect(skippedIndex).toBeLessThan(addedTracks.length)
+  expect(addedTracks[skippedIndex].id).toBe('3')
+
+  const state = playerStore.get()
+  expect(state.queue).toHaveLength(addedTracks.length)
+  expect(state.currentQueueIndex).toBe(skippedIndex)
+  expect(state.currentEpisode?.id).toBe('3')
+})
