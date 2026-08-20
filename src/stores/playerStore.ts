@@ -780,6 +780,19 @@ const togglePlayPause = async () => {
         position_seconds: Math.round(currentState.progress),
       });
     } else {
+      // AudioProvider releases the player queue on unmount (an Android activity
+      // recreation does this), but this store is module-level and keeps its index.
+      // Rebuild the queue before skipping rather than indexing into an empty one.
+      const playerQueue = await TrackPlayer.getQueue();
+      if (currentState.queue.length > 0 && playerQueue.length !== currentState.queue.length) {
+        await ensureTrackPlayerReady();
+        await TrackPlayer.reset();
+        await TrackPlayer.add(buildQueue(currentState.queue, resolvePlaybackUri), {
+          activate: false,
+        });
+        await TrackPlayer.setPlaylistKey(buildPlaylistKey(currentState.queue));
+      }
+
       const activeTrackIndex = await TrackPlayer.getActiveTrackIndex();
       if (activeTrackIndex !== currentState.currentQueueIndex) {
         await TrackPlayer.skip(currentState.currentQueueIndex);

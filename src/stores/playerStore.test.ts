@@ -35,6 +35,7 @@ jest.mock('../services/expoTrackPlayerCompat', () => ({
   setPlaylistKey: jest.fn(),
   setRepeatMode: jest.fn(),
   getActiveTrackIndex: jest.fn().mockResolvedValue(0),
+  getQueue: jest.fn().mockResolvedValue([]),
   getPlaybackState: jest.fn(),
   getProgress: jest.fn(),
   skipToNext: jest.fn(),
@@ -158,6 +159,7 @@ beforeEach(() => {
   ;(TrackPlayer.seekTo as jest.Mock).mockReset()
   ;(TrackPlayer.play as jest.Mock).mockReset()
   ;(TrackPlayer.getActiveTrackIndex as jest.Mock).mockReset().mockResolvedValue(0)
+  ;(TrackPlayer.getQueue as jest.Mock).mockReset().mockResolvedValue([])
   mockSetItem.mockReset()
   mockGetPlaybackState.mockReset()
   mockGetProgress.mockReset()
@@ -573,4 +575,49 @@ test('unshuffling keeps currentQueueIndex within the filtered TrackPlayer queue'
   expect(state.queue).toHaveLength(addedTracks.length)
   expect(state.currentQueueIndex).toBe(skippedIndex)
   expect(state.currentEpisode?.id).toBe('3')
+})
+
+test('rebuilds the player queue when it was released while the store kept its index', async () => {
+  // Reproduces DAWAH-NATIVE-30/31: an Android activity recreation unmounts
+  // AudioProvider, which calls releasePlayer() and empties the compat queue.
+  // playerStore is module-level, so it survives holding currentQueueIndex 77.
+  const queue = Array.from({ length: 115 }, (_, i) => ({
+    id: String(21708 + i),
+    title: `Q${i}`,
+    audioUrl: `https://example.com/${i}.mp3`,
+    lecturerName: 'Qaari',
+    coverUrl: 'cover.png',
+    durationSec: 120,
+    seriesId: '',
+    plays: 0,
+    liked: false,
+    language: 'Arabic',
+    downloads: 0,
+    createdAt: new Date().toISOString(),
+  }))
+
+  mockGetPlaybackUri.mockImplementation((_id: string, url: string) => url)
+
+  playerStore.set({
+    ...playerStore.get(),
+    queue,
+    currentQueueIndex: 77,
+    currentEpisode: queue[77],
+    progress: 12,
+  })
+
+  // The player was released: its queue is empty and nothing is active.
+  ;(TrackPlayer.getQueue as jest.Mock).mockResolvedValue([])
+  ;(TrackPlayer.getActiveTrackIndex as jest.Mock).mockResolvedValue(null)
+
+  await usePlayerActions().togglePlayPause()
+
+  // The queue must be rebuilt before the skip, or skip(77) hits an empty queue.
+  expect(TrackPlayer.add).toHaveBeenCalledTimes(1)
+  const rebuilt = (TrackPlayer.add as jest.Mock).mock.calls[0][0]
+  expect(rebuilt).toHaveLength(115)
+  expect(rebuilt[77].id).toBe('21785')
+
+  expect(TrackPlayer.skip).toHaveBeenCalledWith(77)
+  expect(TrackPlayer.play).toHaveBeenCalledTimes(1)
 })

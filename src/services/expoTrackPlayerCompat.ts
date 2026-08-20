@@ -583,6 +583,10 @@ const TrackPlayer = {
     return activeTrackIndex >= 0 ? activeTrackIndex : null
   },
 
+  async getQueue(): Promise<Track[]> {
+    return [...queue]
+  },
+
   async getActiveTrack(): Promise<Track | null> {
     return getActiveTrack() ?? null
   },
