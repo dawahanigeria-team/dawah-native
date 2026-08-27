@@ -42,16 +42,21 @@ function walk(dir: string, out: string[] = []): string[] {
 }
 
 test('no component reads the deprecated static palette for themed colours', () => {
-  const root = path.resolve(__dirname, '..', 'components');
+  const repo = path.resolve(__dirname, '..', '..');
+  // Everything that renders. src/theme is where the alias is defined, so it is
+  // excluded; screens live under both app/ and src/screens.
+  const roots = ['app', 'src/components', 'src/screens', 'src/features']
+    .map((r) => path.join(repo, r))
+    .filter((r) => fs.existsSync(r));
   const offenders: string[] = [];
 
-  for (const file of walk(root)) {
+  for (const file of roots.flatMap((r) => walk(r))) {
     const src = fs.readFileSync(file, 'utf8');
     for (const [i, line] of src.split('\n').entries()) {
       if (!DEPRECATED_ALIAS.test(line)) continue;
       if (line.trimStart().startsWith('//') || line.trimStart().startsWith('*')) continue;
       if (EXEMPT.test(line)) continue;
-      offenders.push(`${path.relative(root, file)}:${i + 1}`);
+      offenders.push(`${path.relative(repo, file)}:${i + 1}`);
     }
   }
 
