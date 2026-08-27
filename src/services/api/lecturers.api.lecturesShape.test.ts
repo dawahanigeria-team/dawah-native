@@ -34,6 +34,9 @@ test('reports a genuinely empty list as empty, not as a failure', async () => {
   await expect(lecturersApi.getLecturesByLecturer(5, 1)).resolves.toEqual(
     expect.objectContaining({ data: [] }),
   );
+  // An empty list is a valid answer, so it must stay cached — dropping it here
+  // would send every lecturer with no lectures back to the network each visit.
+  expect(mockClearCache).not.toHaveBeenCalled();
 });
 
 // The screen renders an empty list as "No lectures found for this scholar", so
