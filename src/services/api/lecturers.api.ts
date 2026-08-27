@@ -340,8 +340,23 @@ class LecturersApiService {
         }
       );
 
-      // Response is an array of lectures
-      const lectures = Array.isArray(response.data) ? response.data : [];
+      // A non-array means the upstream answered with something we cannot read —
+      // an error envelope, or null. Coercing that to [] is what made a failed
+      // request indistinguishable from "this scholar has no lectures", so throw
+      // and let the caller tell the two apart. Drop the cached copy first:
+      // cache writes are not gated on `useCache`, so the unreadable body is
+      // already stored and every retry inside the TTL would replay it.
+      if (!Array.isArray(response.data)) {
+        await apiClient.clearCache(
+          `leclisting_rp.php?page=${page}&rpid=${lecturerId}`
+        );
+        throw new ApiError(
+          'Lectures response was not a list',
+          undefined,
+          response.data
+        );
+      }
+      const lectures = response.data;
 
       logger.debug('Lectures fetched:', lectures.length);
 
