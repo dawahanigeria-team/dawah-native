@@ -1,6 +1,7 @@
 import React, { memo } from 'react';
 import { View, ViewStyle } from 'react-native';
 import { BorderRadius, designTokens } from '../../theme/designTokens';
+import { useThemeColors } from '../../hooks/useTheme';
 import { Text } from './Text';
 
 interface BadgeProps {
@@ -18,37 +19,40 @@ export const Badge: React.FC<BadgeProps> = memo(({
   children,
   style,
 }) => {
+  // designTokens.colors is the deprecated static palette and is always the
+  // dark one, so the outline variant kept a dark fill on a light screen.
+  const colors = useThemeColors();
   const getVariantStyles = (): ViewStyle => {
     switch (variant) {
       case 'primary':
         return {
-          backgroundColor: designTokens.colors.brand.primary,
+          backgroundColor: colors.brand.primary,
         };
       case 'secondary':
         return {
-          backgroundColor: designTokens.colors.system.background.secondary,
+          backgroundColor: colors.system.background.secondary,
           borderWidth: 1,
-          borderColor: designTokens.colors.system.separator.primary,
+          borderColor: colors.system.separator.primary,
         };
       case 'success':
         return {
-          backgroundColor: designTokens.colors.semantic.green,
+          backgroundColor: colors.semantic.green,
         };
       case 'warning':
         return {
-          backgroundColor: designTokens.colors.semantic.orange,
+          backgroundColor: colors.semantic.orange,
         };
       case 'error':
         return {
-          backgroundColor: designTokens.colors.semantic.red,
+          backgroundColor: colors.semantic.red,
         };
       case 'info':
         return {
-          backgroundColor: designTokens.colors.semantic.blue,
+          backgroundColor: colors.semantic.blue,
         };
       default:
         return {
-          backgroundColor: designTokens.colors.brand.primary,
+          backgroundColor: colors.brand.primary,
         };
     }
   };
@@ -108,7 +112,7 @@ export const Badge: React.FC<BadgeProps> = memo(({
         color="label"
         weight="semibold"
         align="center"
-        style={hasColoredBackground ? { color: designTokens.colors.fixed.white } : undefined}
+        style={hasColoredBackground ? { color: colors.fixed.white } : undefined}
       >
         {children}
       </Text>

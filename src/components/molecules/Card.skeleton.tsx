@@ -2,6 +2,7 @@ import React from "react";
 import { View, ViewStyle } from "react-native";
 import { designTokens } from "src/theme/designTokens";
 import { Skeleton } from "../atoms/Skeleton";
+import { useThemeColors } from "../../hooks/useTheme";
 
 interface CardSkeletonProps {
   variant: "square" | "landscape" | "list" | "section";
@@ -16,7 +17,11 @@ const SquareSkeleton = ({ style }: { style?: ViewStyle }) => (
   </View>
 );
 
-const LandscapeSkeleton = ({ style }: { style?: ViewStyle }) => (
+const LandscapeSkeleton = ({ style }: { style?: ViewStyle }) => {
+  // Was reading designTokens.colors, the deprecated static palette, which is
+  // always the dark one — these surfaces stayed dark in light mode.
+  const colors = useThemeColors();
+  return (
   <View
     style={[
       {
@@ -24,7 +29,7 @@ const LandscapeSkeleton = ({ style }: { style?: ViewStyle }) => (
         alignItems: "center",
         padding: designTokens.spacing.lg,
         marginBottom: designTokens.spacing.lg,
-        backgroundColor: designTokens.colors.system.background.secondary,
+        backgroundColor: colors.system.background.secondary,
         borderRadius: designTokens.borderRadius['2xl'],
         minHeight: 120,
       },
@@ -38,9 +43,14 @@ const LandscapeSkeleton = ({ style }: { style?: ViewStyle }) => (
     </View>
     <Skeleton width={52} height={52} variant="circle" />
   </View>
-);
+  );
+};
 
-const ListSkeleton = ({ style }: { style?: ViewStyle }) => (
+const ListSkeleton = ({ style }: { style?: ViewStyle }) => {
+  // Was reading designTokens.colors, the deprecated static palette, which is
+  // always the dark one — these surfaces stayed dark in light mode.
+  const colors = useThemeColors();
+  return (
   <View
     style={[
       {
@@ -48,7 +58,7 @@ const ListSkeleton = ({ style }: { style?: ViewStyle }) => (
         alignItems: "center",
         paddingVertical: designTokens.spacing.md,
         borderBottomWidth: 1,
-        borderBottomColor: designTokens.colors.system.separator.primary,
+        borderBottomColor: colors.system.separator.primary,
         minHeight: designTokens.hitTargets.large,
       },
       style,
@@ -64,9 +74,14 @@ const ListSkeleton = ({ style }: { style?: ViewStyle }) => (
       <Skeleton width="60%" height={15} style={{ marginTop: designTokens.spacing.xs }}/>
     </View>
   </View>
-);
+  );
+};
 
-const SectionSkeleton = ({ style }: { style?: ViewStyle }) => (
+const SectionSkeleton = ({ style }: { style?: ViewStyle }) => {
+  // Was reading designTokens.colors, the deprecated static palette, which is
+  // always the dark one — these surfaces stayed dark in light mode.
+  const colors = useThemeColors();
+  return (
   <View
     style={[
       {
@@ -74,7 +89,7 @@ const SectionSkeleton = ({ style }: { style?: ViewStyle }) => (
         alignItems: "flex-start",
         padding: designTokens.spacing.lg,
         marginBottom: designTokens.spacing.md,
-        backgroundColor: designTokens.colors.system.background.secondary,
+        backgroundColor: colors.system.background.secondary,
         borderRadius: designTokens.borderRadius["2xl"],
         minHeight: 120,
       },
@@ -88,7 +103,8 @@ const SectionSkeleton = ({ style }: { style?: ViewStyle }) => (
     </View>
     <Skeleton width={48} height={48} variant="circle" style={{ marginLeft: designTokens.spacing.md }} />
   </View>
-);
+  );
+};
 
 export const CardSkeleton: React.FC<CardSkeletonProps> = ({ variant, style }) => {
   switch (variant) {

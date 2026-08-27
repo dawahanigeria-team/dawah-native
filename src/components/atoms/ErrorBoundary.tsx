@@ -1,7 +1,13 @@
+/* eslint-disable react-native/no-unused-styles -- The palette has to be
+   chosen at render time, so the styles come from a makeStyles(colors)
+   factory. This rule only matches `styles.x` against a module-level
+   StyleSheet.create and cannot follow a factory, so it reports every key
+   here as unused. All of them are used in DefaultErrorFallback below. */
 import Ionicons from "@expo/vector-icons/Ionicons";
 import React, { Component, ErrorInfo, ReactNode } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { designTokens } from "../../theme/designTokens";
+import { useThemeColors } from "../../hooks/useTheme";
 import { captureSentryException, addSentryBreadcrumb } from "../../services/config/sentry.config";
 
 interface Props {
@@ -57,43 +63,10 @@ export class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <View style={styles.container}>
-          <View style={styles.iconContainer}>
-            <Ionicons
-              name="warning"
-              size={48}
-              color={designTokens.colors.semantic.orange}
-              accessibilityLabel="Error warning icon"
-            />
-          </View>
-
-          <Text style={styles.title}>Something went wrong</Text>
-
-          <Text style={styles.message}>
-            We&apos;re sorry, but something unexpected happened. Please try
-            again.
-          </Text>
-
-          {__DEV__ && this.state.error && (
-            <View style={styles.errorDetails}>
-              <Text style={styles.errorTitle}>
-                Error Details (Development):
-              </Text>
-              <Text style={styles.errorText}>{this.state.error.message}</Text>
-              <Text style={styles.errorStack}>{this.state.error.stack}</Text>
-            </View>
-          )}
-
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={this.handleRetry}
-            accessibilityLabel="Retry button"
-            accessibilityHint="Tap to try loading the content again"
-            accessibilityRole="button"
-          >
-            <Text style={styles.retryText}>Try Again</Text>
-          </TouchableOpacity>
-        </View>
+        <DefaultErrorFallback
+          error={this.state.error}
+          onRetry={this.handleRetry}
+        />
       );
     }
 
@@ -101,13 +74,21 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 }
 
-const styles = StyleSheet.create({
+// The two palettes are declared `as const`, so their literal types differ;
+// take the hook's own return type rather than either one of them.
+type ThemeColors = ReturnType<typeof useThemeColors>;
+
+// An error boundary has to be a class, and a class cannot call hooks, so the
+// fallback UI lives in its own function component below and the styles are
+// built from whichever palette is active.
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: designTokens.spacing.xl,
-    backgroundColor: designTokens.colors.system.background.primary,
+    backgroundColor: colors.system.background.primary,
   },
   iconContainer: {
     marginBottom: designTokens.spacing.lg,
@@ -115,13 +96,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: designTokens.typography.fontSize.title2,
     fontWeight: designTokens.typography.fontWeight.semibold,
-    color: designTokens.colors.system.label.primary,
+    color: colors.system.label.primary,
     textAlign: "center",
     marginBottom: designTokens.spacing.md,
   },
   message: {
     fontSize: designTokens.typography.fontSize.body,
-    color: designTokens.colors.system.label.secondary,
+    color: colors.system.label.secondary,
     textAlign: "center",
     marginBottom: designTokens.spacing.xl,
     lineHeight:
@@ -129,7 +110,7 @@ const styles = StyleSheet.create({
       designTokens.typography.lineHeight.normal,
   },
   errorDetails: {
-    backgroundColor: designTokens.colors.system.background.secondary,
+    backgroundColor: colors.system.background.secondary,
     padding: designTokens.spacing.md,
     borderRadius: designTokens.borderRadius.md,
     marginBottom: designTokens.spacing.xl,
@@ -138,21 +119,21 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: designTokens.typography.fontSize.footnote,
     fontWeight: designTokens.typography.fontWeight.semibold,
-    color: designTokens.colors.semantic.red,
+    color: colors.semantic.red,
     marginBottom: designTokens.spacing.xs,
   },
   errorText: {
     fontSize: designTokens.typography.fontSize.caption1,
-    color: designTokens.colors.system.label.secondary,
+    color: colors.system.label.secondary,
     marginBottom: designTokens.spacing.xs,
   },
   errorStack: {
     fontSize: designTokens.typography.fontSize.caption2,
-    color: designTokens.colors.system.label.tertiary,
+    color: colors.system.label.tertiary,
     fontFamily: designTokens.typography.fontFamily.mono,
   },
   retryButton: {
-    backgroundColor: designTokens.colors.brand.primary,
+    backgroundColor: colors.brand.primary,
     paddingHorizontal: designTokens.spacing.xl,
     paddingVertical: designTokens.spacing.md,
     borderRadius: designTokens.borderRadius.lg,
@@ -161,8 +142,56 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   retryText: {
-    color: designTokens.colors.system.background.primary,
+    color: colors.system.background.primary,
     fontSize: designTokens.typography.fontSize.body,
     fontWeight: designTokens.typography.fontWeight.semibold,
   },
-});
+  });
+
+function DefaultErrorFallback({
+  error,
+  onRetry,
+}: {
+  error?: Error;
+  onRetry: () => void;
+}) {
+  const colors = useThemeColors();
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.iconContainer}>
+        <Ionicons
+          name="warning"
+          size={48}
+          color={colors.semantic.orange}
+          accessibilityLabel="Error warning icon"
+        />
+      </View>
+
+      <Text style={styles.title}>Something went wrong</Text>
+
+      <Text style={styles.message}>
+        We&apos;re sorry, but something unexpected happened. Please try again.
+      </Text>
+
+      {__DEV__ && error && (
+        <View style={styles.errorDetails}>
+          <Text style={styles.errorTitle}>Error Details (Development):</Text>
+          <Text style={styles.errorText}>{error.message}</Text>
+          <Text style={styles.errorStack}>{error.stack}</Text>
+        </View>
+      )}
+
+      <TouchableOpacity
+        style={styles.retryButton}
+        onPress={onRetry}
+        accessibilityLabel="Retry button"
+        accessibilityHint="Tap to try loading the content again"
+        accessibilityRole="button"
+      >
+        <Text style={styles.retryText}>Try Again</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}

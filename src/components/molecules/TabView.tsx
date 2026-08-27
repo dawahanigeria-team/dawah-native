@@ -19,6 +19,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import tw from '../../theme/twrnc';
 import { designTokens } from '../../theme/designTokens';
+import { useThemeColors } from '../../hooks/useTheme';
 
 export interface Tab {
   key: string;
@@ -39,6 +40,9 @@ export const TabView: React.FC<TabViewProps> = ({
   onTabChange,
   style,
 }) => {
+  // designTokens.colors is the deprecated static palette and is always the dark
+  // one, so tab labels stayed white and vanished against a light background.
+  const colors = useThemeColors();
   const scrollViewRef = useRef<ScrollView>(null);
   const [tabLayouts, setTabLayouts] = useState<{ [key: string]: { x: number; width: number } }>({});
   const indicatorPosition = useSharedValue(0);
@@ -97,8 +101,8 @@ export const TabView: React.FC<TabViewProps> = ({
                       {
                         fontSize: designTokens.typography.fontSize.body,
                         color: isActive
-                          ? designTokens.colors.system.label.primary
-                          : designTokens.colors.system.label.tertiary,
+                          ? colors.system.label.primary
+                          : colors.system.label.tertiary,
                       },
                     ]}
                   >
@@ -111,8 +115,8 @@ export const TabView: React.FC<TabViewProps> = ({
                         {
                           fontSize: designTokens.typography.fontSize.caption1,
                           color: isActive
-                            ? designTokens.colors.system.label.secondary
-                            : designTokens.colors.system.label.quaternary,
+                            ? colors.system.label.secondary
+                            : colors.system.label.quaternary,
                         },
                       ]}
                     >
@@ -130,7 +134,7 @@ export const TabView: React.FC<TabViewProps> = ({
               tw`absolute bottom-0 h-0.5`,
               indicatorAnimatedStyle,
               {
-                backgroundColor: designTokens.colors.brand.primary,
+                backgroundColor: colors.brand.primary,
               },
             ]}
           />
