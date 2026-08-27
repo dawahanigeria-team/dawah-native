@@ -23,6 +23,7 @@ import {
   buildLecturerPlaylistSearchKey,
   shouldFetchLecturerPlaylists,
 } from "../../src/features/lecturer/playlistTabState";
+import { ApiError } from "../../src/services/api/base.api";
 import { Album, albumsApi } from "../../src/services/api/albums.api";
 import {
   Lecturer,
@@ -209,6 +210,9 @@ function LecturerDetailScreen() {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
   const [lecturesLoading, setLecturesLoading] = useState(true);
+  // Distinct from `error` (which covers the whole screen): a lectures failure
+  // must not read as "this scholar has no lectures".
+  const [lecturesError, setLecturesError] = useState<string | null>(null);
   const [albumsLoading, setAlbumsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -341,6 +345,7 @@ function LecturerDetailScreen() {
         setLoadingMore(true);
       } else {
         setLecturesLoading(true);
+        setLecturesError(null);
       }
 
       // Fetch lectures by lecturer using the specific API endpoint
@@ -374,9 +379,23 @@ function LecturerDetailScreen() {
       const hasMore = response.data.length >= PAGE_SIZE;
       setHasMoreLectures(hasMore);
       setCurrentPage(page);
+      setLecturesError(null);
     } catch (err) {
       console.error("Failed to fetch lecturer lectures:", err);
       setHasMoreLectures(false); // Stop trying to load more on error
+
+      // A cancelled request is the expected outcome of navigating away, or of a
+      // second load superseding this one — surfacing it would flash an error the
+      // user never caused. Only the first page reports, since a failed
+      // "load more" must leave the lectures already on screen alone.
+      const cancelled = err instanceof ApiError && err.isCancelled;
+      if (!cancelled && !appendData) {
+        setLecturesError(
+          err instanceof ApiError && (err.isTimeout || err.isNetworkError)
+            ? err.message
+            : "We couldn't load this scholar's lectures.",
+        );
+      }
     } finally {
       setLecturesLoading(false);
       setLoadingMore(false);
@@ -955,9 +974,12 @@ function LecturerDetailScreen() {
 
   const lecturerName = lecturer.rpname || lecturer.name || "Unknown Lecturer";
   const lecturerImage = lecturer.img || lecturer.image || lecturer.avatarUrl;
-  const favorites = lecturer.favorites || 1400;
-  const shares = lecturer.share || 23;
-  const comments = lecturer.comment || 44;
+  // `|| <number>` here published invented engagement: a lecturer with zero
+  // favourites rendered as "1.4K". Report what upstream actually sent, and let
+  // the stats row drop anything genuinely zero.
+  const favorites = lecturer.favorites ?? 0;
+  const shares = lecturer.share ?? 0;
+  const comments = lecturer.comment ?? 0;
 
   // Define tabs
   const tabs = [
@@ -1360,7 +1382,10 @@ function LecturerDetailScreen() {
               {lecturerName}
             </Text>
 
-            {/* Stats Row */}
+            {/* Stats Row — the real upstream counts, including a genuine 0.
+                The web detail page renders `count` whenever it is defined, so
+                hiding zeros here would have the two platforms disagree about
+                the same lecturer. */}
             <View style={tw`flex-row items-center mb-3`}>
               <View style={tw`flex-row items-center mr-3`}>
                 <Ionicons
@@ -1547,6 +1572,32 @@ function LecturerDetailScreen() {
                 >
                   Loading lectures...
                 </Text>
+              </View>
+            );
+          }
+          if (lecturesError) {
+            return (
+              <View style={tw`px-5 py-10 items-center`}>
+                <Text
+                  style={[
+                    tw`text-center mb-4`,
+                    { color: colors.system.label.secondary },
+                  ]}
+                >
+                  {lecturesError}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => void fetchLecturerLectures()}
+                  accessibilityRole="button"
+                  style={[
+                    tw`px-6 py-3 rounded-lg`,
+                    { backgroundColor: colors.system.fill.tertiary },
+                  ]}
+                >
+                  <Text style={{ color: colors.system.label.primary }}>
+                    Try Again
+                  </Text>
+                </TouchableOpacity>
               </View>
             );
           }
