@@ -1382,60 +1382,56 @@ function LecturerDetailScreen() {
               {lecturerName}
             </Text>
 
-            {/* Stats Row — a stat upstream reports as 0 is omitted rather
-                than shown, matching the per-lecture rows below. */}
+            {/* Stats Row — the real upstream counts, including a genuine 0.
+                The web detail page renders `count` whenever it is defined, so
+                hiding zeros here would have the two platforms disagree about
+                the same lecturer. */}
             <View style={tw`flex-row items-center mb-3`}>
-              {favorites > 0 && (
-                <View style={tw`flex-row items-center mr-3`}>
-                  <Ionicons
-                    name="heart"
-                    size={16}
-                    color={colors.system.label.tertiary}
-                  />
-                  <Text
-                    style={[
-                      tw`text-sm ml-1`,
-                      { color: colors.system.label.secondary },
-                    ]}
-                  >
-                    {formatNumber(favorites)}
-                  </Text>
-                </View>
-              )}
-              {shares > 0 && (
-                <View style={tw`flex-row items-center mr-3`}>
-                  <Ionicons
-                    name="share-social"
-                    size={16}
-                    color={colors.system.label.tertiary}
-                  />
-                  <Text
-                    style={[
-                      tw`text-sm ml-1`,
-                      { color: colors.system.label.secondary },
-                    ]}
-                  >
-                    {formatNumber(shares)}
-                  </Text>
-                </View>
-              )}
-              {comments > 0 && (
-                <View style={tw`flex-row items-center`}>
-                  <Ionicons
-                    name="chatbubble"
-                    size={16}
-                    color={colors.system.label.tertiary}
-                  />
-                  <Text
-                    style={[
-                      tw`text-sm ml-1`,
-                      { color: colors.system.label.secondary },
-                    ]}
-                  >
-                    {formatNumber(comments)}
-                  </Text>
-                </View>
-              )}
+              <View style={tw`flex-row items-center mr-3`}>
+                <Ionicons
+                  name="heart"
+                  size={16}
+                  color={colors.system.label.tertiary}
+                />
+                <Text
+                  style={[
+                    tw`text-sm ml-1`,
+                    { color: colors.system.label.secondary },
+                  ]}
+                >
+                  {formatNumber(favorites)}
+                </Text>
+              </View>
+              <View style={tw`flex-row items-center mr-3`}>
+                <Ionicons
+                  name="share-social"
+                  size={16}
+                  color={colors.system.label.tertiary}
+                />
+                <Text
+                  style={[
+                    tw`text-sm ml-1`,
+                    { color: colors.system.label.secondary },
+                  ]}
+                >
+                  {formatNumber(shares)}
+                </Text>
+              </View>
+              <View style={tw`flex-row items-center`}>
+                <Ionicons
+                  name="chatbubble"
+                  size={16}
+                  color={colors.system.label.tertiary}
+                />
+                <Text
+                  style={[
+                    tw`text-sm ml-1`,
+                    { color: colors.system.label.secondary },
+                  ]}
+                >
+                  {formatNumber(comments)}
+                </Text>
+              </View>
             </View>
 
             {/* Follow Button */}
