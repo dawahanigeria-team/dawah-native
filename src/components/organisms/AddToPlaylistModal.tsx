@@ -4,7 +4,6 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { playlistApi } from '../../services/api/playlist.api';
 import { UserPlaylist } from '../../types/api.types';
 import { useThemeColors } from '../../hooks/useTheme';
-import { designTokens } from '../../theme/designTokens';
 import tw from '../../theme/twrnc';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -82,7 +81,7 @@ const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
       <Pressable
         style={[
           tw`flex-1 justify-center items-center`,
-          { backgroundColor: designTokens.colors.overlay.darkMedium },
+          { backgroundColor: colors.overlay.darkMedium },
         ]}
         onPress={onClose}
       >
@@ -108,7 +107,7 @@ const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
           </View>
 
           {loading ? (
-            <ActivityIndicator size="large" color={designTokens.colors.brand.primary} />
+            <ActivityIndicator size="large" color={colors.brand.primary} />
           ) : playlists.length === 0 ? (
             <Text
               style={[
@@ -142,7 +141,7 @@ const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
                     {item.name}
                   </Text>
                   {addingAudio && (
-                    <ActivityIndicator size="small" color={designTokens.colors.brand.primary} />
+                    <ActivityIndicator size="small" color={colors.brand.primary} />
                   )}
                 </TouchableOpacity>
               )}

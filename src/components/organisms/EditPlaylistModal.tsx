@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useState } from 'react';
 import { Alert, Modal, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { designTokens } from '../../theme/designTokens';
+import { useThemeColors } from '../../hooks/useTheme';
 import tw from '../../theme/twrnc';
 
 interface EditPlaylistModalProps {
@@ -21,6 +21,11 @@ const EditPlaylistModal: React.FC<EditPlaylistModalProps> = ({
   currentIsPrivate,
   onPlaylistUpdated: _onPlaylistUpdated,
 }) => {
+  // These rows used twrnc `dark:` variants, which follow the DEVICE colour
+  // scheme rather than this app's theme store, so the modal ignored the
+  // in-app toggle entirely. designTokens.colors is the deprecated dark-only
+  // palette, which is the same bug in a different shape.
+  const colors = useThemeColors();
   const [name, setName] = useState(currentName);
   const [isPrivate, setIsPrivate] = useState(currentIsPrivate);
 
@@ -48,30 +53,30 @@ const EditPlaylistModal: React.FC<EditPlaylistModalProps> = ({
       onRequestClose={onClose}
     >
       <View style={tw`flex-1 justify-center items-center bg-black bg-opacity-50`}>
-        <View style={tw`w-11/12 bg-white dark:bg-zinc-800 rounded-lg p-4`}>
+        <View style={[tw`w-11/12 rounded-lg p-4`, { backgroundColor: colors.system.background.secondary }]}>
           <View style={tw`flex-row justify-between items-center mb-4`}>
-            <Text style={tw`text-lg font-bold text-zinc-900 dark:text-white`}>
+            <Text style={[tw`text-lg font-bold`, { color: colors.system.label.primary }]}>
               Edit Playlist
             </Text>
             <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={24} color={designTokens.colors.system.label.primary} />
+              <Ionicons name="close" size={24} color={colors.system.label.primary} />
             </TouchableOpacity>
           </View>
 
           <TextInput
-            style={tw`bg-zinc-100 dark:bg-zinc-700 text-zinc-900 dark:text-white rounded-md p-3 mb-4`}
+            style={[tw`rounded-md p-3 mb-4`, { backgroundColor: colors.system.fill.tertiary, color: colors.system.label.primary }]}
             placeholder="Playlist Name"
-            placeholderTextColor={designTokens.colors.system.label.secondary}
+            placeholderTextColor={colors.system.label.secondary}
             value={name}
             onChangeText={setName}
           />
 
           <View style={tw`flex-row items-center justify-between mb-6`}>
-            <Text style={tw`text-zinc-900 dark:text-white`}>Private Playlist</Text>
+            <Text style={{ color: colors.system.label.primary }}>Private Playlist</Text>
             <Switch
-              trackColor={{ false: designTokens.colors.system.fill.tertiary, true: designTokens.colors.brand.primary }}
-              thumbColor={isPrivate ? designTokens.colors.system.background.primary : designTokens.colors.system.background.primary}
-              ios_backgroundColor={designTokens.colors.system.fill.tertiary}
+              trackColor={{ false: colors.system.fill.tertiary, true: colors.brand.primary }}
+              thumbColor={isPrivate ? colors.system.background.primary : colors.system.background.primary}
+              ios_backgroundColor={colors.system.fill.tertiary}
               onValueChange={setIsPrivate}
               value={isPrivate}
             />

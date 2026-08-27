@@ -16,6 +16,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { designTokens } from "../../theme/designTokens";
+import { useThemeColors } from '../../hooks/useTheme';
 import {
   getInitialSkeletonContainerWidth,
   resolveSkeletonAnimationEnabled,
@@ -84,10 +85,12 @@ export const Skeleton: React.FC<SkeletonProps> = ({
     };
   });
 
+  // designTokens.colors is the deprecated static (dark) palette.
+  const colors = useThemeColors();
   const skeletonStyle: ViewStyle = {
     width: width as DimensionValue,
     height: height as DimensionValue,
-    backgroundColor: designTokens.colors.system.background.secondary,
+    backgroundColor: colors.system.background.secondary,
     borderRadius:
       variant === "circle"
         ? typeof height === "number"
