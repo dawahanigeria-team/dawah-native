@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../../src/components/atoms";
 import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
 import { TabView } from "../../src/components/molecules/TabView";
+import { resolveLecturesListState } from "../../src/features/lecturer/lecturesListState";
 import { useDebounce } from "../../src/hooks/useDebounce";
 import { useFollowGate } from "../../src/hooks/useFollowGate";
 import { useTheme } from "../../src/hooks/useTheme";
@@ -113,6 +114,10 @@ const buildLecturerDetails = (
 
 // Pagination constants
 const PAGE_SIZE = 10;
+// Long enough that a superseding request has normally answered (measured
+// p50 ~0.6s, p95 ~0.95s against api.dawahnigeria.com), short enough that a
+// user on a slow connection does not sit in front of a wrong empty state.
+const LECTURES_AUTO_RETRY_DELAY_MS = 1500;
 const IS_ANDROID = Platform.OS === "android";
 const IMAGE_CACHE_POLICY: "disk" | "memory-disk" = IS_ANDROID
   ? "disk"
@@ -221,6 +226,18 @@ function LecturerDetailScreen() {
   const [hasMoreLectures, setHasMoreLectures] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const isLoadingRef = useRef(false);
+  // True once a lectures request came back with a readable body. A cancelled
+  // request never sets it, which is what keeps "interrupted" apart from
+  // "this scholar has no lectures".
+  const [lecturesSettled, setLecturesSettled] = useState(false);
+  const lecturesSettledRef = useRef(false);
+  const autoRetryUsedRef = useRef(false);
+  const autoRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The auto-retry fires from inside fetchLecturerLectures' own callback, so it
+  // reaches the function through a ref rather than closing over itself.
+  const fetchLecturesRef = useRef<
+    ((page?: number, appendData?: boolean) => Promise<void>) | null
+  >(null);
 
   // Album Pagination states
   const [currentAlbumPage, setCurrentAlbumPage] = useState(1);
@@ -380,6 +397,8 @@ function LecturerDetailScreen() {
       setHasMoreLectures(hasMore);
       setCurrentPage(page);
       setLecturesError(null);
+      lecturesSettledRef.current = true;
+      setLecturesSettled(true);
     } catch (err) {
       console.error("Failed to fetch lecturer lectures:", err);
       setHasMoreLectures(false); // Stop trying to load more on error
@@ -389,6 +408,22 @@ function LecturerDetailScreen() {
       // user never caused. Only the first page reports, since a failed
       // "load more" must leave the lectures already on screen alone.
       const cancelled = err instanceof ApiError && err.isCancelled;
+
+      // A cancel usually means a newer request superseded this one, and that
+      // one will populate the list. Retry only if nothing has settled by the
+      // time the delay elapses, so we never abort the request that replaced
+      // us. Transport failures are excluded: base.api already retries those
+      // three times with backoff, and they surface a Try Again button.
+      if (cancelled && !appendData && !autoRetryUsedRef.current) {
+        autoRetryUsedRef.current = true;
+        autoRetryTimerRef.current = setTimeout(() => {
+          autoRetryTimerRef.current = null;
+          if (!lecturesSettledRef.current && !isLoadingRef.current) {
+            void fetchLecturesRef.current?.();
+          }
+        }, LECTURES_AUTO_RETRY_DELAY_MS);
+      }
+
       if (!cancelled && !appendData) {
         setLecturesError(
           err instanceof ApiError && (err.isTimeout || err.isNetworkError)
@@ -404,6 +439,10 @@ function LecturerDetailScreen() {
     },
     [lecturerId],
   );
+
+  useEffect(() => {
+    fetchLecturesRef.current = fetchLecturerLectures;
+  }, [fetchLecturerLectures]);
 
   const loadMoreLectures = () => {
     if (
@@ -496,9 +535,19 @@ function LecturerDetailScreen() {
     setError(null);
     setIsFollowLoading(false);
     autoFollowHandledRef.current = false;
+    lecturesSettledRef.current = false;
+    setLecturesSettled(false);
+    autoRetryUsedRef.current = false;
     fetchLecturerDetails();
     fetchLecturerLectures();
     fetchAlbums(); // Fetch albums on initial load to show correct count
+
+    return () => {
+      if (autoRetryTimerRef.current) {
+        clearTimeout(autoRetryTimerRef.current);
+        autoRetryTimerRef.current = null;
+      }
+    };
   }, [lecturerId, fetchLecturerDetails, fetchLecturerLectures, fetchAlbums]);
 
   const playlistQueryName = lecturer?.rpname || lecturer?.name || "";
@@ -1563,7 +1612,15 @@ function LecturerDetailScreen() {
         ListHeaderComponent={headerContent}
         ListFooterComponent={renderLectureFooter}
         ListEmptyComponent={() => {
-          if (lecturesLoading) {
+          const state = resolveLecturesListState({
+            count: filteredLectures.length,
+            isLoading: lecturesLoading,
+            error: lecturesError,
+            hasSettled: lecturesSettled,
+            isSearching: searchQuery.length > 0,
+          });
+
+          if (state.kind === "loading") {
             return (
               <View style={tw`px-5 py-10 items-center`}>
                 <ActivityIndicator size="small" color={colors.brand.primary} />
@@ -1575,7 +1632,8 @@ function LecturerDetailScreen() {
               </View>
             );
           }
-          if (lecturesError) {
+
+          if (state.kind === "error") {
             return (
               <View style={tw`px-5 py-10 items-center`}>
                 <Text
@@ -1584,7 +1642,7 @@ function LecturerDetailScreen() {
                     { color: colors.system.label.secondary },
                   ]}
                 >
-                  {lecturesError}
+                  {state.message}
                 </Text>
                 <TouchableOpacity
                   onPress={() => void fetchLecturerLectures()}
@@ -1601,6 +1659,7 @@ function LecturerDetailScreen() {
               </View>
             );
           }
+
           return (
             <View style={tw`px-5 py-10 items-center`}>
               <Text
