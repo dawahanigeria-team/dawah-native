@@ -21,10 +21,16 @@ export interface LastNavigation {
   at: number;
 }
 
-export type NavigationTarget =
+/**
+ * Structural shape of the href forms expo-router accepts. Deliberately looser
+ * than expo-router's `Href` so this stays a pure, testable helper — callers are
+ * typed against `Href` itself, so typed routes are still enforced at the call
+ * site.
+ */
+export type NavigationTargetShape =
   | string
   | {
-      pathname: string;
+      pathname?: unknown;
       params?: Record<string, unknown> | null;
     };
 
@@ -32,18 +38,19 @@ export type NavigationTarget =
  * Collapses either href form to one comparable string. Params are sorted so
  * that two objects meaning the same route always produce the same key.
  */
-export function navigationKey(target: NavigationTarget): string {
+export function navigationKey(target: NavigationTargetShape): string {
   if (typeof target === 'string') return target;
 
+  const pathname = String(target.pathname ?? '');
   const params = target.params;
-  if (!params) return target.pathname;
+  if (!params) return pathname;
 
   const query = Object.keys(params)
     .sort()
     .map((key) => `${key}=${String(params[key])}`)
     .join('&');
 
-  return query ? `${target.pathname}?${query}` : target.pathname;
+  return query ? `${pathname}?${query}` : pathname;
 }
 
 export function shouldAllowNavigation(

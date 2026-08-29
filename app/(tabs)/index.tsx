@@ -1,6 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image as ExpoImage } from "expo-image";
 import { router } from "expo-router";
+import { useGuardedPush } from "../../src/navigation/useGuardedPush";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   InteractionManager,
@@ -104,6 +105,7 @@ export default function HomeScreenWithBoundary() {
 }
 
 function HomeScreen() {
+  const guardedPush = useGuardedPush();
   // useWindowDimensions rather than a module-scope Dimensions.get(), which
   // was captured at import and never updated on rotation or resize.
   const { width: SCREEN_WIDTH } = useWindowDimensions();
@@ -133,15 +135,15 @@ function HomeScreen() {
   // Handle search submission
   const handleSearchSubmit = useCallback(() => {
     if (searchValue.trim()) {
-      router.push(`/search?q=${encodeURIComponent(searchValue.trim())}`);
+      guardedPush(`/search?q=${encodeURIComponent(searchValue.trim())}`);
     } else {
-      router.push("/search");
+      guardedPush("/search");
     }
-  }, [searchValue]);
+  }, [searchValue, guardedPush]);
 
   const handleMicPress = useCallback(() => {
-    router.push("/search?voice=true");
-  }, []);
+    guardedPush("/search?voice=true");
+  }, [guardedPush]);
 
   // Data fetching
   const {
@@ -268,11 +270,11 @@ function HomeScreen() {
 
   // Handlers
   const handleCarouselItemPress = useCallback((episode: Episode) => {
-    router.push(`/lecture/${episode.id}`);
-  }, []);
+    guardedPush(`/lecture/${episode.id}`);
+  }, [guardedPush]);
 
   const handleAlbumPress = useCallback((album: QuranAlbum) => {
-    router.push({
+    guardedPush({
       pathname: `/quran-reciter/${album.id}`,
       params: {
         albumIds: (album.albumIds || [album.id]).join(','),
@@ -280,7 +282,7 @@ function HomeScreen() {
         reciterName: album.name,
       },
     } as any);
-  }, []);
+  }, [guardedPush]);
 
   // Render Quick Action
   const renderQuickAction = useCallback(
@@ -291,7 +293,7 @@ function HomeScreen() {
       >
         <TouchableOpacity
           onPress={() =>
-            router.push(action.route as Parameters<typeof router.push>[0])
+            guardedPush(action.route as Parameters<typeof router.push>[0])
           }
           style={[
             styles.quickAction,
@@ -320,7 +322,7 @@ function HomeScreen() {
         </TouchableOpacity>
       </Animated.View>
     ),
-    [colors, SCREEN_WIDTH],
+    [colors, SCREEN_WIDTH, guardedPush],
   );
 
   // Render Section Header
@@ -672,7 +674,7 @@ function HomeScreen() {
               ? "Based on your languages and scholars"
               : "What the community is listening to",
             () =>
-            router.push("/section/trending"),
+            guardedPush("/section/trending"),
           )}
           {primaryContentFailed ? (
             <View
@@ -743,7 +745,7 @@ function HomeScreen() {
             {renderSectionHeader(
               "Continue Listening",
               "Pick up where you left off",
-              () => router.push("/section/recently-played"),
+              () => guardedPush("/section/recently-played"),
             )}
             {recentlyPlayedLoading ? (
               renderSkeletons()
@@ -766,7 +768,7 @@ function HomeScreen() {
           {renderSectionHeader(
             "Fresh Content",
             "Latest from our scholars",
-            () => router.push("/section/recently-posted"),
+            () => guardedPush("/section/recently-posted"),
           )}
           {recentLoading ? (
             renderSkeletons()
@@ -787,7 +789,7 @@ function HomeScreen() {
           {renderSectionHeader(
             "Quran Recitations",
             "Beautiful recitations",
-            () => router.push("/section/quran-recitations"),
+            () => guardedPush("/section/quran-recitations"),
           )}
           {quranLoading ? (
             renderSkeletons(HOME_QURAN_SKELETON_COUNT, "square")

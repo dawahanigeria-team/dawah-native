@@ -1,6 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
+import { useGuardedPush } from "../src/navigation/useGuardedPush";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -30,6 +31,7 @@ interface YearGroup {
 }
 
 export default function RamadanTafsirScreen() {
+  const guardedPush = useGuardedPush();
   // useWindowDimensions, not a module-scope Dimensions.get(): the old
   // value was captured at import and never updated on rotation or resize.
   const { width: SCREEN_WIDTH } = useWindowDimensions();
@@ -77,11 +79,11 @@ export default function RamadanTafsirScreen() {
 
   const handleAlbumPress = useCallback((album: RamadanAlbum) => {
     if (!album?.id) return;
-    router.push(`/album/${album.id}`);
-  }, []);
+    guardedPush(`/album/${album.id}`);
+  }, [guardedPush]);
 
   const handleViewAllAlbums = (year: number) => {
-    router.push(`/ramadan-year/${year}`);
+    guardedPush(`/ramadan-year/${year}`);
   };
 
   const renderAlbumCard = useCallback(

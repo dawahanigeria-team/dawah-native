@@ -1,6 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { useGuardedPush } from '../../src/navigation/useGuardedPush';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -44,6 +45,7 @@ import { boxShadow } from "../../src/utils/shadow";
 
 const QuranReciterScreen: React.FC = () => {
   const router = useRouter();
+  const guardedPush = useGuardedPush();
   const { id, autoFollow, albumIds, reciterId, reciterName } = useLocalSearchParams<{
     id: string;
     autoFollow?: string;
@@ -229,11 +231,11 @@ const QuranReciterScreen: React.FC = () => {
 
   const navigateToSignIn = useCallback(() => {
     if (!albumId || String(albumId) === '0') return;
-    router.push({
+    guardedPush({
       pathname: '/sign-in',
       params: { returnTo: buildReciterFollowReturnTo(albumId) },
     });
-  }, [albumId, router]);
+  }, [albumId, guardedPush]);
 
   const handleFollowPress = useCallback(
     async (options: { skipAuthCheck?: boolean; forceFollow?: boolean } = {}) => {

@@ -1,6 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
+import { useGuardedPush } from "../../src/navigation/useGuardedPush";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -138,6 +139,7 @@ export default function LecturerDetailScreenWithBoundary() {
 }
 
 function LecturerDetailScreen() {
+  const guardedPush = useGuardedPush();
   const shouldClipSubviews = Platform.OS !== "android";
   const { id, name, autoFollow } = useLocalSearchParams<{
     id: string;
@@ -735,7 +737,7 @@ function LecturerDetailScreen() {
 
   const handleLectureCardPress = (lecture: LecturerLecture) => {
     // Navigate to lecture detail page
-    router.push(`/lecture/${lecture.nid}`);
+    guardedPush(`/lecture/${lecture.nid}`);
   };
 
   const formatNumber = (num: number): string => {
@@ -791,11 +793,11 @@ function LecturerDetailScreen() {
 
   const navigateToSignIn = useCallback(() => {
     if (!lecturerId || String(lecturerId) === "0") return;
-    router.push({
+    guardedPush({
       pathname: "/sign-in",
       params: { returnTo: buildLecturerFollowReturnTo(lecturerId) },
     });
-  }, [lecturerId]);
+  }, [lecturerId, guardedPush]);
 
   const handleFollowPress = useCallback(
     async (options: { skipAuthCheck?: boolean; forceFollow?: boolean } = {}) => {
@@ -1052,7 +1054,7 @@ function LecturerDetailScreen() {
         });
 
         // Navigate to album detail page
-        router.push(`/album/${item.id}`);
+        guardedPush(`/album/${item.id}`);
       } catch (err: unknown) {
         const error =
           err instanceof Error ? err : new Error("Album press error");
@@ -1280,7 +1282,7 @@ function LecturerDetailScreen() {
   const renderPlaylistItem = ({ item }: { item: SearchPlaylist }) => {
     const handlePlaylistPress = () => {
       // Navigate to playlist detail page
-      router.push(`/playlist/${item.id}`);
+      guardedPush(`/playlist/${item.id}`);
     };
 
     return (

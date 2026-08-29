@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
+import { useGuardedPush } from '../src/navigation/useGuardedPush';
 import React, { useCallback, useEffect, useState } from 'react';
 import { FlashList } from '../src/components/adapters/flashListCompat';
 import { Alert, Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -14,6 +15,7 @@ import { UserPlaylist } from '../src/types/api.types';
 
 export default function PlaylistsScreen() {
   const router = useRouter();
+  const guardedPush = useGuardedPush();
   const { colors, spacing, typography, borderRadius } = useTheme();
   const { isAuthenticated, user } = useAuthStore();
   const [playlists, setPlaylists] = useState<UserPlaylist[]>([]);
@@ -123,7 +125,7 @@ export default function PlaylistsScreen() {
               data={playlists}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
-                <TouchableOpacity onPress={() => router.push(`/playlist/${item.id}` as any)} style={{ padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.system.separator.primary }}>
+                <TouchableOpacity onPress={() => guardedPush(`/playlist/${item.id}` as any)} style={{ padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.system.separator.primary }}>
                   <View>
                     <Text style={{ fontSize: typography.fontSize.body, color: colors.system.label.primary }}>{item.name}</Text>
                     <Text style={{ fontSize: typography.fontSize.caption1, color: colors.system.label.secondary }}>{item.count} tracks</Text>

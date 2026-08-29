@@ -5,6 +5,7 @@
 
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
+import { useGuardedPush } from "../src/navigation/useGuardedPush";
 import { useState, useCallback } from "react";
 import {
   ActivityIndicator,
@@ -67,6 +68,7 @@ const mockAnnouncements: Announcement[] = [
 ];
 
 export default function InboxScreen() {
+  const guardedPush = useGuardedPush();
   const { colors } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -136,9 +138,9 @@ export default function InboxScreen() {
   const handleAnnouncementPress = useCallback(
     (announcement: Announcement) => {
       void handleMarkAsRead(announcement.id);
-      router.push(`/announcement/${announcement.id}`);
+      guardedPush(`/announcement/${announcement.id}`);
     },
-    [handleMarkAsRead],
+    [handleMarkAsRead, guardedPush],
   );
 
   const renderItem = ({ item }: { item: Announcement }) => (
@@ -289,7 +291,7 @@ export default function InboxScreen() {
 
         {/* Settings button */}
         <TouchableOpacity
-          onPress={() => router.push("/notifications")}
+          onPress={() => guardedPush("/notifications")}
           style={tw`p-2`}
           accessibilityLabel="Notification settings"
           accessibilityRole="button"

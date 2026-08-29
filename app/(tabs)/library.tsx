@@ -5,7 +5,7 @@ import { Text, TouchableOpacity, View, Alert, ActivityIndicator } from "react-na
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../../src/components/molecules/Card";
 import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
-import { useRouter } from "expo-router";
+import { useGuardedPush } from "../../src/navigation/useGuardedPush";
 import { usePlayerActions, useDownloadsStore, useFavoritesStore } from "../../src/stores";
 import { useAuthStore } from "../../src/stores/authStore";
 import { useTheme } from "../../src/hooks/useTheme";
@@ -48,7 +48,7 @@ export default function LibraryScreenWithBoundary() {
 }
 
 function LibraryScreen() {
-  const router = useRouter();
+  const guardedPush = useGuardedPush();
   const { playEpisode } = usePlayerActions();
   const { downloads, deleteLecture, getTotalStorageUsed, refreshDownloads } = useDownloadsStore();
   const { favoriteIds, fetchFavorites, loading: favoritesLoading } = useFavoritesStore();
@@ -267,7 +267,7 @@ function LibraryScreen() {
     } else {
       // It's a series/playlist
       if (activeTab === "Playlists") {
-        router.push(`/playlist/${item.id}` as any);
+        guardedPush(`/playlist/${item.id}` as any);
       } else {
         logger.debug("Series/Playlist pressed:", item.title);
       }

@@ -1,5 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
+import { useGuardedPush } from "../../src/navigation/useGuardedPush";
 import React from "react";
 import { Alert, Linking, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -30,6 +31,7 @@ interface MenuItem {
 
 const ProfileScreen = () => {
   const router = useRouter();
+  const guardedPush = useGuardedPush();
   const { colors, isDark, setTheme } = useTheme();
   const { user, isAuthenticated, logout, deleteAccount } = useAuthStore();
   const { plan, subscription_status } = usePremiumStore();
@@ -216,7 +218,7 @@ const ProfileScreen = () => {
           title: "Edit Profile",
           subtitle: "Update your information",
           icon: "person-outline",
-          onPress: () => router.push("/edit-profile" as any),
+          onPress: () => guardedPush("/edit-profile" as any),
           showChevron: true,
         },
         {
@@ -256,7 +258,7 @@ const ProfileScreen = () => {
       subtitle: "Choose your languages and scholars",
       icon: "options-outline",
       iconColor: colors.brand.primary,
-      onPress: () => router.push("/listening-preferences" as any),
+      onPress: () => guardedPush("/listening-preferences" as any),
       showChevron: true,
     },
     {
@@ -265,7 +267,7 @@ const ProfileScreen = () => {
       subtitle: premiumSubtitle,
       icon: "diamond-outline",
       iconColor: colors.brand.primary,
-      onPress: () => router.push("/premium" as any),
+      onPress: () => guardedPush("/premium" as any),
       showChevron: true,
     },
     {
@@ -283,7 +285,7 @@ const ProfileScreen = () => {
       subtitle: "Manage alerts & sounds",
       icon: "notifications-outline",
       iconColor: colors.semantic.red,
-      onPress: () => router.push("/notifications"),
+      onPress: () => guardedPush("/notifications"),
       showChevron: true,
     },
   ];
@@ -313,7 +315,7 @@ const ProfileScreen = () => {
       subtitle: "Version 1.0.0",
       icon: "information-circle-outline",
       iconColor: colors.system.label.secondary,
-      onPress: () => router.push("/about" as any),
+      onPress: () => guardedPush("/about" as any),
       showChevron: true,
     },
   ];

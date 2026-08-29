@@ -1,6 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
+import { useGuardedPush } from "../src/navigation/useGuardedPush";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -76,6 +77,7 @@ export default function SearchScreenWithBoundary() {
 }
 
 function SearchScreen() {
+  const guardedPush = useGuardedPush();
   const { colors } = useTheme();
   const searchParams = useLocalSearchParams();
   const initialQuery = (searchParams.q as string) || "";
@@ -282,7 +284,7 @@ function SearchScreen() {
   const handleItemPress = (item: SearchLecture) => {
     const lectureId = item.nid || item.id;
     if (lectureId) {
-      router.push(`/lecture/${lectureId}`);
+      guardedPush(`/lecture/${lectureId}`);
     }
   };
 
@@ -369,7 +371,7 @@ function SearchScreen() {
       <TouchableOpacity
         key={`lecturer-${raw.id}`}
         onPress={() =>
-          router.push({
+          guardedPush({
             pathname: "/lecturer/[id]",
             params: { id: String(raw.id), name },
           })
@@ -439,7 +441,7 @@ function SearchScreen() {
     return (
       <TouchableOpacity
         key={`album-${raw.id}`}
-        onPress={() => router.push(`/album/${raw.id}`)}
+        onPress={() => guardedPush(`/album/${raw.id}`)}
         activeOpacity={0.75}
         style={[
           tw`flex-row items-center p-4 mb-3 rounded-xl`,

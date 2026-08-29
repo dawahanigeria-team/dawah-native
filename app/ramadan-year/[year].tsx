@@ -1,6 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
+import { useGuardedPush } from "../../src/navigation/useGuardedPush";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -271,6 +272,7 @@ const RamadanYearHeader = React.memo(
 RamadanYearHeader.displayName = "RamadanYearHeader";
 
 export default function RamadanYearScreen() {
+  const guardedPush = useGuardedPush();
   // useWindowDimensions, not a module-scope Dimensions.get(): the old
   // value was captured at import and never updated on rotation or resize.
   const { width: SCREEN_WIDTH } = useWindowDimensions();
@@ -339,8 +341,8 @@ export default function RamadanYearScreen() {
 
   const handleAlbumPress = useCallback((album: RamadanAlbum) => {
     if (!album?.id) return;
-    router.push(`/album/${album.id}`);
-  }, []);
+    guardedPush(`/album/${album.id}`);
+  }, [guardedPush]);
 
   // Filter albums by search and language
   const filteredAlbums = useMemo(() => {

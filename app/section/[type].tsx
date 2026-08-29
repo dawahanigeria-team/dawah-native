@@ -2,6 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { FlashList } from "../../src/components/adapters/flashListCompat";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
+import { useGuardedPush } from "../../src/navigation/useGuardedPush";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -117,6 +118,7 @@ export default function SectionScreenWithBoundary() {
 }
 
 function SectionScreen() {
+  const guardedPush = useGuardedPush();
   const { colors } = useTheme();
   const { playEpisode } = usePlayerActions();
   const { type } = useLocalSearchParams<{ type: string }>();
@@ -374,12 +376,12 @@ function SectionScreen() {
 
   const handleLecturePress = useCallback((episode: Episode) => {
     if (!episode?.id) return;
-    router.push(`/lecture/${episode.id}`);
-  }, []);
+    guardedPush(`/lecture/${episode.id}`);
+  }, [guardedPush]);
 
   const handleQuranAlbumPress = useCallback((album: QuranAlbum) => {
     if (!album?.id) return;
-    router.push({
+    guardedPush({
       pathname: `/quran-reciter/${album.id}`,
       params: {
         albumIds: (album.albumIds || [album.id]).join(','),
@@ -387,13 +389,13 @@ function SectionScreen() {
         reciterName: album.name,
       },
     });
-  }, []);
+  }, [guardedPush]);
 
   const handleRamadanAlbumPress = useCallback((album: RamadanAlbum) => {
     if (!album?.id) return;
     // Navigate to album detail page (uses same page as quran reciter)
-    router.push(`/album/${album.id}`);
-  }, []);
+    guardedPush(`/album/${album.id}`);
+  }, [guardedPush]);
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);

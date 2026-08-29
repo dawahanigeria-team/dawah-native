@@ -2,6 +2,7 @@ import * as Haptics from "expo-haptics";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
+import { useGuardedPush } from "../../src/navigation/useGuardedPush";
 import React, { useCallback, useEffect, useState } from "react";
 import { FlashList } from "../../src/components/adapters/flashListCompat";
 import {
@@ -89,6 +90,7 @@ const lectureToEpisode = (lecture: SearchLecture, index: number = 0): Episode =>
 };
 
 const PlaylistDetailScreen: React.FC = () => {
+  const guardedPush = useGuardedPush();
   const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
   const playlistId = id ?? "";
   const { isAuthenticated, user } = useAuthStore();
@@ -280,7 +282,7 @@ const PlaylistDetailScreen: React.FC = () => {
             <TouchableOpacity
               style={[tw`flex-row items-center p-4 border-b`, { borderColor: colors.system.separator.primary }]}
               onPress={() => {
-                router.push(`/lecture/${item.id || item.nid}`);
+                guardedPush(`/lecture/${item.id || item.nid}`);
               }}
             >
               <Image

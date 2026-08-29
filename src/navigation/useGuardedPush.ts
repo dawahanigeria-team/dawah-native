@@ -3,12 +3,16 @@ import { router, useFocusEffect } from 'expo-router';
 
 import {
   LastNavigation,
-  NavigationTarget,
+  NavigationTargetShape,
   navigationKey,
   shouldAllowNavigation,
 } from './guardedNavigation';
 
-type PushArg = Parameters<typeof router.push>[0];
+/**
+ * expo-router's own href type, so typed routes are still enforced at every
+ * call site rather than being widened to `string` by this wrapper.
+ */
+type Href = Parameters<typeof router.push>[0];
 
 /**
  * `router.push` that ignores a repeat of the same target inside the
@@ -18,7 +22,7 @@ type PushArg = Parameters<typeof router.push>[0];
  * The guard is cleared whenever the screen regains focus, so coming back and
  * tapping the same card again always works, however fast.
  */
-export function useGuardedPush(): (target: NavigationTarget) => boolean {
+export function useGuardedPush(): (target: Href) => boolean {
   const lastRef = useRef<LastNavigation | null>(null);
 
   useFocusEffect(
@@ -27,8 +31,8 @@ export function useGuardedPush(): (target: NavigationTarget) => boolean {
     }, []),
   );
 
-  return useCallback((target: NavigationTarget) => {
-    const key = navigationKey(target);
+  return useCallback((target: Href) => {
+    const key = navigationKey(target as NavigationTargetShape);
     const now = Date.now();
 
     if (!shouldAllowNavigation(key, lastRef.current, now)) {
@@ -36,7 +40,7 @@ export function useGuardedPush(): (target: NavigationTarget) => boolean {
     }
 
     lastRef.current = { key, at: now };
-    router.push(target as PushArg);
+    router.push(target);
     return true;
   }, []);
 }
