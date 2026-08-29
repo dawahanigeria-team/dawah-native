@@ -42,6 +42,8 @@ export const TabView: React.FC<TabViewProps> = ({
 }) => {
   // designTokens.colors is the deprecated static palette and is always the dark
   // one, so tab labels stayed white and vanished against a light background.
+  // The bottom border was likewise a hardcoded gray-800, which read as a hard
+  // black rule under the tabs in light mode.
   const colors = useThemeColors();
   const scrollViewRef = useRef<ScrollView>(null);
   const [tabLayouts, setTabLayouts] = useState<{ [key: string]: { x: number; width: number } }>({});
@@ -75,7 +77,13 @@ export const TabView: React.FC<TabViewProps> = ({
   };
 
   return (
-    <View style={[tw`border-b border-gray-800`, style]}>
+    <View
+      style={[
+        tw`border-b`,
+        { borderBottomColor: colors.system.separator.opaque },
+        style,
+      ]}
+    >
       <ScrollView
         ref={scrollViewRef}
         horizontal
