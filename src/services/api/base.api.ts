@@ -58,6 +58,12 @@ export interface RequestConfig extends Omit<RequestInit, 'cache'> {
   params?: Record<string, any>;
   headers?: Record<string, string>;
   skipTokenRefresh?: boolean;
+  /**
+   * This request is expected to be refused when the credentials are finished -
+   * the token refresh itself. Its 401/403 is the session ending, which the
+   * caller turns into a sign-out, so it is not a defect to report.
+   */
+  expectedAuthFailure?: boolean;
 }
 
 export const createTokenRefreshRetryConfig = (config: RequestConfig): RequestConfig => {
@@ -93,12 +99,35 @@ export const shouldCaptureApiHttpError = (
   errorData: any,
   _hasAuthToken: boolean,
   refreshOutcome?: TokenRefreshOutcome,
-): boolean => !(
-  statusCode === 401 &&
-  // A refresh the server refused is the session ending, which is expected and
-  // not a defect. `unavailable` is still reported: that one is a real anomaly.
-  (isMissingAccessTokenError(errorData) || refreshOutcome === 'rejected')
-);
+  expectedAuthFailure = false,
+): boolean => {
+  // The refresh endpoint refusing our credentials is the session ending, and
+  // it is refused with whatever wording that endpoint uses - so this cannot be
+  // recognised from the message the way a missing access token can.
+  if (expectedAuthFailure && (statusCode === 401 || statusCode === 403)) return false;
+  if (statusCode !== 401) return true;
+  // A refresh the server refused is expected too. `unavailable` is still
+  // reported: that one is a real anomaly and does not end the session.
+  return !(isMissingAccessTokenError(errorData) || refreshOutcome === 'rejected');
+};
+
+/**
+ * The tokens from a refresh response, or null if the server did not actually
+ * give us a usable pair.
+ *
+ * A 200 carrying a blank or missing token is not a refreshed session. Taking
+ * it at face value writes junk over stored credentials and - because
+ * setAuthToken normalises a blank token to null - quietly clears the token we
+ * still had, while reporting success.
+ */
+export const readRefreshedTokens = (
+  payload: any,
+): { accessToken: string; refreshToken: string } | null => {
+  const accessToken = normalizeAuthToken(payload?.data?.tokens?.access_token);
+  const refreshToken = normalizeAuthToken(payload?.data?.tokens?.refresh_token);
+  if (!accessToken || !refreshToken) return null;
+  return { accessToken, refreshToken };
+};
 
 // Response wrapper interface
 export interface ApiResponse<T = any> {
@@ -243,13 +272,18 @@ class ApiClient {
           body: JSON.stringify({ action: 'refresh_token', refresh_token: refreshToken }),
           skipTokenRefresh: true,
           retry: false,
+          expectedAuthFailure: true,
         });
 
-        const { access_token, refresh_token } = response.data.data.tokens;
-        await this.setAuthToken(access_token);
-        await secureStoreCompat.setItemAsync('access_token', access_token);
-        await secureStoreCompat.setItemAsync('refresh_token', refresh_token);
-        await secureStoreCompat.setItemAsync('auth_token', access_token);
+        const tokens = readRefreshedTokens(response.data);
+        // A 200 without a usable pair is a server defect, not proof the session
+        // ended - so leave the credentials we still have alone and say so.
+        if (!tokens) return 'unavailable';
+
+        await this.setAuthToken(tokens.accessToken);
+        await secureStoreCompat.setItemAsync('access_token', tokens.accessToken);
+        await secureStoreCompat.setItemAsync('refresh_token', tokens.refreshToken);
+        await secureStoreCompat.setItemAsync('auth_token', tokens.accessToken);
         return 'refreshed';
       } catch (error) {
         // Only the server refusing the refresh token ends the session. Anything
@@ -741,6 +775,7 @@ class ApiClient {
           errorData,
           !!this.authToken,
           refreshOutcome,
+          config.expectedAuthFailure,
         );
         suppressSentryFailureTelemetry = !shouldReportToSentry;
 
