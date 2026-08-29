@@ -77,10 +77,16 @@ export const TabView: React.FC<TabViewProps> = ({
   };
 
   return (
+    // Opaque by default: this bar is used as (or inside) a sticky header, and a
+    // transparent one lets the list scroll through underneath it. `style` is
+    // applied last so a caller on a grouped/tinted surface can override it.
     <View
       style={[
         tw`border-b`,
-        { borderBottomColor: colors.system.separator.opaque },
+        {
+          backgroundColor: colors.system.background.primary,
+          borderBottomColor: colors.system.separator.opaque,
+        },
         style,
       ]}
     >
