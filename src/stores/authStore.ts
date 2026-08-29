@@ -1,4 +1,4 @@
-import { entity } from 'simpler-state';
+import { entity, type Plugin } from 'simpler-state';
 import {
   authApi,
   type User,
@@ -14,6 +14,7 @@ import { apiClient } from '../services/api/base.api';
 import { clearFavorites } from './favoritesStore';
 import { hydratePremiumFromUser, refreshPremiumFeatures, resetPremiumState } from './premiumStore';
 import { clearListeningPreferencesForSignedOutSession } from './listeningPreferencesStore';
+import { logger } from '../utils/logger';
 
 export interface AuthState {
   user: User | null;
@@ -31,7 +32,49 @@ const initialState: AuthState = {
   isInitialized: false,
 };
 
-export const authStore = entity(initialState);
+type AuthChangeListener = (isAuthenticated: boolean) => void;
+
+const authChangeListeners = new Set<AuthChangeListener>();
+
+/**
+ * Observe sign-in and sign-out from outside React. Returns an unsubscribe.
+ *
+ * simpler-state entities only expose a hook, so a service that is not a
+ * component - the download queue - has no other way to learn that the user
+ * signed back in. This is an entity plugin rather than a call at each sign-in
+ * site because there are five of them (restore, three login paths, logout,
+ * refresh failure) and a sixth would silently not notify.
+ */
+export function subscribeToAuthChange(
+  listener: AuthChangeListener,
+): () => void {
+  authChangeListeners.add(listener);
+  return () => {
+    authChangeListeners.delete(listener);
+  };
+}
+
+/** Fires listeners only when `isAuthenticated` actually flips, not on every set. */
+const notifyOnAuthChange: Plugin = {
+  set: (origSet, target) => (...args) => {
+    const was = (target.get() as AuthState).isAuthenticated;
+    origSet(...args);
+    const now = (target.get() as AuthState).isAuthenticated;
+    if (was === now) return;
+
+    authChangeListeners.forEach((listener) => {
+      try {
+        listener(now);
+      } catch (error) {
+        // The new auth state is already committed; a bad subscriber must not
+        // take it back out or stop the others from hearing about it.
+        logger.error('Auth change listener failed', error as Error);
+      }
+    });
+  },
+};
+
+export const authStore = entity(initialState, [notifyOnAuthChange]);
 
 let authListenerRegistered = false;
 

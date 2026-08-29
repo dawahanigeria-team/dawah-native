@@ -19,8 +19,14 @@ interface DownloadGate {
    * Shows the relevant prompt and returns false otherwise: sign-in when the
    * download cannot be attributed to a user, the upsell once the monthly
    * allowance is spent.
+   *
+   * `returnTo` is the route to come back to after signing in. It is a
+   * parameter rather than a `usePathname()` inside this hook on purpose: the
+   * hook runs in MiniPlayer, which is `memo`'d with no props and therefore
+   * skips every re-render today. Subscribing it to the pathname would wake it
+   * — and its thirteen Reanimated hooks — on every navigation in the app.
    */
-  requireDownloadAccess: () => boolean;
+  requireDownloadAccess: (returnTo?: string) => boolean;
 }
 
 export function useDownloadGate(): DownloadGate {
@@ -49,7 +55,7 @@ export function useDownloadGate(): DownloadGate {
     }
   }, [isAuthenticated, router]);
 
-  const requireDownloadAccess = useCallback((): boolean => {
+  const requireDownloadAccess = useCallback((returnTo?: string): boolean => {
     if (canDownload) return true;
 
     if (reason === "requires_sign_in") {
@@ -60,10 +66,14 @@ export function useDownloadGate(): DownloadGate {
           { text: "Not now", style: "cancel" },
           {
             text: "Sign in",
+            // Back to the lecture they were on, not the paywall: this prompt
+            // has just told them they have free downloads waiting, so landing
+            // them on the upsell contradicts it and loses the lecture they
+            // actually wanted.
             onPress: () =>
               router.push({
                 pathname: "/sign-in",
-                params: { returnTo: "/premium" },
+                params: returnTo ? { returnTo } : {},
               } as never),
           },
         ],

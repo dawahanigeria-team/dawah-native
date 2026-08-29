@@ -3,7 +3,7 @@ import AsyncStorage from "expo-sqlite/kv-store";
 import { entity } from "simpler-state";
 import type { AudioPlaybackControls } from "../hooks/useAudioPlayback";
 import { addSentryBreadcrumb, captureSentryException } from "../services/config/sentry.config";
-import { downloadsService } from "../services/downloads.service";
+import { downloadsService, isExpectedDownloadRefusal } from "../services/downloads.service";
 import TrackPlayer, { RepeatMode, State } from '../services/expoTrackPlayerCompat';
 import { historyService } from "../services/history.service";
 import {
@@ -945,10 +945,14 @@ const downloadEpisode = async (episode: Episode) => {
       episodeId: episode.id,
       title: episode.title,
     });
-    captureSentryException(error as Error, {
-      action: 'downloadEpisode',
-      episodeId: episode.id,
-    });
+    // A refusal the server made on purpose - not signed in, or the free
+    // monthly allowance is spent - is an outcome, not a defect to triage.
+    if (!isExpectedDownloadRefusal(error)) {
+      captureSentryException(error as Error, {
+        action: 'downloadEpisode',
+        episodeId: episode.id,
+      });
+    }
 
     setAndPersistPlayerState({
       ...playerStore.get(),
