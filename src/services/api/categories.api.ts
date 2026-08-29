@@ -16,8 +16,21 @@ export interface Category {
   id: string;
   name: string;
   img: string;
-  status: number;
+  /**
+   * Absent on unreviewed rows. Verified against the live endpoint: all 34
+   * curated categories carry status 1, and the only three rows without it are
+   * junk with zero lectures ("qura", "qur", and a duplicate "Quran &
+   * Tafseer") - so presence of status 1 is the marker, not absence of 0.
+   */
+  status?: number;
 }
+
+/**
+ * Only rows the backend has marked live. A `status !== 0` test would let the
+ * unreviewed rows through, because they omit the field entirely.
+ */
+export const isPublishedCategory = (category: Category): boolean =>
+  Boolean(category) && category.status === 1;
 
 /** leclisting_cat_api.php returns 100 rows per page, not the usual 10. */
 export const CATEGORY_LECTURES_PAGE_SIZE = 100;
@@ -48,9 +61,7 @@ class CategoriesApiService {
       throw new ApiError('Categories response was not a list', undefined, response.data);
     }
 
-    return (response.data as Category[]).filter(
-      (category) => category && category.status !== 0,
-    );
+    return (response.data as Category[]).filter(isPublishedCategory);
   }
 
   /**

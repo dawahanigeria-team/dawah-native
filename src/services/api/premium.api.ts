@@ -22,6 +22,9 @@ interface UserFeaturesResponse {
   feature_flags?: RawFeatureFlags;
   follow_count?: number;
   free_follow_limit?: number;
+  download_count?: number;
+  free_download_limit?: number;
+  download_period?: string;
 }
 
 export interface PlatformReceiptPayload {
@@ -58,6 +61,7 @@ const normalizeFeatureFlags = (raw?: RawFeatureFlags): PremiumFeatureFlags => ({
   multi_lecturer_follow: normalizeBooleanFlag(raw?.multi_lecturer_follow),
   // Default to true so a stale/missing field never hard-gates the UI.
   can_follow_more: normalizeBooleanFlag(raw?.can_follow_more, true),
+  can_download_more: normalizeBooleanFlag(raw?.can_download_more, true),
 });
 
 const toFiniteNumber = (value: unknown, fallback: number): number => {
@@ -76,6 +80,16 @@ const normalizePremiumState = (response: UserFeaturesResponse): PremiumStateSnap
     response.free_follow_limit,
     DEFAULT_PREMIUM_STATE.free_follow_limit,
   ),
+  download_count: toFiniteNumber(
+    response.download_count,
+    DEFAULT_PREMIUM_STATE.download_count,
+  ),
+  free_download_limit: toFiniteNumber(
+    response.free_download_limit,
+    DEFAULT_PREMIUM_STATE.free_download_limit,
+  ),
+  download_period:
+    response.download_period ?? DEFAULT_PREMIUM_STATE.download_period,
 });
 
 class PremiumApiService {
