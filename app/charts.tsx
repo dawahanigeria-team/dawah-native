@@ -1,4 +1,5 @@
 import { Stack, useRouter } from 'expo-router';
+import { useGuardedPush } from '../src/navigation/useGuardedPush';
 import React, { memo, useCallback, useEffect, useState } from 'react';
 import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -78,6 +79,8 @@ const ChartsScreen: React.FC = memo(() => {
     getChartData(selectedChartType, selectedPeriod);
   }, [selectedChartType, selectedPeriod, getChartData]);
 
+  const guardedPush = useGuardedPush();
+
   const handleChartItemPress = useCallback((item: ChartItemType) => {
     try {
       // Track chart item navigation in Sentry
@@ -92,22 +95,22 @@ const ChartsScreen: React.FC = memo(() => {
       switch (selectedChartType) {
         case 'lecture':
           logger.debug('Navigating to lecture:', item.id);
-          router.push(`/lecture/${item.id}`);
+          guardedPush(`/lecture/${item.id}`);
           break;
 
         case 'lecturer':
           logger.debug('Navigating to lecturer:', item.rp_id || item.id);
-          router.push(`/lecturer/${item.rp_id || item.id}`);
+          guardedPush(`/lecturer/${item.rp_id || item.id}`);
           break;
 
         case 'album':
           logger.debug('Navigating to album:', item.id);
-          router.push(`/album/${item.id}`);
+          guardedPush(`/album/${item.id}`);
           break;
 
         case 'playlist':
           logger.debug('Navigating to playlist:', item.id);
-          router.push(`/playlist/${item.id}`);
+          guardedPush(`/playlist/${item.id}`);
           break;
 
         default:
@@ -123,7 +126,7 @@ const ChartsScreen: React.FC = memo(() => {
       });
       Alert.alert('Error', 'Unable to navigate. Please try again.');
     }
-  }, [selectedChartType, selectedPeriod, router]);
+  }, [selectedChartType, selectedPeriod, guardedPush]);
 
   const getTitle = () => {
     const chartTypeTitle = selectedChartType.charAt(0).toUpperCase() + selectedChartType.slice(1);

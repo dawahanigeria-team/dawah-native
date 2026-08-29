@@ -9,6 +9,7 @@ import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useGuardedPush } from "../../src/navigation/useGuardedPush";
 import React, { useCallback, useMemo, useState } from "react";
 import {
     ActivityIndicator,
@@ -364,6 +365,7 @@ const LectureDetailScreen: React.FC = () => {
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const guardedPush = useGuardedPush();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const lectureId = id ?? "";
@@ -813,7 +815,7 @@ const LectureDetailScreen: React.FC = () => {
                     normalizeId(lecture.reciter?.id);
 
                   if (directId) {
-                    router.push(`/lecturer/${directId}`);
+                    guardedPush(`/lecturer/${directId}`);
                     return;
                   }
 
@@ -822,13 +824,13 @@ const LectureDetailScreen: React.FC = () => {
                   const lecturerName = lecture.lecturerName?.trim() || '';
                   const cleanedQuery = lecturerName.replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();
 
-                  router.push({
+                  guardedPush({
                     pathname: '/lecturer/[id]',
                     params: {
                       id: '0',
                       name: cleanedQuery,
                     },
-                  } as any);
+                  });
                 }}
               >
                 <View style={tw`flex-row items-center mt-3`}>

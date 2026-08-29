@@ -1,5 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
+import { useGuardedPush } from "../src/navigation/useGuardedPush";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlashList } from "../src/components/adapters/flashListCompat";
 import {
@@ -94,9 +95,14 @@ export default function LecturersScreen() {
     return match || selectedLocation;
   }, [availableStates, selectedLocation]);
 
-  const handleLecturerPress = useCallback((id: string) => {
-    router.push(`/lecturer/${id}`);
-  }, []);
+  const guardedPush = useGuardedPush();
+
+  const handleLecturerPress = useCallback(
+    (id: string) => {
+      guardedPush(`/lecturer/${id}`);
+    },
+    [guardedPush],
+  );
 
   const fetchStates = useCallback(async () => {
     try {

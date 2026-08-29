@@ -2,6 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { useGuardedPush } from '../../src/navigation/useGuardedPush';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -53,6 +54,7 @@ const formatTrackDuration = (duration: string | number | undefined): string => {
 
 const AlbumDetailScreen: React.FC = () => {
   const router = useRouter();
+  const guardedPush = useGuardedPush();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
@@ -149,8 +151,8 @@ const AlbumDetailScreen: React.FC = () => {
   }, [album, albumId, episodes, playQueue]);
 
   const handleLecturerPress = useCallback(() => {
-    if (album?.lecturerId) router.push(`/lecturer/${album.lecturerId}`);
-  }, [album, router]);
+    if (album?.lecturerId) guardedPush(`/lecturer/${album.lecturerId}`);
+  }, [album, guardedPush]);
 
   const handleShare = useCallback(async () => {
     if (!album) return;
