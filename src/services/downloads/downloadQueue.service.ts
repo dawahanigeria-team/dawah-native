@@ -62,6 +62,8 @@ class DownloadQueueService {
   private isProcessing = false;
   private unsubscribeNetInfo: (() => void) | null = null;
   private unsubscribeAuth: (() => void) | null = null;
+  /** Resolves once the persisted queue has been read back from storage. */
+  private hydrated: Promise<void> = Promise.resolve();
 
   private constructor() {
     logger.debug('Download Queue Service initialized');
@@ -84,11 +86,11 @@ class DownloadQueueService {
     });
 
     // processQueue holds everything while signed out, so something has to
-    // release it again. This also covers the cold start, where the initial
-    // NetInfo.fetch below can beat the async token restore: the restore itself
-    // flips isAuthenticated and picks the queue back up.
+    // release it again. Guarded by autoStart like the other two triggers
+    // (addToQueue, network change): signing in is not a request to download,
+    // it only removes the reason we were refusing to.
     this.unsubscribeAuth = subscribeToAuthChange(isAuthenticated => {
-      if (!isAuthenticated) return;
+      if (!isAuthenticated || !this.config.autoStart) return;
       void this.processQueue();
     });
 
@@ -99,8 +101,12 @@ class DownloadQueueService {
 
     this.isInitialized = true;
 
-    // Load queue from storage
-    await this.loadQueue();
+    // Load queue from storage. Kept as a promise every processQueue awaits:
+    // this runs after the NetInfo.fetch above and after any auth transition,
+    // so without it the first pass reads an empty Map and the items restored
+    // a moment later sit at QUEUED with nothing left to start them.
+    this.hydrated = this.loadQueue();
+    await this.hydrated;
   }
 
   /**
@@ -208,6 +214,11 @@ class DownloadQueueService {
 
     this.isProcessing = true;
     try {
+      // Every caller reaches here before the restored queue is necessarily in
+      // memory - the initial NetInfo.fetch especially - so wait for it rather
+      // than silently deciding there is nothing to do.
+      await this.hydrated;
+
       // Downloads are sign-in only, and the queue is persisted: items added
       // while signed in outlive that session and would otherwise replay on the
       // next launch, earning one 401 per item. Leave them QUEUED so they pick
