@@ -52,6 +52,36 @@ export const resetPremiumState = (): void => {
   premiumStore.set(initialState);
 };
 
+/**
+ * Applies the download counters returned by /api/download_api.php so the UI
+ * reflects a spent slot without a second round trip. The server is the
+ * authority: it may report no change when the same lecture is re-downloaded
+ * inside the same month, which does not consume a slot.
+ */
+export const applyDownloadUsage = (usage: {
+  download_count?: number;
+  free_download_limit?: number;
+  download_period?: string;
+}): void => {
+  if (typeof usage.download_count !== "number") return;
+
+  premiumStore.set((prev) => {
+    const limit = usage.free_download_limit ?? prev.free_download_limit;
+    return {
+      ...prev,
+      download_count: usage.download_count as number,
+      free_download_limit: limit,
+      download_period: usage.download_period ?? prev.download_period,
+      feature_flags: {
+        ...prev.feature_flags,
+        can_download_more:
+          prev.feature_flags.offline_download ||
+          (usage.download_count as number) < limit,
+      },
+    };
+  });
+};
+
 export const refreshPremiumFeatures = async (): Promise<PremiumStateSnapshot> => {
   premiumStore.set((prev) => ({ ...prev, isLoading: true, error: null }));
 

@@ -66,8 +66,10 @@ export const API_CONFIG = {
     LECTURER_FOLLOW: '/api/lecturer_follow.php',
 
     // Categories
-    CATEGORIES: '/api/categorylist.php',
-    CATEGORY_LECTURES: '/api/categorylectures.php',
+    // categorylist.php / categorylectures.php do not exist on the backend -
+    // both return 500. These are the live endpoints.
+    CATEGORIES: '/api/allcateg_api.php',
+    CATEGORY_LECTURES: '/api/leclisting_cat_api.php',
 
     // User Auth
     AUTH_LOGIN: '/user_auth.php',

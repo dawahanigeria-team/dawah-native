@@ -2,49 +2,85 @@ import { useRouter } from "expo-router";
 import { useCallback } from "react";
 import { Alert } from "react-native";
 
+import { resolveDownloadAllowance } from "../features/downloads/downloadAllowance";
 import { useAuthStore, usePremiumStore } from "../stores";
 
 interface DownloadGate {
+  /** True when the caller may start a download right now. */
   canDownload: boolean;
+  /** Premium: downloads are not metered. */
+  isUnlimited: boolean;
+  /** Free downloads left this calendar month; null when unlimited. */
+  remaining: number | null;
+  /** The free monthly allowance, for copy like "2 of 5 left". */
+  limit: number;
   /**
    * Returns true if the caller may proceed with the download.
-   * If the user lacks the offline_download flag, shows the upsell alert
-   * and returns false so the caller can short-circuit.
+   * Shows the relevant prompt and returns false otherwise: sign-in when the
+   * download cannot be attributed to a user, the upsell once the monthly
+   * allowance is spent.
    */
   requireDownloadAccess: () => boolean;
 }
 
 export function useDownloadGate(): DownloadGate {
   const router = useRouter();
-  const { feature_flags } = usePremiumStore();
+  const { feature_flags, download_count, free_download_limit } =
+    usePremiumStore();
   const { isAuthenticated } = useAuthStore();
-  const canDownload = feature_flags.offline_download;
+
+  const limit = free_download_limit;
+  const { canDownload, isUnlimited, remaining, reason } =
+    resolveDownloadAllowance({
+      isUnlimited: feature_flags.offline_download,
+      isAuthenticated,
+      downloadCount: download_count,
+      limit,
+    });
+
+  const goToPremium = useCallback(() => {
+    if (!isAuthenticated) {
+      router.push({
+        pathname: "/sign-in",
+        params: { returnTo: "/premium" },
+      } as never);
+    } else {
+      router.push("/premium" as never);
+    }
+  }, [isAuthenticated, router]);
 
   const requireDownloadAccess = useCallback((): boolean => {
     if (canDownload) return true;
 
-    Alert.alert(
-      "Premium feature",
-      "Offline downloads are included with Premium.",
-      [
-        { text: "Not now", style: "cancel" },
-        {
-          text: "Upgrade",
-          onPress: () => {
-            if (!isAuthenticated) {
+    if (reason === "requires_sign_in") {
+      Alert.alert(
+        "Sign in to download",
+        `Downloads are saved to your account. Sign in to use your ${limit} free downloads each month.`,
+        [
+          { text: "Not now", style: "cancel" },
+          {
+            text: "Sign in",
+            onPress: () =>
               router.push({
                 pathname: "/sign-in",
                 params: { returnTo: "/premium" },
-              } as never);
-            } else {
-              router.push("/premium" as never);
-            }
+              } as never),
           },
-        },
+        ],
+      );
+      return false;
+    }
+
+    Alert.alert(
+      "Monthly downloads used",
+      `You've used all ${limit} free downloads this month. Upgrade to Premium for unlimited offline listening, or wait for your allowance to reset next month.`,
+      [
+        { text: "Not now", style: "cancel" },
+        { text: "Upgrade", onPress: goToPremium },
       ],
     );
     return false;
-  }, [canDownload, isAuthenticated, router]);
+  }, [canDownload, reason, limit, router, goToPremium]);
 
-  return { canDownload, requireDownloadAccess };
+  return { canDownload, isUnlimited, remaining, limit, requireDownloadAccess };
 }

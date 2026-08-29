@@ -14,4 +14,4 @@ export { useDownloadsStore, downloadsStore } from "./downloadsStore";
 export { useFavoritesStore } from "./favoritesStore";
 
 // Export premium store
-export { usePremiumStore, premiumStore } from "./premiumStore";
+export { usePremiumStore, premiumStore, applyDownloadUsage } from "./premiumStore";

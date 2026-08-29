@@ -77,10 +77,14 @@ const QUICK_ACTIONS = [
     route: "/playlists",
   },
   {
-    id: "latest",
-    title: "Latest",
-    icon: "sparkles" as const,
-    route: "/section/recently-posted",
+    // Replaces the old "Latest" tile: recent lectures already have the hero
+    // slider at the top of this screen and the "Fresh Content" row below, so
+    // the tile was a third route to the same content. Categories is the one
+    // axis of the catalogue the app had no entry point for.
+    id: "categories",
+    title: "Categories",
+    icon: "grid" as const,
+    route: "/categories",
   },
   {
     id: "quran",
