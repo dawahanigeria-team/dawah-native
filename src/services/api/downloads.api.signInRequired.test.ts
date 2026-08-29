@@ -79,3 +79,38 @@ test('a network failure is left alone', async () => {
   expect(failure).not.toBeInstanceOf(DownloadAuthRequiredError);
   expect(failure).not.toBeInstanceOf(DownloadLimitReachedError);
 });
+
+/**
+ * A refresh that never got an answer - offline, timeout, storage failure - is
+ * not proof the session ended. Telling the user to sign in loses their place
+ * and, because the queue holds sign-in refusals, parks the download for
+ * something that would have succeeded on retry.
+ */
+test('a TOKEN_EXPIRED whose refresh never completed is not a sign-in refusal', async () => {
+  const error: any = {
+    status: 401,
+    data: { code: 'TOKEN_EXPIRED', message: 'Your access token has expired.' },
+    refreshOutcome: 'unavailable',
+  };
+  mockPost.mockRejectedValue(error);
+
+  const failure = await downloadsApi
+    .incrementDownloadCounter('1234')
+    .catch((e: unknown) => e);
+
+  expect(failure).not.toBeInstanceOf(DownloadAuthRequiredError);
+  expect(failure).toBe(error);
+});
+
+/** A refresh the server actually refused does end the session. */
+test('a TOKEN_EXPIRED whose refresh was rejected still is one', async () => {
+  mockPost.mockRejectedValue({
+    status: 401,
+    data: { code: 'TOKEN_EXPIRED', message: 'Your access token has expired.' },
+    refreshOutcome: 'rejected',
+  });
+
+  await expect(downloadsApi.incrementDownloadCounter('1234')).rejects.toBeInstanceOf(
+    DownloadAuthRequiredError,
+  );
+});

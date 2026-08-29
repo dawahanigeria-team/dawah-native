@@ -17,8 +17,23 @@ import {
 
 const SLOW_API_REQUEST_THRESHOLD_MS = 2000;
 
+/**
+ * Why a token refresh did not produce a usable session.
+ *
+ * `rejected` means the credentials themselves are finished - no refresh token
+ * stored, or the server refused the one we had - so the session is genuinely
+ * over. `unavailable` means we never got an answer: offline, timed out, or
+ * secure storage failed. Collapsing the two logs people out of a working
+ * account over one bad request, and tells them to sign in when the real
+ * advice is to try again.
+ */
+export type TokenRefreshOutcome = 'refreshed' | 'rejected' | 'unavailable';
+
 // Custom error class for API errors
 export class ApiError extends Error {
+  /** Set when this error survived a token refresh attempt. */
+  public refreshOutcome?: TokenRefreshOutcome;
+
   constructor(
     message: string,
     public statusCode?: number,
@@ -43,6 +58,12 @@ export interface RequestConfig extends Omit<RequestInit, 'cache'> {
   params?: Record<string, any>;
   headers?: Record<string, string>;
   skipTokenRefresh?: boolean;
+  /**
+   * This request is expected to be refused when the credentials are finished -
+   * the token refresh itself. Its 401/403 is the session ending, which the
+   * caller turns into a sign-out, so it is not a defect to report.
+   */
+  expectedAuthFailure?: boolean;
 }
 
 export const createTokenRefreshRetryConfig = (config: RequestConfig): RequestConfig => {
@@ -77,10 +98,36 @@ export const shouldCaptureApiHttpError = (
   statusCode: number,
   errorData: any,
   _hasAuthToken: boolean,
-): boolean => !(
-  statusCode === 401 &&
-  isMissingAccessTokenError(errorData)
-);
+  refreshOutcome?: TokenRefreshOutcome,
+  expectedAuthFailure = false,
+): boolean => {
+  // The refresh endpoint refusing our credentials is the session ending, and
+  // it is refused with whatever wording that endpoint uses - so this cannot be
+  // recognised from the message the way a missing access token can.
+  if (expectedAuthFailure && (statusCode === 401 || statusCode === 403)) return false;
+  if (statusCode !== 401) return true;
+  // A refresh the server refused is expected too. `unavailable` is still
+  // reported: that one is a real anomaly and does not end the session.
+  return !(isMissingAccessTokenError(errorData) || refreshOutcome === 'rejected');
+};
+
+/**
+ * The tokens from a refresh response, or null if the server did not actually
+ * give us a usable pair.
+ *
+ * A 200 carrying a blank or missing token is not a refreshed session. Taking
+ * it at face value writes junk over stored credentials and - because
+ * setAuthToken normalises a blank token to null - quietly clears the token we
+ * still had, while reporting success.
+ */
+export const readRefreshedTokens = (
+  payload: any,
+): { accessToken: string; refreshToken: string } | null => {
+  const accessToken = normalizeAuthToken(payload?.data?.tokens?.access_token);
+  const refreshToken = normalizeAuthToken(payload?.data?.tokens?.refresh_token);
+  if (!accessToken || !refreshToken) return null;
+  return { accessToken, refreshToken };
+};
 
 // Response wrapper interface
 export interface ApiResponse<T = any> {
@@ -112,7 +159,7 @@ class ApiClient {
   private authTokenHydrationPromise: Promise<void> | null = null;
   private hasHydratedAuthToken = false;
   private _authTokenChangeListener: ((token: string | null) => void) | null = null;
-  private _refreshPromise: Promise<boolean> | null = null;
+  private _refreshPromise: Promise<TokenRefreshOutcome> | null = null;
   private _onRefreshFailure: (() => void) | null = null;
 
   private constructor() {
@@ -200,16 +247,24 @@ class ApiClient {
     return text.includes('expired') && text.includes('token');
   }
 
-  private async refreshAccessToken(): Promise<boolean> {
+  private async refreshAccessToken(): Promise<TokenRefreshOutcome> {
     if (this._refreshPromise) {
       return this._refreshPromise;
     }
 
     this._refreshPromise = (async () => {
+      let refreshToken: string | null;
       try {
-        const refreshToken = await secureStoreCompat.getItemAsync('refresh_token');
-        if (!refreshToken) return false;
+        refreshToken = await secureStoreCompat.getItemAsync('refresh_token');
+      } catch {
+        // Storage read failed. We do not know whether the session is still
+        // good, and guessing 'over' signs the user out for a disk hiccup.
+        return 'unavailable';
+      }
+      // Nothing to refresh with: the session really is finished.
+      if (!refreshToken) return 'rejected';
 
+      try {
         const response = await this.request<{
           data: { tokens: { access_token: string; refresh_token: string } };
         }>('/api/user_auth.php', {
@@ -217,16 +272,24 @@ class ApiClient {
           body: JSON.stringify({ action: 'refresh_token', refresh_token: refreshToken }),
           skipTokenRefresh: true,
           retry: false,
+          expectedAuthFailure: true,
         });
 
-        const { access_token, refresh_token } = response.data.data.tokens;
-        await this.setAuthToken(access_token);
-        await secureStoreCompat.setItemAsync('access_token', access_token);
-        await secureStoreCompat.setItemAsync('refresh_token', refresh_token);
-        await secureStoreCompat.setItemAsync('auth_token', access_token);
-        return true;
-      } catch {
-        return false;
+        const tokens = readRefreshedTokens(response.data);
+        // A 200 without a usable pair is a server defect, not proof the session
+        // ended - so leave the credentials we still have alone and say so.
+        if (!tokens) return 'unavailable';
+
+        await this.setAuthToken(tokens.accessToken);
+        await secureStoreCompat.setItemAsync('access_token', tokens.accessToken);
+        await secureStoreCompat.setItemAsync('refresh_token', tokens.refreshToken);
+        await secureStoreCompat.setItemAsync('auth_token', tokens.accessToken);
+        return 'refreshed';
+      } catch (error) {
+        // Only the server refusing the refresh token ends the session. Anything
+        // else - offline, timeout, a shape we did not expect - leaves it unknown.
+        const status = error instanceof ApiError ? error.statusCode : undefined;
+        return status === 401 || status === 403 ? 'rejected' : 'unavailable';
       }
     })().finally(() => {
       this._refreshPromise = null;
@@ -671,6 +734,7 @@ class ApiClient {
       // Check response status
       if (!response.ok) {
         const errorData = isJson ? parsedBody : { message: responseText };
+        let refreshOutcome: TokenRefreshOutcome | undefined;
 
         if (
           response.status === 401 &&
@@ -678,10 +742,14 @@ class ApiClient {
           this.authToken &&
           this.isExpiredTokenError(errorData)
         ) {
-          const refreshed = await this.refreshAccessToken();
-          if (refreshed) {
+          refreshOutcome = await this.refreshAccessToken();
+          if (refreshOutcome === 'refreshed') {
             return this.request<T>(endpoint, createTokenRefreshRetryConfig(config));
-          } else {
+          }
+          // Only tear the session down when the server actually refused the
+          // refresh token. On 'unavailable' the credentials may be perfectly
+          // good and we simply could not reach anyone to ask.
+          if (refreshOutcome === 'rejected') {
             this._onRefreshFailure?.();
           }
         }
@@ -697,12 +765,17 @@ class ApiClient {
           response.status,
           errorData,
         );
+        // Carried on the error so callers can tell an ended session from a
+        // refresh we could not complete - they mean different things to the user.
+        apiError.refreshOutcome = refreshOutcome;
         failed = true;
 
         const shouldReportToSentry = shouldCaptureApiHttpError(
           response.status,
           errorData,
           !!this.authToken,
+          refreshOutcome,
+          config.expectedAuthFailure,
         );
         suppressSentryFailureTelemetry = !shouldReportToSentry;
 
