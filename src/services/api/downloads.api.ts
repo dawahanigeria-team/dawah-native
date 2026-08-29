@@ -74,10 +74,16 @@ class DownloadsApiService {
       return response.data;
     } catch (error: any) {
       const payload = error?.data ?? error?.response?.data;
-      // TOKEN_EXPIRED only reaches here once base.api has already tried a
-      // refresh and failed, so by this point it means the same thing to the
-      // user as AUTH_REQUIRED: sign in again.
-      if (payload?.code === 'AUTH_REQUIRED' || payload?.code === 'TOKEN_EXPIRED') {
+      // TOKEN_EXPIRED reaches here once base.api has tried a refresh, so by this
+      // point it usually means the same thing to the user as AUTH_REQUIRED: sign
+      // in again. Not when the refresh never got an answer, though - the session
+      // may be fine, and telling someone to sign in over a dropped request both
+      // loses their place and holds the queue for something that would retry.
+      const refreshUnavailable = error?.refreshOutcome === 'unavailable';
+      if (
+        payload?.code === 'AUTH_REQUIRED' ||
+        (payload?.code === 'TOKEN_EXPIRED' && !refreshUnavailable)
+      ) {
         throw new DownloadAuthRequiredError('Sign in to download this lecture.');
       }
       if (payload?.code === 'DOWNLOAD_LIMIT_REACHED') {

@@ -74,3 +74,33 @@ describe('shouldCaptureApiHttpError', () => {
     expect(shouldCaptureApiHttpError(401, { message: 'Token expired' }, false)).toBe(true);
   });
 });
+
+describe('shouldCaptureApiHttpError and the refresh outcome', () => {
+  /**
+   * A refresh the server refused is the session ending - expected, and already
+   * handled by signing the user out. Reporting it files one Sentry issue per
+   * in-flight request every time somebody's session runs out.
+   */
+  test('suppresses a 401 whose refresh the server rejected', () => {
+    expect(
+      shouldCaptureApiHttpError(401, { message: 'Token expired' }, true, 'rejected'),
+    ).toBe(false);
+  });
+
+  /**
+   * A refresh we could not complete is a real anomaly, and it does NOT end the
+   * session, so it stays visible.
+   */
+  test('still captures a 401 whose refresh never completed', () => {
+    expect(
+      shouldCaptureApiHttpError(401, { message: 'Token expired' }, true, 'unavailable'),
+    ).toBe(true);
+  });
+
+  test('is unchanged when no refresh was attempted', () => {
+    expect(shouldCaptureApiHttpError(401, { message: 'Token expired' }, true)).toBe(true);
+    expect(shouldCaptureApiHttpError(500, { message: 'Server error' }, true, 'rejected')).toBe(
+      true,
+    );
+  });
+});
