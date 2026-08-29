@@ -22,6 +22,23 @@ export interface DownloadApiResponse {
   [key: string]: any; // Other MP3 metadata fields
 }
 
+/**
+ * Thrown when the download cannot be attributed to a signed-in user.
+ *
+ * Downloads are sign-in only server-side: `download_api.php` refuses an
+ * anonymous or unverifiable caller with 401 before it hands out any media URL.
+ * Distinct from a network failure so the UI can offer sign-in instead of
+ * "try again", and so an expected refusal is not filed as a crash.
+ */
+export class DownloadAuthRequiredError extends Error {
+  readonly code = 'AUTH_REQUIRED';
+
+  constructor(message: string) {
+    super(message);
+    this.name = 'DownloadAuthRequiredError';
+  }
+}
+
 /** Thrown when the caller has spent their free monthly download allowance. */
 export class DownloadLimitReachedError extends Error {
   readonly code = 'DOWNLOAD_LIMIT_REACHED';
@@ -57,6 +74,12 @@ class DownloadsApiService {
       return response.data;
     } catch (error: any) {
       const payload = error?.data ?? error?.response?.data;
+      // TOKEN_EXPIRED only reaches here once base.api has already tried a
+      // refresh and failed, so by this point it means the same thing to the
+      // user as AUTH_REQUIRED: sign in again.
+      if (payload?.code === 'AUTH_REQUIRED' || payload?.code === 'TOKEN_EXPIRED') {
+        throw new DownloadAuthRequiredError('Sign in to download this lecture.');
+      }
       if (payload?.code === 'DOWNLOAD_LIMIT_REACHED') {
         applyDownloadUsage(payload);
         throw new DownloadLimitReachedError(

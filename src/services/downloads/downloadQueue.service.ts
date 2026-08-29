@@ -8,6 +8,8 @@ import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
 import type { Episode } from '../../types/types';
 import { addSentryBreadcrumb, captureSentryException } from '../config/sentry.config';
 import { DownloadProgress, downloadsService, ResumableDownload } from '../downloads.service';
+import { DownloadAuthRequiredError, DownloadLimitReachedError } from '../api/downloads.api';
+import { authStore, subscribeToAuthChange } from '../../stores/authStore';
 import { logger } from '@/utils/logger';
 
 const DOWNLOAD_QUEUE_KEY = 'download_queue_v1';
@@ -59,6 +61,9 @@ class DownloadQueueService {
   private isInitialized = false;
   private isProcessing = false;
   private unsubscribeNetInfo: (() => void) | null = null;
+  private unsubscribeAuth: (() => void) | null = null;
+  /** Resolves once the persisted queue has been read back from storage. */
+  private hydrated: Promise<void> = Promise.resolve();
 
   private constructor() {
     logger.debug('Download Queue Service initialized');
@@ -80,6 +85,15 @@ class DownloadQueueService {
       this._handleNetworkStateChange(state);
     });
 
+    // processQueue holds everything while signed out, so something has to
+    // release it again. Guarded by autoStart like the other two triggers
+    // (addToQueue, network change): signing in is not a request to download,
+    // it only removes the reason we were refusing to.
+    this.unsubscribeAuth = subscribeToAuthChange(isAuthenticated => {
+      if (!isAuthenticated || !this.config.autoStart) return;
+      void this.processQueue();
+    });
+
     // Get initial network state
     NetInfo.fetch().then(state => {
       this._handleNetworkStateChange(state);
@@ -87,8 +101,12 @@ class DownloadQueueService {
 
     this.isInitialized = true;
 
-    // Load queue from storage
-    await this.loadQueue();
+    // Load queue from storage. Kept as a promise every processQueue awaits:
+    // this runs after the NetInfo.fetch above and after any auth transition,
+    // so without it the first pass reads an empty Map and the items restored
+    // a moment later sit at QUEUED with nothing left to start them.
+    this.hydrated = this.loadQueue();
+    await this.hydrated;
   }
 
   /**
@@ -98,6 +116,10 @@ class DownloadQueueService {
     if (this.unsubscribeNetInfo) {
       this.unsubscribeNetInfo();
       this.unsubscribeNetInfo = null;
+    }
+    if (this.unsubscribeAuth) {
+      this.unsubscribeAuth();
+      this.unsubscribeAuth = null;
     }
     this.listeners = [];
   }
@@ -192,6 +214,20 @@ class DownloadQueueService {
 
     this.isProcessing = true;
     try {
+      // Every caller reaches here before the restored queue is necessarily in
+      // memory - the initial NetInfo.fetch especially - so wait for it rather
+      // than silently deciding there is nothing to do.
+      await this.hydrated;
+
+      // Downloads are sign-in only, and the queue is persisted: items added
+      // while signed in outlive that session and would otherwise replay on the
+      // next launch, earning one 401 per item. Leave them QUEUED so they pick
+      // up again after the user signs back in, rather than failing them.
+      if (!authStore.get().isAuthenticated) {
+        logger.debug('Not signed in, holding queued downloads.');
+        return;
+      }
+
       const netState = await NetInfo.fetch();
       const isConnected = netState.isConnected;
       const isWifi = netState.type === 'wifi';
@@ -284,7 +320,15 @@ class DownloadQueueService {
         this.notify();
       }
 
-      captureSentryException(error, { operation: 'download_queue_start', downloadId });
+      // A refusal is an outcome, not a fault: signing out or spending the
+      // monthly allowance would otherwise file one Sentry issue per queued
+      // item. The download is still marked FAILED with the server's message.
+      if (
+        !(error instanceof DownloadAuthRequiredError) &&
+        !(error instanceof DownloadLimitReachedError)
+      ) {
+        captureSentryException(error, { operation: 'download_queue_start', downloadId });
+      }
 
       await this.processQueue();
     }

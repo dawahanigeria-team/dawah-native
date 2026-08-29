@@ -352,7 +352,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
 
     const handleDownloadPress = async () => {
       if (!currentEpisode) return;
-      if (!requireDownloadAccess()) return;
+      if (!requireDownloadAccess(`/lecture/${currentEpisode.id}`)) return;
 
       try {
         if (downloadStatus === DownloadStatus.DOWNLOADING) {

@@ -453,7 +453,7 @@ const LectureDetailScreen: React.FC = () => {
 
   const handleDownloadPress = useCallback(async () => {
     if (!episode) return;
-    if (!requireDownloadAccess()) return;
+    if (!requireDownloadAccess(`/lecture/${episode.id}`)) return;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 

@@ -15,11 +15,29 @@ import type { Episode } from "../types/types";
 import { copyWithOverwrite } from "../utils/fileCopy";
 import { logger } from "../utils/logger";
 import { requestStoragePermission } from "../utils/permissions";
-import { downloadsApi } from "./api/downloads.api";
+import {
+  downloadsApi,
+  DownloadAuthRequiredError,
+  DownloadLimitReachedError,
+} from "./api/downloads.api";
 import {
   addSentryBreadcrumb,
   captureSentryException,
 } from "./config/sentry.config";
+
+/**
+ * A refusal the server made on purpose - not signed in, or the free
+ * monthly allowance is spent. These carry a message written for the user
+ * and must reach the caller with their type intact, so the UI can offer
+ * sign-in or the upsell instead of "try again", and so Sentry is not told
+ * about an outcome the product intends.
+ */
+export function isExpectedDownloadRefusal(error: unknown): boolean {
+  return (
+    error instanceof DownloadAuthRequiredError ||
+    error instanceof DownloadLimitReachedError
+  );
+}
 
 const DOWNLOADS_METADATA_KEY = "downloads_metadata";
 
@@ -435,6 +453,13 @@ class DownloadsService {
         logger.warn("Failed to clean up partial download:", cleanupError);
       }
 
+      // Rethrown unwrapped, after the partial file is cleaned up: wrapping it
+      // in a DownloadError would erase the type every caller uses to tell a
+      // refusal from a fault, and they would report it to Sentry themselves.
+      if (isExpectedDownloadRefusal(error)) {
+        throw error;
+      }
+
       // Determine if this is a permission-related error
       const errorMessage = error?.message || String(error);
       const isPermissionError =
@@ -461,7 +486,8 @@ class DownloadsService {
           errorMessage || "Failed to download lecture. Please try again.";
       }
 
-      // Report download errors to Sentry with full context
+      // Report download errors to Sentry with full context. Deliberate
+      // refusals never reach here - they were rethrown above.
       captureSentryException(error, {
         lectureId,
         title,
@@ -475,7 +501,6 @@ class DownloadsService {
         isPermissionError,
       });
 
-      // Throw error with user-friendly message
       // Throw error with user-friendly message
       throw new DownloadError(
         userFriendlyMessage,
@@ -654,6 +679,13 @@ class DownloadsService {
       this.activeDownloads.set(lectureId, resumableDownload);
       return resumableDownload;
     } catch (error) {
+      // Rethrown rather than collapsed to null: the queue turns a null into a
+      // flat "Failed to create download.", which would erase the reason and
+      // leave the UI unable to tell a signed-out user what to do about it.
+      if (isExpectedDownloadRefusal(error)) {
+        throw error;
+      }
+
       logger.error("Failed to create resumable download", error as Error);
       captureSentryException(error as Error, {
         operation: "create_resumable_download",
