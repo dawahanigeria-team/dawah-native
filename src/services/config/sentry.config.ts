@@ -12,7 +12,6 @@ import {
   isTransientNetworkError,
   isTransientNetworkErrorText,
 } from "../api/networkErrors";
-import { capturePostHogException } from "./posthog.config";
 import {
   isExpectedExpoUpdatesCheckFailure,
   isExpectedMissingAccessTokenFailure,
@@ -342,11 +341,9 @@ export const captureSentryException = (
   error: Error,
   context?: Record<string, unknown>,
   options?: {
-    alsoSendToPostHog?: boolean;
     captureClientError?: boolean;
   },
 ) => {
-  const alsoSendToPostHog = options?.alsoSendToPostHog ?? true;
   const captureClientError =
     options?.captureClientError ??
     parseBoolean(process.env.EXPO_PUBLIC_SENTRY_CAPTURE_CLIENT_ERRORS, true);
@@ -368,11 +365,6 @@ export const captureSentryException = (
     !captureClientError
   ) {
     return;
-  }
-
-  // Send to PostHog error tracking in parallel
-  if (alsoSendToPostHog) {
-    capturePostHogException(error, context);
   }
 
   if (context) {

@@ -6,10 +6,8 @@ import { useFonts } from "expo-font";
 import { useCallback, useEffect, useRef } from "react";
 import { InteractionManager, Linking, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { PostHogProvider, PostHogErrorBoundary, usePostHog } from "posthog-react-native";
 
 import { useTheme } from "../src/hooks/useTheme";
-import { getPostHog } from "../src/services/config/posthog.config";
 import { logger } from "../src/utils/logger";
 
 import { ErrorBoundary } from "../src/components/atoms";
@@ -118,47 +116,18 @@ function useNotificationObserver() {
   }, [safePush]);
 }
 
-function PostHogAnalytics() {
-  const posthog = usePostHog();
-  const pathname = usePathname();
-  const lastScreenRef = useRef<string | null>(null);
-  const identifiedRef = useRef<string | null>(null);
-
+/**
+ * App-open and session-length tracking.
+ *
+ * Screen views and user identification went with PostHog; both were features of
+ * that SDK rather than of this app. The event taxonomy in analytics.service.ts
+ * is unchanged and still called, so wiring a new transport is one file.
+ */
+function AppSessionTracker() {
   useEffect(() => {
     analytics.capture("app_opened");
     return analytics.trackAppSession();
   }, []);
-
-  useEffect(() => {
-    if (!posthog || !pathname) return;
-    if (lastScreenRef.current === pathname) return;
-    lastScreenRef.current = pathname;
-    posthog.screen(pathname);
-  }, [pathname, posthog]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const identifyUser = async () => {
-      try {
-        const userId = await userService.getUserId();
-        if (!isMounted || !userId) return;
-        if (identifiedRef.current === userId) return;
-        identifiedRef.current = userId;
-        posthog?.identify(userId, {
-          account_type: userId.startsWith("guest_") ? "guest" : "registered",
-        });
-      } catch (error) {
-        console.warn("PostHog identify failed:", error);
-      }
-    };
-
-    void identifyUser();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [posthog]);
 
   return null;
 }
@@ -429,22 +398,11 @@ function RootLayout() {
 
 // Wrap with Sentry for error tracking
 function RootLayoutWithProviders() {
-  const posthogClient = getPostHog();
-
-  if (!posthogClient) {
-    return <RootLayout />;
-  }
-
   return (
-    <PostHogProvider
-      client={posthogClient}
-      autocapture={{ captureScreens: false, captureTouches: false }}
-    >
-      <PostHogErrorBoundary>
-        <PostHogAnalytics />
-        <RootLayout />
-      </PostHogErrorBoundary>
-    </PostHogProvider>
+    <>
+      <AppSessionTracker />
+      <RootLayout />
+    </>
   );
 }
 

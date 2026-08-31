@@ -4,7 +4,6 @@
  * Use this instead of console.log to avoid performance issues in production
  */
 
-import { capturePostHogException } from '../services/config/posthog.config';
 import { captureSentryException } from '../services/config/sentry.config';
 
 const isDev = __DEV__;
@@ -59,12 +58,10 @@ export const logger = {
     }
 
     const telemetryContext = { message, ...context };
-    capturePostHogException(normalizedError, telemetryContext);
 
-    // Send to Sentry in production without duplicating PostHog forwarding.
+    // Sentry is the only error destination now.
     if (!isDev) {
       captureSentryException(normalizedError, telemetryContext, {
-        alsoSendToPostHog: false,
       });
     }
   },

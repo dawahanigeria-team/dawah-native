@@ -9,8 +9,6 @@ interface EnvConfig {
   MEDIA_BASE_URL: string;
   MEDIA_HAS_MEDIUM: boolean;
   PUSH_NOTIFICATIONS_REGISTER_URL: string;
-  POSTHOG_KEY: string;
-  POSTHOG_HOST: string;
   GOOGLE_WEB_CLIENT_ID: string;
   GOOGLE_IOS_CLIENT_ID: string;
   PREMIUM_MONTHLY_PRODUCT_ID: string;
@@ -28,8 +26,6 @@ export const ENV: EnvConfig = {
   // before it exists is worse than serving an oversized one.
   MEDIA_HAS_MEDIUM: process.env.EXPO_PUBLIC_MEDIA_HAS_MEDIUM === 'true',
   PUSH_NOTIFICATIONS_REGISTER_URL: process.env.EXPO_PUBLIC_PUSH_REGISTER_URL || '',
-  POSTHOG_KEY: process.env.EXPO_PUBLIC_POSTHOG_KEY || '',
-  POSTHOG_HOST: process.env.EXPO_PUBLIC_POSTHOG_HOST || 'https://eu.i.posthog.com',
   // Fallbacks, not just defaults. EXPO_PUBLIC_* values are inlined into the JS
   // bundle when it is built, so an OTA published without the environment
   // loaded ships an empty string here — and ensureGoogleSigninConfigured then
