@@ -140,7 +140,13 @@ export default function LecturersScreen() {
       const response = await lecturersApi.getAllLecturers(requestParams);
 
 
-      // Determine if there are more pages based on data received
+      // The API now reports the real catalogue size, so "is there more" is a
+      // fact rather than a guess. Falling back to "this page had rows" keeps an
+      // older API (which sends no total) behaving as before.
+      const knownTotal =
+        typeof response.total === 'number' && response.total > response.data.length
+          ? response.total
+          : 0;
       const hasMorePages = response.data.length > 0;
 
       const normalizedLecturers = response.data.map((item) => ({
@@ -162,13 +168,12 @@ export default function LecturersScreen() {
       if (isRefresh) {
         setLecturers(normalizedLecturers);
         setPage(1);
-        setHasMore(hasMorePages);
-        setTotalScholars(response.total || normalizedLecturers.length);
+        setTotalScholars(knownTotal || normalizedLecturers.length);
+        setHasMore(knownTotal ? normalizedLecturers.length < knownTotal : hasMorePages);
       } else if (pageNum === 1) {
         setLecturers(normalizedLecturers);
-        // Always try to load page 2, even if page 1 returned less than requested
-        setHasMore(true);
-        setTotalScholars(response.total || normalizedLecturers.length);
+        setTotalScholars(knownTotal || normalizedLecturers.length);
+        setHasMore(knownTotal ? normalizedLecturers.length < knownTotal : true);
       } else {
         // Use functional update to avoid stale closure
         setLecturers(prevLecturers => {
@@ -176,20 +181,15 @@ export default function LecturersScreen() {
           const existingIds = new Set(prevLecturers.map(l => String(l.id)));
           const newItems = normalizedLecturers.filter((item: Lecturer) => !existingIds.has(String(item.id)));
 
-          if (newItems.length === 0 && response.data.length > 0) {
-            // If we got data but they are all duplicates, it might mean we are fetching the same page or overlapping data.
-          }
-
           const newLecturers = [...prevLecturers, ...newItems];
 
-          // Update total scholars count
-          setTotalScholars(response.total || newLecturers.length);
+          setTotalScholars(knownTotal || newLecturers.length);
+          // Stop at the real end of the catalogue instead of firing one more
+          // request that comes back empty.
+          setHasMore(knownTotal ? newLecturers.length < knownTotal : hasMorePages);
 
           return newLecturers;
         });
-
-        // Keep trying to load more as long as we got some data
-        setHasMore(hasMorePages);
       }
 
     } catch (err) {
@@ -419,8 +419,51 @@ export default function LecturersScreen() {
         return null;
       }
 
-      // Show "Load More" hint if there are more scholars
+      // A tappable button, not a line of grey text. Scrolling still loads the
+      // next page on its own (onEndReached); this is for the reader who reaches
+      // the end of 20 cards and does not realise the list continues.
       if (hasMore && lecturers.length > 0 && lecturers.length < totalScholars) {
+        const remaining = totalScholars - lecturers.length;
+        return (
+          <View style={tw`py-6 items-center`}>
+            <TouchableOpacity
+              onPress={handleLoadMore}
+              accessibilityRole="button"
+              accessibilityLabel={`Load more scholars, ${remaining} remaining`}
+              style={[
+                tw`px-6 py-3 rounded-full flex-row items-center`,
+                { backgroundColor: colors.system.background.secondary },
+              ]}
+            >
+              <Text
+                style={[
+                  tw`text-sm font-semibold mr-1.5`,
+                  { color: colors.brand.primary },
+                ]}
+              >
+                Load more scholars
+              </Text>
+              <Ionicons
+                name="chevron-down"
+                size={16}
+                color={colors.brand.primary}
+              />
+            </TouchableOpacity>
+            <Text
+              style={[
+                tw`text-xs mt-2`,
+                { color: colors.system.label.tertiary },
+              ]}
+            >
+              {remaining} more to explore
+            </Text>
+          </View>
+        );
+      }
+
+      // Reaching the end deserves an explicit full stop, so nobody is left
+      // wondering whether the list simply failed to continue.
+      if (lecturers.length > 0 && !hasMore) {
         return (
           <View style={tw`py-6 items-center`}>
             <Text
@@ -429,7 +472,7 @@ export default function LecturersScreen() {
                 { color: colors.system.label.tertiary },
               ]}
             >
-              Scroll to load more scholars
+              That&rsquo;s all {totalScholars} scholars
             </Text>
           </View>
         );
@@ -597,16 +640,18 @@ export default function LecturersScreen() {
             >
               {searchQuery || selectedLocation
                 ? `${filteredLecturers.length} found`
-                : `${lecturers.length} scholars`}
+                : totalScholars > lecturers.length
+                  ? `Showing ${lecturers.length} of ${totalScholars} scholars`
+                  : `${lecturers.length} scholars`}
             </Text>
-            {!searchQuery && hasMore && totalScholars > lecturers.length && (
+            {!searchQuery && totalScholars > lecturers.length && (
               <Text
                 style={[
                   tw`text-xs mt-0.5`,
                   { color: colors.system.label.tertiary },
                 ]}
               >
-                Scroll for more
+                Keep scrolling to see more
               </Text>
             )}
           </View>

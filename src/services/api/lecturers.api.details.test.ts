@@ -26,7 +26,7 @@ test('loads lecturer details through the exact lecturer endpoint', async () => {
   expect(mockGet).toHaveBeenCalledTimes(1);
   expect(mockGet).toHaveBeenCalledWith(
     '/api/all_rps_api.php',
-    { page: 1, lim: 1, offset: 0, rpid: 42 },
+    { page: 1, lim: 1, offset: 0, meta: 1, rpid: 42 },
     expect.objectContaining({ useCache: true }),
   );
   expect(mockGet).not.toHaveBeenCalledWith(

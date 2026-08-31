@@ -90,6 +90,12 @@ class LecturersApiService {
         page,
         lim,
         offset,
+        // Ask for the paginated envelope so `total` is the real number of
+        // scholars in the catalogue rather than the number of rows on this page.
+        // It has to travel in the body: responses are cached by body alone, so a
+        // total read from the X-Total-Count header would vanish on a cache hit
+        // and the screen would fall back to showing the loaded count.
+        meta: 1,
       };
 
       // Add language filter if provided (API expects 'langid' parameter)
@@ -268,13 +274,21 @@ class LecturersApiService {
       followers: lecturer.views || 0, // Use views as followers for now
     }));
 
+    // `total` is the catalogue size, not the page size. Falling back to the page
+    // length is only correct for an upstream that sends no total at all (an old
+    // build talking to an old API); when that happens the caller sees
+    // total === data.length and simply cannot show a "showing X of Y" count.
+    const perPage = params.lim || 10;
+    const total =
+      typeof data?.total === 'number' ? data.total : enhancedLecturers.length;
+
     return {
       success: true,
       data: enhancedLecturers,
       page: params.page || 1,
-      total: data?.total || enhancedLecturers.length,
-      total_pages: data?.total_pages || Math.ceil((data?.total || enhancedLecturers.length) / (params.lim || 10)),
-      per_page: params.lim || 10,
+      total,
+      total_pages: data?.total_pages || Math.ceil(total / perPage),
+      per_page: perPage,
     };
   }
 
