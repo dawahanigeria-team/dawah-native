@@ -93,15 +93,17 @@ export const LecturerCard: React.FC<LecturerCardProps> = ({
           </View>
         )}
 
-        {/* Verified Badge */}
+        {/* Verified Badge — top-left, because the artwork carries its own
+            branding and social icons along the bottom edge and a badge in the
+            corner sat on top of them. */}
         {verified && (
           <View
             style={[
-              tw`absolute bottom-0 right-0 w-6 h-6 rounded-full items-center justify-center`,
+              tw`absolute top-1 left-1 w-5 h-5 rounded-full items-center justify-center`,
               { backgroundColor: colors.brand.primary }
             ]}
           >
-            <Ionicons name="checkmark" size={16} color="white" />
+            <Ionicons name="checkmark" size={13} color="white" />
           </View>
         )}
       </View>
