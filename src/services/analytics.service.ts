@@ -1,8 +1,6 @@
 import * as Application from "expo-application";
 import { AppState, Platform, type AppStateStatus } from "react-native";
 
-import { getPostHog } from "./config/posthog.config";
-
 export type AnalyticsEvent =
   | "app_opened"
   | "app_session"
@@ -24,11 +22,21 @@ const commonProperties = {
   build_number: Application.nativeBuildVersion ?? "unknown",
 };
 
+/**
+ * Product analytics has no transport at the moment.
+ *
+ * PostHog was removed: it shipped its own error tracking alongside Sentry's, so
+ * every crash was reported twice, and it carried a session recorder and remote
+ * config the app never used. Sentry keeps the errors.
+ *
+ * The event names and the properties attached to them are deliberately left in
+ * place, and every call site still calls through here. Restoring analytics means
+ * giving this one function a destination — `expo-observe` (EAS Observe) being the
+ * obvious candidate on SDK 57 — not re-instrumenting the app.
+ */
 const capture = (event: AnalyticsEvent, properties: Properties = {}) => {
-  getPostHog()?.capture(event, {
-    ...commonProperties,
-    ...properties,
-  });
+  if (!__DEV__) return;
+  console.log("[analytics]", event, { ...commonProperties, ...properties });
 };
 
 const trackAppSession = () => {

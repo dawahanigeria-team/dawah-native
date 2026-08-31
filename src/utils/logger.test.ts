@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const mockCaptureSentryException = jest.fn();
-const mockCapturePostHogException = jest.fn();
 const mockConsoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
 
 describe('logger.error', () => {
@@ -10,7 +9,6 @@ describe('logger.error', () => {
   beforeEach(() => {
     jest.resetModules();
     mockCaptureSentryException.mockReset();
-    mockCapturePostHogException.mockReset();
     mockConsoleError.mockClear();
     runtime.__DEV__ = false;
   });
@@ -20,13 +18,9 @@ describe('logger.error', () => {
     mockConsoleError.mockRestore();
   });
 
-  test('sends error telemetry to PostHog and Sentry without double-posthog forwarding', () => {
+  test('sends error telemetry to Sentry', () => {
     jest.doMock('../services/config/sentry.config', () => ({
       captureSentryException: mockCaptureSentryException,
-    }));
-
-    jest.doMock('../services/config/posthog.config', () => ({
-      capturePostHogException: mockCapturePostHogException,
     }));
 
     const { logger } = require('./logger');
@@ -35,15 +29,12 @@ describe('logger.error', () => {
     logger.error('Failed to fetch announcements', error, { screen: 'Profile' });
 
     expect(mockConsoleError).toHaveBeenCalledWith('Failed to fetch announcements', error, { screen: 'Profile' });
-    expect(mockCapturePostHogException).toHaveBeenCalledWith(error, {
-      message: 'Failed to fetch announcements',
-      screen: 'Profile',
-    });
+    // Sentry is the only destination now: PostHog was reporting every crash a
+    // second time, which is what made the duplicate issues in Sentry's inbox.
     expect(mockCaptureSentryException).toHaveBeenCalledWith(error, {
       message: 'Failed to fetch announcements',
       screen: 'Profile',
     }, {
-      alsoSendToPostHog: false,
     });
   });
 });

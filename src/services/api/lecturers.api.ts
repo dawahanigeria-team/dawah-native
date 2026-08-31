@@ -19,6 +19,13 @@ export interface Lecturer {
   share?: number;
   views?: number;
   rp_thumbnail?: string;
+  /**
+   * 400x240 derivative of the scholar's artwork, ~17KB, generated from the same
+   * source as `img` (which is a full-size original of up to 820KB drawn into a
+   * card a few hundred pixels wide). Uncropped, because the artwork is a wide
+   * branded name card and a square crop cuts the scholar's name in half.
+   */
+  rp_avatar?: string;
   comment?: number;
   charts?: {
     daily?: number;

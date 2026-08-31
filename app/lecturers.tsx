@@ -15,13 +15,19 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { logger } from "../src/utils/logger";
+import AsyncStorage from "expo-sqlite/kv-store";
 import { LecturerCard } from "../src/components/molecules/LecturerCard";
+import { LecturerRow } from "../src/components/molecules/LecturerRow";
 import { LecturerCardSkeleton } from "../src/components/molecules/LecturerCard.skeleton";
 import { Lecturer, lecturersApi } from "../src/services/api/lecturers.api";
 import { ApiError } from "../src/services/api/base.api";
 import { useTheme } from "../src/hooks/useTheme";
 import tw from "../src/theme/twrnc";
 import { getLanguageName } from "../src/utils/languages";
+
+type ViewMode = "list" | "grid";
+
+const VIEW_STORAGE_KEY = "dn:lecturers:view";
 
 export default function LecturersScreen() {
   const { colors } = useTheme();
@@ -35,6 +41,31 @@ export default function LecturersScreen() {
   const [error, setError] = useState<string | null>(null);
   const [totalScholars, setTotalScholars] = useState<number>(0);
   const itemsPerPage = 20; // Optimized for Nigerian internet speeds
+
+  // List is the default: this screen is a directory of 300+ scholars and the
+  // usual job is to find one, which needs the whole name rather than a picture.
+  // Two columns of cards clip the label to about two words.
+  const [view, setView] = useState<ViewMode>("list");
+  useEffect(() => {
+    let alive = true;
+    AsyncStorage.getItem(VIEW_STORAGE_KEY)
+      .then((saved: string | null) => {
+        if (alive && (saved === "grid" || saved === "list")) setView(saved);
+      })
+      .catch(() => {
+        // A missing or unreadable preference just means the default.
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const chooseView = useCallback((next: ViewMode) => {
+    setView(next);
+    AsyncStorage.setItem(VIEW_STORAGE_KEY, next).catch(() => {
+      // Preference simply will not persist.
+    });
+  }, []);
 
   // Filter & Search states
   const [searchQuery, setSearchQuery] = useState('');
@@ -76,6 +107,10 @@ export default function LecturersScreen() {
 
   const resolveLecturerImage = useCallback((item: Lecturer): string => {
     const candidate =
+      // The 400x240 derivative first: `img` is the full-size original, up to
+      // 820KB for a card drawn a couple of hundred points wide, and
+      // `rp_thumbnail` is only 100x60 so it blurs at any usable size.
+      item.rp_avatar ||
       item.rp_thumbnail ||
       item.img ||
       (item as any).rp_image ||
@@ -346,6 +381,21 @@ export default function LecturersScreen() {
           style={tw`mr-0 w-full`}
         />
       </View>
+    ),
+    [handleLecturerPress, resolveLecturerImage]
+  );
+
+  const renderLecturerRow = useCallback(
+    ({ item }: { item: Lecturer }) => (
+      <LecturerRow
+        id={String(item.id)}
+        name={item.name}
+        imageUrl={resolveLecturerImage(item)}
+        state={(item as any).state}
+        language={item.language}
+        views={item.views}
+        onPress={() => handleLecturerPress(String(item.id))}
+      />
     ),
     [handleLecturerPress, resolveLecturerImage]
   );
@@ -656,6 +706,34 @@ export default function LecturersScreen() {
             )}
           </View>
 
+          <View style={tw`flex-row items-center`}>
+          <View
+            style={[
+              tw`flex-row items-center rounded-lg mr-2 p-0.5`,
+              { backgroundColor: colors.system.background.secondary },
+            ]}
+          >
+            {(["list", "grid"] as ViewMode[]).map((mode) => (
+              <TouchableOpacity
+                key={mode}
+                onPress={() => chooseView(mode)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: view === mode }}
+                accessibilityLabel={`${mode === "list" ? "List" : "Grid"} view`}
+                style={[
+                  tw`px-3 py-1.5 rounded-md`,
+                  view === mode && { backgroundColor: colors.brand.primary },
+                ]}
+              >
+                <Ionicons
+                  name={mode === "list" ? "list" : "grid"}
+                  size={16}
+                  color={view === mode ? colors.fixed.white : colors.system.label.secondary}
+                />
+              </TouchableOpacity>
+            ))}
+          </View>
+
           <TouchableOpacity
             onPress={() => {
               // Cycle through sort options
@@ -683,6 +761,7 @@ export default function LecturersScreen() {
               {sortBy === 'popular' ? 'Most Popular' : sortBy === 'name' ? 'A-Z' : 'Most Lectures'}
             </Text>
           </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -704,9 +783,12 @@ export default function LecturersScreen() {
         <FlashList
           data={filteredLecturers}
           keyExtractor={(item) => String(item.id)}
-          renderItem={renderLecturer}
-          numColumns={2}
-          contentContainerStyle={tw`px-3 pb-10`}
+          renderItem={view === "grid" ? renderLecturer : renderLecturerRow}
+          // FlashList recycles by column count, so this has to change with the
+          // view or the list keeps handing rows into two-column slots.
+          key={view}
+          numColumns={view === "grid" ? 2 : 1}
+          contentContainerStyle={view === "grid" ? tw`px-3 pb-10` : tw`pb-10`}
           ListEmptyComponent={renderEmptyState}
           ListFooterComponent={renderFooter}
           onEndReached={handleLoadMore}

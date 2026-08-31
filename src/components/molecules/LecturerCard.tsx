@@ -56,7 +56,7 @@ export const LecturerCard: React.FC<LecturerCardProps> = ({
     <TouchableOpacity
       onPress={handlePress}
       activeOpacity={0.7}
-      style={[tw`items-center mr-6`, style]}
+      style={[tw`mr-6`, style]}
       accessibilityRole="button"
       accessibilityLabel={`View ${name}'s profile`}
       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -68,8 +68,12 @@ export const LecturerCard: React.FC<LecturerCardProps> = ({
           <Image
             source={{ uri: imageUrl }}
             style={[
-              tw`w-20 h-20 rounded-full`,
-              { backgroundColor: colors.system.fill.secondary }
+              tw`w-full rounded-xl`,
+              // The artwork is a wide branded name card and both the stored
+              // original and the purpose-made thumbnail are 1.67:1. Cropping it
+              // into a circle cut the scholar's name in half — the one thing the
+              // picture exists to show.
+              { aspectRatio: 5 / 3, backgroundColor: colors.system.fill.secondary }
             ]}
             contentFit="cover"
             cachePolicy="disk"
@@ -79,8 +83,8 @@ export const LecturerCard: React.FC<LecturerCardProps> = ({
         ) : (
           <View
             style={[
-              tw`w-20 h-20 rounded-full items-center justify-center`,
-              { backgroundColor: placeholderColor }
+              tw`w-full rounded-xl items-center justify-center`,
+              { aspectRatio: 5 / 3, backgroundColor: placeholderColor }
             ]}
           >
             <Text style={{ color: colors.fixed.white, fontSize: 24, fontWeight: 'bold' }}>
@@ -105,7 +109,7 @@ export const LecturerCard: React.FC<LecturerCardProps> = ({
       {/* Name */}
       <Text
         style={[
-          tw`text-xs font-medium text-center mb-1`,
+          tw`text-xs font-medium mb-1`,
           { color: colors.system.label.primary }
         ]}
         numberOfLines={2}
