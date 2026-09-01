@@ -186,7 +186,7 @@ export const useRecent = (
   }, [paramsKey, fetchRecent]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const refetch = useCallback(async () => {
-    recentApi.clearCache();
+    await recentApi.clearPersistentCache();
     await fetchRecent(1, false);
   }, [fetchRecent]);
 

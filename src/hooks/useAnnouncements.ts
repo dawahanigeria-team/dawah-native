@@ -275,14 +275,22 @@ export const useUnreadAnnouncementsCount = (userIdParam?: string): number => {
       }
     };
 
-    const fetchCount = async () => {
+    // `force` skips the shared-count reuse and always asks the server.
+    //
+    // Reuse is right for a background poll tick and for a remount — if the
+    // inbox screen fetched a moment ago, asking again for the same number is
+    // waste. It is wrong when the user has just brought the app to the
+    // foreground, because that is precisely when they are looking at the badge,
+    // and showing them a count up to a poll interval old to save 2 KB is a bad
+    // trade.
+    const fetchCount = async (force = false) => {
       if (appStateRef.current !== 'active') {
         return;
       }
-      // Reuse a count another consumer just fetched — the inbox screen, or a
-      // previous tick — rather than asking again. Bounded by the TTL so the
-      // badge still refreshes on the poll interval.
-      if (canReuseSharedCount(sharedUnreadCount, sharedUnreadCountAt, Date.now())) {
+      if (
+        !force &&
+        canReuseSharedCount(sharedUnreadCount, sharedUnreadCountAt, Date.now())
+      ) {
         setCountSafely(sharedUnreadCount as number);
         return;
       }
@@ -338,7 +346,7 @@ export const useUnreadAnnouncementsCount = (userIdParam?: string): number => {
     const appStateSubscription = AppState.addEventListener('change', (nextState) => {
       appStateRef.current = nextState;
       if (nextState === 'active') {
-        void fetchCount();
+        void fetchCount(true);
         startPolling();
       } else {
         stopPolling();

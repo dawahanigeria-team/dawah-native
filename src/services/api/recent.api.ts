@@ -346,12 +346,38 @@ class RecentLecturesApiService {
     }
   }
 
+  /**
+   * Drop the in-memory pool. Enough for a filter change, because the persisted
+   * page entries are keyed by URL and the filter is part of the query string,
+   * so a different filter never reads another filter's cache.
+   *
+   * NOT enough for a user-initiated refresh — see clearPersistentCache.
+   */
   clearCache(): void {
     this.pool = null;
     this.cacheTimestamp = 0;
     this.firstPage = null;
     this.firstPageTimestamp = 0;
     logger.debug('Recent/Trending lectures pool cleared');
+  }
+
+  /**
+   * Also drop the persisted page entries, so the next fetch really does reach
+   * the network.
+   *
+   * A refresh that clears only the in-memory pool re-runs fetchPage, which asks
+   * apiClient with useCache: true and is handed back the very pages we were
+   * trying to get past — the user pulls to refresh and is shown the same
+   * content. That was survivable while these pages expired after 10 minutes; at
+   * an hour it would have made the refresh button look broken.
+   *
+   * Await this before refetching: the purge is async, and a refetch started
+   * alongside it can still read the entry being removed.
+   */
+  async clearPersistentCache(): Promise<void> {
+    this.clearCache();
+    await apiClient.clearCache(RECENT_ENDPOINT);
+    logger.debug('Recent/Trending persisted pages cleared');
   }
 }
 

@@ -55,7 +55,9 @@ export const usePopularLecturesWithCache = (
     if (!enabled) return;
     let cachedLectures: SearchLecture[] | null = null;
     try {
-      if (forceFresh) recentApi.clearCache();
+      // Must await: clearing only the in-memory pool leaves the persisted
+      // pages in place and the 'refresh' hands back the same content.
+      if (forceFresh) await recentApi.clearPersistentCache();
 
       if (!forceFresh) {
         cachedLectures = await cacheService.get<SearchLecture[]>(
