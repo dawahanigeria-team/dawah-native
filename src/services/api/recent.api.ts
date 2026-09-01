@@ -49,6 +49,26 @@ export interface RecentLecturesResponse {
 const DAY_MS = 24 * 60 * 60 * 1000;
 const TRENDING_WINDOW_DAYS = 90;
 const POOL_PAGES = 5; // 5 × 30 = ~150 lectures in the shared pool.
+
+/**
+ * How long a fetched page stays usable from the persistent cache.
+ *
+ * These five pages are ~44 KB each — 218 KB measured — and they are fetched on
+ * every cold launch to render a 20-item rail. They inherited the shared
+ * LECTURES_TTL of 10 minutes, which is far tighter than the data: this endpoint
+ * lists recently *posted* lectures, and new lectures arrive on the order of once
+ * a day, not once every ten minutes. Any launch more than 10 minutes after the
+ * last one therefore re-downloaded all 218 KB to arrive at the same answer, on
+ * an audience largely paying for mobile data.
+ *
+ * An hour still surfaces new lectures well within the day they appear, and the
+ * home rail renders immediately from its own 7-day persisted cache regardless,
+ * so this only governs how often the pool behind it is refreshed.
+ *
+ * Deliberately local rather than raising API_CONFIG.CACHE.LECTURES_TTL, which
+ * lecturers, albums and categories also read.
+ */
+const RECENT_POOL_CACHE_TTL_S = 60 * 60;
 const RECENT_REQUEST_TIMEOUT_MS = 12000;
 const MERGED_CACHE_TTL_MS = 5 * 60 * 1000;
 const RECENT_ENDPOINT = '/api/leclisting_recent.php';
@@ -136,7 +156,7 @@ class RecentLecturesApiService {
         timeout: RECENT_REQUEST_TIMEOUT_MS,
         retryAttempts: 2,
         useCache: true,
-        cacheTTL: API_CONFIG.CACHE.LECTURES_TTL,
+        cacheTTL: RECENT_POOL_CACHE_TTL_S,
         headers: {
           Origin: API_CONFIG.ORIGIN,
           Referer: API_CONFIG.REFERER,
