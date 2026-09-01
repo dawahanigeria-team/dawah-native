@@ -19,6 +19,7 @@ import {
   shouldDropExpectedMissingAccessTokenEvent,
   shouldSendSentryEvent,
 } from "./sentry.filters";
+import { buildReplayOptions } from "./sentry.replay";
 
 const SENTRY_DSN =
   "https://d2bf75e91c09153b4afbb0da6f7a5419@o980827.ingest.us.sentry.io/4511160608292864";
@@ -112,21 +113,17 @@ export const initSentry = () => {
     0,
   );
   const tracingEnabled = tracesSampleRate > 0;
-  const enableMobileReplay = Platform.OS !== "android";
-  const replaySessionSampleRate = enableMobileReplay
-    ? isDevelopment
-      ? 1.0
-      : 0.1
-    : 0.0;
-  const replayOnErrorSampleRate = enableMobileReplay ? 1.0 : 0.0;
+  const replay = buildReplayOptions({ platform: Platform.OS, isDevelopment });
+  const replaySessionSampleRate = replay.sessionSampleRate;
+  const replayOnErrorSampleRate = replay.onErrorSampleRate;
   // Keep fatal flush waits short on Android to reduce ANR risk on low-end devices.
   const shutdownTimeout = Platform.OS === "android" ? 1000 : 2000;
   const integrations = [
-    ...(enableMobileReplay
+    ...(replay.enabled
       ? [
           Sentry.mobileReplayIntegration({
-            maskAllText: false,
-            maskAllImages: false,
+            maskAllText: replay.maskAllText,
+            maskAllImages: replay.maskAllImages,
           }),
         ]
       : []),
