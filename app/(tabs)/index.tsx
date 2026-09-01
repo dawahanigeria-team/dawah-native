@@ -15,7 +15,6 @@ import {
 } from "react-native";
 import Animated, {
   FadeIn,
-  FadeInDown,
   FadeInRight,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -290,11 +289,15 @@ function HomeScreen() {
 
   // Render Quick Action
   const renderQuickAction = useCallback(
-    (action: (typeof QUICK_ACTIONS)[0], index: number) => (
-      <Animated.View
-        key={action.id}
-        entering={IS_ANDROID ? undefined : FadeInDown.delay(index * 50).duration(300)}
-      >
+    (action: (typeof QUICK_ACTIONS)[0]) => (
+      // A plain View, deliberately. Wrapped in Animated.View these tiles
+      // rendered at near-zero opacity — Charts came through, Quran and Library
+      // were barely visible, and Lecturers, Playlists and Categories did not
+      // paint at all, so half of Browse was invisible and only tappable by
+      // accident. It is not the entering animation: removing that prop changed
+      // nothing, and swapping Animated.View for View fixed it outright. Six
+      // static tiles do not need a staggered fade badly enough to risk that.
+      <View key={action.id}>
         <TouchableOpacity
           onPress={() =>
             guardedPush(action.route as Parameters<typeof router.push>[0])
@@ -324,7 +327,7 @@ function HomeScreen() {
             {action.title}
           </Text>
         </TouchableOpacity>
-      </Animated.View>
+      </View>
     ),
     [colors, SCREEN_WIDTH, guardedPush],
   );
@@ -737,9 +740,7 @@ function HomeScreen() {
             Browse
           </Text>
           <View style={styles.quickActionsGrid}>
-            {QUICK_ACTIONS.map((action, index) =>
-              renderQuickAction(action, index),
-            )}
+            {QUICK_ACTIONS.map((action) => renderQuickAction(action))}
           </View>
         </View>
 
