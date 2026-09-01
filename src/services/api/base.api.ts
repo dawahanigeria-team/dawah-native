@@ -153,6 +153,8 @@ interface RequestToken {
 class ApiClient {
   private static instance: ApiClient;
   private abortControllers: Map<string, AbortController> = new Map();
+  /** In-flight GETs, so concurrent identical reads share one network request. */
+  private inFlightGets: Map<string, Promise<ApiResponse<any>>> = new Map();
   private requestTokens: Map<string, RequestToken> = new Map();
   private activeRequests = 0;
   private authToken: string | null = null;
@@ -603,7 +605,50 @@ class ApiClient {
   /**
    * Main request method
    */
+  /**
+   * De-duplicates concurrent identical GETs.
+   *
+   * Two components mounting together ask for the same URL, both miss the cache
+   * because the read is async and neither has written yet, and both go to the
+   * network. Measured on a first launch: 30 requests for 15 distinct URLs.
+   *
+   * Worse than the wasted bytes, `createRequestToken` cancels any in-flight
+   * request with the same id, so the second caller was cancelling the first.
+   * A cancelled request surfaces as an empty result, which is how a populated
+   * screen ends up rendering "nothing found".
+   *
+   * Joining the in-flight promise fixes both: one network request, one result,
+   * no cancellation. Only GETs — a POST is not safe to share, two callers
+   * posting the same body still mean two intended writes.
+   */
   public async request<T = any>(
+    endpoint: string,
+    config: RequestConfig = {},
+  ): Promise<ApiResponse<T>> {
+    const method = (config.method || 'GET').toUpperCase();
+    if (method !== 'GET') {
+      return this.performRequest<T>(endpoint, config);
+    }
+
+    // The cache setting is part of the key so a caller that explicitly asked to
+    // bypass the cache never joins one that did not, and vice versa.
+    const key = `${method}_${this.buildUrl(endpoint, config.params)}_${
+      config.useCache === false ? 'fresh' : 'cached'
+    }`;
+
+    const existing = this.inFlightGets.get(key);
+    if (existing) {
+      return existing as Promise<ApiResponse<T>>;
+    }
+
+    const pending = this.performRequest<T>(endpoint, config).finally(() => {
+      this.inFlightGets.delete(key);
+    });
+    this.inFlightGets.set(key, pending as Promise<ApiResponse<any>>);
+    return pending;
+  }
+
+  private async performRequest<T = any>(
     endpoint: string,
     config: RequestConfig = {},
   ): Promise<ApiResponse<T>> {
