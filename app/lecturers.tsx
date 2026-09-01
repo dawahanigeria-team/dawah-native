@@ -681,8 +681,11 @@ export default function LecturersScreen() {
       {/* Sort and Filter Controls */}
       <View style={tw`px-5 pb-3`}>
         <View style={tw`flex-row items-center justify-between mb-1`}>
-          <View>
+          {/* min-w-0 lets this actually shrink: without it the text keeps its
+              intrinsic width and pushes the controls past the screen edge. */}
+          <View style={tw`flex-1 min-w-0 mr-3`}>
             <Text
+              numberOfLines={1}
               style={[
                 tw`text-sm font-medium`,
                 { color: colors.system.label.primary },
@@ -691,22 +694,23 @@ export default function LecturersScreen() {
               {searchQuery || selectedLocation
                 ? `${filteredLecturers.length} found`
                 : totalScholars > lecturers.length
-                  ? `Showing ${lecturers.length} of ${totalScholars} scholars`
+                  ? `${lecturers.length} of ${totalScholars}`
                   : `${lecturers.length} scholars`}
             </Text>
             {!searchQuery && totalScholars > lecturers.length && (
               <Text
+                numberOfLines={1}
                 style={[
                   tw`text-xs mt-0.5`,
                   { color: colors.system.label.tertiary },
                 ]}
               >
-                Keep scrolling to see more
+                Scroll for more
               </Text>
             )}
           </View>
 
-          <View style={tw`flex-row items-center`}>
+          <View style={tw`flex-row items-center shrink-0`}>
           <View
             style={[
               tw`flex-row items-center rounded-lg mr-2 p-0.5`,
