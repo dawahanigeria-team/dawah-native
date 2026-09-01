@@ -57,3 +57,23 @@ export const markAnnouncementAsReadLocally = (
     didMarkAsRead: true,
   };
 };
+
+/** How long a published unread count may be reused before it is refetched. */
+export const UNREAD_COUNT_TTL_MS = 5 * 60 * 1000;
+
+/**
+ * Whether a consumer can use the shared unread count instead of hitting the
+ * network.
+ *
+ * Freshness is the whole point. The reuse check used to be `!== null` with no
+ * expiry, which would have frozen the badge permanently the moment anything
+ * published a count — so in practice it only ever "worked" because nothing on
+ * the Home screen ever did, and every consumer fetched the full announcements
+ * list instead.
+ */
+export const canReuseSharedCount = (
+  count: number | null,
+  publishedAt: number,
+  now: number,
+  ttlMs: number = UNREAD_COUNT_TTL_MS,
+): boolean => count !== null && now - publishedAt < ttlMs;

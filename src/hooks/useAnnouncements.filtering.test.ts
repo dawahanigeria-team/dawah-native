@@ -3,6 +3,7 @@ import {
   applyAnnouncementsCutoff,
   countUnreadAnnouncements,
   markAnnouncementAsReadLocally,
+  canReuseSharedCount,
 } from './useAnnouncements.filtering';
 
 const buildAnnouncement = (
@@ -89,5 +90,36 @@ describe('useAnnouncements filtering', () => {
 
     expect(result.didMarkAsRead).toBe(false);
     expect(result.announcements).toBe(initial);
+  });
+});
+
+describe('canReuseSharedCount', () => {
+  const TTL = 5 * 60 * 1000;
+
+  test('refuses when nothing has been published yet', () => {
+    // This is the state the Home screen was permanently stuck in: the badge
+    // hook read this cache but never wrote it, so it refetched every time.
+    expect(canReuseSharedCount(null, 0, 1_000)).toBe(false);
+  });
+
+  test('reuses a freshly published count', () => {
+    expect(canReuseSharedCount(3, 1_000, 1_000 + 30_000)).toBe(true);
+  });
+
+  test('reuses a count of zero — no unread is a real answer', () => {
+    expect(canReuseSharedCount(0, 1_000, 1_000 + 30_000)).toBe(true);
+  });
+
+  test('refetches once the count is older than the TTL', () => {
+    expect(canReuseSharedCount(3, 1_000, 1_000 + TTL)).toBe(false);
+    expect(canReuseSharedCount(3, 1_000, 1_000 + TTL + 1)).toBe(false);
+  });
+
+  test('does not freeze the badge forever, which a null-only check would', () => {
+    // The bug this guards against: reuse with no expiry means the count is
+    // published once and never refreshed again.
+    const publishedAt = 1_000;
+    const wayLater = publishedAt + 24 * 60 * 60 * 1000;
+    expect(canReuseSharedCount(7, publishedAt, wayLater)).toBe(false);
   });
 });

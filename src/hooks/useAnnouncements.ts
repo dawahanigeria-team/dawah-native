@@ -13,6 +13,7 @@ import {
   applyAnnouncementsCutoff,
   countUnreadAnnouncements,
   markAnnouncementAsReadLocally,
+  canReuseSharedCount,
 } from './useAnnouncements.filtering';
 
 const GUEST_READ_ANNOUNCEMENTS_KEY = 'guest_read_announcements';
@@ -20,9 +21,11 @@ const AUTH_ANNOUNCEMENTS_CUTOFFS_KEY = 'auth_announcements_cutoffs_v1';
 type UnreadCountListener = (count: number) => void;
 const unreadCountListeners = new Set<UnreadCountListener>();
 let sharedUnreadCount: number | null = null;
+let sharedUnreadCountAt = 0;
 
 const publishUnreadCount = (count: number): void => {
   sharedUnreadCount = count;
+  sharedUnreadCountAt = Date.now();
   unreadCountListeners.forEach((listener) => listener(count));
 };
 
@@ -276,8 +279,11 @@ export const useUnreadAnnouncementsCount = (userIdParam?: string): number => {
       if (appStateRef.current !== 'active') {
         return;
       }
-      if (sharedUnreadCount !== null) {
-        setCountSafely(sharedUnreadCount);
+      // Reuse a count another consumer just fetched — the inbox screen, or a
+      // previous tick — rather than asking again. Bounded by the TTL so the
+      // badge still refreshes on the poll interval.
+      if (canReuseSharedCount(sharedUnreadCount, sharedUnreadCountAt, Date.now())) {
+        setCountSafely(sharedUnreadCount as number);
         return;
       }
 
@@ -293,12 +299,14 @@ export const useUnreadAnnouncementsCount = (userIdParam?: string): number => {
             cutoffTimestamp,
           );
           const unreadCount = countUnreadAnnouncements(filteredAnnouncements);
+          publishUnreadCount(unreadCount);
           setCountSafely(unreadCount);
         } else {
           // For guests, fetch announcements and calculate locally
           const response = await announcementsApi.getAnnouncements();
           const readIds = await getGuestReadIds();
           const unreadCount = response.data.filter(a => !readIds.has(a.id)).length;
+          publishUnreadCount(unreadCount);
           setCountSafely(unreadCount);
         }
       } catch (err: unknown) {
