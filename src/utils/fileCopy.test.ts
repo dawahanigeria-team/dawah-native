@@ -1,4 +1,4 @@
-import { copyWithOverwrite } from "./fileCopy";
+import { MissingCopySourceError, copyWithOverwrite } from "./fileCopy";
 
 type MockFile = {
   exists: boolean;
@@ -62,5 +62,24 @@ describe("copyWithOverwrite", () => {
 
     expect(() => copyWithOverwrite(source, destination)).toThrow("I/O failed");
     expect(destination.delete).not.toHaveBeenCalled();
+  });
+});
+
+describe("copyWithOverwrite when the source has vanished", () => {
+  test("reports the missing source instead of failing inside the native copy", () => {
+    const source = createMockFile(false);
+    const destination = createMockFile(false);
+
+    expect(() => copyWithOverwrite(source, destination)).toThrow(MissingCopySourceError);
+    expect(source.copy).not.toHaveBeenCalled();
+  });
+
+  test("leaves an existing destination intact", () => {
+    const source = createMockFile(false);
+    const destination = createMockFile(true);
+
+    expect(() => copyWithOverwrite(source, destination)).toThrow(MissingCopySourceError);
+    expect(destination.delete).not.toHaveBeenCalled();
+    expect(destination.exists).toBe(true);
   });
 });

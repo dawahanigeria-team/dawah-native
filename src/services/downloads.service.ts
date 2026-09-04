@@ -71,6 +71,14 @@ const isCancelledDownloadError = (error: unknown): boolean => {
   );
 };
 
+/**
+ * Shown to the user when a download reported success but its partial file was
+ * gone by the time we went to save it - the OS reclaiming storage, or a
+ * concurrent cancel. The queue surfaces this string directly.
+ */
+const DOWNLOAD_FILE_MISSING_MESSAGE =
+  "The download could not be saved. Please check your available storage and try again.";
+
 const getDownloadStatusErrorMessage = (status: number): string => {
   switch (status) {
     case 404:
@@ -770,6 +778,11 @@ class DownloadsService {
         throw new Error(errorMessage);
       }
 
+      if (!file.exists) {
+        await this.recoverFromMissingPartialFile(id);
+        throw new Error(DOWNLOAD_FILE_MISSING_MESSAGE);
+      }
+
       const bytesDownloaded = Math.max(resumableDownload.bytesDownloaded, this.getFileSize(file));
       const finalFile = this.getDownloadFile(id);
 
@@ -811,6 +824,19 @@ class DownloadsService {
         throw error;
       }
     }
+  }
+
+  /**
+   * Recovery policy when a completed download's partial file has vanished.
+   *
+   * Stale resume data is the thing that matters: leaving it behind makes the
+   * retry ask the server to resume a byte range we can no longer satisfy, so
+   * the retry fails the same way. Clearing it means the next attempt starts
+   * clean.
+   */
+  private async recoverFromMissingPartialFile(lectureId: string): Promise<void> {
+    this.activeDownloads.delete(lectureId);
+    await this.saveResumableData(lectureId, null);
   }
 
   /**
