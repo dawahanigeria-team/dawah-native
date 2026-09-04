@@ -9,6 +9,11 @@ import { API_CONFIG } from '../config/api.config';
 import { Sentry, captureSentryException, addSentryBreadcrumb } from '../config/sentry.config';
 import { secureStoreCompat } from '../storage/secureStoreCompat';
 import {
+  getApiErrorText,
+  isExpectedUserInputRefusal,
+  isInvalidOrExpiredTokenMessage,
+} from '../config/sentry.filters';
+import {
   getErrorMessage,
   isCancelledRequestError,
   isTransientNetworkError,
@@ -100,12 +105,21 @@ export const shouldCaptureApiHttpError = (
   _hasAuthToken: boolean,
   refreshOutcome?: TokenRefreshOutcome,
   expectedAuthFailure = false,
+  afterTokenRefreshRetry = false,
 ): boolean => {
   // The refresh endpoint refusing our credentials is the session ending, and
   // it is refused with whatever wording that endpoint uses - so this cannot be
   // recognised from the message the way a missing access token can.
   if (expectedAuthFailure && (statusCode === 401 || statusCode === 403)) return false;
+  const errorText = getApiErrorText(errorData);
+  // A wrong password or a duplicate signup is the user's situation, not a
+  // defect, whatever else is going on with the session.
+  if (isExpectedUserInputRefusal(statusCode, errorText)) return false;
   if (statusCode !== 401) return true;
+  // We refreshed, retried, and the server still rejects the token: the session
+  // is genuinely over. On a *first* attempt the same message is not expected -
+  // it means we sent a token we should have refreshed - so that keeps reporting.
+  if (afterTokenRefreshRetry && isInvalidOrExpiredTokenMessage(errorText)) return false;
   // A refresh the server refused is expected too. `unavailable` is still
   // reported: that one is a real anomaly and does not end the session.
   return !(isMissingAccessTokenError(errorData) || refreshOutcome === 'rejected');
@@ -821,6 +835,7 @@ class ApiClient {
           !!this.authToken,
           refreshOutcome,
           config.expectedAuthFailure,
+          config.skipTokenRefresh,
         );
         suppressSentryFailureTelemetry = !shouldReportToSentry;
 
@@ -831,6 +846,14 @@ class ApiClient {
             url,
             statusCode: response.status,
             errorData,
+          });
+        } else {
+          // Kept as a breadcrumb so a later, real error still shows the auth
+          // state that preceded it - without filing an issue of its own.
+          addSentryBreadcrumb('Expected API refusal', 'api.auth', {
+            endpoint,
+            statusCode: response.status,
+            refreshOutcome,
           });
         }
 

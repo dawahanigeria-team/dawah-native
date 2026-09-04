@@ -88,3 +88,24 @@ export const isTransientNetworkError = (error: unknown): boolean => {
   const textParts = collectErrorText(error);
   return textParts.some((text) => isTransientNetworkErrorText(text));
 };
+
+/**
+ * Messages the app shows for ordinary connectivity trouble. These are expected
+ * on a mobile network and are filtered out of Sentry.
+ *
+ * Deliberately NOT part of TRANSIENT_NETWORK_ERROR_PATTERNS: that list also
+ * rewrites the message the user sees and drives request handling, so widening
+ * it would change behaviour rather than just reporting.
+ */
+const EXPECTED_CONNECTIVITY_MESSAGE_PATTERNS: RegExp[] = [
+  /\binternet connection appears to be offline\b/i,
+  /\bno internet connection\b/i,
+  /\bthe request timed out\b/i,
+  /\btaking longer than usual\b/i,
+  /\bthe network connection was interrupted\b/i,
+];
+
+export const isExpectedConnectivityMessage = (value?: string | null): boolean => {
+  const normalized = normalizeText(value);
+  return matchesAnyPattern(normalized, EXPECTED_CONNECTIVITY_MESSAGE_PATTERNS);
+};

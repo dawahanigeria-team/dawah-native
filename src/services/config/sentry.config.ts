@@ -9,12 +9,14 @@ import { Platform } from "react-native";
 import {
   isCancelledErrorText,
   isCancelledRequestError,
+  isExpectedConnectivityMessage,
   isTransientNetworkError,
   isTransientNetworkErrorText,
 } from "../api/networkErrors";
 import {
   isExpectedExpoUpdatesCheckFailure,
   isExpectedMissingAccessTokenFailure,
+  shouldDropExpectedUserInputRefusalEvent,
   shouldDropExpectedExpoUpdatesCheckEvent,
   shouldDropExpectedMissingAccessTokenEvent,
   shouldSendSentryEvent,
@@ -54,7 +56,11 @@ const isBenignNetworkOrCancellationError = (error: unknown): boolean => {
 
 const shouldDropEventAsNetworkNoise = (event: Sentry.Event): boolean => {
   const message = typeof event.message === "string" ? event.message : "";
-  if (isCancelledErrorText(message) || isTransientNetworkErrorText(message)) {
+  if (
+    isCancelledErrorText(message) ||
+    isTransientNetworkErrorText(message) ||
+    isExpectedConnectivityMessage(message)
+  ) {
     return true;
   }
 
@@ -70,7 +76,8 @@ const shouldDropEventAsNetworkNoise = (event: Sentry.Event): boolean => {
       isCancelledErrorText(type) ||
       isCancelledErrorText(message) ||
       isTransientNetworkErrorText(type) ||
-      isTransientNetworkErrorText(message)
+      isTransientNetworkErrorText(message) ||
+      isExpectedConnectivityMessage(message)
     );
   });
 };
@@ -191,6 +198,9 @@ export const initSentry = () => {
         return null;
       }
       if (shouldDropExpectedMissingAccessTokenEvent(event)) {
+        return null;
+      }
+      if (shouldDropExpectedUserInputRefusalEvent(event)) {
         return null;
       }
       return event;

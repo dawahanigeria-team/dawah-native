@@ -121,3 +121,76 @@ export const shouldDropExpectedMissingAccessTokenEvent = (event: EventLike): boo
     return type === 'apierror' && hasMissingAccessTokenText(message);
   });
 };
+
+const hasInvalidCredentialsText = (text: string): boolean => (
+  text.includes('invalid email') ||
+  text.includes('invalid username') ||
+  (text.includes('invalid') && text.includes('password')) ||
+  text.includes('incorrect password')
+);
+
+const hasAlreadyExistsText = (text: string): boolean => text.includes('already exists');
+
+/**
+ * The text an API failure carries, wherever the backend chose to put it.
+ */
+export const getApiErrorText = (errorData: unknown): string => {
+  const maybeData = errorData as { message?: unknown; error?: unknown } | null;
+  return normalizeText(maybeData?.message) || normalizeText(maybeData?.error);
+};
+
+/**
+ * A token the server will not accept. Kept separate from the refusals below
+ * because whether it is expected depends on *when* it happened, which only the
+ * API client knows - see shouldCaptureApiHttpError.
+ */
+export const isInvalidOrExpiredTokenMessage = (text: string): boolean => (
+  text.includes('signature verification failed') ||
+  (text.includes('expired') && text.includes('token'))
+);
+
+/**
+ * A refusal the user caused: a wrong password, a duplicate signup. The API is
+ * working exactly as intended, and reporting these buries the failures that are
+ * actually defects.
+ */
+export const isExpectedUserInputRefusal = (
+  statusCode: unknown,
+  errorText: string,
+): boolean => {
+  const status = typeof statusCode === 'string' ? Number(statusCode) : statusCode;
+
+  if (status === 409) return hasAlreadyExistsText(errorText);
+  if (status === 401) return hasInvalidCredentialsText(errorText);
+
+  return false;
+};
+
+const someExceptionText = (
+  event: EventLike,
+  predicate: (text: string) => boolean,
+): boolean => {
+  const values = event.exception?.values;
+  if (!Array.isArray(values)) return false;
+  return values.some(
+    (value) => predicate(`${normalizeText(value?.type)} ${normalizeText(value?.value)}`),
+  );
+};
+
+/**
+ * Defence in depth for the refusals above, which the API client already
+ * declines to report. Deliberately does NOT cover invalid-token 401s: the
+ * client distinguishes an ended session from a token we should not have sent,
+ * and dropping them here would undo that.
+ */
+export const shouldDropExpectedUserInputRefusalEvent = (event: EventLike): boolean => {
+  const statusCode = event.extra?.statusCode;
+  if (statusCode === undefined || statusCode === null) return false;
+
+  const eventMessage = normalizeText(event.message);
+  if (eventMessage && isExpectedUserInputRefusal(statusCode, eventMessage)) {
+    return true;
+  }
+
+  return someExceptionText(event, (text) => isExpectedUserInputRefusal(statusCode, text));
+};

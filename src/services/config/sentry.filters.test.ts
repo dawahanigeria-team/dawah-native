@@ -1,7 +1,10 @@
 import {
   isExpectedExpoUpdatesCheckFailure,
   isExpectedMissingAccessTokenFailure,
+  isExpectedUserInputRefusal,
+  isInvalidOrExpiredTokenMessage,
   shouldDropExpectedExpoUpdatesCheckEvent,
+  shouldDropExpectedUserInputRefusalEvent,
   shouldDropExpectedMissingAccessTokenEvent,
   shouldSendSentryEvent,
 } from './sentry.filters';
@@ -108,6 +111,78 @@ describe('shouldDropExpectedMissingAccessTokenEvent', () => {
         exception: {
           values: [{ type: 'ApiError', value: 'Access token is required' }],
         },
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('isExpectedUserInputRefusal', () => {
+  test('recognises the refusals users cause themselves', () => {
+    expect(isExpectedUserInputRefusal(401, 'invalid email/username or password')).toBe(true);
+    expect(isExpectedUserInputRefusal(409, 'user already exists')).toBe(true);
+    expect(isExpectedUserInputRefusal('401', 'incorrect password')).toBe(true);
+  });
+
+  test('leaves real faults alone', () => {
+    expect(isExpectedUserInputRefusal(500, 'internal server error')).toBe(false);
+    expect(isExpectedUserInputRefusal(409, 'conflict updating playlist')).toBe(false);
+    expect(isExpectedUserInputRefusal(403, 'user already exists')).toBe(false);
+  });
+
+  test('does not claim invalid-token 401s, which the API client decides', () => {
+    expect(
+      isExpectedUserInputRefusal(401, 'invalid or expired token: signature verification failed'),
+    ).toBe(false);
+  });
+});
+
+describe('isInvalidOrExpiredTokenMessage', () => {
+  test('matches the wordings the backend uses', () => {
+    expect(isInvalidOrExpiredTokenMessage('invalid or expired token: signature verification failed')).toBe(true);
+    expect(isInvalidOrExpiredTokenMessage('token expired')).toBe(true);
+  });
+
+  test('ignores unrelated messages', () => {
+    expect(isInvalidOrExpiredTokenMessage('internal server error')).toBe(false);
+  });
+});
+
+describe('shouldDropExpectedUserInputRefusalEvent', () => {
+  test('drops a duplicate-signup conflict', () => {
+    expect(
+      shouldDropExpectedUserInputRefusalEvent({
+        extra: { statusCode: 409 },
+        exception: { values: [{ type: 'ApiError', value: 'User already exists' }] },
+      }),
+    ).toBe(true);
+  });
+
+  test('keeps an invalid-token 401, so the client policy is not undone', () => {
+    expect(
+      shouldDropExpectedUserInputRefusalEvent({
+        extra: { statusCode: 401 },
+        exception: {
+          values: [
+            { type: 'ApiError', value: 'Invalid or expired token: Signature verification failed' },
+          ],
+        },
+      }),
+    ).toBe(false);
+  });
+
+  test('keeps a server fault that merely carries a status code', () => {
+    expect(
+      shouldDropExpectedUserInputRefusalEvent({
+        extra: { statusCode: 500 },
+        exception: { values: [{ type: 'ApiError', value: 'Internal Server Error' }] },
+      }),
+    ).toBe(false);
+  });
+
+  test('keeps an event with no status code at all', () => {
+    expect(
+      shouldDropExpectedUserInputRefusalEvent({
+        exception: { values: [{ type: 'Error', value: 'User already exists' }] },
       }),
     ).toBe(false);
   });

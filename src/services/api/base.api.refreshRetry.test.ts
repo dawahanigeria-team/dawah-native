@@ -159,3 +159,59 @@ describe('readRefreshedTokens', () => {
     expect(readRefreshedTokens(payload)).toBeNull();
   });
 });
+
+describe('shouldCaptureApiHttpError with expected refusals', () => {
+  test('does not report a wrong password', () => {
+    expect(
+      shouldCaptureApiHttpError(401, { message: 'Invalid email/username or password' }, false),
+    ).toBe(false);
+  });
+
+  test('does not report a duplicate signup', () => {
+    expect(shouldCaptureApiHttpError(409, { message: 'User already exists' }, false)).toBe(false);
+  });
+
+  /**
+   * The retry we make after refreshing. The server rejecting the reissued token
+   * means the session is over - expected, and previously one Sentry issue per
+   * endpoint the app happened to call.
+   */
+  test('does not report an invalid token on the post-refresh retry', () => {
+    expect(
+      shouldCaptureApiHttpError(
+        401,
+        { message: 'Invalid or expired token: Signature verification failed' },
+        true,
+        undefined,
+        false,
+        true,
+      ),
+    ).toBe(false);
+  });
+
+  test('still reports the same message on a first attempt', () => {
+    expect(
+      shouldCaptureApiHttpError(
+        401,
+        { message: 'Invalid or expired token: Signature verification failed' },
+        true,
+      ),
+    ).toBe(true);
+  });
+
+  test('still reports an expired-token 401 when the refresh endpoint was unreachable', () => {
+    expect(
+      shouldCaptureApiHttpError(
+        401,
+        { message: 'Invalid or expired token: Signature verification failed' },
+        true,
+        'unavailable',
+      ),
+    ).toBe(true);
+  });
+
+  test('still reports a genuine server fault', () => {
+    expect(shouldCaptureApiHttpError(500, { message: 'Internal Server Error' }, true)).toBe(true);
+    expect(shouldCaptureApiHttpError(409, { message: 'Conflict updating playlist' }, true)).toBe(true);
+  });
+});
