@@ -8,7 +8,11 @@ import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
 import type { Episode } from '../../types/types';
 import { addSentryBreadcrumb, captureSentryException } from '../config/sentry.config';
 import { DownloadProgress, downloadsService, ResumableDownload } from '../downloads.service';
-import { DownloadAuthRequiredError, DownloadLimitReachedError } from '../api/downloads.api';
+import {
+  DownloadCreationFailedError,
+  downloadFailureContext,
+  shouldReportDownloadFailure,
+} from './downloadFailureReporting';
 import { authStore, subscribeToAuthChange } from '../../stores/authStore';
 import { logger } from '@/utils/logger';
 
@@ -274,7 +278,7 @@ class DownloadQueueService {
         (progress) => this.updateProgress(downloadId, progress)
       );
 
-      if (!resumableDownload) throw new Error('Failed to create download.');
+      if (!resumableDownload) throw new DownloadCreationFailedError();
 
       this.activeDownloads.set(downloadId, resumableDownload);
       const result = await downloadsService.startDownload(resumableDownload);
@@ -320,14 +324,14 @@ class DownloadQueueService {
         this.notify();
       }
 
-      // A refusal is an outcome, not a fault: signing out or spending the
-      // monthly allowance would otherwise file one Sentry issue per queued
-      // item. The download is still marked FAILED with the server's message.
-      if (
-        !(error instanceof DownloadAuthRequiredError) &&
-        !(error instanceof DownloadLimitReachedError)
-      ) {
-        captureSentryException(error, { operation: 'download_queue_start', downloadId });
+      // The download is still marked FAILED above with the server's message,
+      // whether or not this is something worth reporting.
+      if (shouldReportDownloadFailure(error)) {
+        captureSentryException(error, {
+          operation: 'download_queue_start',
+          downloadId,
+          ...downloadFailureContext(error),
+        });
       }
 
       await this.processQueue();

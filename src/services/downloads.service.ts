@@ -24,6 +24,10 @@ import {
   addSentryBreadcrumb,
   captureSentryException,
 } from "./config/sentry.config";
+import {
+  DownloadFailedError,
+  downloadFailureContext,
+} from "./downloads/downloadFailureReporting";
 
 /**
  * A refusal the server made on purpose - not signed in, or the free
@@ -404,13 +408,15 @@ class DownloadsService {
 
       if (result.status < 200 || result.status >= 300) {
         const errorMessage = getDownloadStatusErrorMessage(result.status);
-        logger.error("❌ Download failed", new Error(errorMessage), {
+        const failureContext = {
           url: downloadUrl,
           lectureId,
           status: result.status,
-        });
+        };
 
-        throw new Error(errorMessage);
+        logger.warn(`Download failed: ${errorMessage}`, failureContext);
+
+        throw new DownloadFailedError(errorMessage, failureContext);
       }
 
       bytesDownloaded = Math.max(bytesDownloaded, this.getFileSize(file));
@@ -450,7 +456,8 @@ class DownloadsService {
         await metadataFile.write(JSON.stringify(metadata, null, 2));
       }
     } catch (error: any) {
-      logger.error(`Failed to download lecture ${lectureId}`, error as Error);
+      // Captured once below, with the full context gathered in this catch.
+      logger.warn(`Failed to download lecture ${lectureId}`, error);
 
       // Clean up partial download file if it exists
       try {
@@ -507,6 +514,7 @@ class DownloadsService {
         errorType: isPermissionError ? "permission_error" : "download_failed",
         errorMessage: error.message,
         isPermissionError,
+        ...downloadFailureContext(error),
       });
 
       // Throw error with user-friendly message
@@ -694,7 +702,7 @@ class DownloadsService {
         throw error;
       }
 
-      logger.error("Failed to create resumable download", error as Error);
+      logger.warn("Failed to create resumable download", error);
       captureSentryException(error as Error, {
         operation: "create_resumable_download",
         lectureId,
@@ -769,18 +777,20 @@ class DownloadsService {
       if (result.status < 200 || result.status >= 300) {
         const errorMessage = getDownloadStatusErrorMessage(result.status);
 
-        logger.error("Download failed", new Error(`${errorMessage} (HTTP ${result.status})`), {
+        const failureContext = {
           lectureId: id,
           audioUrl: resumableDownload.downloadUrl,
           status: result.status,
-        });
+        };
 
-        throw new Error(errorMessage);
+        logger.warn(`Download failed: ${errorMessage} (HTTP ${result.status})`, failureContext);
+
+        throw new DownloadFailedError(errorMessage, failureContext);
       }
 
       if (!file.exists) {
         await this.recoverFromMissingPartialFile(id);
-        throw new Error(DOWNLOAD_FILE_MISSING_MESSAGE);
+        throw new DownloadFailedError(DOWNLOAD_FILE_MISSING_MESSAGE, { lectureId: id });
       }
 
       const bytesDownloaded = Math.max(resumableDownload.bytesDownloaded, this.getFileSize(file));
@@ -820,7 +830,9 @@ class DownloadsService {
         logger.debug("Download was cancelled");
         return resumableDownload.isPaused ? "paused" : "cancelled";
       } else {
-        logger.error("Download failed", error);
+        // Reported by the download queue, which sees every failure exactly once
+        // and knows which ones are refusals rather than faults.
+        logger.warn("Download failed", error);
         throw error;
       }
     }
@@ -861,7 +873,7 @@ class DownloadsService {
         );
         this.notify();
       } catch (error) {
-        logger.error("Failed to pause download", error as Error);
+        logger.warn("Failed to pause download", error);
         captureSentryException(error as Error, {
           operation: "pause_download",
           lectureId,
