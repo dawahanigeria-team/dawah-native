@@ -36,6 +36,7 @@ import { Button, Chip, Text, Touchable } from "../../src/components/atoms";
 import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
 import AddToPlaylistModal from "../../src/components/organisms/AddToPlaylistModal";
 import { useDownloadGate } from "../../src/hooks/useDownloadGate";
+import { OBSERVE_ROUTE } from "../../src/services/config/observe.config";
 import { useLectureDetail } from "../../src/hooks/useLectureDetail";
 import { useTheme } from "../../src/hooks/useTheme";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
@@ -393,7 +394,10 @@ const LectureDetailScreen: React.FC = () => {
     if (loading) return;
 
     hasMarkedInteractive.current = true;
-    markInteractive({ params: { had_content: Boolean(lecture) } });
+    markInteractive({
+      routeName: OBSERVE_ROUTE.lectureDetail,
+      params: { had_content: Boolean(lecture) },
+    });
   }, [lecture, loading, markInteractive]);
 
   // Store Hooks

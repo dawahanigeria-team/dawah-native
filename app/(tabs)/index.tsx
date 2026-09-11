@@ -30,6 +30,7 @@ import { useQuranAlbums } from "../../src/hooks/useQuranAlbums";
 import { useRecentlyPlayedLectures } from "../../src/hooks/useRecentlyPlayedLectures";
 import { useRecent } from "../../src/hooks/useRecent";
 import { useTheme } from "../../src/hooks/useTheme";
+import { OBSERVE_ROUTE } from "../../src/services/config/observe.config";
 import { QuranAlbum } from "../../src/services/api/quran.api";
 import { useAuthStore } from "../../src/stores";
 import {
@@ -218,6 +219,7 @@ function HomeScreen() {
 
     hasMarkedInteractive.current = true;
     markInteractive({
+      routeName: OBSERVE_ROUTE.home,
       params: {
         had_content: recentLectures.length > 0,
         recent_count: recentLectures.length,

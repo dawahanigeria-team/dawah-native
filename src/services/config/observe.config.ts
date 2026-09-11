@@ -39,6 +39,8 @@ export interface ObserveEnvironment {
   enabledValue: string | undefined;
   /** Raw `EXPO_PUBLIC_OBSERVE_DISPATCH_IN_DEBUG`. */
   dispatchInDebugValue: string | undefined;
+  /** Raw `EXPO_PUBLIC_OBSERVE_ROUTER_INTEGRATION`. */
+  routerIntegrationValue: string | undefined;
 }
 
 /**
@@ -104,9 +106,26 @@ export const buildObserveConfig = (env: ObserveEnvironment): ObserveConfig => {
 
     sampleRate,
 
-    integrations: {
-      "expo-router": { filteredParams: FILTERED_ROUTE_PARAMS },
-    },
+    // Off by default. This is a cost decision, not a technical one: the
+    // integration exists to produce `nav_tti`, `nav_cold_ttr` and
+    // `nav_warm_ttr`, and every one of those - along with `eas observe:routes`
+    // - requires a paid EAS plan. On the free plan it spends event budget on
+    // data that cannot be read back.
+    //
+    // It also costs reliability. With the integration on,
+    // `useObserve().markInteractive()` resolves to a wrapper that returns early
+    // if the screen is unmounted, has no screen id, or - silently - is not
+    // focused, all before it reaches the native call. That is what suppressed
+    // startup TTI entirely on the first two preview builds. With it off,
+    // `useObserve` falls through to `AppMetrics.markInteractive`, which is the
+    // native module method with no guards in front of it.
+    //
+    // Set EXPO_PUBLIC_OBSERVE_ROUTER_INTEGRATION=true the day the account
+    // subscribes. No call site changes; `filteredParams` starts applying again
+    // and `routeName` goes back to being filled in automatically.
+    integrations: parseBoolean(env.routerIntegrationValue, false)
+      ? { "expo-router": { filteredParams: FILTERED_ROUTE_PARAMS } }
+      : {},
   };
 };
 
@@ -123,9 +142,26 @@ export const initObserve = (): void => {
       sampleRateValue: process.env.EXPO_PUBLIC_OBSERVE_SAMPLE_RATE,
       enabledValue: process.env.EXPO_PUBLIC_OBSERVE_ENABLED,
       dispatchInDebugValue: process.env.EXPO_PUBLIC_OBSERVE_DISPATCH_IN_DEBUG,
+      routerIntegrationValue: process.env.EXPO_PUBLIC_OBSERVE_ROUTER_INTEGRATION,
     }),
   );
 };
+
+/**
+ * Route patterns for `markInteractive`, in the shape the router integration
+ * would produce (`buildRoutePattern`: "/" joined with the route segments).
+ *
+ * They are passed explicitly because nothing fills `routeName` in when the
+ * integration is off - the native `addMetric` stores whatever it is handed and
+ * has no fallback, despite what the `MetricAttributes` docstring implies.
+ * Matching the integration's format keeps the data comparable if it is ever
+ * turned back on.
+ */
+export const OBSERVE_ROUTE = {
+  welcome: "/",
+  home: "/(tabs)",
+  lectureDetail: "/lecture/[id]",
+} as const;
 
 /**
  * Attributes merged into every subsequent metric and event.

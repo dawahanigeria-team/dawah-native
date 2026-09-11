@@ -12,6 +12,7 @@ const env = (overrides: Partial<ObserveEnvironment> = {}): ObserveEnvironment =>
   sampleRateValue: undefined,
   enabledValue: undefined,
   dispatchInDebugValue: undefined,
+  routerIntegrationValue: undefined,
   ...overrides,
 });
 
@@ -58,19 +59,46 @@ describe('Observe sampling', () => {
   });
 });
 
+describe('Observe router integration', () => {
+  // Off by default: everything it produces (nav_tti, nav_cold_ttr,
+  // nav_warm_ttr, observe:routes) needs a paid EAS plan, and while it is on it
+  // wraps markInteractive in a focus check that silently dropped startup TTI.
+  test('is off unless explicitly enabled', () => {
+    expect(buildObserveConfig(env()).integrations?.['expo-router']).toBeUndefined();
+    for (const channel of ['production', 'preview', null]) {
+      expect(
+        buildObserveConfig(env({ channel })).integrations?.['expo-router'],
+      ).toBeUndefined();
+    }
+  });
+
+  test('only "true" turns it on, so a stray value cannot spend event budget', () => {
+    for (const value of ['false', '1', 'yes', '']) {
+      expect(
+        buildObserveConfig(env({ routerIntegrationValue: value })).integrations?.[
+          'expo-router'
+        ],
+      ).toBeUndefined();
+    }
+  });
+});
+
 describe('Observe route parameter privacy', () => {
-  // This is the point of the file. `/reset-password?email=...` carries a real
-  // address and `/search?q=...` carries whatever the user typed; both are
-  // exported with every navigation metric unless filtered.
-  test('filters the params that carry user data', () => {
-    const filtered = buildObserveConfig(env()).integrations?.['expo-router'];
+  // When the integration IS enabled it exports routeParams with every
+  // navigation metric, and `/reset-password?email=...` carries a real address
+  // while `/search?q=...` carries whatever the user typed.
+  test('filters the params that carry user data once enabled', () => {
+    const filtered = buildObserveConfig(env({ routerIntegrationValue: 'true' }))
+      .integrations?.['expo-router'];
     expect(filtered).toEqual({ filteredParams: FILTERED_ROUTE_PARAMS });
     expect(FILTERED_ROUTE_PARAMS).toEqual(expect.arrayContaining(['email', 'q']));
   });
 
   test('filters in every environment, not just production', () => {
     for (const channel of ['production', 'preview', null]) {
-      const config = buildObserveConfig(env({ channel }));
+      const config = buildObserveConfig(
+        env({ channel, routerIntegrationValue: 'true' }),
+      );
       expect(config.integrations?.['expo-router']).toEqual({
         filteredParams: FILTERED_ROUTE_PARAMS,
       });

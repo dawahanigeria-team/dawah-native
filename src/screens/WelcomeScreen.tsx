@@ -8,6 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Text } from "../components/atoms";
 import { useTheme } from "../hooks/useTheme";
+import { OBSERVE_ROUTE } from "../services/config/observe.config";
 import { type Lecturer, lecturersApi } from "../services/api/lecturers.api";
 
 const FALLBACK_PORTRAITS = ["A", "Y", "H", "E", "N", "I"];
@@ -23,7 +24,7 @@ export default function WelcomeScreen() {
   // first paint; the portraits below are deliberately non-blocking enrichment,
   // so there is nothing further to wait for.
   useEffect(() => {
-    markInteractive();
+    markInteractive({ routeName: OBSERVE_ROUTE.welcome });
   }, [markInteractive]);
 
   useEffect(() => {
