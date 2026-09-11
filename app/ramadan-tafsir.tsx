@@ -41,10 +41,6 @@ export default function RamadanTafsirScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  useEffect(() => {
-    fetchRamadanData();
-  }, []);
-
   const fetchRamadanData = async () => {
     try {
       setLoading(true);
@@ -68,6 +64,12 @@ export default function RamadanTafsirScreen() {
       setLoading(false);
     }
   };
+
+  // Declared above the effect that calls it: as a `const`, a reference from an
+  // effect placed earlier binds before initialization.
+  useEffect(() => {
+    fetchRamadanData();
+  }, []);
 
   const toggleYearExpanded = (year: number) => {
     setYearGroups((prev) =>

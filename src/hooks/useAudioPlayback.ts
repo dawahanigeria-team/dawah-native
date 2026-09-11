@@ -109,8 +109,13 @@ export const buildPlaybackStatus = ({
  */
 export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackControls {
   const [isReady, setIsReady] = useState(false)
-  const volumeRef = useRef(1)
-  const rateRef = useRef(1)
+  // State, not refs: `status` is memoized, so a ref write would not recompute it
+  // and `status.volume` / `status.playbackRate` / `status.muted` would report the
+  // value from before the last change until an unrelated dependency happened to
+  // move. Nothing reads those fields today - the player store tracks speed
+  // separately - which is exactly why it would have bitten silently later.
+  const [volume, setVolumeState] = useState(1)
+  const [rate, setRateState] = useState(1)
   const onStatusUpdateRef = useRef<AudioPlaybackConfig['onPlaybackStatusUpdate']>(undefined)
   const onPlaybackFinishedRef = useRef<AudioPlaybackConfig['onPlaybackFinished']>(undefined)
 
@@ -125,11 +130,11 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
       buildPlaybackStatus({
         playbackState,
         progress,
-        volume: volumeRef.current,
-        rate: rateRef.current,
+        volume,
+        rate,
         isLoaded: Boolean(activeTrack),
       }),
-    [playbackState, progress, activeTrack]
+    [playbackState, progress, activeTrack, volume, rate]
   )
 
   useEffect(() => {
@@ -205,13 +210,13 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
   }
 
   const setPlaybackRate = (rate: number) => {
-    rateRef.current = rate
+    setRateState(rate)
     void TrackPlayer.setRate(rate)
   }
 
   const setVolume = (volume: number) => {
     const clampedVolume = Math.max(0, Math.min(volume, 1))
-    volumeRef.current = clampedVolume
+    setVolumeState(clampedVolume)
     void TrackPlayer.setVolume(clampedVolume)
   }
 

@@ -220,6 +220,11 @@ const createCompatAudioPlayer = (): AudioPlayer => {
       error: error instanceof Error ? error.message : String(error),
     })
 
+    // `NativeAudioModule` declares `readonly AudioPlayer`
+    // (expo-audio/build/AudioModule.types.d.ts) and tsc resolves it. The rule
+    // cannot see through expo-audio's `export type *` re-exports, so it reports
+    // a member that is really there.
+    // eslint-disable-next-line import/namespace
     const LegacyAudioPlayer = AudioModule.AudioPlayer as unknown as new (
       source: null,
       updateInterval: number,

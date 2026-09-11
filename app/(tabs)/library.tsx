@@ -77,27 +77,6 @@ function LibraryScreen() {
     });
   }, [refreshDownloads]);
 
-  // Load history when History tab is active
-  useEffect(() => {
-    if (activeTab === 'History') {
-      loadHistory();
-    }
-  }, [activeTab]);
-
-  // Load favorites when Liked tab is active
-  useEffect(() => {
-    if (activeTab === 'Liked') {
-      loadFavorites();
-    }
-  }, [activeTab]);
-
-  // Load playlists when Playlists tab is active
-  useEffect(() => {
-    if (activeTab === 'Playlists') {
-      loadPlaylists();
-    }
-  }, [activeTab, isAuthenticated]);
-
   const loadHistory = async () => {
     try {
       setLoadingHistory(true);
@@ -188,6 +167,32 @@ function LibraryScreen() {
       setLoadingPlaylists(false);
     }
   };
+
+  // Declared above the effects that call them: as `const`, a reference from
+  // an effect placed earlier binds before initialization, so the effect cannot
+  // see a later definition. The dependency arrays stay keyed on the active tab
+  // because these are re-created every render and depending on them would
+  // refetch on every render.
+  // Load history when History tab is active
+  useEffect(() => {
+    if (activeTab === 'History') {
+      loadHistory();
+    }
+  }, [activeTab]);
+
+  // Load favorites when Liked tab is active
+  useEffect(() => {
+    if (activeTab === 'Liked') {
+      loadFavorites();
+    }
+  }, [activeTab]);
+
+  // Load playlists when Playlists tab is active
+  useEffect(() => {
+    if (activeTab === 'Playlists') {
+      loadPlaylists();
+    }
+  }, [activeTab, isAuthenticated]);
 
   // Convert downloads to Episodes
   const downloadedEpisodes = useMemo(() => {

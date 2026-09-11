@@ -464,6 +464,10 @@ const LectureDetailScreen: React.FC = () => {
   // Event handlers
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
+      // Writing `.value` IS Reanimated's API, and this worklet runs on the UI
+      // thread rather than in React's render. The compiler cannot model shared
+      // values, so it reads the assignment as mutating an immutable binding.
+      // eslint-disable-next-line react-hooks/immutability
       scrollY.value = event.contentOffset.y;
     },
   });
@@ -545,7 +549,9 @@ const LectureDetailScreen: React.FC = () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      // Animate the heart
+      // Animate the heart. See the note on scrollHandler above: assigning to a
+      // shared value is Reanimated's API, not a React state mutation.
+      // eslint-disable-next-line react-hooks/immutability
       likeScale.value = withSequence(withSpring(1.3), withSpring(1));
 
       // Toggle favorite (works offline!)

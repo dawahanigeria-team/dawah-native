@@ -399,12 +399,13 @@ export function useSearchSuggestions(partialQuery: string, enabled = true) {
  * Recent searches hook
  */
 export function useRecentSearches() {
-  const [recentSearches, setRecentSearches] = useState<string[]>([]);
-
-  useEffect(() => {
-    // Load recent searches on mount
-    setRecentSearches(searchApi.getRecentSearches());
-  }, []);
+  // Read once as the initial value rather than in a mount effect.
+  // `getRecentSearches` returns a copy of an in-memory array synchronously, so
+  // there is nothing to wait for - the effect only cost a render showing an
+  // empty list before the real one arrived.
+  const [recentSearches, setRecentSearches] = useState<string[]>(() =>
+    searchApi.getRecentSearches(),
+  );
 
   const clearRecent = useCallback(() => {
     searchApi.clearRecentSearches();

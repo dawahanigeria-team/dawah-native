@@ -5,7 +5,7 @@
  */
 
 import AsyncStorage from 'expo-sqlite/kv-store';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { announcementsApi, AnnouncementApiResponse } from '../services/api/announcements.api';
 import { useAuthStore } from '../stores';
@@ -152,7 +152,6 @@ const getOrCreateAnnouncementsCutoff = async (
 
 export const useAnnouncements = (userIdParam?: string): UseAnnouncementsResult => {
   const [announcements, setAnnouncements] = useState<AnnouncementApiResponse[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -160,6 +159,11 @@ export const useAnnouncements = (userIdParam?: string): UseAnnouncementsResult =
   const { user: authUser } = useAuthStore();
   const userId = userIdParam || authUser?.id;
   const isAuthenticated = isAuthenticatedUser(userId);
+  // Read off `authUser` here, not inside the callback: closing over the object
+  // while declaring `authUser?.created_at` as the dependency makes the compiler
+  // infer a dependency on all of `authUser`, which it cannot reconcile with the
+  // narrower list - so it skips optimizing this hook entirely.
+  const authUserCreatedAt = authUser?.created_at;
 
   const fetchAnnouncements = useCallback(async () => {
     try {
@@ -185,7 +189,7 @@ export const useAnnouncements = (userIdParam?: string): UseAnnouncementsResult =
       } else if (userId) {
         const cutoffTimestamp = await getOrCreateAnnouncementsCutoff(
           userId,
-          authUser?.created_at,
+          authUserCreatedAt,
         );
         fetchedAnnouncements = applyAnnouncementsCutoff(
           fetchedAnnouncements,
@@ -205,17 +209,19 @@ export const useAnnouncements = (userIdParam?: string): UseAnnouncementsResult =
     } finally {
       setLoading(false);
     }
-  }, [userId, isAuthenticated, authUser?.created_at]);
+  }, [userId, isAuthenticated, authUserCreatedAt]);
 
   useEffect(() => {
     fetchAnnouncements();
   }, [fetchAnnouncements]);
 
-  // Keep unread count derived from current announcements to avoid stale closure issues.
-  useEffect(() => {
-    const nextUnreadCount = countUnreadAnnouncements(announcements);
-    setUnreadCount((prev) => (prev === nextUnreadCount ? prev : nextUnreadCount));
-  }, [announcements]);
+  // Derived, not mirrored into state. An effect that copies a value computed
+  // from `announcements` renders once with the previous badge number and again
+  // to correct it; there is nothing here React cannot compute during render.
+  const unreadCount = useMemo(
+    () => countUnreadAnnouncements(announcements),
+    [announcements],
+  );
 
   // Publish unread updates after commit to avoid setState during render warnings.
   useEffect(() => {

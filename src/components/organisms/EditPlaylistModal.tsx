@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Alert, Modal, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useThemeColors } from '../../hooks/useTheme';
 import tw from '../../theme/twrnc';
@@ -29,10 +29,23 @@ const EditPlaylistModal: React.FC<EditPlaylistModalProps> = ({
   const [name, setName] = useState(currentName);
   const [isPrivate, setIsPrivate] = useState(currentIsPrivate);
 
-  useEffect(() => {
+  // Adjusted during render rather than in an effect. Doing it in an effect
+  // renders the form once with the previous playlist's name still in the
+  // field, then renders again to correct it; React re-runs this component
+  // immediately instead, before anything reaches the screen.
+  // https://react.dev/learn/you-might-not-need-an-effect
+  const [editedPlaylist, setEditedPlaylist] = useState({
+    name: currentName,
+    isPrivate: currentIsPrivate,
+  });
+  if (
+    editedPlaylist.name !== currentName ||
+    editedPlaylist.isPrivate !== currentIsPrivate
+  ) {
+    setEditedPlaylist({ name: currentName, isPrivate: currentIsPrivate });
     setName(currentName);
     setIsPrivate(currentIsPrivate);
-  }, [currentName, currentIsPrivate]);
+  }
 
   const handleSave = async () => {
     if (name.trim() === '') {

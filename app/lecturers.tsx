@@ -32,7 +32,6 @@ const VIEW_STORAGE_KEY = "dn:lecturers:view";
 export default function LecturersScreen() {
   const { colors } = useTheme();
   const [lecturers, setLecturers] = useState<Lecturer[]>([]);
-  const [filteredLecturers, setFilteredLecturers] = useState<Lecturer[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -311,8 +310,13 @@ export default function LecturersScreen() {
     }
   }, [debouncedQuery, normalizedState, fetchSearchResults]);
 
-  // Apply search and sorting (client-side only)
-  useEffect(() => {
+  // Apply search and sorting (client-side only).
+  //
+  // Derived during render rather than pushed into state by an effect. As an
+  // effect this rendered the list once with the previous filter's results still
+  // on screen and then again with the new ones, which on a 324-name list is a
+  // visible flash of the wrong scholars.
+  const filteredLecturers = useMemo(() => {
     let result = [...lecturers];
 
     logger.debug('Filtering with:', {
@@ -342,7 +346,7 @@ export default function LecturersScreen() {
       }
     });
 
-    setFilteredLecturers(result);
+    return result;
   }, [lecturers, searchQuery, sortBy, debouncedQuery]);
 
   const handleLoadMore = () => {
