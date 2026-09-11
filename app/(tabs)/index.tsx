@@ -1,8 +1,9 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image as ExpoImage } from "expo-image";
 import { router } from "expo-router";
+import { useObserve } from "expo-observe";
 import { useGuardedPush } from "../../src/navigation/useGuardedPush";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   InteractionManager,
   Platform,
@@ -199,6 +200,30 @@ function HomeScreen() {
     recentLectures.length === 0 &&
     popularLectures.length === 0 &&
     Boolean(recentError || popularError);
+
+  // Time to interactive, as the user would define it: the launch is over when
+  // there is something to tap, not when the shell has mounted.
+  //
+  // The mark is taken when loading RESOLVES, not when content arrives. A launch
+  // that ends in an error screen is still a launch, and the slowest ones are
+  // the likeliest to end that way — marking only on success would quietly drop
+  // the bad tail and leave a flattering median. `had_content` separates the two
+  // back out in the dashboard.
+  const { markInteractive } = useObserve();
+  const hasMarkedInteractive = useRef(false);
+
+  useEffect(() => {
+    if (hasMarkedInteractive.current) return;
+    if (recentLoading) return;
+
+    hasMarkedInteractive.current = true;
+    markInteractive({
+      params: {
+        had_content: recentLectures.length > 0,
+        recent_count: recentLectures.length,
+      },
+    });
+  }, [markInteractive, recentLectures.length, recentLoading]);
 
   const trendingNowLectures = useMemo(() => {
     return popularEpisodes.slice(0, HOME_SECTION_LIMIT);

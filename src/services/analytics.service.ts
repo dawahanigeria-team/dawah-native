@@ -1,4 +1,5 @@
 import * as Application from "expo-application";
+import { Observe } from "expo-observe";
 import { AppState, Platform, type AppStateStatus } from "react-native";
 
 export type AnalyticsEvent =
@@ -23,20 +24,47 @@ const commonProperties = {
 };
 
 /**
- * Product analytics has no transport at the moment.
+ * Product analytics is dispatched through EAS Observe.
  *
  * PostHog was removed: it shipped its own error tracking alongside Sentry's, so
  * every crash was reported twice, and it carried a session recorder and remote
  * config the app never used. Sentry keeps the errors.
  *
- * The event names and the properties attached to them are deliberately left in
- * place, and every call site still calls through here. Restoring analytics means
- * giving this one function a destination — `expo-observe` (EAS Observe) being the
- * obvious candidate on SDK 57 — not re-instrumenting the app.
+ * The event names and the properties attached to them are unchanged from that
+ * era, so nothing at the call sites had to move. Observe records these against
+ * the same session as the startup and per-route timings, which is the reason to
+ * put them here rather than anywhere else: a slow launch and what the user did
+ * about it are on one timeline.
+ *
+ * Volume is governed by `sampleRate` in `config/observe.config.ts`, not here —
+ * sampling is per installation, so a sampled-in device reports every event and
+ * a sampled-out device reports none. Half a session is not worth reading.
  */
+
+/**
+ * Observe's attribute values are strings, numbers, booleans, and nested
+ * structures of those. `null` and `undefined` are not among them and are
+ * dropped downstream, so an absent property is left out rather than sent as an
+ * empty one — `lecturer_id: null` would otherwise read as a real value.
+ */
+const toAttributes = (properties: Properties): Record<string, string | number | boolean> => {
+  const attributes: Record<string, string | number | boolean> = {};
+  for (const [key, value] of Object.entries(properties)) {
+    if (value === null || value === undefined) continue;
+    attributes[key] = value;
+  }
+  return attributes;
+};
+
 const capture = (event: AnalyticsEvent, properties: Properties = {}) => {
-  if (!__DEV__) return;
-  console.log("[analytics]", event, { ...commonProperties, ...properties });
+  if (__DEV__) {
+    console.log("[analytics]", event, { ...commonProperties, ...properties });
+  }
+
+  Observe.logEvent(event, {
+    attributes: toAttributes({ ...commonProperties, ...properties }),
+    severity: "info",
+  });
 };
 
 const trackAppSession = () => {

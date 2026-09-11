@@ -1,4 +1,5 @@
 import * as Notifications from "expo-notifications";
+import { ObserveRoot } from "expo-observe";
 import { Stack, usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -16,17 +17,22 @@ import { AudioProvider } from "../src/components/providers/AudioProvider";
 import { UpdatesProvider } from "../src/components/providers/UpdatesProvider";
 import { usePushNotifications } from "../src/hooks/usePushNotifications";
 import { analytics } from "../src/services/analytics.service";
+import { initObserve, setObserveAudience } from "../src/services/config/observe.config";
 import { addSentryBreadcrumb, captureSentryException, initSentry, Sentry } from "../src/services/config/sentry.config";
 import { downloadsService } from "../src/services/downloads.service";
 import { linkingService } from "../src/services/linking.service";
 import { getNotificationRouteFromData } from "../src/services/notifications.service";
 import { userService } from "../src/services/user.service";
-import { initializeAuth } from "../src/stores/authStore";
+import { authStore, initializeAuth, subscribeToAuthChange } from "../src/stores/authStore";
 import { fetchFavorites } from "../src/stores/favoritesStore";
 import { usePlayerActions, usePlayerStore } from "../src/stores";
 
 // Initialize Sentry as early as possible
 initSentry();
+
+// Must run before ObserveRoot mounts: the expo-router integration reads this
+// config once at mount and throws if it is enabled afterwards.
+initObserve();
 
 const NAVIGATION_DEDUPE_WINDOW_MS = 1500;
 const PLAYER_NAVIGATION_PENDING_TIMEOUT_MS = 10000;
@@ -175,6 +181,16 @@ function RootLayout() {
     addSentryBreadcrumb("Route changed", "navigation", { pathname });
   }, [pathname]);
 
+  // Fires only when authentication actually flips, so this is a handful of
+  // calls per install rather than one per render.
+  useEffect(
+    () =>
+      subscribeToAuthChange((isAuthenticated) => {
+        setObserveAudience({ authState: isAuthenticated ? "signed_in" : "guest" });
+      }),
+    [],
+  );
+
   // Initialize user, auth, and favorites on app start
   useEffect(() => {
     if (hasInitializedApp.current) {
@@ -191,6 +207,12 @@ function RootLayout() {
         await initializeAuth();
         if (!isMounted) return;
         logger.debug('Auth initialized');
+
+        // Signed-in and guest users take different code paths, so a startup
+        // number that averages the two hides whichever one is slow.
+        setObserveAudience({
+          authState: authStore.get().isAuthenticated ? "signed_in" : "guest",
+        });
 
         // Ensure user ID exists (creates guest ID if needed)
         await userService.getUserId();
@@ -406,4 +428,7 @@ function RootLayoutWithProviders() {
   );
 }
 
-export default Sentry.wrap(RootLayoutWithProviders);
+// ObserveRoot is outermost so its first-render mark is taken at the earliest
+// render of the tree; it also provides the router integration that fills in
+// `routeName` for every markInteractive call below it.
+export default ObserveRoot.wrap(Sentry.wrap(RootLayoutWithProviders));

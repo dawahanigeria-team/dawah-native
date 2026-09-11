@@ -8,9 +8,10 @@ import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
+import { useObserve } from "expo-observe";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useGuardedPush } from "../../src/navigation/useGuardedPush";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -378,6 +379,22 @@ const LectureDetailScreen: React.FC = () => {
 
   // Data Hooks
   const { lecture, loading, error, refetch } = useLectureDetail(lectureId);
+
+  // This screen is the other way into the app: notification taps and
+  // dawahnigeria.com/dawahcast/l links open straight here without ever
+  // rendering Home. Without its own mark, every deep-link launch would record
+  // no time to interactive at all, and the metric would describe only the
+  // people who opened the app from the icon.
+  const { markInteractive } = useObserve();
+  const hasMarkedInteractive = useRef(false);
+
+  useEffect(() => {
+    if (hasMarkedInteractive.current) return;
+    if (loading) return;
+
+    hasMarkedInteractive.current = true;
+    markInteractive({ params: { had_content: Boolean(lecture) } });
+  }, [lecture, loading, markInteractive]);
 
   // Store Hooks
   const {
