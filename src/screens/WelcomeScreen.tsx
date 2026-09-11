@@ -1,5 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
+import { useObserve } from "expo-observe";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
@@ -14,6 +15,16 @@ const FALLBACK_PORTRAITS = ["A", "Y", "H", "E", "N", "I"];
 export default function WelcomeScreen() {
   const { colors } = useTheme();
   const [lecturers, setLecturers] = useState<Lecturer[]>([]);
+  const { markInteractive } = useObserve();
+
+  // Every first launch after install lands here, not on Home, so without this
+  // mark the new-install experience reports no time to interactive at all -
+  // which is the launch you most want measured. The entry actions are live on
+  // first paint; the portraits below are deliberately non-blocking enrichment,
+  // so there is nothing further to wait for.
+  useEffect(() => {
+    markInteractive();
+  }, [markInteractive]);
 
   useEffect(() => {
     // This enrichment starts after the welcome UI paints. A slow or offline
