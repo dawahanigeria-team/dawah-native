@@ -5,6 +5,7 @@
 
 import * as Sentry from "@sentry/react-native";
 import Constants from "expo-constants";
+import * as Application from "expo-application";
 import { Platform } from "react-native";
 import {
   isCancelledErrorText,
@@ -142,11 +143,9 @@ export const initSentry = () => {
 
     // Environment and release tracking
     environment,
-    release: `dawah-nigeria@${Constants.expoConfig?.version || "1.0.0"}`,
+    release: `dawah-nigeria@${Application.nativeApplicationVersion || Constants.expoConfig?.version || "1.0.0"}`,
     dist: String(
-      Constants.expoConfig?.ios?.buildNumber ||
-        Constants.expoConfig?.android?.versionCode ||
-        1,
+      Application.nativeBuildVersion || 1,
     ),
 
     // Enable debug mode in development (set to false to reduce console noise)

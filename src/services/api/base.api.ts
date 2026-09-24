@@ -111,6 +111,9 @@ export const shouldCaptureApiHttpError = (
   // it is refused with whatever wording that endpoint uses - so this cannot be
   // recognised from the message the way a missing access token can.
   if (expectedAuthFailure && (statusCode === 401 || statusCode === 403)) return false;
+  // The download screen handles this structured business refusal with the
+  // premium prompt; retain reporting for every other forbidden response.
+  if (statusCode === 403 && errorData?.code === 'DOWNLOAD_LIMIT_REACHED') return false;
   const errorText = getApiErrorText(errorData);
   // A wrong password or a duplicate signup is the user's situation, not a
   // defect, whatever else is going on with the session.
@@ -688,8 +691,6 @@ class ApiClient {
     let requestToken: RequestToken | null = null;
 
     try {
-      // Enforce rate limiting
-      await this.enforceRateLimit();
       await this.hydrateAuthTokenFromStorage();
 
       url = this.buildUrl(endpoint, config.params);
@@ -715,6 +716,9 @@ class ApiClient {
           };
         }
       }
+
+      // Cached reads do not consume network capacity or wait behind requests.
+      await this.enforceRateLimit();
 
       // Check if body is FormData to handle it specially
       const isFormData = config.body instanceof FormData;
@@ -803,7 +807,9 @@ class ApiClient {
         ) {
           refreshOutcome = await this.refreshAccessToken();
           if (refreshOutcome === 'refreshed') {
-            return this.request<T>(endpoint, createTokenRefreshRetryConfig(config));
+            // Retry beneath GET deduplication: the public request is still pending
+            // and joining it here would make it wait on itself forever.
+            return this.performRequest<T>(endpoint, createTokenRefreshRetryConfig(config));
           }
           // Only tear the session down when the server actually refused the
           // refresh token. On 'unavailable' the credentials may be perfectly
@@ -1127,7 +1133,12 @@ class ApiClient {
       });
 
       if (cacheKeys.length > 0) {
-        await AsyncStorage.multiRemove(cacheKeys);
+        // expo-sqlite multiRemove opens an exclusive transaction on a second
+        // connection. It races playback/auth writes during logout (Sentry 3X).
+        // Use the shared connection and yield between individual deletions.
+        for (const key of cacheKeys) {
+          await AsyncStorage.removeItem(key);
+        }
         if (__DEV__) console.log(`Cleared ${cacheKeys.length} cache entries`);
       }
     } catch (error) {

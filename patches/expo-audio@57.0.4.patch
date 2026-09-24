@@ -1,0 +1,111 @@
+diff --git a/ios/AudioPlayer.swift b/ios/AudioPlayer.swift
+index 074294321e872bb53c0b2d41044dac3c612f14f0..1f36916db174efd19b2c8e354e6993c3c404fa2f 100644
+--- a/ios/AudioPlayer.swift
++++ b/ios/AudioPlayer.swift
+@@ -69,7 +69,10 @@ public class AudioPlayer: SharedRef<AVPlayer>, Playable {
+   }
+ 
+   var currentOffsetFromLive: Double? {
+-    guard let currentDate = ref.currentItem?.currentDate() else {
++    // Recorded lectures have no wall-clock date. Asking AVFoundation for it
++    // synchronously on every status tick can block the main thread (Sentry 2M).
++    guard isLoaded, isLive,
++      let currentDate = ref.currentItem?.currentDate() else {
+       return nil
+     }
+     return Date().timeIntervalSince1970 - currentDate.timeIntervalSince1970
+diff --git a/ios/MediaController.swift b/ios/MediaController.swift
+index e977f577cd2e16b194b56537ad76b423f40d2496..e89c0d9f7ede9923a9e41a2f9a89fdf72b6355a4 100644
+--- a/ios/MediaController.swift
++++ b/ios/MediaController.swift
+@@ -14,6 +14,8 @@ class MediaController {
+   private var artworkLoadToken: UUID?
+   private var currentArtworkItemIdentifier: ObjectIdentifier?
+   private var isLiveStream = false
++  private var assetMetadataTask: Task<Void, Never>?
++  private var assetMetadataItem: AVPlayerItem?
+ 
+   func setActivePlayer(_ player: AudioPlayer?, options: LockScreenOptions? = nil) {
+     performOnMain {
+@@ -66,7 +68,6 @@ class MediaController {
+       applyUserMetadata(&nowPlayingInfo, from: userMetadata)
+       applyArtwork(&nowPlayingInfo, from: userMetadata, for: player, currentItemIdentifier: nextArtworkItemIdentifier)
+     } else {
+-      resetArtworkState()
+       nowPlayingInfo.removeValue(forKey: MPMediaItemPropertyArtwork)
+       applyAssetMetadata(&nowPlayingInfo, for: player)
+     }
+@@ -105,27 +106,44 @@ class MediaController {
+       return
+     }
+ 
+-    for item in asset.commonMetadata {
+-      switch item.commonKey {
+-      case .commonKeyTitle:
+-        if let title = item.stringValue {
+-          info[MPMediaItemPropertyTitle] = title
+-        }
+-      case .commonKeyArtist:
+-        if let artist = item.stringValue {
+-          info[MPMediaItemPropertyArtist] = artist
+-        }
+-      case .commonKeyAlbumName:
+-        if let album = item.stringValue {
+-          info[MPMediaItemPropertyAlbumTitle] = album
++    // Loading remote embedded tags synchronously here blocks the UI thread.
++    // Load once per item and publish only if that item still owns the controls.
++    guard assetMetadataItem !== currentItem else { return }
++    assetMetadataTask?.cancel()
++    assetMetadataItem = currentItem
++    info.removeValue(forKey: MPMediaItemPropertyTitle)
++    info.removeValue(forKey: MPMediaItemPropertyArtist)
++    info.removeValue(forKey: MPMediaItemPropertyAlbumTitle)
++    assetMetadataTask = Task { [weak self, weak player] in
++      do {
++        let items = try await asset.load(.commonMetadata)
++        var values = [String: String]()
++        for item in items {
++          guard !Task.isCancelled else { return }
++          let key: String
++          switch item.commonKey {
++          case .commonKeyTitle: key = MPMediaItemPropertyTitle
++          case .commonKeyArtist: key = MPMediaItemPropertyArtist
++          case .commonKeyAlbumName: key = MPMediaItemPropertyAlbumTitle
++          default: continue
++          }
++          if let value = try await item.load(.stringValue) {
++            values[key] = value
++          }
+         }
+-      case .commonKeyArtwork:
+-        if let imageData = item.dataValue,
+-          let image = UIImage(data: imageData) {
+-          info[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
++        guard !Task.isCancelled else { return }
++        let loadedValues = values
++        await MainActor.run {
++          guard let self, let player,
++            self.activePlayer?.id == player.id,
++            player.ref.currentItem === currentItem,
++            player.metadata == nil else { return }
++          var latest = self.nowPlayingInfoCenter.nowPlayingInfo ?? [:]
++          loadedValues.forEach { latest[$0.key] = $0.value }
++          self.nowPlayingInfoCenter.nowPlayingInfo = latest
+         }
+-      default:
+-        break
++      } catch {
++        // Metadata is optional; failure must not stop audio or block controls.
+       }
+     }
+   }
+@@ -202,6 +220,9 @@ class MediaController {
+   }
+ 
+   private func resetArtworkState() {
++    assetMetadataTask?.cancel()
++    assetMetadataTask = nil
++    assetMetadataItem = nil
+     currentArtworkUrl = nil
+     cachedArtwork = nil
+     artworkLoadToken = nil

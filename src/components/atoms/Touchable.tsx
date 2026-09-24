@@ -1,14 +1,7 @@
 import * as Haptics from 'expo-haptics';
-import React, { memo, useCallback } from 'react';
+import React, { memo } from 'react';
 import { Pressable, PressableProps, ViewStyle } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
 import { designTokens } from '../../theme/designTokens';
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface TouchableProps extends Omit<PressableProps, 'style'> {
   hapticFeedback?: boolean;
@@ -30,25 +23,6 @@ export const Touchable: React.FC<TouchableProps> = memo(({
   onPress,
   ...props
 }) => {
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const springConfig = { damping: 15, stiffness: 150 };
-
-  const handlePressIn = useCallback(() => {
-    if (scaleOnPress && !disabled) {
-      scale.value = withSpring(scaleValue, springConfig);
-    }
-  }, [scaleOnPress, disabled, scaleValue]);
-
-  const handlePressOut = useCallback(() => {
-    if (scaleOnPress && !disabled) {
-      scale.value = withSpring(1, springConfig);
-    }
-  }, [scaleOnPress, disabled]);
-
   const handlePress = (event: any) => {
     if (!disabled) {
       if (hapticFeedback) {
@@ -66,23 +40,24 @@ export const Touchable: React.FC<TouchableProps> = memo(({
   // Pass a style function to Pressable so the consumer's function-based style
   // receives the synchronous { pressed } state on every render frame,
   // matching the native Pressable contract.
-  const combinedStyle = typeof style === 'function'
-    ? ({ pressed }: { pressed: boolean }) => [{ ...baseStyle, ...style({ pressed }) }, animatedStyle]
-    : [{ ...baseStyle, ...(style as ViewStyle) }, animatedStyle];
+  const combinedStyle = ({ pressed }: { pressed: boolean }) => [
+    baseStyle,
+    typeof style === 'function' ? style({ pressed }) : style,
+    // Keep the public press-feedback options without animation scheduling.
+    pressed && scaleOnPress && !disabled ? { transform: [{ scale: scaleValue }] } : undefined,
+  ];
 
   return (
-    <AnimatedPressable
+    <Pressable
       style={combinedStyle as any}
       onPress={handlePress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
       disabled={disabled}
       accessibilityRole="button"
       accessibilityState={{ disabled: !!disabled }}
       {...props}
     >
       {children}
-    </AnimatedPressable>
+    </Pressable>
   );
 });
 

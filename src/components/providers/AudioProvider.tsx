@@ -492,6 +492,18 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       level: 'error',
     })
 
+    if (event.code === 'audio-source-error') {
+      // A failed AVPlayer/ExoPlayer source cannot recover by seeking the same
+      // failed item. End the spinner and let the listener retry or pick a track.
+      playerStore.set({
+        ...playerStore.get(),
+        isPlaying: false,
+        isLoading: false,
+        errorMessage: 'This audio could not be loaded. Please try again.',
+      })
+      return
+    }
+
     void (async () => {
       try {
         const progress = await TrackPlayer.getProgress()

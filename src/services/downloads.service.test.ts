@@ -1,6 +1,7 @@
 const mockFiles = new Map<string, { exists: boolean; size: number }>();
 const mockFetch = jest.fn();
 const mockCreateDownloadResumable = jest.fn();
+const mockMoveAsync = jest.fn();
 const mockIncrementDownloadCounter = jest.fn();
 const mockRequestStoragePermission = jest.fn();
 const mockAddSentryBreadcrumb = jest.fn();
@@ -86,6 +87,7 @@ jest.mock("expo-file-system", () => {
 
 jest.mock("expo-file-system/legacy", () => ({
   createDownloadResumable: mockCreateDownloadResumable,
+  moveAsync: mockMoveAsync,
 }));
 
 jest.mock("./api/downloads.api", () => ({
@@ -242,5 +244,58 @@ describe("downloadsService.downloadLecture", () => {
       expect.any(Function),
       undefined
     );
+  });
+});
+
+
+describe('resumable download finalization', () => {
+  beforeEach(() => {
+    jest.resetModules();
+    mockFiles.clear();
+    mockMoveAsync.mockReset();
+    mockMoveAsync.mockImplementation(async ({ from, to }) => {
+      const file = mockFiles.get(from);
+      if (!file) throw new Error('source missing');
+      mockFiles.set(to, file);
+      mockFiles.delete(from);
+    });
+  });
+  const setup = async () => {
+    const { downloadsService } = require('./downloads.service');
+    await downloadsService.ensureInitialized();
+    const from = buildUri('file:///document', 'downloads', '123.part');
+    const to = buildUri('file:///document', 'downloads', '123.mp3');
+    mockFiles.set(from, { exists: true, size: 128 });
+    const download = {
+      id: '123', episode: { id: '123', title: 'Lecture' },
+      downloadUrl: 'https://example.com/audio.mp3', progressCallback: jest.fn(),
+      isPaused: false, isCancelled: false, bytesDownloaded: 128, totalBytes: 128,
+      resumeState: null,
+      downloadTask: { downloadAsync: jest.fn().mockResolvedValue({ status: 200 }) },
+    };
+    return { downloadsService, download, from, to };
+  };
+  test('finishes with one asynchronous rename and preserves the recording', async () => {
+    const { downloadsService, download, from, to } = await setup();
+    await expect(downloadsService.startDownload(download)).resolves.toBe('completed');
+    expect(mockMoveAsync).toHaveBeenCalledWith({ from, to });
+    expect(mockFiles.has(from)).toBe(false);
+    expect(mockFiles.get(to)?.size).toBe(128);
+  });
+  test('a cancelled completion never attempts to copy or rename the vanished part file', async () => {
+    const { downloadsService, download, from } = await setup();
+    download.isCancelled = true;
+    mockFiles.delete(from);
+    await expect(downloadsService.startDownload(download)).resolves.toBe('cancelled');
+    expect(mockMoveAsync).not.toHaveBeenCalled();
+  });
+  test('a file disappearing during finalization becomes a recoverable download failure', async () => {
+    const { downloadsService, download, from } = await setup();
+    mockMoveAsync.mockImplementationOnce(async () => {
+      mockFiles.delete(from);
+      throw new Error('NoSuchFileException');
+    });
+    await expect(downloadsService.startDownload(download)).rejects.toThrow('download');
+    expect(download.progressCallback).not.toHaveBeenCalled();
   });
 });

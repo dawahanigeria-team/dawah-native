@@ -32,7 +32,7 @@ import {
   setCachedLecturerFollowState,
 } from '../../src/services/lecturerFollowCache.service';
 import { linkingService } from '../../src/services/linking.service';
-import { useAuthStore, usePlayerStore } from '../../src/stores';
+import { useAuthStore, usePlayerActions, playerStore } from '../../src/stores';
 import { designTokens } from '../../src/theme/designTokens';
 import { Episode } from '../../src/types/types';
 import {
@@ -61,7 +61,8 @@ const QuranReciterScreen: React.FC = () => {
       : [albumId]
   ), [albumId, albumIds]);
   const followEntityId = typeof reciterId === 'string' && reciterId !== '0' ? reciterId : albumId;
-  const { playQueue, currentEpisode } = usePlayerStore();
+  const { playQueue } = usePlayerActions();
+  const currentEpisode = playerStore.use((state) => state.currentEpisode);
   const { isAuthenticated, user } = useAuthStore();
   const { canFollowMore, requireFollowAccess } = useFollowGate();
   const { colors } = useTheme();

@@ -14,10 +14,6 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import Animated, {
-  FadeIn,
-  FadeInRight,
-} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FlashList } from "../../src/components/adapters/flashListCompat";
 import { Text } from "../../src/components/atoms";
@@ -43,7 +39,6 @@ import { Episode } from "../../src/types/types";
 
 const CARD_WIDTH = 280;
 const CARD_SPACING = 12;
-const PREFETCH_LIMIT = 5;
 const IS_ANDROID = Platform.OS === "android";
 const HOME_SECTION_LIMIT = IS_ANDROID ? 6 : 10;
 const HOME_SKELETON_COUNT = IS_ANDROID ? 2 : 3;
@@ -287,16 +282,6 @@ function HomeScreen() {
     return () => task.cancel?.();
   }, [popularLectures, buildPopularEpisodes]);
 
-  useEffect(() => {
-    const task = InteractionManager.runAfterInteractions(() => {
-      const uris = popularEpisodes.map((e) => e.coverUrl).filter(Boolean);
-      const uniqueUris = Array.from(new Set(uris)).slice(0, PREFETCH_LIMIT);
-      uniqueUris.forEach((uri) => {
-        ExpoImage.prefetch(uri as string, { cachePolicy: "disk" }).catch(() => { });
-      });
-    });
-    return () => task.cancel?.();
-  }, [popularEpisodes]);
 
   // Handlers
   const handleCarouselItemPress = useCallback((episode: Episode) => {
@@ -317,12 +302,12 @@ function HomeScreen() {
   // Render Quick Action
   const renderQuickAction = useCallback(
     (action: (typeof QUICK_ACTIONS)[0]) => (
-      // A plain View, deliberately. Wrapped in Animated.View these tiles
+      // A plain View, deliberately. Wrapped in View these tiles
       // rendered at near-zero opacity — Charts came through, Quran and Library
       // were barely visible, and Lecturers, Playlists and Categories did not
       // paint at all, so half of Browse was invisible and only tappable by
       // accident. It is not the entering animation: removing that prop changed
-      // nothing, and swapping Animated.View for View fixed it outright. Six
+      // nothing, and swapping View for View fixed it outright. Six
       // static tiles do not need a staggered fade badly enough to risk that.
       <View key={action.id}>
         <TouchableOpacity
@@ -397,11 +382,10 @@ function HomeScreen() {
 
   // Render Lecture Card
   const renderLectureCard = useCallback(
-    ({ item, index }: { item: Episode; index: number }) => {
+    ({ item }: { item: Episode; index: number }) => {
       if (!item?.id) return null;
       return (
-        <Animated.View
-          entering={IS_ANDROID ? undefined : FadeInRight.delay(index * 50).duration(300)}
+        <View
           style={{ width: CARD_WIDTH, marginRight: CARD_SPACING }}
         >
           <Card
@@ -413,7 +397,7 @@ function HomeScreen() {
             showMeta={true}
             metaValue={item.lecturerName || "Unknown"}
           />
-        </Animated.View>
+        </View>
       );
     },
     [handleCarouselItemPress],
@@ -423,8 +407,7 @@ function HomeScreen() {
     ({ item, index }: { item: Episode; index: number }) => {
       if (!item?.id) return null;
       return (
-        <Animated.View
-          entering={IS_ANDROID ? undefined : FadeInRight.delay(index * 50).duration(300)}
+        <View
           style={{ width: CARD_WIDTH, marginRight: CARD_SPACING }}
         >
           <View style={styles.trendingCardWrapper}>
@@ -452,7 +435,7 @@ function HomeScreen() {
               metaValue={item.lecturerName || "Unknown Scholar"}
             />
           </View>
-        </Animated.View>
+        </View>
       );
     },
     [colors, handleCarouselItemPress],
@@ -460,11 +443,10 @@ function HomeScreen() {
 
   // Render Quran Album Card
   const renderQuranCard = useCallback(
-    ({ item, index }: { item: QuranAlbum; index: number }) => {
+    ({ item }: { item: QuranAlbum; index: number }) => {
       if (!item?.id) return null;
       return (
-        <Animated.View
-          entering={IS_ANDROID ? undefined : FadeInRight.delay(index * 50).duration(300)}
+        <View
           style={styles.quranCardWrapper}
         >
           <TouchableOpacity
@@ -496,7 +478,7 @@ function HomeScreen() {
               </Text>
             </View>
           </TouchableOpacity>
-        </Animated.View>
+        </View>
       );
     },
     [colors, handleAlbumPress],
@@ -541,8 +523,7 @@ function HomeScreen() {
         stickyHeaderIndices={[0]}
       >
         {/* Sticky Header */}
-        <Animated.View
-          entering={IS_ANDROID ? undefined : FadeIn.duration(400)}
+        <View
           style={[
             styles.header,
             { backgroundColor: colors.system.background.primary },
@@ -675,7 +656,7 @@ function HomeScreen() {
               </TouchableOpacity>
             )}
           </View>
-        </Animated.View>
+        </View>
 
         {!preferences.configured && preferencesHydrated && (
           <TouchableOpacity

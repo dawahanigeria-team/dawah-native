@@ -4,7 +4,6 @@ import { useGuardedPush } from "../../src/navigation/useGuardedPush";
 import React from "react";
 import { Alert, Linking, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { Text } from "../../src/components/atoms";
 import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
@@ -396,12 +395,11 @@ const ProfileScreen = () => {
     </TouchableOpacity>
   );
 
-  const renderSection = (title: string, items: MenuItem[], delay: number) => {
+  const renderSection = (title: string, items: MenuItem[], _delay: number) => {
     if (items.length === 0) return null;
     
     return (
-      <Animated.View
-        entering={FadeInDown.delay(delay).duration(400)}
+      <View
         style={tw`mb-6`}
       >
         <Text
@@ -425,7 +423,7 @@ const ProfileScreen = () => {
         >
           {items.map((item, index) => renderMenuItem(item, index === items.length - 1))}
         </View>
-      </Animated.View>
+      </View>
     );
   };
 
@@ -443,8 +441,7 @@ const ProfileScreen = () => {
         accessibilityLabel="Profile content"
       >
         {/* Header with Greeting */}
-        <Animated.View 
-          entering={FadeIn.duration(400)}
+        <View
           style={tw`px-5 pt-2 pb-4`}
         >
           <Text
@@ -461,11 +458,10 @@ const ProfileScreen = () => {
           >
             {isAuthenticated && user ? user.username : "Guest"}
           </Text>
-        </Animated.View>
+        </View>
 
         {/* Profile Card */}
-        <Animated.View
-          entering={FadeInDown.delay(100).duration(400)}
+        <View
           style={tw`px-5 mb-6`}
         >
           <View
@@ -565,7 +561,7 @@ const ProfileScreen = () => {
               </View>
             </TouchableOpacity>
           </View>
-        </Animated.View>
+        </View>
 
         {/* Menu Sections */}
         <View style={tw`px-5`}>
@@ -576,8 +572,7 @@ const ProfileScreen = () => {
         </View>
 
         {/* App Branding Footer */}
-        <Animated.View
-          entering={FadeInDown.delay(600).duration(400)}
+        <View
           style={tw`items-center mt-4 mb-8`}
         >
           <View
@@ -606,7 +601,7 @@ const ProfileScreen = () => {
           >
             Reviving the Ummah byte by byte
           </Text>
-        </Animated.View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

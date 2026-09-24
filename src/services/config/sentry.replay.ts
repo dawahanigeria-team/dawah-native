@@ -27,38 +27,15 @@ export const buildReplayOptions = ({
   platform,
   isDevelopment,
 }: ReplayEnvironment): ReplayOptions => {
-  // Android is excluded: mobile replay there has been the source of ANRs on the
-  // low-end devices much of the audience uses.
-  const enabled = platform !== "android";
-
-  if (!enabled) {
-    return {
-      enabled: false,
-      maskAllText: true,
-      maskAllImages: true,
-      sessionSampleRate: 0,
-      onErrorSampleRate: 0,
-    };
-  }
-
+  // Production events 3Q and 36 block inside Sentry's screenshot renderer.
+  // Error-only replay still captures a rolling buffer before an error occurs.
+  // Disable the integration and BOTH rates so monitoring cannot stall playback.
+  const enabled = isDevelopment && platform === "ios";
   return {
-    enabled: true,
-
-    // Replay is for seeing the SHAPE of what happened — which screens, which
-    // taps, in what order. Reading the content is not the point, and the
-    // content is the user's: what they typed, and whatever account details were
-    // on screen when it broke. Masked replays still show navigation and
-    // interaction. These stay true.
+    enabled,
     maskAllText: true,
     maskAllImages: true,
-
-    // Continuous session capture is off in production. Recording a share of
-    // every session end to end costs the user upload bandwidth on metered
-    // mobile data and buys little that on-error replay does not already give.
-    sessionSampleRate: isDevelopment ? 1.0 : 0.0,
-
-    // On-error replay is the one worth paying for: it only uploads when
-    // something actually broke, which is exactly when we need to see it.
-    onErrorSampleRate: 1.0,
+    sessionSampleRate: enabled ? 1 : 0,
+    onErrorSampleRate: enabled ? 1 : 0,
   };
 };

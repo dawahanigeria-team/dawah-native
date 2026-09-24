@@ -1,12 +1,14 @@
 export const resolveSkeletonAnimationEnabled = (
   animated: boolean | undefined,
-  platform: string
+  _platform: string
 ): boolean => {
   if (typeof animated === "boolean") {
     return animated;
   }
 
-  return platform !== "android";
+  // Each shimmer drives a Fabric commit every frame; Home mounts many at once.
+  // Static placeholders keep loading responsive on iOS as well as Android.
+  return false;
 };
 
 export const getInitialSkeletonContainerWidth = (

@@ -146,6 +146,7 @@ let jumpBackwardInterval = 15
 let playlistKey: string | null = null
 let isLockScreenActive = false
 let shouldResumeWhenLoaded = false
+let lastPlaybackError: string | null = null
 
 const emit = (event: string, payload: unknown) => {
   const eventListeners = listeners.get(event)
@@ -167,6 +168,7 @@ const setProgress = (nextProgress: Progress) => {
 }
 
 const mapAudioStatusToState = (audioStatus: AudioStatus): PlaybackState['state'] => {
+  if (audioStatus.error) return State.Error
   if (audioStatus.playing) {
     return State.Playing
   }
@@ -240,6 +242,18 @@ const ensurePlayer = (): AudioPlayer => {
 
   player = createCompatAudioPlayer()
   _playerStatusSubscription = player.addListener('playbackStatusUpdate', (audioStatus: AudioStatus) => {
+    if (audioStatus.error) {
+      shouldResumeWhenLoaded = false
+      setPlaybackState(State.Error)
+      if (lastPlaybackError !== audioStatus.error) {
+        lastPlaybackError = audioStatus.error
+        emit(Event.PlaybackError, { code: 'audio-source-error', message: audioStatus.error })
+      }
+      return
+    }
+    // Periodic native status may omit an already-reported source error.
+    if (lastPlaybackError && !audioStatus.playing) return
+    lastPlaybackError = null
     if (shouldResumeWhenLoaded && audioStatus.isLoaded && !audioStatus.playing) {
       try {
         player?.play()
@@ -343,6 +357,7 @@ const activateTrack = async (index: number, autoPlay: boolean): Promise<void> =>
     throw error
   }
 
+  lastPlaybackError = null
   setPlaybackState(State.Loading)
   await currentPlayer.replace(source)
   activeTrackIndex = index

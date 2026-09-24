@@ -1,10 +1,9 @@
-import * as Notifications from "expo-notifications";
 import { ObserveRoot } from "expo-observe";
 import { Stack, usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFonts } from "expo-font";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { InteractionManager, Linking, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -21,11 +20,11 @@ import { initObserve, setObserveAudience } from "../src/services/config/observe.
 import { addSentryBreadcrumb, captureSentryException, initSentry, Sentry } from "../src/services/config/sentry.config";
 import { downloadsService } from "../src/services/downloads.service";
 import { linkingService } from "../src/services/linking.service";
-import { getNotificationRouteFromData } from "../src/services/notifications.service";
+import { useNotificationObserver } from "../src/hooks/useNotificationObserver";
 import { userService } from "../src/services/user.service";
 import { authStore, initializeAuth, subscribeToAuthChange } from "../src/stores/authStore";
 import { fetchFavorites } from "../src/stores/favoritesStore";
-import { usePlayerActions, usePlayerStore } from "../src/stores";
+import { usePlayerActions, playerStore } from "../src/stores";
 
 // Initialize Sentry as early as possible
 initSentry();
@@ -33,6 +32,9 @@ initSentry();
 // Must run before ObserveRoot mounts: the expo-router integration reads this
 // config once at mount and throws if it is enabled afterwards.
 initObserve();
+
+// A lecture opened from a cold-start link must have a real Back destination.
+export const unstable_settings = { initialRouteName: "(tabs)" };
 
 const NAVIGATION_DEDUPE_WINDOW_MS = 1500;
 const PLAYER_NAVIGATION_PENDING_TIMEOUT_MS = 10000;
@@ -59,7 +61,13 @@ const normalizeInternalRoute = (route: string | null | undefined): string | null
 function useSafeRoutePush() {
   const pathname = usePathname();
   const router = useRouter();
+  const navigationRef = useRef({ pathname, router });
+  useLayoutEffect(() => {
+    navigationRef.current = { pathname, router };
+  }, [pathname, router]);
 
+  // Listener lifetime must not depend on the route it navigates to. Otherwise
+  // Back reads the launch notification / URL again and reopens that screen.
   return useCallback(
     (rawRoute: string, source: string) => {
       const route = normalizeInternalRoute(rawRoute);
@@ -68,7 +76,7 @@ function useSafeRoutePush() {
         return;
       }
 
-      const currentRoute = normalizeInternalRoute(pathname);
+      const currentRoute = normalizeInternalRoute(navigationRef.current.pathname);
       if (currentRoute === route) {
         return;
       }
@@ -84,42 +92,10 @@ function useSafeRoutePush() {
 
       recentNavigationState.route = route;
       recentNavigationState.timestamp = now;
-      router.push(route as any);
+      navigationRef.current.router.push(route as any);
     },
-    [pathname, router],
+    [],
   );
-}
-
-function useNotificationObserver() {
-  const safePush = useSafeRoutePush();
-
-  useEffect(() => {
-    const redirect = (notification: Notifications.Notification) => {
-      const data = notification.request.content.data as Record<string, unknown>;
-      const url = getNotificationRouteFromData(data);
-      if (url) {
-        safePush(url, "notification");
-      }
-    };
-
-    Notifications.getLastNotificationResponseAsync().then((response) => {
-      if (response?.notification) {
-        redirect(response.notification);
-      }
-    }).catch(() => {
-      // Can fail on some Android devices with notification permission issues.
-    });
-
-    const subscription = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        redirect(response.notification);
-      }
-    );
-
-    return () => {
-      subscription.remove();
-    };
-  }, [safePush]);
 }
 
 /**
@@ -144,7 +120,7 @@ function RootLayout() {
   const hasInitializedApp = useRef(false);
   const { isDark } = useTheme();
   const { expandPlayer } = usePlayerActions();
-  const { currentEpisode } = usePlayerStore();
+  const currentEpisode = playerStore.use((state) => state.currentEpisode);
   const currentEpisodeRef = useRef<typeof currentEpisode | null>(null);
   const pendingPlayerNavigationRef = useRef(false);
   const pendingPlayerNavigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -158,7 +134,7 @@ function RootLayout() {
   }, []);
 
   usePushNotifications();
-  useNotificationObserver();
+  useNotificationObserver(safePush);
 
   useEffect(() => {
     if (fontError) {
@@ -264,6 +240,7 @@ function RootLayout() {
   }, [currentEpisode]);
 
   useEffect(() => {
+    let cancelled = false;
     const navigateToPlayer = () => {
       expandPlayer();
       const episodeId = currentEpisodeRef.current?.id;
@@ -285,7 +262,7 @@ function RootLayout() {
     const handleDeepLink = async () => {
       // Check if app was opened with a URL
       const initialUrl = await linkingService.getInitialURL();
-      if (initialUrl) {
+      if (initialUrl && !cancelled) {
         logger.debug('App opened with URL:', initialUrl);
         const isPlayerNotification =
           initialUrl.startsWith('trackplayer://notification.click') ||
@@ -328,6 +305,7 @@ function RootLayout() {
     });
 
     return () => {
+      cancelled = true;
       clearPendingPlayerNavigationTimeout();
       subscription.remove();
     };
@@ -362,49 +340,49 @@ function RootLayout() {
         <AudioProvider>
           <StatusBar style={isDark ? "light" : "dark"} />
           <View style={{ flex: 1 }}>
-            <Stack screenOptions={{ headerShown: false }}>
+            <Stack screenOptions={{ headerShown: false, animation: "none" }}>
               <Stack.Screen name="(tabs)" />
               <Stack.Screen
                 name="charts"
                 options={{
                   headerShown: false,
                   presentation: "modal",
-                  animation: "slide_from_bottom",
+                  animation: "none",
                 }}
               />
               <Stack.Screen
                 name="sign-in"
                 options={{
                   presentation: "modal",
-                  animation: "slide_from_bottom",
+                  animation: "none",
                 }}
               />
               <Stack.Screen
                 name="sign-up"
                 options={{
                   presentation: "modal",
-                  animation: "slide_from_bottom",
+                  animation: "none",
                 }}
               />
               <Stack.Screen
                 name="edit-profile"
                 options={{
                   presentation: "modal",
-                  animation: "slide_from_bottom",
+                  animation: "none",
                 }}
               />
               <Stack.Screen
                 name="listening-preferences"
                 options={{
                   presentation: "modal",
-                  animation: "slide_from_bottom",
+                  animation: "none",
                 }}
               />
               <Stack.Screen
                 name="about"
                 options={{
                   presentation: "modal",
-                  animation: "slide_from_bottom",
+                  animation: "none",
                 }}
               />
             </Stack>

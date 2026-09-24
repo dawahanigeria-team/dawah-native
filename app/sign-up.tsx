@@ -1,5 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
+import { statusCodes } from "@react-native-google-signin/google-signin";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -13,13 +13,12 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Loading, Text } from "../src/components/atoms";
 import { ENV } from "../src/config/env";
 import { useTheme } from "../src/hooks/useTheme";
 import { addSentryBreadcrumb, captureSentryException } from "../src/services/config/sentry.config";
-import { ensureGoogleSigninConfigured } from "../src/services/googleSignIn.service";
+import { ensureGoogleSigninConfigured, signInWithGoogle } from "../src/services/googleSignIn.service";
 import { useAuthStore } from "../src/stores";
 import tw from "../src/theme/twrnc";
 import { boxShadow } from "../src/utils/shadow";
@@ -213,24 +212,9 @@ export default function SignUpScreen() {
   const handleGoogleSignIn = async () => {
     clearError();
     try {
-      ensureGoogleSigninConfigured();
-      await GoogleSignin.hasPlayServices();
-      const response = await GoogleSignin.signIn();
-
-      const idToken = response.data?.idToken;
-      if (!idToken) {
-        throw new Error("No ID token received from Google");
-      }
-
-      const email = response.data?.user?.email || null;
-      const fullName = response.data?.user?.name || null;
-
-      await socialLogin({
-        provider: "google",
-        identityToken: idToken,
-        email,
-        fullName,
-      });
+      const credentials = await signInWithGoogle();
+      if (!credentials) return;
+      await socialLogin({ provider: "google", ...credentials });
 
       router.replace((returnToRoute || "/") as any);
     } catch (err: unknown) {
@@ -280,8 +264,7 @@ export default function SignUpScreen() {
       delay: number;
     }
   ) => (
-    <Animated.View
-      entering={FadeInDown.delay(options.delay).duration(400)}
+    <View
       style={tw`mb-4`}
     >
       <Text
@@ -366,7 +349,7 @@ export default function SignUpScreen() {
           {error}
         </Text>
       )}
-    </Animated.View>
+    </View>
   );
 
   return (
@@ -387,7 +370,7 @@ export default function SignUpScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Back Button */}
-          <Animated.View entering={FadeIn.duration(300)}>
+          <View>
             <Pressable
               onPress={() => router.back()}
               style={[
@@ -402,11 +385,10 @@ export default function SignUpScreen() {
                 color={colors.system.label.primary}
               />
             </Pressable>
-          </Animated.View>
+          </View>
 
           {/* Logo/Brand */}
-          <Animated.View
-            entering={FadeInDown.delay(100).duration(400)}
+          <View
             style={tw`items-center mb-6`}
           >
             <View
@@ -444,12 +426,11 @@ export default function SignUpScreen() {
             >
               Join dawahnigeria community
             </Text>
-          </Animated.View>
+          </View>
 
           {/* Error Alert */}
           {error && (
-            <Animated.View
-              entering={FadeIn.duration(200)}
+            <View
               style={[
                 tw`rounded-xl p-3 mb-5 flex-row items-center`,
                 { backgroundColor: `${colors.semantic.red}15` },
@@ -467,7 +448,7 @@ export default function SignUpScreen() {
               >
                 {error}
               </Text>
-            </Animated.View>
+            </View>
           )}
 
           {/* Username Input */}
@@ -551,8 +532,7 @@ export default function SignUpScreen() {
           )}
 
           {/* Sign Up Button */}
-          <Animated.View
-            entering={FadeInDown.delay(400).duration(400)}
+          <View
             style={tw`mt-2`}
           >
             <TouchableOpacity
@@ -581,11 +561,10 @@ export default function SignUpScreen() {
                 </Text>
               )}
             </TouchableOpacity>
-          </Animated.View>
+          </View>
 
           {/* Divider */}
-          <Animated.View
-            entering={FadeInDown.delay(450).duration(400)}
+          <View
             style={tw`flex-row items-center my-5`}
           >
             <View
@@ -607,11 +586,10 @@ export default function SignUpScreen() {
                 { backgroundColor: colors.system.separator.primary },
               ]}
             />
-          </Animated.View>
+          </View>
 
           {/* Social Sign Up Buttons */}
-          <Animated.View
-            entering={FadeInDown.delay(500).duration(400)}
+          <View
             style={tw`flex-row gap-3 mb-6`}
           >
             {/* Google Sign Up */}
@@ -667,11 +645,10 @@ export default function SignUpScreen() {
                 </Text>
               </TouchableOpacity>
             )}
-          </Animated.View>
+          </View>
 
           {/* Sign In Link */}
-          <Animated.View
-            entering={FadeInDown.delay(550).duration(400)}
+          <View
             style={tw`flex-row items-center justify-center`}
           >
             <Text variant="subheadline" color="secondaryLabel">
@@ -686,11 +663,10 @@ export default function SignUpScreen() {
                 Sign In
               </Text>
             </Pressable>
-          </Animated.View>
+          </View>
 
           {/* Terms & Privacy */}
-          <Animated.View
-            entering={FadeInDown.delay(600).duration(400)}
+          <View
             style={tw`mt-8 items-center`}
           >
             <Text
@@ -713,7 +689,7 @@ export default function SignUpScreen() {
                 Privacy Policy
               </Text>
             </Text>
-          </Animated.View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

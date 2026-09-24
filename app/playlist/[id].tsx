@@ -18,7 +18,7 @@ import { ApiError } from "../../src/services/api/base.api";
 import { lectureDetailApi } from "../../src/services/api/lectureDetail.api";
 import { linkingService } from "../../src/services/linking.service";
 import { playlistApi } from "../../src/services/api/playlist.api";
-import { usePlayerStore } from "../../src/stores";
+import { usePlayerActions } from "../../src/stores";
 import { useAuthStore } from "../../src/stores/authStore";
 import { useTheme } from "../../src/hooks/useTheme";
 import tw from "../../src/theme/twrnc";
@@ -94,7 +94,7 @@ const PlaylistDetailScreen: React.FC = () => {
   const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
   const playlistId = id ?? "";
   const { isAuthenticated, user } = useAuthStore();
-  const { playQueue } = usePlayerStore();
+  const { playQueue } = usePlayerActions();
   const { colors } = useTheme();
 
   const [playlistName] = useState(name || "");

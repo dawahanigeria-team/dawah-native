@@ -331,7 +331,9 @@ const playEpisode = async (episode: Episode) => {
   }
 
   try {
-    const wasPlaying = playerStore.get().isPlaying;
+    const previousState = playerStore.get();
+    const wasPlaying = previousState.isPlaying;
+    const needsSourceReload = Boolean(previousState.errorMessage);
 
     setAndPersistPlayerState({
       ...playerStore.get(),
@@ -343,7 +345,7 @@ const playEpisode = async (episode: Episode) => {
     const currentState = playerStore.get();
 
     // Check if we're already playing this episode
-    if (currentState.currentEpisode?.id === episode.id) {
+    if (currentState.currentEpisode?.id === episode.id && !needsSourceReload) {
       logger.debug('📱 PlayerStore: Same episode already loaded');
 
       // If it was paused, resume; if it was playing, just show mini player
@@ -766,6 +768,10 @@ const togglePlayPause = async () => {
   try {
     const currentState = playerStore.get();
     if (!currentState.currentEpisode) return;
+    if (currentState.errorMessage) {
+      await playEpisode(currentState.currentEpisode);
+      return;
+    }
 
     playerStore.set({
       ...currentState,
@@ -963,26 +969,18 @@ const downloadEpisode = async (episode: Episode) => {
 };
 
 const closePlayer = () => {
-  if (!audioControls) {
-    logger.error('❌ PlayerStore: Audio controls not initialized', new Error('Audio controls not initialized'));
-    return;
-  }
-
-  try {
-    audioControls.stop();
-    audioControls.unload();
-    void TrackPlayer.reset();
-    void clearQueueSnapshot();
-
-    setAndPersistPlayerState({
-      ...initialState,
-    });
-  } catch (error) {
-    logger.error('Failed to close player', error as Error);
-    setAndPersistPlayerState({
-      ...initialState,
-    });
-  }
+  // Closing is valid even before AudioProvider has attached its controls.
+  // Invalidate pending loads/restoration before they can reopen the player.
+  beginPlaybackRequest();
+  setAndPersistPlayerState({ ...initialState });
+  // stop(), unload(), and reset() previously raced three native resets against
+  // one another. Reset already pauses and clears the native queue/controls.
+  void Promise.resolve().then(() => TrackPlayer.reset()).catch(error => {
+    logger.error('Failed to reset closed player', error as Error);
+  });
+  void clearQueueSnapshot().catch(error => {
+    logger.error('Failed to clear closed player queue', error as Error);
+  });
 };
 
 const addToQueue = async (episodes: Episode | Episode[]) => {

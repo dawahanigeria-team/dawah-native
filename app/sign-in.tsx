@@ -1,5 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
+import { statusCodes } from "@react-native-google-signin/google-signin";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -13,13 +13,12 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Loading, Text } from "../src/components/atoms";
 import { ENV } from "../src/config/env";
 import { useTheme } from "../src/hooks/useTheme";
 import { addSentryBreadcrumb, captureSentryException } from "../src/services/config/sentry.config";
-import { ensureGoogleSigninConfigured } from "../src/services/googleSignIn.service";
+import { ensureGoogleSigninConfigured, signInWithGoogle } from "../src/services/googleSignIn.service";
 import { useAuthStore } from "../src/stores";
 import tw from "../src/theme/twrnc";
 import { boxShadow } from "../src/utils/shadow";
@@ -195,24 +194,9 @@ export default function SignInScreen() {
   const handleGoogleSignIn = async () => {
     clearError();
     try {
-      ensureGoogleSigninConfigured();
-      await GoogleSignin.hasPlayServices();
-      const response = await GoogleSignin.signIn();
-
-      const idToken = response.data?.idToken;
-      if (!idToken) {
-        throw new Error("No ID token received from Google");
-      }
-
-      const email = response.data?.user?.email || null;
-      const fullName = response.data?.user?.name || null;
-
-      await socialLogin({
-        provider: "google",
-        identityToken: idToken,
-        email,
-        fullName,
-      });
+      const credentials = await signInWithGoogle();
+      if (!credentials) return;
+      await socialLogin({ provider: "google", ...credentials });
 
       if (returnToRoute) {
         router.replace(returnToRoute as any);
@@ -275,7 +259,7 @@ export default function SignInScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Back Button */}
-          <Animated.View entering={FadeIn.duration(300)}>
+          <View>
             <Pressable
               onPress={handleBack}
               style={[
@@ -290,11 +274,10 @@ export default function SignInScreen() {
                 color={colors.system.label.primary}
               />
             </Pressable>
-          </Animated.View>
+          </View>
 
           {/* Logo/Brand */}
-          <Animated.View
-            entering={FadeInDown.delay(100).duration(400)}
+          <View
             style={tw`items-center mb-8`}
           >
             <View
@@ -332,12 +315,11 @@ export default function SignInScreen() {
             >
               Sign in to continue to dawahnigeria
             </Text>
-          </Animated.View>
+          </View>
 
           {/* Error Alert */}
           {error && (
-            <Animated.View
-              entering={FadeIn.duration(200)}
+            <View
               style={[
                 tw`rounded-xl p-3 mb-5 flex-row items-center`,
                 { backgroundColor: `${colors.semantic.red}15` },
@@ -355,12 +337,11 @@ export default function SignInScreen() {
               >
                 {error}
               </Text>
-            </Animated.View>
+            </View>
           )}
 
           {/* Email Input */}
-          <Animated.View
-            entering={FadeInDown.delay(200).duration(400)}
+          <View
             style={tw`mb-4`}
           >
             <Text
@@ -432,11 +413,10 @@ export default function SignInScreen() {
                 {emailError}
               </Text>
             )}
-          </Animated.View>
+          </View>
 
           {/* Password Input */}
-          <Animated.View
-            entering={FadeInDown.delay(300).duration(400)}
+          <View
             style={tw`mb-2`}
           >
             <Text
@@ -509,10 +489,10 @@ export default function SignInScreen() {
                 {passwordError}
               </Text>
             )}
-          </Animated.View>
+          </View>
 
           {/* Forgot Password */}
-          <Animated.View entering={FadeInDown.delay(350).duration(400)}>
+          <View>
             <Pressable onPress={handleForgotPassword} style={tw`mb-6 self-end py-1`}>
               <Text
                 variant="subheadline"
@@ -522,10 +502,10 @@ export default function SignInScreen() {
                 Forgot Password?
               </Text>
             </Pressable>
-          </Animated.View>
+          </View>
 
           {/* Sign In Button */}
-          <Animated.View entering={FadeInDown.delay(400).duration(400)}>
+          <View>
             <TouchableOpacity
               onPress={handleSignIn}
               disabled={isLoading}
@@ -552,11 +532,10 @@ export default function SignInScreen() {
                 </Text>
               )}
             </TouchableOpacity>
-          </Animated.View>
+          </View>
 
           {/* Divider */}
-          <Animated.View
-            entering={FadeInDown.delay(450).duration(400)}
+          <View
             style={tw`flex-row items-center my-5`}
           >
             <View
@@ -578,11 +557,10 @@ export default function SignInScreen() {
                 { backgroundColor: colors.system.separator.primary },
               ]}
             />
-          </Animated.View>
+          </View>
 
           {/* Social Sign In Buttons */}
-          <Animated.View
-            entering={FadeInDown.delay(500).duration(400)}
+          <View
             style={tw`flex-row gap-3 mb-6`}
           >
             {/* Google Sign In */}
@@ -638,11 +616,10 @@ export default function SignInScreen() {
                 </Text>
               </TouchableOpacity>
             )}
-          </Animated.View>
+          </View>
 
           {/* Sign Up Link */}
-          <Animated.View
-            entering={FadeInDown.delay(550).duration(400)}
+          <View
             style={tw`flex-row items-center justify-center`}
           >
             <Text variant="subheadline" color="secondaryLabel">
@@ -657,11 +634,10 @@ export default function SignInScreen() {
                 Sign Up
               </Text>
             </Pressable>
-          </Animated.View>
+          </View>
 
           {/* Terms & Privacy */}
-          <Animated.View
-            entering={FadeInDown.delay(600).duration(400)}
+          <View
             style={tw`mt-8 items-center`}
           >
             <Text
@@ -684,7 +660,7 @@ export default function SignInScreen() {
                 Privacy Policy
               </Text>
             </Text>
-          </Animated.View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

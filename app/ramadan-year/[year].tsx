@@ -13,7 +13,6 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../../src/components/atoms";
 import { useTheme } from "../../src/hooks/useTheme";
@@ -52,7 +51,7 @@ const RamadanYearHeader = React.memo(
     onSearchClear,
     onLanguageSelect,
   }: RamadanYearHeaderProps) => (
-    <Animated.View entering={FadeIn.duration(500)}>
+    <View>
       {/* Hero Section */}
       <LinearGradient
         colors={[colors.brand.primary + "15", colors.system.background.primary]}
@@ -265,7 +264,7 @@ const RamadanYearHeader = React.memo(
           Showing {filteredCount} of {totalAlbums} albums
         </Text>
       </View>
-    </Animated.View>
+    </View>
   )
 );
 
@@ -377,10 +376,9 @@ export default function RamadanYearScreen() {
   }, [albums]);
 
   const renderAlbumCard = useCallback(
-    ({ item, index }: { item: RamadanAlbum; index: number }) => {
+    ({ item }: { item: RamadanAlbum; index: number }) => {
       return (
-        <Animated.View
-          entering={FadeInUp.delay(index * 30).duration(300)}
+        <View
           style={[{ width: CARD_WIDTH }, tw`mb-4`]}
         >
           <TouchableOpacity
@@ -444,7 +442,7 @@ export default function RamadanYearScreen() {
               </View>
             </View>
           </TouchableOpacity>
-        </Animated.View>
+        </View>
       );
     },
     [colors, handleAlbumPress, CARD_WIDTH]

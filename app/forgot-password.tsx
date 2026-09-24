@@ -12,7 +12,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { Loading, Text } from "../src/components/atoms";
 import { useTheme } from "../src/hooks/useTheme";
 import { requestPasswordReset } from "../src/services/api/passwordReset.api";
@@ -129,7 +128,7 @@ export default function ForgotPasswordScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Back Button */}
-          <Animated.View entering={FadeIn.duration(300)}>
+          <View>
             <Pressable
               onPress={() => router.back()}
               style={[
@@ -144,11 +143,10 @@ export default function ForgotPasswordScreen() {
                 color={colors.system.label.primary}
               />
             </Pressable>
-          </Animated.View>
+          </View>
 
           {/* Icon */}
-          <Animated.View
-            entering={FadeInDown.delay(100).duration(400)}
+          <View
             style={tw`items-center mb-8`}
           >
             <View
@@ -181,11 +179,10 @@ export default function ForgotPasswordScreen() {
               Don&apos;t worry! Enter your email address and we&apos;ll send you a
               verification code to reset your password.
             </Text>
-          </Animated.View>
+          </View>
 
           {/* Email Input */}
-          <Animated.View
-            entering={FadeInDown.delay(200).duration(400)}
+          <View
             style={tw`mb-6`}
           >
             <Text
@@ -263,10 +260,10 @@ export default function ForgotPasswordScreen() {
                 {emailError}
               </Text>
             )}
-          </Animated.View>
+          </View>
 
           {/* Send Code Button */}
-          <Animated.View entering={FadeInDown.delay(300).duration(400)}>
+          <View>
             <TouchableOpacity
               onPress={handleResetPassword}
               disabled={isLoading}
@@ -293,11 +290,10 @@ export default function ForgotPasswordScreen() {
                 </Text>
               )}
             </TouchableOpacity>
-          </Animated.View>
+          </View>
 
           {/* Back to Sign In */}
-          <Animated.View
-            entering={FadeInDown.delay(350).duration(400)}
+          <View
             style={tw`flex-row items-center justify-center mt-4`}
           >
             <Text variant="subheadline" color="secondaryLabel">
@@ -312,11 +308,10 @@ export default function ForgotPasswordScreen() {
                 Sign In
               </Text>
             </Pressable>
-          </Animated.View>
+          </View>
 
           {/* Help Text */}
-          <Animated.View
-            entering={FadeInDown.delay(400).duration(400)}
+          <View
             style={tw`mt-12 items-center`}
           >
             <View
@@ -342,7 +337,7 @@ export default function ForgotPasswordScreen() {
                 </Text>
               </View>
             </View>
-          </Animated.View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

@@ -36,3 +36,11 @@ test('ensureTrackPlayerReady treats already initialized error as ready', async (
   await expect(ensureTrackPlayerReady()).resolves.toBeUndefined()
   expect(TrackPlayer.setupPlayer).toHaveBeenCalledTimes(1)
 })
+
+
+test('a transient setup failure does not poison every later playback attempt', async () => {
+  ;(TrackPlayer.setupPlayer as jest.Mock).mockRejectedValueOnce(new Error('audio session interrupted'))
+  await expect(ensureTrackPlayerReady()).rejects.toThrow('audio session interrupted')
+  await expect(ensureTrackPlayerReady()).resolves.toBeUndefined()
+  expect(TrackPlayer.setupPlayer).toHaveBeenCalledTimes(2)
+})

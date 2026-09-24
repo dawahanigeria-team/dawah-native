@@ -279,3 +279,21 @@ describe('expoTrackPlayerCompat', () => {
     expect(expoAudioMock.AudioModule.AudioPlayer).toHaveBeenCalledWith(null, 250, true)
   })
 })
+
+
+test('native source failures end loading immediately and report once', async () => {
+  await TrackPlayer.reset()
+  const player = jest.requireMock('expo-audio').__player
+  const onError = jest.fn()
+  const sub = TrackPlayer.addEventListener(Event.PlaybackError, onError)
+  await TrackPlayer.add({ id: 'broken', url: 'https://example.com/missing.mp3', title: 'Missing' })
+  player.emitStatus({ error: 'HTTP 404', isLoaded: false, isBuffering: true })
+  player.emitStatus({ error: 'HTTP 404', isLoaded: false, isBuffering: true })
+  expect(await TrackPlayer.getPlaybackState()).toEqual({ state: State.Error })
+  player.emitStatus({ error: null, isLoaded: false, isBuffering: true })
+  expect(await TrackPlayer.getPlaybackState()).toEqual({ state: State.Error })
+  expect(onError).toHaveBeenCalledTimes(1)
+  sub.remove()
+})
+
+afterAll(() => releasePlayer())

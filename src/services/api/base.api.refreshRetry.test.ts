@@ -215,3 +215,9 @@ describe('shouldCaptureApiHttpError with expected refusals', () => {
     expect(shouldCaptureApiHttpError(409, { message: 'Conflict updating playlist' }, true)).toBe(true);
   });
 });
+
+test('download allowance refusal stays handled without hiding unrelated 403s', () => {
+  expect(shouldCaptureApiHttpError(403, { code: 'DOWNLOAD_LIMIT_REACHED' }, true)).toBe(false);
+  expect(shouldCaptureApiHttpError(403, { code: 'FORBIDDEN' }, true)).toBe(true);
+  expect(shouldCaptureApiHttpError(500, { code: 'DOWNLOAD_LIMIT_REACHED' }, true)).toBe(true);
+});

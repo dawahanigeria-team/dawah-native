@@ -63,7 +63,7 @@ export const Card: React.FC<CardProps> = memo(
     const isEpisode = hasEpisodeProperties;
 
     const episode = isEpisode ? (data as Episode) : null;
-    const [imageError, setImageError] = useState(false);
+    const [failedCoverUrl, setFailedCoverUrl] = useState<string | null>(null);
     const { playEpisode } = usePlayerActions();
     const { colors } = useTheme();
 
@@ -74,6 +74,7 @@ export const Card: React.FC<CardProps> = memo(
       (data as any).coverUrl,
       variant === 'square' ? 'card' : 'row',
     );
+    const imageError = failedCoverUrl === coverUrl;
     const sharedImageProps = {
       contentFit: "cover" as const,
       cachePolicy: "disk" as const,
@@ -154,7 +155,7 @@ export const Card: React.FC<CardProps> = memo(
                   recyclingKey={`card-square-${String(data.id)}`}
                   placeholder={require("../../../assets/placeholder.png")}
                   onError={() => {
-                    setImageError(true);
+                    setFailedCoverUrl(coverUrl ?? null);
                   }}
                 />
               ) : (
@@ -280,7 +281,7 @@ export const Card: React.FC<CardProps> = memo(
                 {...sharedImageProps}
                 recyclingKey={`card-landscape-${String(data.id)}`}
                 onError={() => {
-                  setImageError(true);
+                  setFailedCoverUrl(coverUrl ?? null);
                 }}
               />
             ) : (
@@ -501,7 +502,7 @@ export const Card: React.FC<CardProps> = memo(
               {...sharedImageProps}
               recyclingKey={`card-list-${String(data.id)}`}
               onError={() => {
-                setImageError(true);
+                setFailedCoverUrl(coverUrl ?? null);
               }}
             />
           ) : (
@@ -595,7 +596,7 @@ export const Card: React.FC<CardProps> = memo(
                   {...sharedImageProps}
                   recyclingKey={`card-section-${String(data.id)}`}
                   onError={() => {
-                    setImageError(true);
+                    setFailedCoverUrl(coverUrl ?? null);
                   }}
                 />
               ) : (

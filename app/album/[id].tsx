@@ -27,7 +27,7 @@ import {
   captureSentryException,
 } from '../../src/services/config/sentry.config';
 import { linkingService } from '../../src/services/linking.service';
-import { usePlayerStore } from '../../src/stores';
+import { usePlayerActions, playerStore } from '../../src/stores';
 import { designTokens } from '../../src/theme/designTokens';
 import { Episode } from '../../src/types/types';
 import { appendShareSignature } from '../../src/utils/shareMessage';
@@ -60,7 +60,8 @@ const AlbumDetailScreen: React.FC = () => {
   const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const albumId = Array.isArray(id) ? id[0] : id;
-  const { playQueue, currentEpisode } = usePlayerStore();
+  const { playQueue } = usePlayerActions();
+  const currentEpisode = playerStore.use((state) => state.currentEpisode);
 
   const [album, setAlbum] = useState<Album | null>(null);
   const [tracks, setTracks] = useState<AlbumTrack[]>([]);

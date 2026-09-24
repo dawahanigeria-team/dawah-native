@@ -11,11 +11,6 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import Animated, {
-  FadeIn,
-  FadeInDown,
-  FadeInUp,
-} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../src/components/atoms";
 import { useTheme } from "../src/hooks/useTheme";
@@ -89,11 +84,10 @@ export default function RamadanTafsirScreen() {
   };
 
   const renderAlbumCard = useCallback(
-    (album: RamadanAlbum, index: number) => {
+    (album: RamadanAlbum, _index: number) => {
       return (
-        <Animated.View
+        <View
           key={album.id}
-          entering={FadeInUp.delay(index * 50).duration(300)}
           style={{ width: CARD_WIDTH }}
         >
           <TouchableOpacity
@@ -147,7 +141,7 @@ export default function RamadanTafsirScreen() {
               </Text>
             </View>
           </TouchableOpacity>
-        </Animated.View>
+        </View>
       );
     },
     [colors, handleAlbumPress, CARD_WIDTH]
@@ -158,7 +152,7 @@ export default function RamadanTafsirScreen() {
     const latestYear = yearGroups[0];
 
     return (
-      <Animated.View entering={FadeIn.duration(500)} style={tw`mb-6`}>
+      <View style={tw`mb-6`}>
         {/* Hero Background */}
         <LinearGradient
           colors={[
@@ -295,7 +289,7 @@ export default function RamadanTafsirScreen() {
             ))}
           </View>
         </View>
-      </Animated.View>
+      </View>
     );
   };
 
@@ -314,10 +308,9 @@ export default function RamadanTafsirScreen() {
           Previous Years
         </Text>
 
-        {previousYears.map((yearGroup, groupIndex) => (
-          <Animated.View
+        {previousYears.map((yearGroup) => (
+          <View
             key={yearGroup.year}
-            entering={FadeInDown.delay(groupIndex * 100).duration(400)}
             style={[
               tw`mb-6 rounded-2xl overflow-hidden`,
               { backgroundColor: colors.system.background.secondary },
@@ -409,7 +402,7 @@ export default function RamadanTafsirScreen() {
                 </View>
               </View>
             )}
-          </Animated.View>
+          </View>
         ))}
       </View>
     );

@@ -10,6 +10,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useObserve } from "expo-observe";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useBackOrHome } from "../../src/navigation/useBackOrHome";
 import { useGuardedPush } from "../../src/navigation/useGuardedPush";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -21,15 +22,6 @@ import {
     useWindowDimensions,
     View,
 } from "react-native";
-import Animated, {
-    Extrapolate,
-    interpolate,
-    useAnimatedScrollHandler,
-    useAnimatedStyle,
-    useSharedValue,
-    withSequence,
-    withSpring,
-} from "react-native-reanimated";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button, Chip, Text, Touchable } from "../../src/components/atoms";
@@ -367,6 +359,7 @@ const LectureDetailScreen: React.FC = () => {
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const goBack = useBackOrHome();
   const guardedPush = useGuardedPush();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
@@ -375,8 +368,6 @@ const LectureDetailScreen: React.FC = () => {
   // Local State & Animations
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [showAddToPlaylistModal, setShowAddToPlaylistModal] = useState(false);
-  const scrollY = useSharedValue(0);
-  const likeScale = useSharedValue(1);
 
   // Data Hooks
   const { lecture, loading, error, refetch } = useLectureDetail(lectureId);
@@ -429,52 +420,6 @@ const LectureDetailScreen: React.FC = () => {
 
   const downloadStatus = episode ? getDownloadStatus(episode.id) : null;
   const downloadProgress = episode ? getDownloadProgress(episode.id) : 0;
-
-  // Animated styles
-  const headerAnimatedStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      scrollY.value,
-      [0, HEADER_HEIGHT / 2, HEADER_HEIGHT],
-      // Keep header elements (including back button) visible even at the top,
-      // and slightly increase opacity as the user scrolls.
-      [0.9, 0.95, 1],
-      Extrapolate.CLAMP
-    );
-    return { opacity };
-  });
-
-  const imageAnimatedStyle = useAnimatedStyle(() => {
-    const scale = interpolate(
-      scrollY.value,
-      [-100, 0, HEADER_HEIGHT],
-      [1.5, 1, 0.8],
-      Extrapolate.CLAMP
-    );
-    const translateY = interpolate(
-      scrollY.value,
-      [0, HEADER_HEIGHT],
-      [0, -HEADER_HEIGHT / 2],
-      Extrapolate.CLAMP
-    );
-    return {
-      transform: [{ scale }, { translateY }],
-    };
-  });
-
-  const likeAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: likeScale.value }],
-  }));
-
-  // Event handlers
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      // Writing `.value` IS Reanimated's API, and this worklet runs on the UI
-      // thread rather than in React's render. The compiler cannot model shared
-      // values, so it reads the assignment as mutating an immutable binding.
-      // eslint-disable-next-line react-hooks/immutability
-      scrollY.value = event.contentOffset.y;
-    },
-  });
 
   const handleDownloadPress = useCallback(async () => {
     if (!episode) return;
@@ -553,11 +498,6 @@ const LectureDetailScreen: React.FC = () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      // Animate the heart. See the note on scrollHandler above: assigning to a
-      // shared value is Reanimated's API, not a React state mutation.
-      // eslint-disable-next-line react-hooks/immutability
-      likeScale.value = withSequence(withSpring(1.3), withSpring(1));
-
       // Toggle favorite (works offline!)
       await toggleFavorite(lectureId);
 
@@ -586,7 +526,7 @@ const LectureDetailScreen: React.FC = () => {
         lectureId,
       });
     }
-  }, [lectureId, toggleFavorite, liked, router, likeScale]);
+  }, [lectureId, toggleFavorite, liked, router]);
 
   const handleShare = useCallback(() => {
     if (!lecture) return;
@@ -669,18 +609,17 @@ const LectureDetailScreen: React.FC = () => {
         <Text variant="title2" weight="bold" color="label" style={tw`mt-4 text-center`}>
           {error || "Lecture not found"}
         </Text>
-        <Button variant="filled" size="large" style={tw`mt-6`} onPress={() => router.back()}>
+        <Button variant="filled" size="large" style={tw`mt-6`} onPress={() => goBack()}>
           Go Back
         </Button>
       </SafeAreaView>
     );
   }
 
-  // Render animated header that fades in on scroll
+  // Static controls remain visible without per-frame worklets.
   const renderHeader = () => (
-    <Animated.View
-      style={[
-        {
+    <View
+      style={{
           position: 'absolute',
           top: 0,
           left: 0,
@@ -689,13 +628,11 @@ const LectureDetailScreen: React.FC = () => {
           paddingTop: insets.top + designTokens.spacing.sm,
           paddingBottom: 12,
           paddingHorizontal: 16,
-        },
-        headerAnimatedStyle,
-      ]}
+        }}
     >
       <BlurView intensity={80} tint="prominent" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
       <View style={tw`flex-row items-center justify-between`}>
-        <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.back(); }} style={tw`w-10 h-10 items-center justify-center`}>
+        <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); goBack(); }} style={tw`w-10 h-10 items-center justify-center`}>
           <Ionicons name="chevron-back" size={28} color={colors.system.label.primary} />
         </TouchableOpacity>
         <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/playlists'); }} style={tw`w-10 h-10 items-center justify-center ml-2`}>
@@ -706,7 +643,7 @@ const LectureDetailScreen: React.FC = () => {
             {lecture ? cleanTitle(lecture.title, lecture.lecturerName) : ''}
           </Text>
         </View>
-        <Animated.View style={likeAnimatedStyle}>
+        <View>
           <TouchableOpacity onPress={handleLike} style={tw`w-10 h-10 items-center justify-center`}>
             <Ionicons
               name={liked ? "heart" : "heart-outline"}
@@ -714,9 +651,9 @@ const LectureDetailScreen: React.FC = () => {
               color={liked ? colors.semantic.red : colors.system.label.primary}
             />
           </TouchableOpacity>
-        </Animated.View>
+        </View>
       </View>
-    </Animated.View>
+    </View>
   );
 
   const renderContent = () => {
@@ -772,7 +709,7 @@ const LectureDetailScreen: React.FC = () => {
             variant="filled"
             size="medium"
             style={tw`mt-6`}
-            onPress={() => router.back()}
+            onPress={() => goBack()}
           >
             Go back
           </Button>
@@ -781,15 +718,13 @@ const LectureDetailScreen: React.FC = () => {
     }
 
     return (
-      <Animated.ScrollView
+      <ScrollView
         contentContainerStyle={tw`pb-32`}
         showsVerticalScrollIndicator={false}
-        onScroll={scrollHandler}
-        scrollEventThrottle={16}
       >
-        {/* Hero Section with Parallax */}
+        {/* Hero Section */}
         <View style={{ height: HEADER_HEIGHT }}>
-          <Animated.View style={[{ height: HEADER_HEIGHT, width: SCREEN_WIDTH }, imageAnimatedStyle]}>
+          <View style={{ height: HEADER_HEIGHT, width: SCREEN_WIDTH }}>
             {lecture.coverUrl ? (
               <Image
                 source={{ uri: lecture.coverUrl }}
@@ -805,7 +740,7 @@ const LectureDetailScreen: React.FC = () => {
               colors={['transparent', colors.overlay.darkStrong]}
               style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 80 }}
             />
-          </Animated.View>
+          </View>
         </View>
 
         {/* Content Section */}
@@ -1049,7 +984,7 @@ const LectureDetailScreen: React.FC = () => {
             );
           })()}
         </View>
-      </Animated.ScrollView>
+      </ScrollView>
     );
   };
 

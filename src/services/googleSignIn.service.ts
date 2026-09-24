@@ -27,3 +27,31 @@ export const ensureGoogleSigninConfigured = (): void => {
 export const resetGoogleSigninConfigurationForTests = (): void => {
   isGoogleSigninConfigured = false;
 };
+
+let googleSignInPending = false;
+
+/** Cancellation is a normal result in the current Google SDK, not an error. */
+export const signInWithGoogle = async () => {
+  // Repeated taps must not overwrite the native SDK's pending promise or
+  // perform two backend logins. The first caller owns the interactive flow.
+  if (googleSignInPending) return null;
+  googleSignInPending = true;
+  try {
+    ensureGoogleSigninConfigured();
+    await GoogleSignin.hasPlayServices();
+    const response = await GoogleSignin.signIn();
+    if (response.type === "cancelled") return null;
+
+    // Some devices return the user before the ID token. Ask the SDK for its
+    // current tokens only after a successful interactive sign-in.
+    const idToken = response.data.idToken || (await GoogleSignin.getTokens()).idToken;
+    if (!idToken) throw new Error("No ID token received from Google");
+    return {
+      identityToken: idToken,
+      email: response.data.user.email || null,
+      fullName: response.data.user.name || null,
+    };
+  } finally {
+    googleSignInPending = false;
+  }
+};

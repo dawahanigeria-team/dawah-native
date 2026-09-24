@@ -1,6 +1,8 @@
 import AsyncStorage from "expo-sqlite/kv-store";
+import { AppState, Platform } from "react-native";
 
 type SecureStoreModule = {
+  AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY?: number;
   getItemAsync: (key: string, options?: unknown) => Promise<string | null>;
   setItemAsync: (
     key: string,
@@ -53,6 +55,23 @@ const shouldFallback = (error: unknown): boolean => {
   );
 };
 
+const isLockedKeychainError = (error: unknown): boolean =>
+  Platform.OS === 'ios' && error instanceof Error &&
+  /user interaction is not allowed/i.test(error.message);
+
+const waitForForeground = (): Promise<void> => new Promise(resolve => {
+  const subscription = AppState.addEventListener('change', state => {
+    if (state === 'active') {
+      subscription.remove();
+      resolve();
+    }
+  });
+  if (AppState.currentState === 'active') {
+    subscription.remove();
+    resolve();
+  }
+});
+
 export const secureStoreCompat = {
   async getItemAsync(key: string, options?: unknown): Promise<string | null> {
     const module = loadSecureStoreModule();
@@ -63,6 +82,13 @@ export const secureStoreCompat = {
     try {
       return await module.getItemAsync(key, options);
     } catch (error) {
+      // Background audio can wake JS while protected keys are unavailable.
+      // Keep the session intact and retry after unlock instead of treating the
+      // credential as missing or copying it to unencrypted storage.
+      if (isLockedKeychainError(error) && AppState.currentState !== 'active') {
+        await waitForForeground();
+        return module.getItemAsync(key, options);
+      }
       if (shouldFallback(error)) {
         logFallbackOnce(error);
         return AsyncStorage.getItem(key);
@@ -83,7 +109,11 @@ export const secureStoreCompat = {
     }
 
     try {
-      await module.setItemAsync(key, value, options);
+      await module.setItemAsync(key, value, options ?? {
+        // Audio and token refresh continue with the screen locked after the
+        // first unlock. Credentials stay in the device-only Keychain.
+        keychainAccessible: module.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
+      });
     } catch (error) {
       if (shouldFallback(error)) {
         logFallbackOnce(error);

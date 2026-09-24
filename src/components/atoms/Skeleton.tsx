@@ -11,6 +11,7 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
+  cancelAnimation,
   withTiming,
   interpolate,
 } from "react-native-reanimated";
@@ -52,6 +53,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({
     }
 
     shimmer.value = withRepeat(withTiming(1, { duration: 1200 }), -1, false);
+    return () => cancelAnimation(shimmer);
   }, [animationEnabled, shimmer]);
 
   // An explicit numeric `width` prop is the answer outright, so it is used

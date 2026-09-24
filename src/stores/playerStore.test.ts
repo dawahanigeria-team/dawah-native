@@ -1,5 +1,5 @@
 import TrackPlayer from '../services/expoTrackPlayerCompat'
-import { playerStore, resolveEpisodeArtistName, setAudioControls, usePlayerActions } from './playerStore'
+import { getPlaybackRequestId, playerStore, resolveEpisodeArtistName, setAudioControls, usePlayerActions } from './playerStore'
 import { downloadsService } from '../services/downloads.service'
 import { historyService } from '../services/history.service'
 import { ensureTrackPlayerReady } from '../services/trackPlayerReady.service'
@@ -118,6 +118,8 @@ beforeEach(() => {
     currentQueueIndex: -1,
     isShuffled: false,
     repeatMode: 'off',
+    sleepTimerEndsAt: null,
+    sleepTimerEndOfTrack: false,
   })
 
   setAudioControls({
@@ -620,4 +622,46 @@ test('rebuilds the player queue when it was released while the store kept its in
 
   expect(TrackPlayer.skip).toHaveBeenCalledWith(77)
   expect(TrackPlayer.play).toHaveBeenCalledTimes(1)
+})
+
+
+test('closing before controls mount clears stale UI and invalidates pending playback', async () => {
+  setAudioControls(null)
+  playerStore.set({ ...playerStore.get(), isExpanded: true, isLoading: true })
+  const requestId = getPlaybackRequestId()
+  usePlayerActions().closePlayer()
+  expect(playerStore.get()).toMatchObject({ currentEpisode: null, isExpanded: false, isLoading: false })
+  expect(getPlaybackRequestId()).toBeGreaterThan(requestId)
+  await Promise.resolve()
+  expect(TrackPlayer.reset).toHaveBeenCalledTimes(1)
+})
+
+test('closing reports native reset failure without an unhandled rejection', async () => {
+  const error = new Error('native reset failed')
+  ;(TrackPlayer.reset as jest.Mock).mockRejectedValueOnce(error)
+  usePlayerActions().closePlayer()
+  await new Promise(resolve => setTimeout(resolve, 0))
+  expect(logger.error).toHaveBeenCalledWith('Failed to reset closed player', error)
+  expect(playerStore.get().currentEpisode).toBeNull()
+})
+
+test.each(['playEpisode', 'togglePlayPause'] as const)('%s reloads the same episode after a source failure', async (action) => {
+  const episode = {
+    id: 'failed-source', title: 'Retry lecture', audioUrl: 'https://example.com/retry.mp3',
+    durationSec: 120, seriesId: '', plays: 0, liked: false,
+    coverUrl: 'cover.png', language: 'English', downloads: 0, createdAt: '2026-09-19',
+  }
+  playerStore.set({
+    ...playerStore.get(), currentEpisode: episode, queue: [episode], currentQueueIndex: 0,
+    isPlaying: false, errorMessage: 'This audio could not be loaded. Please try again.',
+  })
+  mockGetPlaybackUri.mockReturnValue(episode.audioUrl)
+  mockIsDownloaded.mockReturnValue(false)
+  const actions = usePlayerActions()
+  if (action === 'playEpisode') await actions.playEpisode(episode)
+  else await actions.togglePlayPause()
+  expect(TrackPlayer.reset).toHaveBeenCalledTimes(1)
+  expect(TrackPlayer.add).toHaveBeenCalledTimes(1)
+  expect(TrackPlayer.skip).toHaveBeenCalledWith(0)
+  expect(playerStore.get()).toMatchObject({ isPlaying: true, isLoading: false, errorMessage: null })
 })

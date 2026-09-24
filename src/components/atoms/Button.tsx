@@ -6,16 +6,9 @@ import {
   PressableProps,
   ViewStyle,
 } from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from "react-native-reanimated";
 import { BorderRadius, designTokens } from "../../theme/designTokens";
 import { useThemeColors } from "../../hooks/useTheme";
 import { Text } from "./Text";
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface ButtonProps extends Omit<PressableProps, "style"> {
   variant?: "filled" | "tinted" | "gray" | "plain" | "destructive";
@@ -47,21 +40,6 @@ export const Button: React.FC<ButtonProps> = memo(
     ...props
   }) => {
     const colors = useThemeColors();
-
-    const scale = useSharedValue(1);
-    const animatedStyle = useAnimatedStyle(() => ({
-      transform: [{ scale: scale.value }],
-    }));
-
-    const springConfig = { damping: 15, stiffness: 150 };
-
-    const handlePressIn = () => {
-      scale.value = withSpring(0.96, springConfig);
-    };
-
-    const handlePressOut = () => {
-      scale.value = withSpring(1, springConfig);
-    };
 
     const handlePress = (event: any) => {
       if (!disabled && !loading) {
@@ -202,11 +180,9 @@ export const Button: React.FC<ButtonProps> = memo(
       : colors.system.label.primary;
 
     return (
-      <AnimatedPressable
-        style={[combinedStyle, animatedStyle]}
+      <Pressable
+        style={({ pressed }) => [combinedStyle, pressed && !disabled && !loading ? { opacity: 0.8 } : undefined]}
         onPress={handlePress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
         disabled={disabled || loading}
         accessibilityRole="button"
         accessibilityLabel={finalAccessibilityLabel}
@@ -234,7 +210,7 @@ export const Button: React.FC<ButtonProps> = memo(
         )}
 
         {rightIcon && !loading && rightIcon}
-      </AnimatedPressable>
+      </Pressable>
     );
   }
 );

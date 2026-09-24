@@ -6,12 +6,10 @@ import { useGuardedPush } from "../../src/navigation/useGuardedPush";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  FlatList,
   Image,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  UIManager,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -134,11 +132,6 @@ function SectionScreen() {
     lecturerIds: preferences.lecturerIds,
     enabled: preferencesHydrated,
   };
-  const supportsAutoLayoutView = Boolean(
-    UIManager.getViewManagerConfig?.("AutoLayoutView"),
-  );
-  // Guard against runtime module/export issues; always keep FlatList as a safe fallback.
-  const canUseFlashList = supportsAutoLayoutView && Boolean(FlashList);
 
   // Trending = velocity-scored. Recently-posted = date-sorted. They share a
   // shape so the rest of the screen can read from one set of locals.
@@ -382,8 +375,9 @@ function SectionScreen() {
   const handleQuranAlbumPress = useCallback((album: QuranAlbum) => {
     if (!album?.id) return;
     guardedPush({
-      pathname: `/quran-reciter/${album.id}`,
+      pathname: "/quran-reciter/[id]",
       params: {
+        id: album.id,
         albumIds: (album.albumIds || [album.id]).join(','),
         reciterId: album.reciterId,
         reciterName: album.name,
@@ -1081,45 +1075,25 @@ function SectionScreen() {
       </View>
 
       {/* Content with Dynamic Spacing */}
-      {canUseFlashList ? (
-        <FlashList
-          data={filteredData}
-          renderItem={renderItem}
-          keyExtractor={(item, index) => `${item.id}-${index}`}
-          ListEmptyComponent={renderEmpty}
-          ListFooterComponent={renderFooter}
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.5}
-          contentContainerStyle={[
-            tw`px-6 pb-20`,
-            {
-              paddingTop: showFilters
-                ? designTokens.spacing.md
-                : designTokens.spacing.lg,
-            },
-          ]}
-          showsVerticalScrollIndicator={false}
-        />
-      ) : (
-        <FlatList
-          data={filteredData}
-          renderItem={renderItem}
-          keyExtractor={(item, index) => `${item.id}-${index}`}
-          ListEmptyComponent={renderEmpty}
-          ListFooterComponent={renderFooter}
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.5}
-          contentContainerStyle={[
-            tw`px-6 pb-20`,
-            {
-              paddingTop: showFilters
-                ? designTokens.spacing.md
-                : designTokens.spacing.lg,
-            },
-          ]}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
+      <FlashList
+        data={filteredData}
+        renderItem={renderItem}
+        keyExtractor={(item, index) => `${item.id}-${index}`}
+        ListEmptyComponent={renderEmpty}
+        ListFooterComponent={renderFooter}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
+        contentContainerStyle={[
+          tw`px-6 pb-20`,
+          {
+            paddingTop: showFilters
+              ? designTokens.spacing.md
+              : designTokens.spacing.lg,
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+      />
+
     </SafeAreaView>
   );
 }

@@ -13,7 +13,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { Loading, Text } from "../src/components/atoms";
 import { useTheme } from "../src/hooks/useTheme";
 import { resetPasswordWithCode } from "../src/services/api/passwordReset.api";
@@ -186,7 +185,7 @@ export default function ResetPasswordScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Back Button */}
-          <Animated.View entering={FadeIn.duration(300)}>
+          <View>
             <Pressable
               onPress={() => router.back()}
               style={[
@@ -201,11 +200,10 @@ export default function ResetPasswordScreen() {
                 color={colors.system.label.primary}
               />
             </Pressable>
-          </Animated.View>
+          </View>
 
           {/* Icon */}
-          <Animated.View
-            entering={FadeInDown.delay(100).duration(400)}
+          <View
             style={tw`items-center mb-8`}
           >
             <View
@@ -241,11 +239,10 @@ export default function ResetPasswordScreen() {
               </Text>{" "}
               and create a new password.
             </Text>
-          </Animated.View>
+          </View>
 
           {/* Verification Code Input */}
-          <Animated.View
-            entering={FadeInDown.delay(200).duration(400)}
+          <View
             style={tw`mb-4`}
           >
             <Text
@@ -318,11 +315,10 @@ export default function ResetPasswordScreen() {
                 {codeError}
               </Text>
             )}
-          </Animated.View>
+          </View>
 
           {/* New Password Input */}
-          <Animated.View
-            entering={FadeInDown.delay(250).duration(400)}
+          <View
             style={tw`mb-4`}
           >
             <Text
@@ -402,11 +398,10 @@ export default function ResetPasswordScreen() {
                 {passwordError}
               </Text>
             )}
-          </Animated.View>
+          </View>
 
           {/* Confirm Password Input */}
-          <Animated.View
-            entering={FadeInDown.delay(300).duration(400)}
+          <View
             style={tw`mb-6`}
           >
             <Text
@@ -487,10 +482,10 @@ export default function ResetPasswordScreen() {
                 {confirmPasswordError}
               </Text>
             )}
-          </Animated.View>
+          </View>
 
           {/* Reset Password Button */}
-          <Animated.View entering={FadeInDown.delay(350).duration(400)}>
+          <View>
             <TouchableOpacity
               onPress={handleResetPassword}
               disabled={isLoading}
@@ -517,11 +512,10 @@ export default function ResetPasswordScreen() {
                 </Text>
               )}
             </TouchableOpacity>
-          </Animated.View>
+          </View>
 
           {/* Help Text */}
-          <Animated.View
-            entering={FadeInDown.delay(400).duration(400)}
+          <View
             style={tw`mt-4`}
           >
             <View
@@ -555,11 +549,10 @@ export default function ResetPasswordScreen() {
                 </View>
               </View>
             </View>
-          </Animated.View>
+          </View>
 
           {/* Resend Code Link */}
-          <Animated.View
-            entering={FadeInDown.delay(450).duration(400)}
+          <View
             style={tw`flex-row items-center justify-center mt-6`}
           >
             <Text variant="subheadline" color="secondaryLabel">
@@ -574,7 +567,7 @@ export default function ResetPasswordScreen() {
                 Resend
               </Text>
             </Pressable>
-          </Animated.View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
