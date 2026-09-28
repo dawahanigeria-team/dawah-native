@@ -49,3 +49,18 @@ test('falls back to the page length when the upstream sends a bare array', async
   expect(response.data).toHaveLength(1);
   expect(response.total).toBe(1);
 });
+
+test('lecturer details use the dedicated cached endpoint', async () => {
+  mockGet.mockResolvedValue({
+    data: [{ nid: 10, name: 'Scholar', img: '', views: 12, total_audio: 1722 }],
+  });
+
+  const lecturer = await lecturersApi.getLecturerDetails(10);
+
+  expect(mockGet).toHaveBeenCalledWith(
+    '/api/rplisting_multi_nid_api.php',
+    { id: 10 },
+    expect.objectContaining({ useCache: true }),
+  );
+  expect(lecturer).toMatchObject({ id: 10, name: 'Scholar', total_audio: 1722 });
+});

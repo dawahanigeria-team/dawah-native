@@ -12,9 +12,9 @@
  * — the same endpoint the dawahnigeria.com web app uses for its
  * "recently posted lectures" surface. The backend returns items
  * server-sorted by updated_date desc, mixed across all languages, with
- * native page-based pagination (30 items per page).
+ * native page-based pagination (30 items by default, up to 150 on request).
  *
- * We pull a small pool (POOL_PAGES × 30 items) into memory, cached for
+ * We pull a small pool (POOL_SIZE items) into memory, cached for
  * 5 minutes, so the same fetch backs both feeds without duplicating
  * work. The previous /api/popular_lec_api.php source had no date field
  * and surfaced years-old content — abandoned.
@@ -48,7 +48,7 @@ export interface RecentLecturesResponse {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const TRENDING_WINDOW_DAYS = 90;
-const POOL_PAGES = 5; // 5 × 30 = ~150 lectures in the shared pool.
+const POOL_SIZE = 150;
 
 /**
  * How long a fetched page stays usable from the persistent cache.
@@ -143,12 +143,14 @@ class RecentLecturesApiService {
   private async fetchPage(
     page: number,
     filter: FeedPreferenceFilter,
+    limit = 30,
   ): Promise<SearchLecture[]> {
     const response = await apiClient.get<any>(
       RECENT_ENDPOINT,
       {
         action: RECENT_ACTION,
         page,
+        limit,
         language_ids: filter.languageIds?.join(',') || undefined,
         lecturer_ids: filter.lecturerIds?.join(',') || undefined,
       },
@@ -195,8 +197,8 @@ class RecentLecturesApiService {
   }
 
   /**
-   * Fetch POOL_PAGES pages from /api/leclisting_recent.php in parallel,
-   * concat, dedupe by nid, sort newest-first as a defensive belt.
+   * Fetch one bounded pool from /api/leclisting_recent.php, dedupe by nid,
+   * and sort newest-first as a defensive belt.
    * Cached for 5 minutes; concurrent callers share the in-flight promise.
    */
   private async fetchPool(filter: FeedPreferenceFilter): Promise<SearchLecture[]> {
@@ -208,54 +210,26 @@ class RecentLecturesApiService {
 
     this.inFlight = (async () => {
       try {
-        const pageNumbers = Array.from({ length: POOL_PAGES - 1 }, (_, i) => i + 2);
         logger.debug(
-          `Fetching ${POOL_PAGES} pages from ${RECENT_ENDPOINT}?action=${RECENT_ACTION}`,
+          `Fetching ${POOL_SIZE} items from ${RECENT_ENDPOINT}?action=${RECENT_ACTION}`,
         );
 
-        const results = await Promise.allSettled([
-          this.fetchFirstPage(filter),
-          ...pageNumbers.map((page) => this.fetchPage(page, filter)),
-        ]);
-
-        const merged: SearchLecture[] = [];
+        const items = await this.fetchPage(1, filter, POOL_SIZE);
         const seen = new Set<string | number>();
-        let okPages = 0;
-
-        for (let i = 0; i < results.length; i++) {
-          const r = results[i];
-          if (r.status !== 'fulfilled') {
-            logger.debug(
-              `Recent page ${i + 1} failed: ${(r as any).reason?.message || 'unknown'}`,
-            );
-            continue;
-          }
-          okPages++;
-          for (const item of r.value) {
-            const id = (item as any)?.nid;
-            if (id == null || seen.has(id)) continue;
-            seen.add(id);
-            merged.push(item);
-          }
-        }
+        const merged = items.filter((item) => {
+          const id = (item as any)?.nid;
+          if (id == null || seen.has(id)) return false;
+          seen.add(id);
+          return true;
+        });
 
         // Defensive sort — server already returns newest-first but pages
         // arrive concurrently, so concat order isn't guaranteed.
         merged.sort((a: any, b: any) => parsePostDate(b) - parsePostDate(a));
 
         logger.debug(
-          `Recent pool: ${merged.length} unique items from ${okPages}/${POOL_PAGES} pages`,
+          `Recent pool: ${merged.length} unique items from one request`,
         );
-
-        // Promise.allSettled deliberately tolerates partial page failures, but
-        // treating five failures as a successful empty catalog leaves the home
-        // screen blank forever and gives callers no way to retry.
-        if (okPages === 0) {
-          const firstFailure = results.find(
-            (result): result is PromiseRejectedResult => result.status === 'rejected',
-          );
-          throw firstFailure?.reason || new ApiError('Unable to load recent lectures');
-        }
 
         this.pool = merged;
         this.cacheTimestamp = now;

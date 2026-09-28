@@ -4,7 +4,7 @@
  *
  * recentApi.clearPersistentCache() passes the endpoint path as that pattern. If
  * the two ever stop lining up the failure is silent and nasty: "refresh" clears
- * only the in-memory pool, the refetch is served the same persisted pages, and
+ * only the in-memory pool, the refetch is served the same persisted response, and
  * the user is shown identical content — for as long as the TTL, now an hour.
  */
 
@@ -27,13 +27,13 @@ const matches = (key: string, pattern: string) =>
   key.startsWith('cache_') && key.includes(pattern);
 
 describe('recent pool cache invalidation', () => {
-  const pages = [1, 2, 3, 4, 5].map((page) =>
-    cacheKey(buildUrl(RECENT_ENDPOINT, { action: 'get_recent_audio', page })),
+  const responses = [30, 150].map((limit) =>
+    cacheKey(buildUrl(RECENT_ENDPOINT, { action: 'get_recent_audio', page: 1, limit })),
   );
 
-  test('the endpoint pattern matches every cached page', () => {
-    expect(pages).toHaveLength(5);
-    for (const key of pages) {
+  test('the endpoint pattern matches the first-paint and pooled responses', () => {
+    expect(responses).toHaveLength(2);
+    for (const key of responses) {
       expect(matches(key, RECENT_ENDPOINT)).toBe(true);
     }
   });
