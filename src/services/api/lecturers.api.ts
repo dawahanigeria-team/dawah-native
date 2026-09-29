@@ -11,6 +11,7 @@ import { logger } from '@/utils/logger';
 export interface Lecturer {
   // Actual API response fields based on the response
   id: number | string;
+  nid?: number | string;
   name: string;
   img: string;
   status?: number;
@@ -36,6 +37,9 @@ export interface Lecturer {
   // Computed/additional fields
   language?: string;
   total_lectures?: number;
+  total_audio?: number;
+  total_albums?: number;
+  total_playlist?: number;
   followers?: number;
   verified?: boolean;
   bio?: string;
@@ -323,14 +327,24 @@ class LecturersApiService {
    */
   async getLecturerDetails(lecturerId: string | number): Promise<Lecturer | null> {
     logger.debug('Fetching lecturer directly by id:', lecturerId);
-    const response = await this.getAllLecturers({
-      page: 1,
-      lim: 1,
-      offset: 0,
-      rpid: lecturerId,
-    });
+    const response = await apiClient.get<Lecturer[]>(
+      '/api/rplisting_multi_nid_api.php',
+      { id: lecturerId },
+      {
+        timeout: API_CONFIG.TIMEOUTS.DEFAULT,
+        useCache: true,
+        cacheTTL: API_CONFIG.CACHE.LECTURES_TTL,
+      },
+    );
 
-    return response.data[0] ?? null;
+    const lecturer = Array.isArray(response.data) ? response.data[0] : null;
+    if (!lecturer) return null;
+    return {
+      ...lecturer,
+      id: lecturer.id ?? lecturer.nid ?? lecturerId,
+      language: this.resolveLanguage(lecturer),
+      followers: lecturer.views || 0,
+    };
   }
 
   /**
