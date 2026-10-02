@@ -130,7 +130,10 @@ class DownloadQueueService {
 
   private async loadQueue() {
     try {
-      const stored = await AsyncStorage.getItem(DOWNLOAD_QUEUE_KEY);
+      const [stored] = await Promise.all([
+        AsyncStorage.getItem(DOWNLOAD_QUEUE_KEY),
+        downloadsService.ensureInitialized(),
+      ]);
       if (stored) {
         const queueItems: QueuedDownload[] = JSON.parse(stored);
         this.queue.clear();
@@ -138,6 +141,21 @@ class DownloadQueueService {
           // Reset downloading items to queued or paused on restart
           if (item.status === DownloadStatus.DOWNLOADING) {
             item.status = DownloadStatus.QUEUED;
+          }
+
+          // Older builds started an asynchronous file copy and deleted its
+          // source immediately, leaving COMPLETED queue records without an
+          // MP3. Requeue those records so this OTA repairs them on launch.
+          if (
+            item.status === DownloadStatus.COMPLETED &&
+            !downloadsService.isDownloaded(item.id)
+          ) {
+            item.status = DownloadStatus.QUEUED;
+            item.progress = 0;
+            item.bytesDownloaded = 0;
+            item.totalBytes = 0;
+            item.completedAt = undefined;
+            item.error = undefined;
           }
           this.queue.set(item.id, item);
         });

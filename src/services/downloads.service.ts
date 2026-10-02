@@ -200,6 +200,7 @@ class DownloadsService {
       }
     } catch (error) {
       logger.error("Failed to load downloads metadata", error as Error);
+    } finally {
       this.isInitialized = true;
     }
   }
@@ -455,6 +456,8 @@ class DownloadsService {
       if (metadataFile) {
         await metadataFile.write(JSON.stringify(metadata, null, 2));
       }
+
+      this.notify();
     } catch (error: any) {
       // Captured once below, with the full context gathered in this catch.
       logger.warn(`Failed to download lecture ${lectureId}`, error);
@@ -796,7 +799,9 @@ class DownloadsService {
       const bytesDownloaded = Math.max(resumableDownload.bytesDownloaded, this.getFileSize(file));
       const finalFile = this.getDownloadFile(id);
 
-      copyWithOverwrite(file, finalFile);
+      // File.copy is asynchronous on Expo SDK 57. Keep the partial file until
+      // Android has finished copying it into its permanent location.
+      await copyWithOverwrite(file, finalFile);
       if (file.exists) {
         file.delete();
       }
@@ -814,6 +819,7 @@ class DownloadsService {
 
       this.metadataCache.set(id, metadata);
       await this.saveMetadata();
+      await this.getMetadataFile(id).write(JSON.stringify(metadata, null, 2));
       this.activeDownloads.delete(id);
       this.notify();
 
