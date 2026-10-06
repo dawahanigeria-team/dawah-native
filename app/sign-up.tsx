@@ -141,8 +141,6 @@ export default function SignUpScreen() {
       captureSentryException(error, {
         component: 'SignUpScreen',
         action: 'handleSignUp',
-        email: email,
-        username: username,
         level: 'warning',
       });
 
