@@ -125,7 +125,6 @@ export default function SignInScreen() {
       captureSentryException(error, {
         component: 'SignInScreen',
         action: 'handleSignIn',
-        email: email,
         level: 'warning',
       });
 

@@ -166,6 +166,39 @@ export const isExpectedUserInputRefusal = (
   return false;
 };
 
+/**
+ * The same refusals, re-reported by a caller that caught the ApiError (the
+ * auth service and the sign-in/sign-up screens). The status lives on the error
+ * rather than in extras, so the beforeSend check below never sees it.
+ */
+export const isExpectedUserInputRefusalFailure = (
+  error: unknown,
+  context?: Record<string, unknown>,
+): boolean => {
+  const maybeError = error as { message?: unknown; statusCode?: unknown } | null;
+  const statusCode = maybeError?.statusCode ?? context?.statusCode;
+
+  return isExpectedUserInputRefusal(statusCode, normalizeText(maybeError?.message));
+};
+
+const SENSITIVE_EXTRA_KEYS = new Set(['email', 'email_or_username', 'username', 'password']);
+
+/**
+ * What someone typed into an auth form is not ours to keep, and Sentry's
+ * server-side scrubbing let `email` through.
+ */
+export const scrubSensitiveExtras = <T extends { extra?: Record<string, unknown> }>(event: T): T => {
+  const extra = event.extra;
+  if (!extra) return event;
+
+  Object.keys(extra).forEach((key) => {
+    if (SENSITIVE_EXTRA_KEYS.has(key.toLowerCase())) {
+      extra[key] = '[Filtered]';
+    }
+  });
+  return event;
+};
+
 const someExceptionText = (
   event: EventLike,
   predicate: (text: string) => boolean,
