@@ -1,6 +1,6 @@
 export interface CopyableFile<TFile> {
   exists: boolean;
-  copy(destination: TFile): void;
+  copy(destination: TFile): Promise<void>;
   delete(): void;
 }
 
@@ -23,10 +23,10 @@ export class MissingCopySourceError extends Error {
   }
 }
 
-export const copyWithOverwrite = <TFile extends CopyableFile<TFile>>(
+export const copyWithOverwrite = async <TFile extends CopyableFile<TFile>>(
   source: TFile,
   destination: TFile
-): void => {
+): Promise<void> => {
   if (!source.exists) {
     throw new MissingCopySourceError();
   }
@@ -36,7 +36,7 @@ export const copyWithOverwrite = <TFile extends CopyableFile<TFile>>(
   }
 
   try {
-    source.copy(destination);
+    await source.copy(destination);
   } catch (error) {
     if (!isFileAlreadyExistsError(error)) {
       throw error;
@@ -46,6 +46,6 @@ export const copyWithOverwrite = <TFile extends CopyableFile<TFile>>(
       destination.delete();
     }
 
-    source.copy(destination);
+    await source.copy(destination);
   }
 };

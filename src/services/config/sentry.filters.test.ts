@@ -2,7 +2,9 @@ import {
   isExpectedExpoUpdatesCheckFailure,
   isExpectedMissingAccessTokenFailure,
   isExpectedUserInputRefusal,
+  isExpectedUserInputRefusalFailure,
   isInvalidOrExpiredTokenMessage,
+  scrubSensitiveExtras,
   shouldDropExpectedExpoUpdatesCheckEvent,
   shouldDropExpectedUserInputRefusalEvent,
   shouldDropExpectedMissingAccessTokenEvent,
@@ -185,5 +187,55 @@ describe('shouldDropExpectedUserInputRefusalEvent', () => {
         exception: { values: [{ type: 'Error', value: 'User already exists' }] },
       }),
     ).toBe(false);
+  });
+});
+
+describe('isExpectedUserInputRefusalFailure', () => {
+  test('recognises a caught ApiError carrying its own status', () => {
+    const wrongPassword = Object.assign(
+      new Error('Invalid email/username or password'),
+      { statusCode: 401 },
+    );
+    const duplicateSignup = Object.assign(new Error('User already exists'), { statusCode: 409 });
+
+    expect(isExpectedUserInputRefusalFailure(wrongPassword, { operation: 'auth_login' })).toBe(true);
+    expect(isExpectedUserInputRefusalFailure(duplicateSignup)).toBe(true);
+  });
+
+  test('keeps invalid-token 401s and failures without a status', () => {
+    const invalidToken = Object.assign(
+      new Error('Invalid or expired token: Signature verification failed'),
+      { statusCode: 401 },
+    );
+
+    expect(isExpectedUserInputRefusalFailure(invalidToken)).toBe(false);
+    expect(isExpectedUserInputRefusalFailure(new Error('User already exists'))).toBe(false);
+    expect(isExpectedUserInputRefusalFailure(null)).toBe(false);
+  });
+});
+
+describe('scrubSensitiveExtras', () => {
+  test('filters what was typed into auth forms and keeps the rest', () => {
+    const event = {
+      extra: {
+        email: 'someone@example.com',
+        Username: 'someone',
+        operation: 'auth_register',
+        statusCode: 409,
+      },
+    };
+
+    expect(scrubSensitiveExtras(event).extra).toEqual({
+      email: '[Filtered]',
+      Username: '[Filtered]',
+      operation: 'auth_register',
+      statusCode: 409,
+    });
+  });
+
+  test('passes events without extras through', () => {
+    const event: { message: string; extra?: Record<string, unknown> } = { message: 'boom' };
+
+    expect(scrubSensitiveExtras(event)).toBe(event);
   });
 });

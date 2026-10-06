@@ -84,7 +84,6 @@ export default function ForgotPasswordScreen() {
       captureSentryException(error, {
         component: "ForgotPasswordScreen",
         action: "handleResetPassword",
-        email: email,
         level: "warning",
       });
 

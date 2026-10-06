@@ -17,16 +17,17 @@ beforeEach(() => {
 });
 
 test('loads lecturer details through the exact lecturer endpoint', async () => {
+  // rplisting_multi_nid_api.php returns a bare array keyed by `nid`, not `id`.
   mockGet.mockResolvedValue({
-    data: [{ id: 42, name: 'Test Scholar', lang_id: 1 }],
+    data: [{ nid: 42, name: 'Test Scholar', lang_id: 1 }],
   });
 
   const lecturer = await lecturersApi.getLecturerDetails(42);
 
   expect(mockGet).toHaveBeenCalledTimes(1);
   expect(mockGet).toHaveBeenCalledWith(
-    '/api/all_rps_api.php',
-    { page: 1, lim: 1, offset: 0, meta: 1, rpid: 42 },
+    '/api/rplisting_multi_nid_api.php',
+    { id: 42 },
     expect.objectContaining({ useCache: true }),
   );
   expect(mockGet).not.toHaveBeenCalledWith(

@@ -34,6 +34,7 @@ jest.mock('@react-native-community/netinfo', () => ({
 
 jest.mock('../downloads.service', () => ({
   downloadsService: {
+    ensureInitialized: jest.fn().mockResolvedValue(undefined),
     isDownloaded: jest.fn(() => false),
     createDownload: (...args: unknown[]) => (mockCreateDownload as any)(...args),
     startDownload: (...args: unknown[]) => (mockStartDownload as any)(...args),
@@ -67,13 +68,14 @@ jest.mock('@/utils/logger', () => ({
 const persisted: QueuedDownload = {
   id: 'lecture-1',
   episode: { id: 'lecture-1', title: 'Restored lecture' } as never,
-  status: 'queued' as QueuedDownload['status'],
-  progress: 0,
-  bytesDownloaded: 0,
-  totalBytes: 0,
+  status: 'completed' as QueuedDownload['status'],
+  progress: 100,
+  bytesDownloaded: 128,
+  totalBytes: 128,
   speed: 0,
   addedAt: Date.now(),
   priority: 0,
+  completedAt: Date.now(),
 };
 
 /** Let every already-resolved promise in the chain run to completion. */
@@ -81,7 +83,7 @@ const settle = async () => {
   for (let i = 0; i < 20; i++) await Promise.resolve();
 };
 
-test('a queue pass that beats the storage read still starts the restored items', async () => {
+test('a queue pass that beats storage hydration repairs completed items whose MP3 is missing', async () => {
   mockCreateDownload.mockResolvedValue({ id: 'lecture-1' });
 
   // Importing constructs the singleton, which registers the triggers and kicks

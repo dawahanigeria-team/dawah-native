@@ -277,7 +277,6 @@ class AuthApiService {
     } catch (error) {
       logger.error('Login error:', error, {
         operation: 'auth_login',
-        email: credentials.email,
       });
       throw error;
     }
@@ -313,8 +312,6 @@ class AuthApiService {
     } catch (error) {
       logger.error('Registration error:', error, {
         operation: 'auth_register',
-        email: credentials.email,
-        username: credentials.username,
       });
       throw error;
     }

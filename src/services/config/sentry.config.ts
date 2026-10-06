@@ -17,6 +17,8 @@ import {
 import {
   isExpectedExpoUpdatesCheckFailure,
   isExpectedMissingAccessTokenFailure,
+  isExpectedUserInputRefusalFailure,
+  scrubSensitiveExtras,
   shouldDropExpectedUserInputRefusalEvent,
   shouldDropExpectedExpoUpdatesCheckEvent,
   shouldDropExpectedMissingAccessTokenEvent,
@@ -202,7 +204,7 @@ export const initSentry = () => {
       if (shouldDropExpectedUserInputRefusalEvent(event)) {
         return null;
       }
-      return event;
+      return scrubSensitiveExtras(event);
     },
 
     beforeSendTransaction(transaction) {
@@ -361,6 +363,9 @@ export const captureSentryException = (
     return;
   }
   if (isExpectedMissingAccessTokenFailure(error, context)) {
+    return;
+  }
+  if (isExpectedUserInputRefusalFailure(error, context)) {
     return;
   }
   const statusCode = (error as { statusCode?: number } | null)?.statusCode;

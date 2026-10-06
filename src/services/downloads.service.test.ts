@@ -1,7 +1,13 @@
 const mockFiles = new Map<string, { exists: boolean; size: number }>();
 const mockFetch = jest.fn();
 const mockCreateDownloadResumable = jest.fn();
-const mockMoveAsync = jest.fn();
+const renameMockFile = async ({ from, to }: { from: string; to: string }) => {
+  const file = mockFiles.get(from);
+  if (!file) throw new Error('source missing');
+  mockFiles.set(to, file);
+  mockFiles.delete(from);
+};
+const mockMoveAsync = jest.fn(renameMockFile);
 const mockIncrementDownloadCounter = jest.fn();
 const mockRequestStoragePermission = jest.fn();
 const mockAddSentryBreadcrumb = jest.fn();
@@ -73,6 +79,17 @@ jest.mock("expo-file-system", () => {
 
     async delete() {
       mockFiles.delete(this.uri);
+    }
+
+    async copy(destination: MockFile) {
+      // Expo's class API performs copy asynchronously. Yield once so this mock
+      // catches callers that delete the source before awaiting completion.
+      await Promise.resolve();
+      const source = mockFiles.get(this.uri);
+      if (!source?.exists) {
+        throw new Error(`No such file: ${this.uri}`);
+      }
+      mockFiles.set(destination.uri, { ...source });
     }
   }
 
@@ -245,6 +262,36 @@ describe("downloadsService.downloadLecture", () => {
       undefined
     );
   });
+
+  it("keeps the partial file until Android finishes promoting a queued download", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { downloadsService } = require("./downloads.service");
+    const episode = {
+      id: "lecture-queue-2",
+      title: "Lecture Queue Two",
+      audioUrl: "https://example.com/original.mp3",
+      lecturerName: "Ustadh",
+      coverUrl: "https://example.com/cover.jpg",
+      durationSec: 360,
+      seriesId: "",
+      plays: 0,
+      liked: false,
+      language: "English",
+      downloads: 0,
+      createdAt: new Date().toISOString(),
+    };
+
+    const resumableDownload = await downloadsService.createDownload(episode, jest.fn());
+    expect(resumableDownload).not.toBeNull();
+
+    await expect(downloadsService.startDownload(resumableDownload!)).resolves.toBe("completed");
+
+    expect(mockFiles.get("file://document/downloads/lecture-queue-2.mp3")?.exists).toBe(true);
+    expect(mockFiles.has("file://document/downloads/lecture-queue-2.part")).toBe(false);
+    expect(downloadsService.getDownloadedLectures()).toEqual([
+      expect.objectContaining({ lectureId: "lecture-queue-2", title: "Lecture Queue Two" }),
+    ]);
+  });
 });
 
 
@@ -253,12 +300,7 @@ describe('resumable download finalization', () => {
     jest.resetModules();
     mockFiles.clear();
     mockMoveAsync.mockReset();
-    mockMoveAsync.mockImplementation(async ({ from, to }) => {
-      const file = mockFiles.get(from);
-      if (!file) throw new Error('source missing');
-      mockFiles.set(to, file);
-      mockFiles.delete(from);
-    });
+    mockMoveAsync.mockImplementation(renameMockFile);
   });
   const setup = async () => {
     const { downloadsService } = require('./downloads.service');
