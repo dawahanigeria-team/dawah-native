@@ -14,26 +14,7 @@ import TrackPlayer, {
 import type { PlaybackState, Progress } from '../services/expoTrackPlayerCompat'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ensureTrackPlayerReady } from '../services/trackPlayerReady.service'
-
-const HTTP_URL_REGEX = /^https?:\/\//i
-
-/**
- * Native players reject certain reserved characters (e.g. [] or '),
- * so ensure remote URLs are percent-encoded before loading.
- */
-const sanitizeAudioUri = (uri: string): string => {
-  if (!uri || !HTTP_URL_REGEX.test(uri)) {
-    return uri
-  }
-
-  const encode = (value: string) => encodeURI(value).replace(/'/g, '%27')
-
-  try {
-    return encode(decodeURI(uri))
-  } catch {
-    return encode(uri)
-  }
-}
+import { encodeMediaUrl } from '../utils/mediaUrl'
 
 export interface AudioPlaybackConfig {
   onPlaybackStatusUpdate?: (status: AudioPlaybackStatus) => void
@@ -151,7 +132,7 @@ export function useAudioPlayback(config?: AudioPlaybackConfig): AudioPlaybackCon
   }, [status])
 
   const loadAudio = async (uri: string): Promise<void> => {
-    const normalizedUri = sanitizeAudioUri(uri)
+    const normalizedUri = encodeMediaUrl(uri)
     setIsReady(false)
 
     await ensureTrackPlayerReady()

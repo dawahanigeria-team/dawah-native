@@ -3,6 +3,7 @@ import { AudioModule, createAudioPlayer, setAudioModeAsync } from 'expo-audio'
 import { useEffect, useMemo, useState } from 'react'
 import { Platform } from 'react-native'
 import { logger } from '../utils/logger'
+import { encodeMediaUrl } from '../utils/mediaUrl'
 
 export const State = {
   None: 'none',
@@ -111,22 +112,6 @@ type AddOptions = {
 
 type ResetOptions = {
   release?: boolean
-}
-
-const HTTP_URL_REGEX = /^https?:\/\//i
-
-const sanitizeAudioUri = (uri: string): string => {
-  if (!uri || !HTTP_URL_REGEX.test(uri)) {
-    return uri
-  }
-
-  const encode = (value: string) => encodeURI(value).replace(/'/g, '%27')
-
-  try {
-    return encode(decodeURI(uri))
-  } catch {
-    return encode(uri)
-  }
 }
 
 const listeners = new Map<string, Set<Listener>>()
@@ -386,7 +371,7 @@ const tryScheduleSourceRecovery = (): boolean => {
 const reloadAt = async (index: number, position: number, token: number): Promise<void> => {
   if (token !== sourceRecoveryToken || index !== activeTrackIndex) return
   const track = queue[index]
-  const source = sanitizeAudioUri(typeof track?.url === 'string' ? track.url.trim() : '')
+  const source = encodeMediaUrl(typeof track?.url === 'string' ? track.url.trim() : '')
   if (!source) return
 
   const currentPlayer = ensurePlayer()
@@ -409,7 +394,7 @@ const activateTrack = async (index: number, autoPlay: boolean): Promise<void> =>
 
   const currentPlayer = ensurePlayer()
   const track = queue[index]
-  const source = sanitizeAudioUri(typeof track.url === 'string' ? track.url.trim() : '')
+  const source = encodeMediaUrl(typeof track.url === 'string' ? track.url.trim() : '')
   if (!source) {
     const error = new Error(`Track ${track.id} has no playable URL`)
     setPlaybackState(State.Error)
