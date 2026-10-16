@@ -15,6 +15,7 @@ import type { Episode } from "../types/types";
 import { copyWithOverwrite } from "../utils/fileCopy";
 import { logger } from "../utils/logger";
 import { requestStoragePermission } from "../utils/permissions";
+import { encodeMediaUrl } from "../utils/mediaUrl";
 import {
   downloadsApi,
   DownloadAuthRequiredError,
@@ -292,7 +293,7 @@ class DownloadsService {
     resumeState?: DownloadPauseState | null
   ): LegacyDownloadResumable {
     return createDownloadResumable(
-      downloadUrl,
+      encodeMediaUrl(downloadUrl),
       targetFileUri,
       {},
       this.createLegacyProgressCallback(lectureId, onProgress, onStateUpdate),
@@ -390,7 +391,7 @@ class DownloadsService {
       let bytesDownloaded = 0;
       let totalBytes = 0;
       const downloadTask = createDownloadResumable(
-        downloadUrl,
+        encodeMediaUrl(downloadUrl),
         file.uri,
         {},
         this.createLegacyProgressCallback(lectureId, onProgress, (progress) => {

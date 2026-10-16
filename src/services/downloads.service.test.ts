@@ -255,6 +255,60 @@ describe("downloadsService.downloadLecture", () => {
     );
   });
 
+  describe("catalogue URLs with reserved characters", () => {
+    const rawUrl =
+      "https://media.dawahnigeria.com/Mallam%20Bashir/Annabi%20Muhammad%20{S.A.W}03(23-08-25)%20(Nupe)_DN.mp3";
+    const encodedUrl =
+      "https://media.dawahnigeria.com/Mallam%20Bashir/Annabi%20Muhammad%20%7BS.A.W%7D03(23-08-25)%20(Nupe)_DN.mp3";
+    const episode = (id: string) => ({
+      id,
+      title: "Lecture With Braces",
+      audioUrl: rawUrl,
+      lecturerName: "Mallam",
+      coverUrl: "https://example.com/cover.jpg",
+      durationSec: 360,
+      seriesId: "",
+      plays: 0,
+      liked: false,
+      language: "Nupe",
+      downloads: 0,
+      createdAt: new Date().toISOString(),
+    });
+
+    beforeEach(() => {
+      mockIncrementDownloadCounter.mockResolvedValue({ url: rawUrl });
+    });
+
+    it("encodes them for a direct download without double-encoding %20", async () => {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { downloadsService } = require("./downloads.service");
+
+      await downloadsService.downloadLecture(episode("lecture-braces"), jest.fn());
+
+      expect(mockCreateDownloadResumable).toHaveBeenCalledWith(
+        encodedUrl,
+        "file://document/downloads/lecture-braces.mp3",
+        {},
+        expect.any(Function)
+      );
+    });
+
+    it("encodes them for a queued download", async () => {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { downloadsService } = require("./downloads.service");
+
+      await downloadsService.createDownload(episode("lecture-braces-queued"), jest.fn());
+
+      expect(mockCreateDownloadResumable).toHaveBeenCalledWith(
+        encodedUrl,
+        "file://document/downloads/lecture-braces-queued.part",
+        {},
+        expect.any(Function),
+        undefined
+      );
+    });
+  });
+
   it("keeps the partial file until Android finishes promoting a queued download", async () => {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { downloadsService } = require("./downloads.service");
