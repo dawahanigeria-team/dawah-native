@@ -1,3 +1,6 @@
+import * as Sentry from '@sentry/react-native';
+import { captureSentryException } from './sentry.config';
+
 jest.mock('@sentry/react-native', () => ({
   captureException: jest.fn(),
   withScope: jest.fn((callback: (scope: { setExtra: jest.Mock }) => void) =>
@@ -8,8 +11,6 @@ jest.mock('expo-constants', () => ({ __esModule: true, default: {} }));
 jest.mock('expo-application', () => ({}));
 jest.mock('react-native', () => ({ Platform: { OS: 'android' } }));
 
-import * as Sentry from '@sentry/react-native';
-import { captureSentryException } from './sentry.config';
 
 const captureException = Sentry.captureException as jest.Mock;
 
