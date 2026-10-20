@@ -369,6 +369,74 @@ test('playEpisode fails before player setup when remote audio returns 404', asyn
   expect(mockCaptureSentryException).not.toHaveBeenCalled()
 })
 
+const buildEpisode = (id: string, audioUrl = 'https://example.com/audio.mp3') => ({
+  id,
+  title: `Lecture ${id}`,
+  audioUrl,
+  lecturerName: 'Ustadh',
+  coverUrl: 'cover.png',
+  durationSec: 120,
+  seriesId: '',
+  plays: 0,
+  liked: false,
+  language: 'Unknown',
+  downloads: 0,
+  createdAt: new Date().toISOString(),
+})
+
+test('playEpisode does not file a slow start in Sentry', async () => {
+  jest.useFakeTimers()
+  const episode = buildEpisode('slow-1')
+
+  mockGetPlaybackUri.mockReturnValue(episode.audioUrl)
+  mockIsDownloaded.mockReturnValue(false)
+  mockGetPlaybackState.mockResolvedValue({ state: 'paused' })
+  mockGetProgress.mockResolvedValue({ position: 0, duration: 120, buffered: 0 })
+
+  const playPromise = usePlayerActions().playEpisode(episode)
+  await jest.advanceTimersByTimeAsync(21000)
+  await playPromise
+
+  expect(playerStore.get().errorMessage).toBe(
+    'Audio is taking longer than usual to load. Please try again.',
+  )
+  expect(mockLoggerError).not.toHaveBeenCalled()
+  expect(mockCaptureSentryException).not.toHaveBeenCalled()
+})
+
+test('playQueue reports an unavailable first track to the listener, not to Sentry', async () => {
+  const episodes = [buildEpisode('queue-1'), buildEpisode('queue-2')]
+
+  mockGetPlaybackUri.mockImplementation((_id: string, url: string) => url)
+  mockIsDownloaded.mockReturnValue(false)
+  mockFetch.mockResolvedValue({ status: 404 })
+
+  await usePlayerActions().playQueue(episodes, 0, false)
+
+  expect(TrackPlayer.play).not.toHaveBeenCalled()
+  expect(playerStore.get().errorMessage).toBe(
+    'This audio file is currently unavailable. Please try another lecture.',
+  )
+  expect(mockLoggerError).not.toHaveBeenCalled()
+  expect(mockCaptureSentryException).not.toHaveBeenCalled()
+})
+
+test('playQueue still reports an unexpected failure', async () => {
+  const episodes = [buildEpisode('queue-3')]
+
+  mockGetPlaybackUri.mockImplementation((_id: string, url: string) => url)
+  mockIsDownloaded.mockReturnValue(false)
+  mockEnsureReady.mockRejectedValue(new Error('player setup exploded'))
+
+  await usePlayerActions().playQueue(episodes, 0, false)
+
+  expect(mockCaptureSentryException).toHaveBeenCalledWith(
+    expect.objectContaining({ message: 'player setup exploded' }),
+    expect.objectContaining({ action: 'playQueue' }),
+  )
+  expect(playerStore.get().errorMessage).toBe('Failed to play audio. Please try again.')
+})
+
 test('playEpisode preserves pre-encoded reserved characters in remote audio URL checks', async () => {
   const episode = {
     id: 'encoded-1',

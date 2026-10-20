@@ -1,9 +1,11 @@
 import {
   isExpectedExpoUpdatesCheckFailure,
   isExpectedMissingAccessTokenFailure,
+  isExpectedSocialSignInFailure,
   isExpectedUserInputRefusal,
   isExpectedUserInputRefusalFailure,
   isInvalidOrExpiredTokenMessage,
+  scrubSensitiveBreadcrumb,
   scrubSensitiveExtras,
   shouldDropExpectedExpoUpdatesCheckEvent,
   shouldDropExpectedUserInputRefusalEvent,
@@ -42,6 +44,58 @@ describe('isExpectedExpoUpdatesCheckFailure', () => {
       isExpectedExpoUpdatesCheckFailure(new Error('Failed to reload update'), {
         action: 'reload_after_update',
       }),
+    ).toBe(false);
+  });
+
+  test('matches an update download that the connection dropped', () => {
+    const error = new Error(
+      "Call to function 'ExpoUpdates.fetchUpdateAsync' has been rejected.\n" +
+        '→ Caused by: Failed to download new update',
+    );
+
+    expect(isExpectedExpoUpdatesCheckFailure(error, { action: 'check_for_update' })).toBe(true);
+    expect(isExpectedExpoUpdatesCheckFailure(error)).toBe(true);
+  });
+
+  test('still reports a fetch failure that is not a download failure', () => {
+    const error = new Error(
+      "Call to function 'ExpoUpdates.fetchUpdateAsync' has been rejected.\n" +
+        '→ Caused by: Update manifest is invalid',
+    );
+
+    expect(isExpectedExpoUpdatesCheckFailure(error)).toBe(false);
+  });
+});
+
+describe('isExpectedSocialSignInFailure', () => {
+  test('matches Google reporting that the device has no network', () => {
+    expect(
+      isExpectedSocialSignInFailure(new Error('NETWORK_ERROR'), { action: 'handleGoogleSignIn' }),
+    ).toBe(true);
+  });
+
+  test('matches Apple failing for an unknown reason', () => {
+    expect(
+      isExpectedSocialSignInFailure(
+        new Error('The authorization attempt failed for an unknown reason'),
+        { action: 'handleAppleSignIn' },
+      ),
+    ).toBe(true);
+  });
+
+  test('only applies to the sign-in handlers', () => {
+    expect(isExpectedSocialSignInFailure(new Error('NETWORK_ERROR'), { action: 'somethingElse' })).toBe(
+      false,
+    );
+    expect(isExpectedSocialSignInFailure(new Error('NETWORK_ERROR'))).toBe(false);
+  });
+
+  test('still reports other sign-in failures', () => {
+    expect(
+      isExpectedSocialSignInFailure(new Error('DEVELOPER_ERROR'), { action: 'handleGoogleSignIn' }),
+    ).toBe(false);
+    expect(
+      isExpectedSocialSignInFailure(new Error('NETWORK_ERROR'), { action: 'handleAppleSignIn' }),
     ).toBe(false);
   });
 });
@@ -237,5 +291,25 @@ describe('scrubSensitiveExtras', () => {
     const event: { message: string; extra?: Record<string, unknown> } = { message: 'boom' };
 
     expect(scrubSensitiveExtras(event)).toBe(event);
+  });
+});
+
+describe('scrubSensitiveBreadcrumb', () => {
+  test('filters a typed email carried in breadcrumb data and keeps the rest', () => {
+    const breadcrumb = {
+      message: 'Sign in failed',
+      data: { email: 'someone@example.com', error: 'Invalid password' },
+    };
+
+    expect(scrubSensitiveBreadcrumb(breadcrumb).data).toEqual({
+      email: '[Filtered]',
+      error: 'Invalid password',
+    });
+  });
+
+  test('passes breadcrumbs without data through', () => {
+    const breadcrumb: { message: string; data?: Record<string, unknown> } = { message: 'tap' };
+
+    expect(scrubSensitiveBreadcrumb(breadcrumb)).toBe(breadcrumb);
   });
 });

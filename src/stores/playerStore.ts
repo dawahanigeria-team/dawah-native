@@ -476,12 +476,19 @@ const playEpisode = async (episode: Episode) => {
     const isTimeout = message.toLowerCase().includes('timeout');
     const isSourceUnavailable = message === AUDIO_SOURCE_UNAVAILABLE_MESSAGE;
 
-    if (isSourceUnavailable) {
-      logger.warn('PlayerStore: Audio source unavailable', {
-        episodeId: episode.id,
-        title: episode.title,
-        audioUrl: episode.audioUrl,
-      });
+    // Both have their own on-screen message below. logger.error would still
+    // file them in Sentry, which the isTimeout guard further down means to avoid.
+    if (isSourceUnavailable || isTimeout) {
+      logger.warn(
+        isSourceUnavailable
+          ? 'PlayerStore: Audio source unavailable'
+          : 'PlayerStore: Audio took too long to start',
+        {
+          episodeId: episode.id,
+          title: episode.title,
+          audioUrl: episode.audioUrl,
+        },
+      );
     } else {
       logger.error('❌ PlayerStore: Failed to play episode', err, {
         episodeId: episode.id,
@@ -753,13 +760,26 @@ const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: b
     persistQueueSnapshot(nextState);
   } catch (error) {
     if (requestId !== currentPlayRequestId) return;
-    logger.error('Failed to play queue', error as Error);
-    captureSentryException(error as Error, { action: 'playQueue', episodeCount: episodes.length });
+    const message = (error as Error)?.message ?? '';
+    const isSourceUnavailable = message === AUDIO_SOURCE_UNAVAILABLE_MESSAGE;
+    const isTimeout = message.toLowerCase().includes('timeout');
+
+    if (isSourceUnavailable || isTimeout) {
+      logger.warn('PlayerStore: Queue could not start playback', {
+        reason: message,
+        episodeCount: episodes.length,
+      });
+    } else {
+      logger.error('Failed to play queue', error as Error);
+      captureSentryException(error as Error, { action: 'playQueue', episodeCount: episodes.length });
+    }
     setAndPersistPlayerState({
       ...playerStore.get(),
       isPlaying: false,
       isLoading: false,
-      errorMessage: 'Failed to play audio. Please try again.',
+      errorMessage: isSourceUnavailable
+        ? AUDIO_SOURCE_UNAVAILABLE_USER_MESSAGE
+        : 'Failed to play audio. Please try again.',
     });
   }
 };

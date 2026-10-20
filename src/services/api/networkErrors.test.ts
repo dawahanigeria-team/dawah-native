@@ -45,6 +45,12 @@ describe('isExpectedConnectivityMessage', () => {
     ).toBe(true);
   });
 
+  test('matches a failed DNS lookup, which is a phone with no working network', () => {
+    expect(
+      isExpectedConnectivityMessage('fetch failed: A server with the specified hostname could not be found.'),
+    ).toBe(true);
+  });
+
   test('stays out of transient-network handling, which rewrites user-facing messages', () => {
     expect(isTransientNetworkErrorText('The request timed out.')).toBe(false);
     expect(isTransientNetworkErrorText('The internet connection appears to be offline.')).toBe(false);

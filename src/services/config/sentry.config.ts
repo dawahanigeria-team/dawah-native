@@ -17,7 +17,9 @@ import {
 import {
   isExpectedExpoUpdatesCheckFailure,
   isExpectedMissingAccessTokenFailure,
+  isExpectedSocialSignInFailure,
   isExpectedUserInputRefusalFailure,
+  scrubSensitiveBreadcrumb,
   scrubSensitiveExtras,
   shouldDropExpectedUserInputRefusalEvent,
   shouldDropExpectedExpoUpdatesCheckEvent,
@@ -220,7 +222,7 @@ export const initSentry = () => {
       if (breadcrumb.category === "console") {
         return null; // Don't send console logs as breadcrumbs
       }
-      return breadcrumb;
+      return scrubSensitiveBreadcrumb(breadcrumb);
     },
 
     // Ignore specific errors
@@ -366,6 +368,15 @@ export const captureSentryException = (
     return;
   }
   if (isExpectedUserInputRefusalFailure(error, context)) {
+    return;
+  }
+  if (isExpectedSocialSignInFailure(error, context)) {
+    return;
+  }
+  // The API client already judged this failure expected and declined to report
+  // it. Callers that catch the same error and capture it again would otherwise
+  // undo that, one issue per screen.
+  if ((error as { isExpectedRefusal?: boolean } | null)?.isExpectedRefusal === true) {
     return;
   }
   const statusCode = (error as { statusCode?: number } | null)?.statusCode;
