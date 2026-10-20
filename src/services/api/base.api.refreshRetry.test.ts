@@ -1,5 +1,7 @@
 import type { RequestConfig } from './base.api';
 import {
+  ApiError,
+  classifyRefreshFailure,
   createTokenRefreshRetryConfig,
   isMissingAccessTokenError,
   normalizeAuthToken,
@@ -96,6 +98,16 @@ describe('shouldCaptureApiHttpError and the refresh outcome', () => {
     expect(
       shouldCaptureApiHttpError(401, { message: 'Token expired' }, true, 'unavailable'),
     ).toBe(true);
+  });
+
+  /**
+   * A refresh cut off by the network - most often the app being suspended
+   * mid-request - says nothing about the session or our code.
+   */
+  test('suppresses a 401 whose refresh request never got an answer', () => {
+    expect(
+      shouldCaptureApiHttpError(401, { message: 'Token expired' }, true, 'offline'),
+    ).toBe(false);
   });
 
   test('is unchanged when no refresh was attempted', () => {
@@ -214,6 +226,34 @@ describe('shouldCaptureApiHttpError with expected refusals', () => {
     expect(shouldCaptureApiHttpError(500, { message: 'Internal Server Error' }, true)).toBe(true);
     expect(shouldCaptureApiHttpError(409, { message: 'Conflict updating playlist' }, true)).toBe(true);
   });
+});
+
+describe('classifyRefreshFailure', () => {
+  test('a refused refresh token ends the session', () => {
+    expect(classifyRefreshFailure(new ApiError('Invalid refresh token', 401))).toBe('rejected');
+    expect(classifyRefreshFailure(new ApiError('Revoked', 403))).toBe('rejected');
+  });
+
+  test.each([
+    ['a dropped connection', new ApiError('offline', undefined, undefined, true)],
+    ['a timeout', new ApiError('slow', undefined, undefined, false, true)],
+    ['a cancelled request', new ApiError('cancelled', undefined, undefined, false, false, true)],
+  ])('%s never got an answer', (_label, error) => {
+    expect(classifyRefreshFailure(error)).toBe('offline');
+  });
+
+  test('a server fault or an unexpected error leaves the session unknown', () => {
+    expect(classifyRefreshFailure(new ApiError('Server error', 500))).toBe('unavailable');
+    expect(classifyRefreshFailure(new TypeError('boom'))).toBe('unavailable');
+  });
+});
+
+test('a premium-only feature refusal stays handled without hiding unrelated 403s', () => {
+  expect(
+    shouldCaptureApiHttpError(403, { code: 'FEATURE_NOT_AVAILABLE', feature: 'multi_lecturer_follow' }, true),
+  ).toBe(false);
+  expect(shouldCaptureApiHttpError(403, { code: 'FORBIDDEN' }, true)).toBe(true);
+  expect(shouldCaptureApiHttpError(500, { code: 'FEATURE_NOT_AVAILABLE' }, true)).toBe(true);
 });
 
 test('download allowance refusal stays handled without hiding unrelated 403s', () => {

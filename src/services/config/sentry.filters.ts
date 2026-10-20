@@ -28,9 +28,16 @@ const normalizeText = (value: unknown): string => (
   typeof value === 'string' ? value.toLowerCase() : ''
 );
 
+/**
+ * expo-updates reports a dropped or timed-out connection to u.expo.dev or the
+ * asset host as "Failed to download ..." with no cause attached, and a phone
+ * on a weak network produces it constantly. Nothing in the app can act on it.
+ */
 const hasExpectedExpoUpdatesCheckText = (text: string): boolean => (
-  text.includes('expoupdates.checkforupdateasync') &&
-  text.includes('failed to check for update')
+  (text.includes('expoupdates.checkforupdateasync') &&
+    text.includes('failed to check for update')) ||
+  (text.includes('expoupdates.fetchupdateasync') &&
+    text.includes('failed to download'))
 );
 
 const hasMissingAccessTokenText = (text: string): boolean => (
@@ -70,6 +77,26 @@ export const isExpectedExpoUpdatesCheckFailure = (
       )
     )
   );
+};
+
+/**
+ * Platform sign-in sheets that failed for reasons outside the app: Google's
+ * play-services reporting no network, and Apple's generic "unknown reason"
+ * (no iCloud account on the device, a dismissed sheet). The user is told on
+ * screen and nothing in our code can change the outcome.
+ */
+export const isExpectedSocialSignInFailure = (
+  error: unknown,
+  context?: Record<string, unknown>,
+): boolean => {
+  const action = normalizeText(context?.action);
+  const message = normalizeText((error as { message?: unknown } | null)?.message);
+
+  if (action === 'handlegooglesignin') return message.includes('network_error');
+  if (action === 'handleapplesignin') {
+    return message.includes('authorization attempt failed for an unknown reason');
+  }
+  return false;
 };
 
 export const shouldDropExpectedExpoUpdatesCheckEvent = (event: EventLike): boolean => {

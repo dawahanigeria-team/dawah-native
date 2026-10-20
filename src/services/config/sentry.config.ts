@@ -17,6 +17,7 @@ import {
 import {
   isExpectedExpoUpdatesCheckFailure,
   isExpectedMissingAccessTokenFailure,
+  isExpectedSocialSignInFailure,
   isExpectedUserInputRefusalFailure,
   scrubSensitiveExtras,
   shouldDropExpectedUserInputRefusalEvent,
@@ -366,6 +367,15 @@ export const captureSentryException = (
     return;
   }
   if (isExpectedUserInputRefusalFailure(error, context)) {
+    return;
+  }
+  if (isExpectedSocialSignInFailure(error, context)) {
+    return;
+  }
+  // The API client already judged this failure expected and declined to report
+  // it. Callers that catch the same error and capture it again would otherwise
+  // undo that, one issue per screen.
+  if ((error as { isExpectedRefusal?: boolean } | null)?.isExpectedRefusal === true) {
     return;
   }
   const statusCode = (error as { statusCode?: number } | null)?.statusCode;

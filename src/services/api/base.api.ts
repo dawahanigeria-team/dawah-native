@@ -31,13 +31,20 @@ const SLOW_API_REQUEST_THRESHOLD_MS = 2000;
  * secure storage failed. Collapsing the two logs people out of a working
  * account over one bad request, and tells them to sign in when the real
  * advice is to try again.
+ *
+ * `offline` is the part of "never got an answer" that is the network's doing:
+ * the refresh request itself dropped, timed out or was cut off when the app was
+ * suspended. It means the same as `unavailable` to the user, but it is not a
+ * fault worth reporting.
  */
-export type TokenRefreshOutcome = 'refreshed' | 'rejected' | 'unavailable';
+export type TokenRefreshOutcome = 'refreshed' | 'rejected' | 'unavailable' | 'offline';
 
 // Custom error class for API errors
 export class ApiError extends Error {
   /** Set when this error survived a token refresh attempt. */
   public refreshOutcome?: TokenRefreshOutcome;
+  /** The client judged this failure expected and did not report it. */
+  public isExpectedRefusal = false;
 
   constructor(
     message: string,
@@ -76,7 +83,23 @@ export const createTokenRefreshRetryConfig = (config: RequestConfig): RequestCon
   return { ...retryConfig, skipTokenRefresh: true };
 };
 
-export const isMissingAccessTokenError = (errorData: any): boolean => {
+/**
+ * Only the server refusing the refresh token ends the session. A request that
+ * never got an answer is the network's doing, and anything else - a shape we
+ * did not expect, a server fault - leaves the session unknown.
+ */
+export const classifyRefreshFailure = (
+  error: unknown,
+): Exclude<TokenRefreshOutcome, 'refreshed'> => {
+  if (!(error instanceof ApiError)) return 'unavailable';
+  if (error.statusCode === 401 || error.statusCode === 403) return 'rejected';
+  const neverAnswered =
+    error.statusCode === undefined &&
+    (error.isNetworkError || error.isTimeout || error.isCancelled);
+  return neverAnswered ? 'offline' : 'unavailable';
+};
+
+export const isMissingAccessTokenError =(errorData: any): boolean => {
   const text = String(errorData?.message || errorData?.error || '').toLowerCase();
   return text.includes('access token') && text.includes('required');
 };
@@ -114,6 +137,9 @@ export const shouldCaptureApiHttpError = (
   // The download screen handles this structured business refusal with the
   // premium prompt; retain reporting for every other forbidden response.
   if (statusCode === 403 && errorData?.code === 'DOWNLOAD_LIMIT_REACHED') return false;
+  // Likewise a premium-only feature: the lecturer and reciter screens answer it
+  // with the upgrade prompt.
+  if (statusCode === 403 && errorData?.code === 'FEATURE_NOT_AVAILABLE') return false;
   const errorText = getApiErrorText(errorData);
   // A wrong password or a duplicate signup is the user's situation, not a
   // defect, whatever else is going on with the session.
@@ -125,7 +151,11 @@ export const shouldCaptureApiHttpError = (
   if (afterTokenRefreshRetry && isInvalidOrExpiredTokenMessage(errorText)) return false;
   // A refresh the server refused is expected too. `unavailable` is still
   // reported: that one is a real anomaly and does not end the session.
-  return !(isMissingAccessTokenError(errorData) || refreshOutcome === 'rejected');
+  return !(
+    isMissingAccessTokenError(errorData) ||
+    refreshOutcome === 'rejected' ||
+    refreshOutcome === 'offline'
+  );
 };
 
 /**
@@ -305,10 +335,7 @@ class ApiClient {
         await secureStoreCompat.setItemAsync('auth_token', tokens.accessToken);
         return 'refreshed';
       } catch (error) {
-        // Only the server refusing the refresh token ends the session. Anything
-        // else - offline, timeout, a shape we did not expect - leaves it unknown.
-        const status = error instanceof ApiError ? error.statusCode : undefined;
-        return status === 401 || status === 403 ? 'rejected' : 'unavailable';
+        return classifyRefreshFailure(error);
       }
     })().finally(() => {
       this._refreshPromise = null;
@@ -844,6 +871,7 @@ class ApiClient {
           config.skipTokenRefresh,
         );
         suppressSentryFailureTelemetry = !shouldReportToSentry;
+        apiError.isExpectedRefusal = !shouldReportToSentry;
 
         if (shouldReportToSentry) {
           captureSentryException(apiError, {

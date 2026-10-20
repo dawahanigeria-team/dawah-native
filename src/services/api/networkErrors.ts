@@ -103,6 +103,7 @@ const EXPECTED_CONNECTIVITY_MESSAGE_PATTERNS: RegExp[] = [
   /\bthe request timed out\b/i,
   /\btaking longer than usual\b/i,
   /\bthe network connection was interrupted\b/i,
+  /\bserver with the specified hostname could not be found\b/i,
 ];
 
 export const isExpectedConnectivityMessage = (value?: string | null): boolean => {

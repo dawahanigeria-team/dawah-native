@@ -79,7 +79,8 @@ class DownloadsApiService {
       // in again. Not when the refresh never got an answer, though - the session
       // may be fine, and telling someone to sign in over a dropped request both
       // loses their place and holds the queue for something that would retry.
-      const refreshUnavailable = error?.refreshOutcome === 'unavailable';
+      const refreshUnavailable =
+        error?.refreshOutcome === 'unavailable' || error?.refreshOutcome === 'offline';
       if (
         payload?.code === 'AUTH_REQUIRED' ||
         (payload?.code === 'TOKEN_EXPIRED' && !refreshUnavailable)
