@@ -19,6 +19,7 @@ import {
   isExpectedMissingAccessTokenFailure,
   isExpectedSocialSignInFailure,
   isExpectedUserInputRefusalFailure,
+  scrubSensitiveBreadcrumb,
   scrubSensitiveExtras,
   shouldDropExpectedUserInputRefusalEvent,
   shouldDropExpectedExpoUpdatesCheckEvent,
@@ -221,7 +222,7 @@ export const initSentry = () => {
       if (breadcrumb.category === "console") {
         return null; // Don't send console logs as breadcrumbs
       }
-      return breadcrumb;
+      return scrubSensitiveBreadcrumb(breadcrumb);
     },
 
     // Ignore specific errors

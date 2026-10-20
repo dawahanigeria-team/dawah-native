@@ -210,20 +210,33 @@ export const isExpectedUserInputRefusalFailure = (
 
 const SENSITIVE_EXTRA_KEYS = new Set(['email', 'email_or_username', 'username', 'password']);
 
+const filterSensitiveKeys = (values: Record<string, unknown>): void => {
+  Object.keys(values).forEach((key) => {
+    if (SENSITIVE_EXTRA_KEYS.has(key.toLowerCase())) {
+      values[key] = '[Filtered]';
+    }
+  });
+};
+
 /**
  * What someone typed into an auth form is not ours to keep, and Sentry's
  * server-side scrubbing let `email` through.
  */
 export const scrubSensitiveExtras = <T extends { extra?: Record<string, unknown> }>(event: T): T => {
-  const extra = event.extra;
-  if (!extra) return event;
-
-  Object.keys(extra).forEach((key) => {
-    if (SENSITIVE_EXTRA_KEYS.has(key.toLowerCase())) {
-      extra[key] = '[Filtered]';
-    }
-  });
+  if (event.extra) filterSensitiveKeys(event.extra);
   return event;
+};
+
+/**
+ * The same typed values, travelling as breadcrumb data. The sign-in, sign-up
+ * and password-reset screens leave a breadcrumb that names the email, and it
+ * rides along on every event raised afterwards in that session.
+ */
+export const scrubSensitiveBreadcrumb = <T extends { data?: Record<string, unknown> }>(
+  breadcrumb: T,
+): T => {
+  if (breadcrumb.data) filterSensitiveKeys(breadcrumb.data);
+  return breadcrumb;
 };
 
 const someExceptionText = (

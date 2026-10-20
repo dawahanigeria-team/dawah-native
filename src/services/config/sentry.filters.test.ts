@@ -5,6 +5,7 @@ import {
   isExpectedUserInputRefusal,
   isExpectedUserInputRefusalFailure,
   isInvalidOrExpiredTokenMessage,
+  scrubSensitiveBreadcrumb,
   scrubSensitiveExtras,
   shouldDropExpectedExpoUpdatesCheckEvent,
   shouldDropExpectedUserInputRefusalEvent,
@@ -290,5 +291,25 @@ describe('scrubSensitiveExtras', () => {
     const event: { message: string; extra?: Record<string, unknown> } = { message: 'boom' };
 
     expect(scrubSensitiveExtras(event)).toBe(event);
+  });
+});
+
+describe('scrubSensitiveBreadcrumb', () => {
+  test('filters a typed email carried in breadcrumb data and keeps the rest', () => {
+    const breadcrumb = {
+      message: 'Sign in failed',
+      data: { email: 'someone@example.com', error: 'Invalid password' },
+    };
+
+    expect(scrubSensitiveBreadcrumb(breadcrumb).data).toEqual({
+      email: '[Filtered]',
+      error: 'Invalid password',
+    });
+  });
+
+  test('passes breadcrumbs without data through', () => {
+    const breadcrumb: { message: string; data?: Record<string, unknown> } = { message: 'tap' };
+
+    expect(scrubSensitiveBreadcrumb(breadcrumb)).toBe(breadcrumb);
   });
 });
