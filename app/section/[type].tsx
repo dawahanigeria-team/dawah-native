@@ -403,11 +403,14 @@ function SectionScreen() {
         type === "quran-recitations" ||
         type === "ramadan-tafsir") &&
       hasMore &&
-      !isLoadingMore
+      !isLoadingMore &&
+      // A failed page waits for the footer's Retry. FlashList calls this again
+      // as soon as the loading footer collapses, so retrying here loops.
+      !hasError
     ) {
       loadMore();
     }
-  }, [type, hasMore, isLoadingMore, loadMore]);
+  }, [type, hasMore, isLoadingMore, hasError, loadMore]);
 
   // Render item for list
   const renderItem = useCallback(
@@ -695,6 +698,29 @@ function SectionScreen() {
 
   // Render footer (loading indicator) for list
   const renderFooter = useCallback(() => {
+    if (hasError && !isLoadingMore && rawData.length > 0) {
+      return (
+        <View style={tw`py-4 items-center`}>
+          <Text variant="caption1" color="secondaryLabel" style={tw`mb-2`}>
+            Could not load more {sectionInfo.title.toLowerCase()}
+          </Text>
+          <TouchableOpacity
+            onPress={() => loadMore()}
+            style={[
+              tw`px-5 py-2 rounded-full`,
+              { backgroundColor: colors.system.fill.quaternary },
+            ]}
+            accessibilityLabel={`Retry loading more ${sectionInfo.title.toLowerCase()}`}
+            accessibilityRole="button"
+            activeOpacity={0.8}
+          >
+            <Text variant="subheadline" color="label" style={tw`font-semibold`}>
+              Retry
+            </Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
     if (!isLoadingMore) return null;
     return (
       <View style={tw`py-4 items-center`}>
@@ -704,7 +730,7 @@ function SectionScreen() {
         </Text>
       </View>
     );
-  }, [isLoadingMore, colors]);
+  }, [isLoadingMore, hasError, rawData.length, loadMore, sectionInfo.title, colors]);
 
   // Empty component for list
   const renderEmpty = useCallback(() => {
