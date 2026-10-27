@@ -51,13 +51,20 @@ describe('isExpectedConnectivityMessage', () => {
     ).toBe(true);
   });
 
+  test('matches an Android download whose socket read timed out', () => {
+    // OkHttp's SocketTimeoutException, as expo-file-system rejects it.
+    expect(isExpectedConnectivityMessage('timeout')).toBe(true);
+  });
+
   test('stays out of transient-network handling, which rewrites user-facing messages', () => {
     expect(isTransientNetworkErrorText('The request timed out.')).toBe(false);
     expect(isTransientNetworkErrorText('The internet connection appears to be offline.')).toBe(false);
+    expect(isTransientNetworkErrorText('timeout')).toBe(false);
   });
 
   test('ignores unrelated failures', () => {
     expect(isExpectedConnectivityMessage('Audio loading timeout')).toBe(false);
+    expect(isExpectedConnectivityMessage('Download timeout exceeded')).toBe(false);
     expect(isExpectedConnectivityMessage('')).toBe(false);
   });
 });
