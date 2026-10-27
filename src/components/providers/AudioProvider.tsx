@@ -10,6 +10,7 @@ import { useAudioPlayback } from '../../hooks/useAudioPlayback'
 import { lectureDetailApi } from '../../services/api/lectureDetail.api'
 import { addSentryBreadcrumb, captureSentryException } from '../../services/config/sentry.config'
 import { downloadsService } from '../../services/downloads.service'
+import { reportPlaybackError, type PlaybackErrorEvent } from '../../services/playbackErrorReport'
 import { analytics } from '../../services/analytics.service'
 import TrackPlayer, {
   Event,
@@ -481,16 +482,8 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     audioControlsRef.current = audioControls
   }, [audioControls])
 
-  const handlePlaybackError = useCallback((event: { code?: string; message?: string }) => {
-    const currentState = playerStore.get()
-    captureSentryException(new Error('TrackPlayer playback error'), {
-      component: 'AudioProvider',
-      action: 'playbackError',
-      trackId: currentState.currentEpisode?.id,
-      errorCode: event.code,
-      errorMessage: event.message,
-      level: 'error',
-    })
+  const handlePlaybackError = useCallback((event: PlaybackErrorEvent) => {
+    void reportPlaybackError(event, playerStore.get().currentEpisode?.id)
 
     if (event.code === 'audio-source-error') {
       // A failed AVPlayer/ExoPlayer source cannot recover by seeking the same
