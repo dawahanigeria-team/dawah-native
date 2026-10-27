@@ -707,8 +707,11 @@ function SectionScreen() {
           <TouchableOpacity
             onPress={() => loadMore()}
             style={[
-              tw`px-5 py-2 rounded-full`,
-              { backgroundColor: colors.system.fill.quaternary },
+              tw`px-5 py-2 rounded-full items-center justify-center`,
+              {
+                backgroundColor: colors.system.fill.quaternary,
+                minHeight: designTokens.hitTargets.minimum,
+              },
             ]}
             accessibilityLabel={`Retry loading more ${sectionInfo.title.toLowerCase()}`}
             accessibilityRole="button"
