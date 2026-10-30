@@ -116,14 +116,14 @@ const NotificationsScreen = () => {
       <ScrollView contentContainerStyle={styles.content}>
         {/* Header */}
         <View style={tw`flex-row items-center px-4 py-3`}>
-          <View style={tw`w-10 h-10 items-center justify-center mr-2`}>
-            <Ionicons
-              name="arrow-back"
-              size={24}
-              color={colors.system.label.primary}
-              onPress={() => router.back()}
-            />
-          </View>
+          <Pressable
+            onPress={() => router.back()}
+            style={tw`w-10 h-10 items-center justify-center mr-2`}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <Ionicons name="arrow-back" size={24} color={colors.system.label.primary} />
+          </Pressable>
           <Text
             style={[
               tw`text-2xl font-bold`,

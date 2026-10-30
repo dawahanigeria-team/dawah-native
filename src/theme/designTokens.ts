@@ -193,7 +193,8 @@ export const colorsLight = {
     },
     label: {
       primary: "#000000",
-      secondary: "rgba(60, 60, 67, 0.6)",
+      // 0.6 (iOS default) measures 3.3:1 on the page; 0.75 clears 4.5:1.
+      secondary: "rgba(60, 60, 67, 0.75)",
       tertiary: "rgba(60, 60, 67, 0.3)",
       quaternary: "rgba(60, 60, 67, 0.18)",
     },

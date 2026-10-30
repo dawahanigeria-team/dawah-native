@@ -22,6 +22,7 @@ import { ensureGoogleSigninConfigured, signInWithGoogle } from "../src/services/
 import { useAuthStore } from "../src/stores";
 import tw from "../src/theme/twrnc";
 import { boxShadow } from "../src/utils/shadow";
+import { toUserFacingError } from "../src/utils/userFacingError";
 
 export default function SignInScreen() {
   const router = useRouter();
@@ -97,6 +98,17 @@ export default function SignInScreen() {
     }
   };
 
+  const showAuthFailure = (title: string, err: unknown, fallback: string, retry: () => void) => {
+    const { kind, message } = toUserFacingError(err, fallback);
+    const buttons =
+      kind === "network" || kind === "server"
+        ? [{ text: "Not now", style: "cancel" as const }, { text: "Try again", onPress: retry }]
+        : kind === "credentials"
+          ? [{ text: "OK" }, { text: "Reset password", onPress: () => router.push("/forgot-password") }]
+          : [{ text: "OK" }];
+    Alert.alert(title, message, buttons);
+  };
+
   const handleSignIn = async () => {
     clearError();
 
@@ -132,10 +144,11 @@ export default function SignInScreen() {
         email: email,
       });
 
-      Alert.alert(
+      showAuthFailure(
         "Sign In Failed",
-        error.message || "Unable to sign in. Please check your credentials and try again.",
-        [{ text: "OK" }]
+        error,
+        "Unable to sign in. Please check your email and password and try again.",
+        handleSignIn,
       );
     }
   };
@@ -182,10 +195,11 @@ export default function SignInScreen() {
         action: "handleAppleSignIn",
         level: "warning",
       });
-      Alert.alert(
+      showAuthFailure(
         "Apple Sign In Failed",
-        error.message || "Unable to sign in with Apple. Please try again.",
-        [{ text: "OK" }]
+        error,
+        "Unable to sign in with Apple. Please try again.",
+        handleAppleSignIn,
       );
     }
   };
@@ -215,10 +229,11 @@ export default function SignInScreen() {
         action: "handleGoogleSignIn",
         level: "warning",
       });
-      Alert.alert(
+      showAuthFailure(
         "Google Sign In Failed",
-        error.message || "Unable to sign in with Google. Please try again.",
-        [{ text: "OK" }]
+        error,
+        "Unable to sign in with Google. Please try again.",
+        handleGoogleSignIn,
       );
     }
   };
@@ -261,6 +276,8 @@ export default function SignInScreen() {
           <View>
             <Pressable
               onPress={handleBack}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
               style={[
                 tw`mb-6 self-start p-2 -ml-2 rounded-full`,
                 { backgroundColor: colors.system.fill.tertiary },
@@ -395,7 +412,12 @@ export default function SignInScreen() {
                 editable={!isLoading}
               />
               {email.length > 0 && (
-                <Pressable onPress={() => setEmail("")} hitSlop={8}>
+                <Pressable
+                  onPress={() => setEmail("")}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear email"
+                >
                   <Ionicons
                     name="close-circle"
                     size={18}
@@ -472,6 +494,8 @@ export default function SignInScreen() {
               <Pressable
                 onPress={() => setShowPassword(!showPassword)}
                 hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={showPassword ? "Hide password" : "Show password"}
               >
                 <Ionicons
                   name={showPassword ? "eye-off-outline" : "eye-outline"}

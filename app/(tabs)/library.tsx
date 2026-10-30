@@ -4,6 +4,7 @@ import { FlashList } from "../../src/components/adapters/flashListCompat";
 import { Text, TouchableOpacity, View, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../../src/components/molecules/Card";
+import { Button } from "../../src/components/atoms/Button";
 import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
 import { useGuardedPush } from "../../src/navigation/useGuardedPush";
 import { usePlayerActions, useDownloadsStore, useFavoritesStore } from "../../src/stores";
@@ -353,8 +354,21 @@ function LibraryScreen() {
         {tab === "Downloads" && "Download episodes to listen offline"}
         {tab === "History" && "Your listening history will appear here"}
         {tab === "Liked" && "Like episodes to see them here"}
-        {tab === "Playlists" && "Create playlists to organize your content"}
+        {tab === "Playlists" &&
+          (isAuthenticated
+            ? "Create playlists to organize your content"
+            : "Sign in to create playlists and keep your lectures organized")}
       </Text>
+      {tab === "Playlists" && !isAuthenticated && (
+        <View style={tw`mt-5`}>
+          <Button
+            size="medium"
+            onPress={() => guardedPush({ pathname: "/sign-in", params: { returnTo: "/library" } })}
+          >
+            Sign in to create playlists
+          </Button>
+        </View>
+      )}
     </View>
   );
 
@@ -406,7 +420,7 @@ function LibraryScreen() {
     }
 
     return renderEmptyState(activeTab);
-  }, [activeTab, loading, colors]);
+  }, [activeTab, loading, colors, isAuthenticated]);
 
   return (
     <SafeAreaView
@@ -452,7 +466,7 @@ function LibraryScreen() {
         <View
           style={[
             tw`rounded-2xl p-1 flex-row`,
-            { backgroundColor: colors.system.background.tertiary },
+            { backgroundColor: colors.system.background.secondary },
           ]}
         >
           {tabs.map((tab) => (

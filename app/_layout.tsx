@@ -1,5 +1,5 @@
 import { ObserveRoot } from "expo-observe";
-import { Stack, usePathname, useRouter } from "expo-router";
+import { Stack, usePathname, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFonts } from "expo-font";
@@ -12,6 +12,7 @@ import { logger } from "../src/utils/logger";
 
 import { ErrorBoundary } from "../src/components/atoms";
 import { MiniPlayer } from "../src/components/organisms";
+import { shouldShowMiniPlayer as shouldShowMiniPlayerOn } from "../src/navigation/miniPlayerVisibility";
 import { AudioProvider } from "../src/components/providers/AudioProvider";
 import { UpdatesProvider } from "../src/components/providers/UpdatesProvider";
 import { usePushNotifications } from "../src/hooks/usePushNotifications";
@@ -116,6 +117,7 @@ function AppSessionTracker() {
 
 function RootLayout() {
   const pathname = usePathname();
+  const segments = useSegments();
   const safePush = useSafeRoutePush();
   const hasInitializedApp = useRef(false);
   const { isDark } = useTheme();
@@ -331,8 +333,7 @@ function RootLayout() {
     };
   }, [clearPendingPlayerNavigationTimeout]);
 
-  // Hide mini player on lecture detail page since it has full playback controls
-  const shouldShowMiniPlayer = !pathname.startsWith("/lecture/");
+  const shouldShowMiniPlayer = shouldShowMiniPlayerOn(pathname, segments);
 
   return (
     <SafeAreaProvider>

@@ -22,6 +22,12 @@ import { ensureGoogleSigninConfigured, signInWithGoogle } from "../src/services/
 import { useAuthStore } from "../src/stores";
 import tw from "../src/theme/twrnc";
 import { boxShadow } from "../src/utils/shadow";
+import { toUserFacingError } from "../src/utils/userFacingError";
+
+const plainAuthMessage = (err: unknown, fallback: string): string => {
+  const { kind, message } = toUserFacingError(err, fallback);
+  return kind === "credentials" ? fallback : message;
+};
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -151,7 +157,7 @@ export default function SignUpScreen() {
 
       Alert.alert(
         "Sign Up Failed",
-        error.message || "Unable to create account. Please try again.",
+        plainAuthMessage(error, "Unable to create account. Please try again."),
         [{ text: "OK" }]
       );
     }
@@ -201,7 +207,7 @@ export default function SignUpScreen() {
       });
       Alert.alert(
         "Apple Sign In Failed",
-        error.message || "Unable to sign in with Apple. Please try again.",
+        plainAuthMessage(error, "Unable to sign in with Apple. Please try again."),
         [{ text: "OK" }]
       );
     }
@@ -230,7 +236,7 @@ export default function SignUpScreen() {
       });
       Alert.alert(
         "Google Sign In Failed",
-        error.message || "Unable to sign in with Google. Please try again.",
+        plainAuthMessage(error, "Unable to sign in with Google. Please try again."),
         [{ text: "OK" }]
       );
     }
@@ -321,6 +327,8 @@ export default function SignUpScreen() {
           <Pressable
             onPress={() => options.setShowPassword!(!options.showPassword)}
             hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={options.showPassword ? "Hide password" : "Show password"}
           >
             <Ionicons
               name={options.showPassword ? "eye-off-outline" : "eye-outline"}
@@ -330,7 +338,12 @@ export default function SignUpScreen() {
           </Pressable>
         )}
         {!options.showToggle && value.length > 0 && (
-          <Pressable onPress={() => setValue("")} hitSlop={8}>
+          <Pressable
+            onPress={() => setValue("")}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={`Clear ${label.toLowerCase()}`}
+          >
             <Ionicons
               name="close-circle"
               size={18}
@@ -371,6 +384,8 @@ export default function SignUpScreen() {
           <View>
             <Pressable
               onPress={() => router.back()}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
               style={[
                 tw`mb-6 self-start p-2 -ml-2 rounded-full`,
                 { backgroundColor: colors.system.fill.tertiary },
@@ -444,7 +459,7 @@ export default function SignUpScreen() {
                 variant="subheadline"
                 style={{ color: colors.semantic.red, flex: 1 }}
               >
-                {error}
+                {plainAuthMessage(error, "Unable to create account. Please try again.")}
               </Text>
             </View>
           )}
