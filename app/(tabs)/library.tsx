@@ -23,6 +23,7 @@ import { lectureDetailApi } from "../../src/services/api/lectureDetail.api";
 import { playlistApi } from "../../src/services/api/playlist.api";
 import type { UserPlaylist } from "../../src/types/api.types";
 import { resolveFavoriteIdsForLoad } from "../../src/features/library/resolveFavoriteIdsForLoad";
+import { mapWithConcurrency } from "../../src/utils/mapWithConcurrency";
 
 type LibraryTab = "Downloads" | "History" | "Liked" | "Playlists";
 
@@ -106,31 +107,29 @@ function LibraryScreen() {
 
       const favoriteIdsToLoad = await resolveFavoriteIdsForLoad(favoriteIds, fetchFavorites);
 
-      // Fetch lecture details for each favorite ID
-      const episodes: Episode[] = [];
-      for (const lectureId of favoriteIdsToLoad) {
-        try {
-          const lecture = await lectureDetailApi.getLectureDetail({ lectureId });
-          if (lecture) {
-            episodes.push({
-              id: lecture.id,
-              title: lecture.title,
-              lecturerName: lecture.lecturerName || 'Unknown',
-              durationSec: lecture.durationSec || 0,
-              coverUrl: lecture.coverUrl || '',
-              audioUrl: lecture.audioUrl || '',
-              seriesId: lecture.albumId || '',
-              plays: lecture.views || 0,
-              liked: true,
-              language: lecture.language || '',
-              downloads: lecture.downloads || 0,
-              createdAt: lecture.postedDate || new Date().toISOString(),
-            });
-          }
-        } catch (err) {
+      // Four at a time: a serial loop made 20 likes cost ~20 round trips.
+      const lectures = await mapWithConcurrency(favoriteIdsToLoad, 4, (lectureId) =>
+        lectureDetailApi.getLectureDetail({ lectureId, countView: false }).catch((err) => {
           console.warn(`Failed to load lecture ${lectureId}:`, err);
-        }
-      }
+          return undefined;
+        }),
+      );
+      const episodes: Episode[] = lectures
+        .filter((lecture): lecture is NonNullable<typeof lecture> => Boolean(lecture))
+        .map((lecture) => ({
+          id: lecture.id,
+          title: lecture.title,
+          lecturerName: lecture.lecturerName || 'Unknown',
+          durationSec: lecture.durationSec || 0,
+          coverUrl: lecture.coverUrl || '',
+          audioUrl: lecture.audioUrl || '',
+          seriesId: lecture.albumId || '',
+          plays: lecture.views || 0,
+          liked: true,
+          language: lecture.language || '',
+          downloads: lecture.downloads || 0,
+          createdAt: lecture.postedDate || new Date().toISOString(),
+        }));
 
       setLikedEpisodes(episodes);
       logger.debug(`Loaded ${episodes.length} liked lectures`);

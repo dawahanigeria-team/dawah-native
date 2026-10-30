@@ -218,7 +218,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
               }
 
               try {
-                const detail = await lectureDetailApi.getLectureDetail({ lectureId: id, useCache: true })
+                const detail = await lectureDetailApi.getLectureDetail({ lectureId: id, useCache: true, countView: false })
                 if (stopSupersededRestoration()) return
                 episodes.push(detailToEpisode(detail))
               } catch (error) {

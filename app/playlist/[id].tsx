@@ -159,7 +159,7 @@ const PlaylistDetailScreen: React.FC = () => {
         // Fetch details for each audio ID
         const lectureDetailsPromises = audioIds.map(async (audioId: number) => {
           try {
-            const lectureDetail = await lectureDetailApi.getLectureDetail({ lectureId: audioId });
+            const lectureDetail = await lectureDetailApi.getLectureDetail({ lectureId: audioId, countView: false });
             // Map LectureDetail to SearchLecture format
             const searchLecture: SearchLecture = {
               id: lectureDetail.id,
