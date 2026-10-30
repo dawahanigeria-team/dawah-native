@@ -20,7 +20,7 @@ export const useQuranAlbums = (
   params?: QuranAlbumsParams
 ): UseQuranAlbumsResult => {
   const [albums, setAlbums] = useState<QuranAlbum[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(params !== undefined);
   const [error, setError] = useState<Error | null>(null);
   const [currentPage, setCurrentPage] = useState(params?.page ?? 1);
   const [hasMore, setHasMore] = useState(true);

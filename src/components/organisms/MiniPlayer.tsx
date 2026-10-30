@@ -11,8 +11,10 @@ import {
   ScrollView,
   Share,
   useWindowDimensions,
+  StyleProp,
   StyleSheet,
   View,
+  ViewStyle,
 } from "react-native";
 import {
   Gesture,
@@ -34,7 +36,7 @@ import { useDownloadGate } from "../../hooks/useDownloadGate";
 import { useLectureDetail } from "../../hooks/useLectureDetail";
 import { useTheme } from "../../hooks/useTheme";
 import { useDownloadsStore } from "../../stores";
-import { resolveEpisodeArtistName, usePlayerStore } from "../../stores/playerStore";
+import { playerStore, resolveEpisodeArtistName, usePlayerActions } from "../../stores/playerStore";
 import { designTokens } from "../../theme/designTokens";
 import { getTabBarHeight } from "../../utils/layout";
 import { getInitials, getPlaceholderStyle } from "../../utils/colorPlaceholder";
@@ -47,6 +49,40 @@ import { Touchable } from "../atoms/Touchable";
 import { boxShadow } from "../../utils/shadow";
 
 const MINI_PLAYER_HEIGHT = 72;
+
+const formatClock = (seconds: number): string => {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+};
+
+// Progress changes every second during playback. Reading it here, in leaf
+// components, keeps the rest of the player from re-rendering with it.
+const ProgressMarks: React.FC<{
+  fillStyle: StyleProp<ViewStyle>;
+  thumbStyle: StyleProp<ViewStyle>;
+}> = ({ fillStyle, thumbStyle }) => {
+  const percentage = playerStore.use((s) =>
+    s.duration > 0 ? (s.progress / s.duration) * 100 : 0,
+  );
+  return (
+    <>
+      <View style={[fillStyle, { width: `${percentage}%` }]} />
+      <View style={[thumbStyle, { left: `${percentage}%` }]} />
+    </>
+  );
+};
+
+const ClockText: React.FC<{ part: "elapsed" | "total" | "both" }> = ({ part }) => {
+  const label = playerStore.use((s) =>
+    part === "elapsed"
+      ? formatClock(s.progress)
+      : part === "total"
+        ? formatClock(s.duration)
+        : `${formatClock(s.progress)}/${formatClock(s.duration)}`,
+  );
+  return <>{label}</>;
+};
 
 interface MiniPlayerProps {
   onExpand?: () => void;
@@ -62,13 +98,16 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
     // height and the progress track its original width after a rotation or
     // split-view resize.
     const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+    const currentEpisode = playerStore.use((s) => s.currentEpisode);
+    const isPlaying = playerStore.use((s) => s.isPlaying);
+    const isExpanded = playerStore.use((s) => s.isExpanded);
+    const isLoading = playerStore.use((s) => s.isLoading);
+    const playbackSpeed = playerStore.use((s) => s.playbackSpeed ?? 1);
+    const repeatMode = playerStore.use((s) => s.repeatMode ?? "off");
+    const isShuffled = playerStore.use((s) => s.isShuffled);
+    const sleepTimerEndsAt = playerStore.use((s) => s.sleepTimerEndsAt);
+    const sleepTimerEndOfTrack = playerStore.use((s) => s.sleepTimerEndOfTrack);
     const {
-      currentEpisode,
-      isPlaying,
-      progress,
-      duration,
-      isExpanded,
-      isLoading,
       togglePlayPause,
       expandPlayer,
       minimizePlayer,
@@ -76,18 +115,13 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       seekBackward,
       closePlayer,
       setProgress,
-      playbackSpeed,
       setPlaybackSpeed,
-      repeatMode,
       setRepeatMode,
-      isShuffled,
       toggleShuffle,
-      sleepTimerEndsAt,
-      sleepTimerEndOfTrack,
       setSleepTimer,
       setSleepTimerEndOfTrack,
       clearSleepTimer,
-    } = usePlayerStore();
+    } = usePlayerActions();
     const {
       addToQueue,
       pauseDownload,
@@ -222,10 +256,9 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       };
     });
 
-    const progressPercentage = duration > 0 ? (progress / duration) * 100 : 0;
-
     const updateProgressFromTouch = useCallback(
       (event: GestureResponderEvent, trackWidth: number) => {
+        const duration = playerStore.get().duration;
         if (!duration || trackWidth <= 0) return;
         const touchX = event.nativeEvent.locationX;
         const nextProgress = Math.max(
@@ -234,7 +267,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
         );
         setProgress(nextProgress);
       },
-      [duration, setProgress]
+      [setProgress]
     );
 
     const handleMiniProgressTouch = useCallback(
@@ -369,12 +402,6 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       }
     };
 
-    const formatDuration = (seconds: number): string => {
-      const mins = Math.floor(seconds / 60);
-      const secs = Math.floor(seconds % 60);
-      return `${mins}:${secs.toString().padStart(2, "0")}`;
-    };
-
     const renderMiniPlayer = () => (
       <View style={styles.miniPlayerContainer}>
         {/* Progress Bar with Draggable Thumb */}
@@ -389,21 +416,11 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
             onResponderGrant={handleMiniProgressTouch}
             onResponderMove={handleMiniProgressTouch}
           >
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width: `${progressPercentage}%`,
-                  backgroundColor: colors.brand.primary,
-                },
-              ]}
-            />
-            {/* Draggable Progress Thumb */}
-            <View
-              style={[
+            <ProgressMarks
+              fillStyle={[styles.progressFill, { backgroundColor: colors.brand.primary }]}
+              thumbStyle={[
                 styles.miniProgressThumb,
                 {
-                  left: `${progressPercentage}%`,
                   backgroundColor: colors.brand.primary,
                   boxShadow: boxShadow(colors.system.label.primary, 0.3, 2, 1, 0),
                 },
@@ -455,7 +472,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
               {currentEpisode.title}
             </Text>
             <Text variant="caption1" color="secondaryLabel" numberOfLines={1}>
-              {displayArtistName ? `${displayArtistName} • ` : ""}{formatDuration(progress)}/{formatDuration(duration)}
+              {displayArtistName ? `${displayArtistName} • ` : ""}<ClockText part="both" />
             </Text>
           </View>
 
@@ -607,30 +624,18 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
                   onResponderGrant={handleExpandedProgressTouch}
                   onResponderMove={handleExpandedProgressTouch}
                 >
-                  <View
-                    style={[
-                      styles.progressSliderFill,
-                      {
-                        width: `${progressPercentage}%`,
-                        backgroundColor: colors.brand.primary,
-                      },
-                    ]}
-                  />
-                  <View
-                    style={{
-                      ...styles.progressThumb,
-                      left: `${progressPercentage}%`,
-                      backgroundColor: colors.brand.primary,
-                    }}
+                  <ProgressMarks
+                    fillStyle={[styles.progressSliderFill, { backgroundColor: colors.brand.primary }]}
+                    thumbStyle={[styles.progressThumb, { backgroundColor: colors.brand.primary }]}
                   />
                 </View>
               </View>
               <View style={styles.timeLabels}>
                 <Text variant="caption2" color="secondaryLabel">
-                  {formatDuration(progress)}
+                  <ClockText part="elapsed" />
                 </Text>
                 <Text variant="caption2" color="secondaryLabel">
-                  {formatDuration(duration)}
+                  <ClockText part="total" />
                 </Text>
               </View>
             </View>

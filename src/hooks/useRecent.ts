@@ -65,8 +65,11 @@ export const useRecent = (
 ): UseRecentResult => {
   const initiallyEnabled =
     initialParams.enabled !== false && Object.keys(initialParams).length > 0;
+  // A hook that is merely waiting to be enabled still has nothing to show, so it
+  // reports loading and the caller renders a skeleton instead of a blank gap.
+  const willFetch = Object.keys(initialParams).length > 0;
   const [lectures, setLectures] = useState<Episode[]>([]);
-  const [loading, setLoading] = useState(initiallyEnabled);
+  const [loading, setLoading] = useState(willFetch);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(initialParams.page || 1);

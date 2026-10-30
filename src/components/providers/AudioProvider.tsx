@@ -34,6 +34,7 @@ import {
   setAudioControls,
 } from '../../stores/playerStore'
 import type { Episode, PlayerState } from '../../types/types'
+import { shouldWriteProgress } from '../../utils/progressThrottle'
 
 interface AudioProviderProps {
   children: React.ReactNode
@@ -145,6 +146,10 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   const hasRestoredRef = useRef(false)
   const isRestoringRef = useRef(false)
   const lastSnapshotAtRef = useRef(0)
+  const lastProgressWriteRef = useRef<{ at: number; episodeId: string | null }>({
+    at: 0,
+    episodeId: null,
+  })
   const appStateRef = useRef<AppStateStatus>(AppState.currentState)
   const audioControlsRef = useRef<ReturnType<typeof useAudioPlayback> | null>(null)
   const playbackErrorEvents = useMemo(() => [Event.PlaybackError], [])
@@ -415,8 +420,22 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         status.isPlaying ||
         status.currentTime < currentState.progress ||
         status.currentTime === 0
-      if (shouldUpdateProgress && status.currentTime !== currentState.progress) {
+      const nowMs = Date.now()
+      const episodeId = String(currentState.currentEpisode.id)
+      if (
+        shouldUpdateProgress &&
+        status.currentTime !== currentState.progress &&
+        shouldWriteProgress({
+          currentTime: status.currentTime,
+          storedProgress: currentState.progress,
+          nowMs,
+          lastWriteMs: lastProgressWriteRef.current.at,
+          episodeId,
+          lastWriteEpisodeId: lastProgressWriteRef.current.episodeId,
+        })
+      ) {
         updates.progress = status.currentTime
+        lastProgressWriteRef.current = { at: nowMs, episodeId }
       }
       if (status.duration !== currentState.duration && status.duration > 0) {
         updates.duration = status.duration

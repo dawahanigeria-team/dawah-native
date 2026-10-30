@@ -49,6 +49,7 @@ export interface RecentLecturesResponse {
 const DAY_MS = 24 * 60 * 60 * 1000;
 const TRENDING_WINDOW_DAYS = 90;
 const POOL_SIZE = 150;
+const FIRST_PAGE_SIZE = 30;
 
 /**
  * How long a fetched page stays usable from the persistent cache.
@@ -111,13 +112,15 @@ function extractItems(body: any): any[] {
   return [];
 }
 
+interface RecentSnapshot {
+  raw: any[];
+  pool: SearchLecture[];
+  at: number;
+}
+
 class RecentLecturesApiService {
-  private pool: SearchLecture[] | null = null;
-  private cacheTimestamp = 0;
-  private inFlight: Promise<SearchLecture[]> | null = null;
-  private firstPage: SearchLecture[] | null = null;
-  private firstPageTimestamp = 0;
-  private firstPageInFlight: Promise<SearchLecture[]> | null = null;
+  private snapshot: RecentSnapshot | null = null;
+  private snapshotInFlight: Promise<RecentSnapshot> | null = null;
   private activeFilterKey = 'all';
 
   private preferenceFilter(params: RecentLecturesParams): FeedPreferenceFilter {
@@ -140,16 +143,15 @@ class RecentLecturesApiService {
     this.activeFilterKey = key;
   }
 
-  private async fetchPage(
-    page: number,
+  private async fetchRaw(
     filter: FeedPreferenceFilter,
-    limit = 30,
-  ): Promise<SearchLecture[]> {
+    limit: number,
+  ): Promise<any[]> {
     const response = await apiClient.get<any>(
       RECENT_ENDPOINT,
       {
         action: RECENT_ACTION,
-        page,
+        page: 1,
         limit,
         language_ids: filter.languageIds?.join(',') || undefined,
         lecturer_ids: filter.lecturerIds?.join(',') || undefined,
@@ -168,78 +170,67 @@ class RecentLecturesApiService {
       },
     );
 
-    return extractItems(response.data)
-      .filter((raw) => raw?.keyword !== 'dn_quran')
-      .map(normalizeItem);
+    return extractItems(response.data);
   }
 
-  /** First paint only needs page one. Trending can build its wider pool later. */
-  private async fetchFirstPage(
-    filter: FeedPreferenceFilter,
-  ): Promise<SearchLecture[]> {
-    const now = Date.now();
-    if (this.firstPage && now - this.firstPageTimestamp < MERGED_CACHE_TTL_MS) {
-      return this.firstPage;
-    }
-    if (this.firstPageInFlight) return this.firstPageInFlight;
-
-    this.firstPageInFlight = this.fetchPage(1, filter)
-      .then((items) => {
-        this.firstPage = items;
-        this.firstPageTimestamp = Date.now();
-        return items;
-      })
-      .finally(() => {
-        this.firstPageInFlight = null;
-      });
-
-    return this.firstPageInFlight;
+  private toLectures(raw: any[]): SearchLecture[] {
+    return raw.filter((item) => item?.keyword !== 'dn_quran').map(normalizeItem);
   }
 
   /**
-   * Fetch one bounded pool from /api/leclisting_recent.php, dedupe by nid,
-   * and sort newest-first as a defensive belt.
+   * One request feeds both the newest-first list and the trending pool. The
+   * server returns newest-first, so the first FIRST_PAGE_SIZE rows of the pool
+   * request are the rows a separate limit=30 request would have returned.
    * Cached for 5 minutes; concurrent callers share the in-flight promise.
    */
-  private async fetchPool(filter: FeedPreferenceFilter): Promise<SearchLecture[]> {
+  private async fetchSnapshot(
+    filter: FeedPreferenceFilter,
+  ): Promise<RecentSnapshot> {
     const now = Date.now();
-    if (this.pool && now - this.cacheTimestamp < MERGED_CACHE_TTL_MS) {
-      return this.pool;
+    if (this.snapshot && now - this.snapshot.at < MERGED_CACHE_TTL_MS) {
+      return this.snapshot;
     }
-    if (this.inFlight) return this.inFlight;
+    if (this.snapshotInFlight) return this.snapshotInFlight;
 
-    this.inFlight = (async () => {
+    this.snapshotInFlight = (async () => {
       try {
         logger.debug(
           `Fetching ${POOL_SIZE} items from ${RECENT_ENDPOINT}?action=${RECENT_ACTION}`,
         );
 
-        const items = await this.fetchPage(1, filter, POOL_SIZE);
+        const raw = await this.fetchRaw(filter, POOL_SIZE);
         const seen = new Set<string | number>();
-        const merged = items.filter((item) => {
+        const pool = this.toLectures(raw).filter((item) => {
           const id = (item as any)?.nid;
           if (id == null || seen.has(id)) return false;
           seen.add(id);
           return true;
         });
 
-        // Defensive sort — server already returns newest-first but pages
-        // arrive concurrently, so concat order isn't guaranteed.
-        merged.sort((a: any, b: any) => parsePostDate(b) - parsePostDate(a));
+        // Defensive sort. The server already returns newest-first.
+        pool.sort((a: any, b: any) => parsePostDate(b) - parsePostDate(a));
 
-        logger.debug(
-          `Recent pool: ${merged.length} unique items from one request`,
-        );
+        logger.debug(`Recent pool: ${pool.length} unique items from one request`);
 
-        this.pool = merged;
-        this.cacheTimestamp = now;
-        return merged;
+        this.snapshot = { raw, pool, at: now };
+        return this.snapshot;
       } finally {
-        this.inFlight = null;
+        this.snapshotInFlight = null;
       }
     })();
 
-    return this.inFlight;
+    return this.snapshotInFlight;
+  }
+
+  private async fetchFirstPage(
+    filter: FeedPreferenceFilter,
+  ): Promise<SearchLecture[]> {
+    const { raw } = await this.fetchSnapshot(filter);
+    return this.toLectures(raw.slice(0, FIRST_PAGE_SIZE));
+  }
+
+  private async fetchPool(filter: FeedPreferenceFilter): Promise<SearchLecture[]> {
+    return (await this.fetchSnapshot(filter)).pool;
   }
 
   private paginate(
@@ -328,10 +319,7 @@ class RecentLecturesApiService {
    * NOT enough for a user-initiated refresh — see clearPersistentCache.
    */
   clearCache(): void {
-    this.pool = null;
-    this.cacheTimestamp = 0;
-    this.firstPage = null;
-    this.firstPageTimestamp = 0;
+    this.snapshot = null;
     logger.debug('Recent/Trending lectures pool cleared');
   }
 
@@ -339,7 +327,7 @@ class RecentLecturesApiService {
    * Also drop the persisted page entries, so the next fetch really does reach
    * the network.
    *
-   * A refresh that clears only the in-memory pool re-runs fetchPage, which asks
+   * A refresh that clears only the in-memory pool re-runs fetchRaw, which asks
    * apiClient with useCache: true and is handed back the very pages we were
    * trying to get past — the user pulls to refresh and is shown the same
    * content. That was survivable while these pages expired after 10 minutes; at

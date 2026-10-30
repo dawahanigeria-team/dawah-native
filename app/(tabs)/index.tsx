@@ -141,10 +141,6 @@ function HomeScreen() {
     }
   }, [searchValue, guardedPush]);
 
-  const handleMicPress = useCallback(() => {
-    guardedPush("/search?voice=true");
-  }, [guardedPush]);
-
   // Data fetching
   const {
     lectures: popularLectures,
@@ -563,6 +559,7 @@ function HomeScreen() {
                   { backgroundColor: colors.system.background.secondary },
                 ]}
                 activeOpacity={0.8}
+                accessibilityRole="button"
                 accessibilityLabel="Edit listening preferences"
               >
                 <Ionicons
@@ -578,6 +575,12 @@ function HomeScreen() {
                   { backgroundColor: colors.system.background.secondary },
                 ]}
                 activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  unreadCount > 0
+                    ? `Notifications, ${unreadCount} unread`
+                    : "Notifications"
+                }
               >
                 <Ionicons
                   name="notifications-outline"
@@ -627,31 +630,18 @@ function HomeScreen() {
               autoCorrect={false}
               autoCapitalize="none"
             />
-            {searchValue.length > 0 ? (
+            {searchValue.length > 0 && (
               <TouchableOpacity
                 onPress={() => setSearchValue("")}
                 style={tw`w-8 h-8 rounded-lg items-center justify-center`}
                 activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Clear search"
               >
                 <Ionicons
                   name="close-circle"
                   size={20}
                   color={colors.system.label.tertiary}
-                />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                onPress={handleMicPress}
-                style={[
-                  tw`w-8 h-8 rounded-lg items-center justify-center`,
-                  { backgroundColor: colors.system.fill.tertiary },
-                ]}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name="mic"
-                  size={18}
-                  color={colors.system.label.secondary}
                 />
               </TouchableOpacity>
             )}
