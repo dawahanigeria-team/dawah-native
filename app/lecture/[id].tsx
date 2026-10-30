@@ -26,6 +26,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { Button, Chip, Text, Touchable } from "../../src/components/atoms";
 import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
+import { SeekBar } from "../../src/components/molecules/SeekBar";
 import AddToPlaylistModal from "../../src/components/organisms/AddToPlaylistModal";
 import { useDownloadGate } from "../../src/hooks/useDownloadGate";
 import { OBSERVE_ROUTE } from "../../src/services/config/observe.config";
@@ -42,6 +43,12 @@ import type { Episode } from "../../src/types/types";
 import { formatRelativeDate } from "../../src/utils/formatDate";
 import { appendShareSignature } from "../../src/utils/shareMessage";
 import { boxShadow } from "../../src/utils/shadow";
+import {
+  buildTransportRow,
+  SKIP_BACK_SECONDS,
+  SKIP_FORWARD_SECONDS,
+  type TransportButton,
+} from "../../src/utils/transportRow";
 
 const HEADER_HEIGHT = 300;
 
@@ -106,6 +113,25 @@ const formatReleaseDate = (rawDate?: string): string => {
   });
 };
 
+const HIT_SLOP = { top: 10, bottom: 10, left: 6, right: 6 };
+
+const downloadA11yLabel = (status: DownloadStatus | null, percent: number): string => {
+  switch (status) {
+    case DownloadStatus.COMPLETED:
+      return "Downloaded for offline listening";
+    case DownloadStatus.DOWNLOADING:
+      return `Downloading, ${Math.round(percent)} percent. Double tap to pause.`;
+    case DownloadStatus.PAUSED:
+      return "Download paused. Double tap to resume.";
+    case DownloadStatus.QUEUED:
+      return "Download queued";
+    case DownloadStatus.FAILED:
+      return "Download failed. Double tap to try again.";
+    default:
+      return "Download this lecture";
+  }
+};
+
 type ThemeColors = ReturnType<typeof useTheme>["colors"];
 
 interface LecturePlaybackControlsProps {
@@ -137,7 +163,15 @@ const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
     progress: currentProgress,
     duration: measuredDuration,
     playbackSpeed,
+    queue,
+    repeatMode,
+    isShuffled,
     setPlaybackSpeed,
+    setProgress,
+    setRepeatMode,
+    toggleShuffle,
+    seekForward,
+    seekBackward,
     playEpisode,
     togglePlayPause,
   } = usePlayerStore();
@@ -151,7 +185,6 @@ const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
   const duration = isCurrentLecture && measuredDuration > 0
     ? measuredDuration
     : episode?.durationSec || 0;
-  const progressPercent = duration > 0 ? (progress / duration) * 100 : 0;
 
   const handlePlayPress = useCallback(() => {
     if (!episode || !canPlay) return;
@@ -173,61 +206,107 @@ const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [playbackSpeed, setPlaybackSpeed]);
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  const handleSeek = useCallback(
+    (seconds: number) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      void setProgress(seconds);
+    },
+    [setProgress],
+  );
+
+  const handleAdjust = useCallback(
+    (delta: number) => {
+      void (delta > 0 ? seekForward(delta) : seekBackward(-delta));
+    },
+    [seekForward, seekBackward],
+  );
+
+  const transport = useMemo(
+    () =>
+      buildTransportRow({
+        repeatMode,
+        isShuffled,
+        queueLength: queue.length,
+        isCurrentLecture,
+        onShuffle: () => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          void toggleShuffle();
+        },
+        onSkipBack: () => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          void seekBackward(SKIP_BACK_SECONDS);
+        },
+        onSkipForward: () => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          void seekForward(SKIP_FORWARD_SECONDS);
+        },
+        onSetRepeat: (mode) => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          setRepeatMode(mode);
+        },
+      }),
+    [repeatMode, isShuffled, queue.length, isCurrentLecture, toggleShuffle, seekBackward, seekForward, setRepeatMode],
+  );
+
+  const visibleLeft = transport.filter((b) => b.visible && b.side === 'left');
+  const visibleRight = transport.filter((b) => b.visible && b.side === 'right');
+  // Keeps the play button centred when shuffle is hidden.
+  const leftPadding = Math.max(0, visibleRight.length - visibleLeft.length);
+
+  const renderTransportButton = (button: TransportButton) => {
+    const tint = !button.enabled
+      ? colors.system.label.tertiary
+      : button.active
+        ? colors.brand.primary
+        : colors.system.label.secondary;
+    return (
+      <TouchableOpacity
+        key={button.id}
+        onPress={button.onPress}
+        disabled={!button.enabled}
+        accessibilityRole="button"
+        accessibilityLabel={button.accessibilityLabel}
+        accessibilityState={{ disabled: !button.enabled, selected: button.active }}
+        style={{ width: 52, minHeight: 48, alignItems: 'center', justifyContent: 'center' }}
+      >
+        <Ionicons name={button.icon} size={26} color={tint} />
+        <Text variant="caption2" style={{ color: tint }}>
+          {button.caption}
+        </Text>
+      </TouchableOpacity>
+    );
   };
 
   return (
     <View style={[tw`px-6 pb-8 pt-4`, { backgroundColor: colors.system.background.primary }]}>
-      {/* Progress Bar */}
-      <View style={tw`mb-2`}>
-        <View style={[tw`h-1 rounded-full overflow-hidden`, { backgroundColor: colors.system.fill.tertiary }]}>
-          <View
-            style={[
-              tw`h-full rounded-full`,
-              {
-                backgroundColor: colors.brand.primary,
-                width: `${progressPercent}%`
-              }
-            ]}
-          />
-        </View>
-        <View style={tw`flex-row justify-between mt-2`}>
-          <Text variant="caption2" color="tertiaryLabel">
-            {formatTime(progress)}
-          </Text>
-          <Text variant="caption2" color="tertiaryLabel">
-            {formatTime(duration)}
-          </Text>
-        </View>
-      </View>
+      <SeekBar
+        position={progress}
+        duration={duration}
+        enabled={isCurrentLecture && duration > 0}
+        onSeek={handleSeek}
+        onAdjust={handleAdjust}
+        adjustStep={SKIP_BACK_SECONDS}
+      />
 
       {/* Main Playback Controls */}
-      <View style={tw`flex-row items-center justify-center mt-4 mb-4`}>
-        {/* Shuffle */}
-        <TouchableOpacity
-          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-          style={tw`w-12 h-12 items-center justify-center`}
-        >
-          <Ionicons name="shuffle" size={24} color={colors.system.label.secondary} />
-        </TouchableOpacity>
+      <View style={tw`flex-row items-center justify-between mt-4 mb-4`}>
+        <View style={tw`flex-row items-center`}>
+          {Array.from({ length: leftPadding }, (_, i) => (
+            <View key={`pad-${i}`} style={{ width: 52 }} />
+          ))}
+          {visibleLeft.map(renderTransportButton)}
+        </View>
 
-        {/* Previous */}
-        <TouchableOpacity
-          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
-          style={tw`w-14 h-14 items-center justify-center mx-4`}
-        >
-          <Ionicons name="play-back" size={32} color={colors.system.label.primary} />
-        </TouchableOpacity>
-
-        {/* Play/Pause - Large Center Button */}
         <TouchableOpacity
           onPress={handlePlayPress}
           disabled={!canPlay}
+          accessibilityRole="button"
+          accessibilityLabel={
+            !canPlay ? "Audio unavailable" : isCurrentlyPlaying ? "Pause" : "Play"
+          }
+          accessibilityState={{ disabled: !canPlay }}
           style={[
-            tw`w-20 h-20 rounded-full items-center justify-center mx-6`,
+            tw`w-20 h-20 rounded-full items-center justify-center`,
             {
               backgroundColor: canPlay ? colors.brand.primary : colors.system.fill.tertiary,
               // elevation 8 folded in: boxShadow renders on both platforms.
@@ -243,21 +322,7 @@ const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
           />
         </TouchableOpacity>
 
-        {/* Next */}
-        <TouchableOpacity
-          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
-          style={tw`w-14 h-14 items-center justify-center mx-4`}
-        >
-          <Ionicons name="play-forward" size={32} color={colors.system.label.primary} />
-        </TouchableOpacity>
-
-        {/* Repeat */}
-        <TouchableOpacity
-          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-          style={tw`w-12 h-12 items-center justify-center`}
-        >
-          <Ionicons name="repeat" size={24} color={colors.system.label.secondary} />
-        </TouchableOpacity>
+        <View style={tw`flex-row items-center`}>{visibleRight.map(renderTransportButton)}</View>
       </View>
 
       {/* Secondary Actions */}
@@ -267,7 +332,13 @@ const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
         { (downloadStatus === DownloadStatus.DOWNLOADING ||
           downloadStatus === DownloadStatus.PAUSED ||
           downloadStatus === DownloadStatus.QUEUED) && (
-            <TouchableOpacity onPress={onCancelDownload} style={tw`mr-4`}>
+            <TouchableOpacity
+              onPress={onCancelDownload}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel download"
+              hitSlop={HIT_SLOP}
+              style={tw`mr-4`}
+            >
               <Ionicons name="close-circle-outline" size={24} color={colors.semantic.red} />
             </TouchableOpacity>
           )}
@@ -277,6 +348,9 @@ const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
               void onDownloadPress();
             }}
             disabled={episode === null}
+            accessibilityRole="button"
+            accessibilityLabel={downloadA11yLabel(downloadStatus, downloadProgress)}
+            hitSlop={HIT_SLOP}
             style={tw`flex-row items-center`}
           >
             <Ionicons
@@ -328,21 +402,39 @@ const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity onPress={onShare} style={tw`flex-row items-center`}>
+        <TouchableOpacity
+          onPress={onShare}
+          accessibilityRole="button"
+          accessibilityLabel="Share this lecture"
+          hitSlop={HIT_SLOP}
+          style={tw`flex-row items-center`}
+        >
           <Ionicons name="share-outline" size={24} color={colors.system.label.secondary} />
           <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
             Share
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={onOpenAddToPlaylist} style={tw`flex-row items-center`}>
+        <TouchableOpacity
+          onPress={onOpenAddToPlaylist}
+          accessibilityRole="button"
+          accessibilityLabel="Add to playlist"
+          hitSlop={HIT_SLOP}
+          style={tw`flex-row items-center`}
+        >
           <Ionicons name="add-circle-outline" size={24} color={colors.system.label.secondary} />
           <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
             Add to Playlist
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={handleSpeedChange} style={tw`flex-row items-center`}>
+        <TouchableOpacity
+          onPress={handleSpeedChange}
+          accessibilityRole="button"
+          accessibilityLabel={`Playback speed ${playbackSpeed} times. Double tap to change.`}
+          hitSlop={HIT_SLOP}
+          style={tw`flex-row items-center`}
+        >
           <Ionicons name="speedometer-outline" size={24} color={colors.system.label.secondary} />
           <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
             {playbackSpeed}x
@@ -631,24 +723,45 @@ const LectureDetailScreen: React.FC = () => {
         }}
     >
       <BlurView intensity={80} tint="prominent" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+      <LinearGradient
+        pointerEvents="none"
+        colors={[colors.overlay.darkHeavy, colors.overlay.darkHeavy, 'transparent']}
+        locations={[0, 0.9, 1]}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+      />
       <View style={tw`flex-row items-center justify-between`}>
-        <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); goBack(); }} style={tw`w-10 h-10 items-center justify-center`}>
-          <Ionicons name="chevron-back" size={28} color={colors.system.label.primary} />
+        <TouchableOpacity
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); goBack(); }}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          style={tw`w-11 h-11 items-center justify-center`}
+        >
+          <Ionicons name="chevron-back" size={28} color={colors.fixed.white} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/playlists'); }} style={tw`w-10 h-10 items-center justify-center ml-2`}>
-          <Ionicons name="list" size={24} color={colors.system.label.primary} />
+        <TouchableOpacity
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/playlists'); }}
+          accessibilityRole="button"
+          accessibilityLabel="Open my playlists"
+          style={tw`w-11 h-11 items-center justify-center`}
+        >
+          <Ionicons name="list" size={24} color={colors.fixed.white} />
         </TouchableOpacity>
         <View style={tw`flex-1 mx-3`}>
-          <Text variant="body" color="label" weight="semibold" numberOfLines={1} style={tw`text-center`}>
+          <Text variant="body" weight="semibold" numberOfLines={1} style={[tw`text-center`, { color: colors.fixed.white }]}>
             {lecture ? cleanTitle(lecture.title, lecture.lecturerName) : ''}
           </Text>
         </View>
         <View>
-          <TouchableOpacity onPress={handleLike} style={tw`w-10 h-10 items-center justify-center`}>
+          <TouchableOpacity
+            onPress={handleLike}
+            accessibilityRole="button"
+            accessibilityLabel={liked ? "Remove from favourites" : "Add to favourites"}
+            style={tw`w-11 h-11 items-center justify-center`}
+          >
             <Ionicons
               name={liked ? "heart" : "heart-outline"}
               size={26}
-              color={liked ? colors.semantic.red : colors.system.label.primary}
+              color={liked ? colors.semantic.red : colors.fixed.white}
             />
           </TouchableOpacity>
         </View>
@@ -825,10 +938,10 @@ const LectureDetailScreen: React.FC = () => {
           {/* Stats Cards */}
           <View style={[tw`flex-row mt-6`, { gap: 12 }]}>
             {[
-              { label: "Plays", value: lecture.views, icon: "play-circle" },
-              { label: "Downloads", value: lecture.downloads, icon: "download" },
-              { label: "Shares", value: lecture.shares, icon: "share-social" },
-            ].map((item) => (
+              { label: "Plays", value: lecture.views, icon: "play-circle", alwaysShow: true },
+              { label: "Downloads", value: lecture.downloads, icon: "download", alwaysShow: false },
+              { label: "Shares", value: lecture.shares, icon: "share-social", alwaysShow: false },
+            ].filter((item) => item.alwaysShow || (item.value ?? 0) > 0).map((item) => (
               <View
                 key={item.label}
                 style={[
@@ -923,8 +1036,8 @@ const LectureDetailScreen: React.FC = () => {
                 <Text variant="title3" color="label" weight="bold" style={tw`mb-3`}>
                   Details
                 </Text>
-                {meta.map((item: any) => (
-                  <View key={item.label} style={tw`flex-row items-center mb-3`}>
+                {meta.map((item: any, index: number) => (
+                  <View key={item.label} style={tw`flex-row items-center ${index < meta.length - 1 ? 'mb-3' : ''}`}>
                     <View style={[tw`w-8 h-8 rounded-full items-center justify-center mr-3`, { backgroundColor: colors.system.fill.secondary }]}>
                       <Ionicons name={item.icon} size={16} color={colors.system.label.secondary} />
                     </View>

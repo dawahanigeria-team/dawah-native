@@ -163,7 +163,7 @@ export default function ListeningPreferencesScreen() {
           <View style={[styles.progressFill, { backgroundColor: colors.brand.primary }]} />
         </View>
         {isOnboarding ? (
-          <Pressable onPress={handleSkip} hitSlop={10}>
+          <Pressable onPress={handleSkip} hitSlop={10} accessibilityRole="button">
             <Text variant="subheadline" weight="semibold" color="secondaryLabel">
               Skip
             </Text>

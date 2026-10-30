@@ -1,4 +1,3 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -13,6 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Text } from "../src/components/atoms";
+import { ScreenHeader } from "../src/components/molecules/ScreenHeader";
 import { useAuthStore } from "../src/stores";
 import { useTheme } from "../src/hooks/useTheme";
 import tw from "../src/theme/twrnc";
@@ -61,59 +61,27 @@ const EditProfileScreen = () => {
 
   return (
     <SafeAreaView
+      edges={["left", "right", "bottom"]}
       style={[
         tw`flex-1`,
         { backgroundColor: colors.system.background.primary },
       ]}
     >
+      <ScreenHeader
+        title="Edit Profile"
+        actions={[
+          {
+            label: "Save",
+            accessibilityLabel: "Save profile",
+            onPress: handleSave,
+            disabled: !hasChanges || isLoading,
+          },
+        ]}
+      />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={tw`flex-1`}
       >
-        {/* Header */}
-        <View style={tw`flex-row items-center justify-between px-4 py-3`}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={tw`w-10 h-10 items-center justify-center`}
-            accessibilityLabel="Go back"
-            accessibilityRole="button"
-          >
-            <Ionicons
-              name="arrow-back"
-              size={24}
-              color={colors.system.label.primary}
-            />
-          </TouchableOpacity>
-          <Text
-            style={[
-              tw`text-lg font-bold`,
-              { color: colors.system.label.primary },
-            ]}
-            accessibilityRole="header"
-          >
-            Edit Profile
-          </Text>
-          <TouchableOpacity
-            onPress={handleSave}
-            disabled={!hasChanges || isLoading}
-            style={tw`w-10 h-10 items-center justify-center`}
-            accessibilityLabel="Save profile"
-            accessibilityRole="button"
-          >
-            <Text
-              style={{
-                color: hasChanges && !isLoading
-                  ? colors.brand.primary
-                  : colors.system.label.tertiary,
-                fontWeight: "600",
-                fontSize: 16,
-              }}
-            >
-              Save
-            </Text>
-          </TouchableOpacity>
-        </View>
-
         <ScrollView
           style={tw`flex-1`}
           contentContainerStyle={tw`px-4 pb-8`}

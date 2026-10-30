@@ -6,6 +6,7 @@ import { Alert, Linking, ScrollView, TouchableOpacity, View } from "react-native
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../../src/components/atoms";
 import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
+import { ScreenHeader } from "../../src/components/molecules/ScreenHeader";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
 import { userService } from "../../src/services/user.service";
 import { useAuthStore } from "../../src/stores";
@@ -429,37 +430,23 @@ const ProfileScreen = () => {
 
   return (
     <SafeAreaView
+      edges={["left", "right"]}
       style={[
         tw`flex-1`,
         { backgroundColor: colors.system.background.primary },
       ]}
     >
+      <ScreenHeader
+        variant="large"
+        title={isAuthenticated && user ? user.username : "Guest"}
+        subtitle={getGreeting()}
+      />
       <ScrollView
         style={tw`flex-1`}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 160 }}
         accessibilityLabel="Profile content"
       >
-        {/* Header with Greeting */}
-        <View
-          style={tw`px-5 pt-2 pb-4`}
-        >
-          <Text
-            variant="caption1"
-            color="secondaryLabel"
-            style={{ marginBottom: 2 }}
-          >
-            {getGreeting()}
-          </Text>
-          <Text
-            variant="title1"
-            color="label"
-            weight="bold"
-          >
-            {isAuthenticated && user ? user.username : "Guest"}
-          </Text>
-        </View>
-
         {/* Profile Card */}
         <View
           style={tw`px-5 mb-6`}

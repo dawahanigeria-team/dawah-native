@@ -1,5 +1,4 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { router } from "expo-router";
 import { useGuardedPush } from "../src/navigation/useGuardedPush";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlashList } from "../src/components/adapters/flashListCompat";
@@ -17,17 +16,22 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { logger } from "../src/utils/logger";
 import AsyncStorage from "expo-sqlite/kv-store";
 import { LecturerCard } from "../src/components/molecules/LecturerCard";
+import { ScreenHeader } from "../src/components/molecules";
 import { LecturerRow } from "../src/components/molecules/LecturerRow";
 import { LecturerCardSkeleton } from "../src/components/molecules/LecturerCard.skeleton";
 import { Lecturer, lecturersApi } from "../src/services/api/lecturers.api";
 import { ApiError } from "../src/services/api/base.api";
 import { useTheme } from "../src/hooks/useTheme";
 import tw from "../src/theme/twrnc";
+import { spacing } from "../src/theme/designTokens";
 import { getLanguageName } from "../src/utils/languages";
 
 type ViewMode = "list" | "grid";
 
 const VIEW_STORAGE_KEY = "dn:lecturers:view";
+
+const MINI_PLAYER_HEIGHT = 72;
+const LIST_BOTTOM_PADDING = MINI_PLAYER_HEIGHT + spacing.lg;
 
 export default function LecturersScreen() {
   const { colors } = useTheme();
@@ -550,40 +554,13 @@ export default function LecturersScreen() {
 
   return (
     <SafeAreaView
+      edges={["left", "right", "bottom"]}
       style={[
         tw`flex-1`,
         { backgroundColor: colors.system.background.primary },
       ]}
     >
-      <View style={tw`flex-row items-center px-5 py-4`}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={[
-            tw`w-10 h-10 rounded-full items-center justify-center`,
-            { backgroundColor: colors.system.background.secondary },
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-        >
-          <Ionicons
-            name="arrow-back"
-            size={22}
-            color={colors.system.label.primary}
-          />
-        </TouchableOpacity>
-
-        <Text
-          style={[
-            tw`text-xl font-bold flex-1 text-center`,
-            { color: colors.system.label.primary },
-          ]}
-          accessibilityRole="header"
-        >
-          Scholars
-        </Text>
-
-        <View style={tw`w-10`} />
-      </View>
+      <ScreenHeader title="Scholars" />
 
       {/* Search Bar */}
       <View style={tw`px-5 pb-3`}>
@@ -783,7 +760,7 @@ export default function LecturersScreen() {
             </View>
           )}
           numColumns={2}
-          contentContainerStyle={tw`px-3 pb-10`}
+          contentContainerStyle={{ ...tw`px-3`, paddingBottom: LIST_BOTTOM_PADDING }}
           columnWrapperStyle={tw`justify-between`}
           showsVerticalScrollIndicator={false}
         />
@@ -796,7 +773,10 @@ export default function LecturersScreen() {
           // view or the list keeps handing rows into two-column slots.
           key={view}
           numColumns={view === "grid" ? 2 : 1}
-          contentContainerStyle={view === "grid" ? tw`px-3 pb-10` : tw`pb-10`}
+          contentContainerStyle={{
+            ...(view === "grid" ? tw`px-3` : null),
+            paddingBottom: LIST_BOTTOM_PADDING,
+          }}
           ListEmptyComponent={renderEmptyState}
           ListFooterComponent={renderFooter}
           onEndReached={handleLoadMore}

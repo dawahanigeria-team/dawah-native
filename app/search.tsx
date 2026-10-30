@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { useGuardedPush } from "../src/navigation/useGuardedPush";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -11,12 +11,15 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Text } from "../src/components/atoms";
+import { Button, Text } from "../src/components/atoms";
+import { toUserFacingError } from "../src/utils/userFacingError";
 import { ErrorBoundary } from "../src/components/atoms/ErrorBoundary";
 import { Dropdown } from "../src/components/atoms/Dropdown";
-import { Card } from "../src/components/molecules/Card";
 import { CardSkeleton } from "../src/components/molecules/Card.skeleton";
 import { FilterSection } from "../src/components/molecules/FilterSection";
+import { LectureRow } from "../src/components/molecules/LectureRow";
+import { searchLectureToRow } from "../src/components/molecules/lectureRowModel";
+import { ScreenHeader } from "../src/components/molecules/ScreenHeader";
 import { SearchBar } from "../src/components/molecules/SearchBar";
 import { surahs } from "../src/data/surahs";
 import { useLecturers } from "../src/hooks/useLecturers";
@@ -36,7 +39,6 @@ import {
   SortOption,
   Topic,
 } from "../src/types/search";
-import { Episode } from "../src/types/types";
 
 const languages: Language[] = [
   "All",
@@ -109,6 +111,7 @@ function SearchScreen() {
     data: apiResults,
     loading,
     error,
+    retry,
     setQuery,
     setFilters: setSearchFilters,
     loadMore,
@@ -217,70 +220,6 @@ function SearchScreen() {
     });
   };
 
-  // Convert API lecture to Episode format
-  const convertToEpisode = (lecture: SearchLecture): Episode => {
-    const parseDuration = (duration: string | undefined): number => {
-      if (!duration) return 0;
-      const parts = duration.split(":").map(Number);
-      if (parts.length === 3) {
-        return parts[0] * 3600 + parts[1] * 60 + parts[2];
-      } else if (parts.length === 2) {
-        return parts[0] * 60 + parts[1];
-      }
-      return 0;
-    };
-
-    // Support both new API fields and legacy fields
-    const id = String(
-      lecture.id ||
-        lecture.nid ||
-        `lecture-${lecture.mp3_url || lecture.AudioUrl || lecture.mp3_title || lecture.Title || "unknown"}`,
-    );
-    const title = lecture.mp3_title || lecture.Title || "Untitled Lecture";
-    const duration = lecture.mp3_duration || lecture.Duration;
-    const audioUrl = lecture.mp3_url || lecture.AudioUrl || "";
-    const coverUrl =
-      lecture.img ||
-      lecture.lec_img ||
-      lecture.rp_image ||
-      lecture.lecturer_image ||
-      lecture.CoverUrl ||
-      "";
-    const plays = parseInt(lecture.views || lecture.Plays || "0") || 0;
-    const language = lecture.language || lecture.Language || "Unknown";
-    const downloads =
-      parseInt(lecture.downloads || lecture.Downloads || "0") || 0;
-    // Pull the post date from any field the backend might use. Fall back to
-    // '' (NOT "now") so undated rows render without a misleading "just now".
-    const createdAt =
-      lecture.created_at ||
-      lecture.CreatedAt ||
-      (lecture as any).post_date ||
-      (lecture as any).updated_date ||
-      '';
-    // Map lecturer name from various possible fields
-    const lecturerName =
-      lecture.lecturer_name ||
-      lecture.rpname ||
-      lecture.ResourcePerson ||
-      undefined;
-
-    return {
-      id,
-      title,
-      durationSec: parseDuration(duration),
-      coverUrl,
-      audioUrl,
-      seriesId: "",
-      plays,
-      liked: false,
-      language,
-      downloads,
-      createdAt,
-      lecturerName,
-    };
-  };
-
   const handleItemPress = (item: SearchLecture) => {
     const lectureId = item.nid || item.id;
     if (lectureId) {
@@ -296,28 +235,6 @@ function SearchScreen() {
 
   const getItemKey = (item: SearchLecture, index: number) => {
     return `api-${String(item.id || item.nid || index)}-${index}`;
-  };
-
-  const renderSearchResult = (item: SearchLecture) => {
-    const resourcePerson =
-      item.lecturer_name || item.ResourcePerson || "Unknown Scholar";
-    const metaValue = resourcePerson;
-    const data = convertToEpisode(item);
-
-    return (
-      <Card
-        variant="landscape"
-        data={data}
-        onPress={() => handleItemPress(item)}
-        playOnPress={false}
-        showTime={true}
-        showMeta={true}
-        metaValue={metaValue}
-        titleNumberOfLines={2}
-        metaNumberOfLines={1}
-        showBadge={false}
-      />
-    );
   };
 
   const renderSectionHeader = (
@@ -556,20 +473,34 @@ function SearchScreen() {
         style={tw`text-center leading-6 max-w-sm`}
         accessibilityLabel={
           error
-            ? error.message
+            ? searchErrorMessage
             : actualSearchQuery || hasActiveFilters()
               ? "No results found. Try adjusting your search or filters"
               : "Search for lectures, Quranic recitations, and Islamic teachings"
         }
       >
         {error
-          ? error.message
+          ? searchErrorMessage
           : actualSearchQuery || hasActiveFilters()
             ? "Try adjusting your search terms or clearing some filters to find what you're looking for"
             : "Search for lectures, Quranic recitations, and Islamic teachings from trusted scholars"}
       </Text>
+      {error ? (
+        <Button
+          size="medium"
+          onPress={retry}
+          style={tw`mt-5`}
+          accessibilityLabel="Try the search again"
+        >
+          Try again
+        </Button>
+      ) : null}
     </View>
   );
+
+  const searchErrorMessage = error
+    ? toUserFacingError(error, "Search is not available right now. Please try again.").message
+    : "";
 
   const hasActiveFilters = () => {
     return (
@@ -594,75 +525,24 @@ function SearchScreen() {
     return count;
   };
 
+  const activeFilterCount = getActiveFilterCount();
+
   return (
     <SafeAreaView
+      edges={["left", "right", "bottom"]}
       style={[tw`flex-1`, { backgroundColor: colors.system.background.primary }]}
     >
-      {/* Header */}
-      <View style={tw`flex-row items-center justify-between px-5 py-4`}>
-        <View style={tw`flex-row items-center flex-1`}>
-          {/* Back Button */}
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={tw`mr-3 w-10 h-10 items-center justify-center rounded-full`}
-            accessibilityLabel="Go back"
-            accessibilityRole="button"
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name="arrow-back"
-              size={24}
-              color={colors.system.label.primary}
-            />
-          </TouchableOpacity>
-
-          {/* Page Title */}
-          <Text variant="title1" color="label" weight="bold">
-            Search
-          </Text>
-        </View>
-
-        {/* Filter Button */}
-        <TouchableOpacity
-          style={[
-            tw`flex-row items-center px-4 py-2.5 rounded-full min-h-[44px]`,
-            { backgroundColor: colors.system.background.secondary },
-          ]}
-          onPress={toggleFilters}
-          accessibilityLabel="Toggle filters"
-          accessibilityRole="button"
-        >
-          <Ionicons
-            name="options"
-            size={18}
-            color={colors.system.label.primary}
-          />
-          <Text
-            variant="subheadline"
-            color="label"
-            weight="medium"
-            style={tw`ml-2`}
-          >
-            Filter
-          </Text>
-          {getActiveFilterCount() > 0 && (
-            <View
-              style={[
-                tw`w-5 h-5 rounded-full items-center justify-center ml-2`,
-                { backgroundColor: colors.brand.primary },
-              ]}
-            >
-              <Text
-                variant="caption2"
-                weight="bold"
-                style={{ color: colors.fixed.black }}
-              >
-                {getActiveFilterCount()}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
+      <ScreenHeader
+        title="Search"
+        actions={[
+          {
+            label: activeFilterCount > 0 ? `Filters (${activeFilterCount})` : "Filters",
+            accessibilityLabel:
+              activeFilterCount > 0 ? `Toggle filters, ${activeFilterCount} active` : "Toggle filters",
+            onPress: toggleFilters,
+          },
+        ]}
+      />
 
       {/* Search Bar */}
       <View style={tw`px-5 pb-5`}>
@@ -711,7 +591,7 @@ function SearchScreen() {
         }
         keyExtractor={(item, index) => getItemKey(item, index)}
         renderItem={({ item }) => (
-          <View style={tw`px-5`}>{renderSearchResult(item)}</View>
+          <LectureRow lecture={searchLectureToRow(item)} onPress={() => handleItemPress(item)} />
         )}
         ListHeaderComponent={
           <View style={tw`px-5`}>

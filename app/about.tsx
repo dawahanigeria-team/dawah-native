@@ -1,11 +1,11 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Constants from "expo-constants";
-import { useRouter } from "expo-router";
 import React from "react";
 import { Linking, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Text } from "../src/components/atoms";
+import { ScreenHeader } from "../src/components/molecules";
 import { useTheme } from "../src/hooks/useTheme";
 import tw from "../src/theme/twrnc";
 import { boxShadow } from "../src/utils/shadow";
@@ -17,7 +17,6 @@ const buildNumber =
   "1";
 
 const AboutScreen = () => {
-  const router = useRouter();
   const { colors } = useTheme();
 
   const openLink = (url: string) => {
@@ -26,35 +25,13 @@ const AboutScreen = () => {
 
   return (
     <SafeAreaView
+      edges={["bottom", "left", "right"]}
       style={[
         tw`flex-1`,
         { backgroundColor: colors.system.background.primary },
       ]}
     >
-      {/* Header */}
-      <View style={tw`flex-row items-center px-4 py-3`}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={tw`w-10 h-10 items-center justify-center mr-2`}
-          accessibilityLabel="Go back"
-          accessibilityRole="button"
-        >
-          <Ionicons
-            name="arrow-back"
-            size={24}
-            color={colors.system.label.primary}
-          />
-        </TouchableOpacity>
-        <Text
-          style={[
-            tw`text-2xl font-bold`,
-            { color: colors.system.label.primary },
-          ]}
-          accessibilityRole="header"
-        >
-          About
-        </Text>
-      </View>
+      <ScreenHeader title="About" />
 
       <ScrollView
         style={tw`flex-1`}

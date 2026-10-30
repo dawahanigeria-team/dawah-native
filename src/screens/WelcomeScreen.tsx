@@ -124,7 +124,7 @@ export default function WelcomeScreen() {
             </Text>
           </Pressable>
 
-          <Pressable onPress={goToPreferences} style={styles.guestButton}>
+          <Pressable onPress={goToPreferences} style={styles.guestButton} accessibilityRole="button">
             <Text variant="subheadline" style={styles.guestText}>
               Continue without an account
             </Text>

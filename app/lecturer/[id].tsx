@@ -16,6 +16,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../../src/components/atoms";
 import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
+import {
+  LectureRow,
+  lecturerLectureToRow,
+  ScreenHeader,
+} from "../../src/components/molecules";
 import { TabView } from "../../src/components/molecules/TabView";
 import { resolveLecturesListState } from "../../src/features/lecturer/lecturesListState";
 import { useDebounce } from "../../src/hooks/useDebounce";
@@ -970,11 +975,13 @@ function LecturerDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView
+        edges={["left", "right", "bottom"]}
         style={[
           tw`flex-1`,
           { backgroundColor: colors.system.background.primary },
         ]}
       >
+        <ScreenHeader />
         <View style={tw`flex-1 items-center justify-center`}>
           <ActivityIndicator size="large" color={colors.brand.primary} />
           <Text style={[tw`mt-4`, { color: colors.system.label.primary }]}>
@@ -988,11 +995,13 @@ function LecturerDetailScreen() {
   if (error || !lecturer) {
     return (
       <SafeAreaView
+        edges={["left", "right", "bottom"]}
         style={[
           tw`flex-1`,
           { backgroundColor: colors.system.background.primary },
         ]}
       >
+        <ScreenHeader />
         <View style={tw`flex-1 items-center justify-center px-6`}>
           <Text
             style={[tw`text-lg mb-4`, { color: colors.system.label.primary }]}
@@ -1125,116 +1134,11 @@ function LecturerDetailScreen() {
   };
 
   const renderLectureItem = (lecture: LecturerLecture, index: number) => (
-    <TouchableOpacity
-      style={[
-        tw`flex-row items-center py-3 border-b`,
-        { borderColor: colors.system.separator.primary },
-      ]}
+    <LectureRow
+      lecture={lecturerLectureToRow(lecture, index + 1)}
       onPress={() => handleLectureCardPress(lecture)}
-    >
-      {/* Track Number */}
-      <Text
-        style={[
-          tw`w-8 text-center mr-2`,
-          { color: colors.system.label.tertiary },
-        ]}
-      >
-        {index + 1}
-      </Text>
-
-      {/* Thumbnail */}
-      {lecture.img ? (
-        <Image
-          source={{ uri: lecture.img }}
-          style={tw`w-12 h-12 rounded`}
-          contentFit="cover"
-          cachePolicy={IMAGE_CACHE_POLICY}
-          allowDownscaling
-          recyclingKey={`lecture-${lecture.nid || index}`}
-        />
-      ) : (
-        <View
-          style={[
-            tw`w-12 h-12 rounded items-center justify-center`,
-            { backgroundColor: colors.system.fill.secondary },
-          ]}
-        >
-          <Ionicons
-            name="musical-note"
-            size={20}
-            color={colors.system.label.tertiary}
-          />
-        </View>
-      )}
-
-      {/* Title and Info */}
-      <View style={tw`flex-1 ml-3`}>
-        <Text
-          style={[tw`font-medium mb-1`, { color: colors.system.label.primary }]}
-          numberOfLines={2}
-        >
-          {lecture.title || "Untitled"}
-        </Text>
-        <View style={tw`flex-row items-center`}>
-          <Text
-            style={[tw`text-xs mr-3`, { color: colors.system.label.secondary }]}
-            numberOfLines={1}
-          >
-            {lecture.rpname}
-          </Text>
-          <View style={tw`flex-row items-center mr-3`}>
-            <Ionicons
-              name="play"
-              size={12}
-              color={colors.system.label.tertiary}
-            />
-            <Text
-              style={[
-                tw`text-xs ml-1`,
-                { color: colors.system.label.secondary },
-              ]}
-            >
-              {formatNumber(lecture.views)}
-            </Text>
-          </View>
-          {lecture.favorites > 0 && (
-            <View style={tw`flex-row items-center`}>
-              <Ionicons
-                name="heart"
-                size={12}
-                color={colors.system.label.tertiary}
-              />
-              <Text
-                style={[
-                  tw`text-xs ml-1`,
-                  { color: colors.system.label.secondary },
-                ]}
-              >
-                {formatNumber(lecture.favorites)}
-              </Text>
-            </View>
-          )}
-        </View>
-      </View>
-
-      {/* Duration */}
-      <Text
-        style={[tw`text-sm mr-3`, { color: colors.system.label.secondary }]}
-      >
-        {lecture.duration || "00:00"}
-      </Text>
-
-      {/* Play Button Only */}
-      <TouchableOpacity
-        style={tw`p-2`}
-        onPress={(e) => {
-          e.stopPropagation();
-          handleLecturePlay(lecture);
-        }}
-      >
-        <Ionicons name="play-circle" size={28} color={colors.brand.primary} />
-      </TouchableOpacity>
-    </TouchableOpacity>
+      onPlay={() => handleLecturePlay(lecture)}
+    />
   );
 
   const renderLectureFooter = () => {
@@ -1733,36 +1637,13 @@ function LecturerDetailScreen() {
 
   return (
     <SafeAreaView
+      edges={["left", "right", "bottom"]}
       style={[
         tw`flex-1`,
         { backgroundColor: colors.system.background.primary },
       ]}
     >
-      {/* Header */}
-      <View style={tw`flex-row items-center justify-between px-5 py-4`}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={[
-            tw`w-10 h-10 items-center justify-center rounded-full`,
-            { backgroundColor: colors.system.background.secondary },
-          ]}
-        >
-          <Ionicons
-            name="arrow-back"
-            size={24}
-            color={colors.system.label.primary}
-          />
-        </TouchableOpacity>
-
-        <Text
-          variant="title3"
-          weight="bold"
-          color="label"
-          style={tw`flex-1 text-center mr-10`}
-        >
-          {lecturerName}
-        </Text>
-      </View>
+      <ScreenHeader title={lecturerName} />
 
       {activeTab === "songs"
         ? renderSongsList()

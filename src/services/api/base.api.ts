@@ -22,6 +22,11 @@ import {
 
 const SLOW_API_REQUEST_THRESHOLD_MS = 2000;
 
+// A user-facing GET must reach a retry state quickly on a dead connection.
+// Without a cap a 60 s timeout times 3 attempts keeps a spinner up for minutes.
+const GET_ATTEMPT_TIMEOUT_CAP_MS = 20000;
+const GET_MAX_ATTEMPTS = 2;
+
 /**
  * Why a token refresh did not produce a usable session.
  *
@@ -497,6 +502,54 @@ class ApiClient {
   }
 
   /**
+   * Aborts a response whose body is still downloading. fetch() resolves at the
+   * headers, after the request timer is gone, so the body needs its own.
+   */
+  private bodyAborters = new WeakMap<Response, () => void>();
+
+  private isGetConfig(config: RequestConfig): boolean {
+    return (config.method || 'GET').toUpperCase() === 'GET';
+  }
+
+  private attemptTimeoutMs(config: RequestConfig): number {
+    const timeout = config.timeout || API_CONFIG.TIMEOUTS.DEFAULT;
+    return this.isGetConfig(config)
+      ? Math.min(timeout, GET_ATTEMPT_TIMEOUT_CAP_MS)
+      : timeout;
+  }
+
+  private maxAttempts(config: RequestConfig): number {
+    const attempts = config.retryAttempts || API_CONFIG.RETRY.MAX_ATTEMPTS;
+    return this.isGetConfig(config) ? Math.min(attempts, GET_MAX_ATTEMPTS) : attempts;
+  }
+
+  private async readBodyWithTimeout(
+    response: Response,
+    timeoutMs: number,
+  ): Promise<string> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timedOut = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        this.bodyAborters.get(response)?.();
+        reject(
+          new ApiError(
+            'The request is taking longer than usual. Please check your internet connection and try again.',
+            undefined,
+            undefined,
+            false,
+            true,
+          ),
+        );
+      }, timeoutMs);
+    });
+    try {
+      return await Promise.race([response.text(), timedOut]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
    * Execute request with timeout
    */
   private async executeWithTimeout(
@@ -548,6 +601,7 @@ class ApiClient {
       if (externalSignal) {
         externalSignal.removeEventListener('abort', onExternalAbort);
       }
+      this.bodyAborters.set(response, () => abortController.abort());
       return response;
     } catch (error: any) {
       clearTimeout(timeoutId);
@@ -585,8 +639,8 @@ class ApiClient {
     requestToken: RequestToken,
     attempt: number = 1,
   ): Promise<Response> {
-    const maxAttempts = config.retryAttempts || API_CONFIG.RETRY.MAX_ATTEMPTS;
-    const timeout = config.timeout || API_CONFIG.TIMEOUTS.DEFAULT;
+    const maxAttempts = this.maxAttempts(config);
+    const timeout = this.attemptTimeoutMs(config);
 
     if (requestToken.cancelled) {
       throw new ApiError('Request cancelled', undefined, undefined, false, false, true);
@@ -810,7 +864,10 @@ class ApiClient {
         });
       }
 
-      const responseText = await response.text();
+      const responseText = await this.readBodyWithTimeout(
+        response,
+        this.attemptTimeoutMs(requestConfig),
+      );
       const tryParseJson = (text: string) => {
         if (!text) return { parsed: null, isJson: false };
         try {
