@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button, Text } from "../src/components/atoms";
 import { ENV } from "../src/config/env";
+import { ScreenHeader } from "../src/components/molecules";
 import { useTheme } from "../src/hooks/useTheme";
 import { addSentryBreadcrumb } from "../src/services/config/sentry.config";
 import { analytics } from "../src/services/analytics.service";
@@ -371,28 +372,17 @@ export default function PremiumScreen() {
 
   return (
     <SafeAreaView
+      edges={["bottom", "left", "right"]}
       style={[
         tw`flex-1`,
         { backgroundColor: colors.system.background.primary },
       ]}
     >
-      <View style={tw`flex-row items-center px-4 py-3`}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={tw`w-10 h-10 items-center justify-center mr-2`}
-          accessibilityLabel="Go back"
-          accessibilityRole="button"
-        >
-          <Ionicons name="arrow-back" size={24} color={colors.system.label.primary} />
-        </TouchableOpacity>
-        <Text variant="title2" color="label" weight="bold">
-          Premium
-        </Text>
-      </View>
+      <ScreenHeader title="Premium" />
 
       <ScrollView
         style={tw`flex-1`}
-        contentContainerStyle={{ padding: spacing.lg, paddingBottom: 48 }}
+        contentContainerStyle={{ padding: spacing.lg, paddingTop: spacing.sm, paddingBottom: 48 }}
         refreshControl={
           <RefreshControl
             refreshing={isLoading}

@@ -1,6 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
-import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -13,6 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FlashList } from "../src/components/adapters/flashListCompat";
+import { ScreenHeader } from "../src/components/molecules";
 import { useTheme } from "../src/hooks/useTheme";
 import { useGuardedPush } from "../src/navigation/useGuardedPush";
 import { ApiError } from "../src/services/api/base.api";
@@ -183,40 +183,13 @@ export default function CategoriesScreen() {
 
   return (
     <SafeAreaView
+      edges={["bottom", "left", "right"]}
       style={[
         tw`flex-1`,
         { backgroundColor: colors.system.background.primary },
       ]}
     >
-      <View style={tw`flex-row items-center px-5 py-4`}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={[
-            tw`w-10 h-10 rounded-full items-center justify-center`,
-            { backgroundColor: colors.system.background.secondary },
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-        >
-          <Ionicons
-            name="arrow-back"
-            size={22}
-            color={colors.system.label.primary}
-          />
-        </TouchableOpacity>
-
-        <Text
-          style={[
-            tw`text-xl font-bold flex-1 text-center`,
-            { color: colors.system.label.primary },
-          ]}
-        >
-          Categories
-        </Text>
-
-        {/* Balances the back button so the title stays optically centred. */}
-        <View style={tw`w-10`} />
-      </View>
+      <ScreenHeader title="Categories" />
 
       <View style={tw`px-5 pb-4`}>
         <View

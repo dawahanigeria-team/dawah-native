@@ -1,4 +1,3 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { useGuardedPush } from '../src/navigation/useGuardedPush';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -6,7 +5,7 @@ import { FlashList } from '../src/components/adapters/flashListCompat';
 import { Alert, Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../src/components/atoms';
-import { CardSkeleton } from '../src/components/molecules';
+import { CardSkeleton, ScreenHeader } from '../src/components/molecules';
 import { ApiError } from '../src/services/api/base.api';
 import { playlistApi } from '../src/services/api/playlist.api';
 import { useAuthStore } from '../src/stores/authStore';
@@ -86,12 +85,9 @@ export default function PlaylistsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.system.background.primary }}>
-        <View style={{ padding: spacing.lg }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: spacing.lg, alignSelf: 'flex-start' }}>
-            <Ionicons name="arrow-back" size={24} color={colors.system.label.primary} />
-          </TouchableOpacity>
-          <Text style={{ fontSize: typography.fontSize.title1, fontWeight: 'bold', color: colors.system.label.primary }}>Playlists</Text>
+      <SafeAreaView edges={['bottom', 'left', 'right']} style={{ flex: 1, backgroundColor: colors.system.background.primary }}>
+        <ScreenHeader title="Playlists" />
+        <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.lg }}>
           <View style={{ marginTop: spacing.lg }}>
             {[...Array(5)].map((_, index) => (
               <CardSkeleton key={`skeleton-${index}`} variant="list" />
@@ -103,12 +99,9 @@ export default function PlaylistsScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.system.background.primary }}>
-      <View style={{ padding: spacing.lg }}>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: spacing.lg, alignSelf: 'flex-start' }}>
-          <Ionicons name="arrow-back" size={24} color={colors.system.label.primary} />
-        </TouchableOpacity>
-        <Text style={{ fontSize: typography.fontSize.title1, fontWeight: 'bold', color: colors.system.label.primary }}>Playlists</Text>
+    <SafeAreaView edges={['bottom', 'left', 'right']} style={{ flex: 1, backgroundColor: colors.system.background.primary }}>
+      <ScreenHeader title="Playlists" />
+      <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.lg }}>
         {!isAuthenticated ? (
           <View style={{ marginTop: spacing.lg, alignItems: 'center' }}>
             <Text style={{ color: colors.system.label.secondary, marginBottom: spacing.md }}>

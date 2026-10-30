@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Loading, Text } from "../src/components/atoms";
+import { ScreenHeader } from "../src/components/molecules";
 import { useTheme } from "../src/hooks/useTheme";
 import { requestPasswordReset } from "../src/services/api/passwordReset.api";
 import {
@@ -111,39 +112,23 @@ export default function ForgotPasswordScreen() {
 
   return (
     <SafeAreaView
+      edges={["bottom", "left", "right"]}
       style={[
         tw`flex-1`,
         { backgroundColor: colors.system.background.primary },
       ]}
     >
+      <ScreenHeader />
       <KeyboardAvoidingView
         style={tw`flex-1`}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
           style={tw`flex-1`}
-          contentContainerStyle={tw`px-6 py-6 pb-32`}
+          contentContainerStyle={tw`px-6 pb-32 pt-2`}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Back Button */}
-          <View>
-            <Pressable
-              onPress={() => router.back()}
-              style={[
-                tw`mb-6 self-start p-2 -ml-2 rounded-full`,
-                { backgroundColor: colors.system.fill.tertiary },
-              ]}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons
-                name="chevron-back"
-                size={24}
-                color={colors.system.label.primary}
-              />
-            </Pressable>
-          </View>
-
           {/* Icon */}
           <View
             style={tw`items-center mb-8`}
