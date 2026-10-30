@@ -25,6 +25,8 @@ jest.mock('../../src/hooks/useTheme', () => ({
 }));
 jest.mock('../../src/components/molecules/Card', () => ({ Card: 'Card' }));
 jest.mock('../../src/components/molecules/SearchBar', () => ({ SearchBar: 'SearchBar' }));
+jest.mock('../../src/components/molecules/ScreenHeader', () => ({ ScreenHeader: 'ScreenHeader' }));
+jest.mock('../../src/components/molecules/LectureRow', () => ({ LectureRow: 'LectureRow' }));
 jest.mock('../../src/components/atoms', () => ({ Chip: 'Chip', Text: 'Text' }));
 jest.mock('../../src/stores', () => ({ usePlayerActions: () => ({ playEpisode: jest.fn() }) }));
 jest.mock('../../src/stores/authStore', () => ({
