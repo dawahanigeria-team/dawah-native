@@ -11,7 +11,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Text } from "../src/components/atoms";
+import { Button, Text } from "../src/components/atoms";
+import { toUserFacingError } from "../src/utils/userFacingError";
 import { ErrorBoundary } from "../src/components/atoms/ErrorBoundary";
 import { Dropdown } from "../src/components/atoms/Dropdown";
 import { Card } from "../src/components/molecules/Card";
@@ -109,6 +110,7 @@ function SearchScreen() {
     data: apiResults,
     loading,
     error,
+    retry,
     setQuery,
     setFilters: setSearchFilters,
     loadMore,
@@ -556,20 +558,34 @@ function SearchScreen() {
         style={tw`text-center leading-6 max-w-sm`}
         accessibilityLabel={
           error
-            ? error.message
+            ? searchErrorMessage
             : actualSearchQuery || hasActiveFilters()
               ? "No results found. Try adjusting your search or filters"
               : "Search for lectures, Quranic recitations, and Islamic teachings"
         }
       >
         {error
-          ? error.message
+          ? searchErrorMessage
           : actualSearchQuery || hasActiveFilters()
             ? "Try adjusting your search terms or clearing some filters to find what you're looking for"
             : "Search for lectures, Quranic recitations, and Islamic teachings from trusted scholars"}
       </Text>
+      {error ? (
+        <Button
+          size="medium"
+          onPress={retry}
+          style={tw`mt-5`}
+          accessibilityLabel="Try the search again"
+        >
+          Try again
+        </Button>
+      ) : null}
     </View>
   );
+
+  const searchErrorMessage = error
+    ? toUserFacingError(error, "Search is not available right now. Please try again.").message
+    : "";
 
   const hasActiveFilters = () => {
     return (
