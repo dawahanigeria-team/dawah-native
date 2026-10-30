@@ -10,13 +10,13 @@ import { Text } from '../atoms/Text';
 type IconName = keyof typeof Ionicons.glyphMap;
 type Colors = ReturnType<typeof useTheme>['colors'];
 
-export interface HeaderAction {
-  icon: IconName;
+export type HeaderAction = {
   accessibilityLabel: string;
   onPress: () => void;
   /** `true` draws a dot; a number draws a count and is read out with the label. */
   badge?: number | boolean;
-}
+  disabled?: boolean;
+} & ({ icon: IconName; label?: never } | { label: string; icon?: never });
 
 interface Shared {
   title?: string;
@@ -43,26 +43,42 @@ export const actionAccessibilityLabel = (action: HeaderAction): string =>
     : action.accessibilityLabel;
 
 const IconButton: React.FC<{
-  icon: IconName;
+  icon?: IconName;
+  label?: string;
   accessibilityLabel: string;
   onPress: () => void;
   badge?: number | boolean;
+  disabled?: boolean;
   onScrim: boolean;
   colors: Colors;
-}> = ({ icon, accessibilityLabel, onPress, badge, onScrim, colors }) => {
+}> = ({ icon, label, accessibilityLabel, onPress, badge, disabled = false, onScrim, colors }) => {
   const showBadge = badge === true || (typeof badge === 'number' && badge > 0);
+  const tint = onScrim ? colors.fixed.white : colors.system.label.primary;
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled }}
       style={({ pressed }) => [
-        styles.iconButton,
+        label ? styles.textButton : styles.iconButton,
         onScrim && { backgroundColor: colors.overlay.darkMedium },
         pressed && { opacity: 0.6 },
       ]}
     >
-      <Ionicons name={icon} size={ICON_SIZE} color={onScrim ? colors.fixed.white : colors.system.label.primary} />
+      {label ? (
+        <Text
+          variant="body"
+          weight="semibold"
+          numberOfLines={1}
+          style={{ color: disabled ? colors.system.label.tertiary : onScrim ? tint : colors.brand.primary }}
+        >
+          {label}
+        </Text>
+      ) : (
+        <Ionicons name={icon} size={ICON_SIZE} color={disabled ? colors.system.label.tertiary : tint} />
+      )}
       {showBadge && (
         <View
           style={[
@@ -93,9 +109,11 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = (props) => {
     <IconButton
       key={action.accessibilityLabel}
       icon={action.icon}
+      label={action.label}
       accessibilityLabel={actionAccessibilityLabel(action)}
       onPress={action.onPress}
       badge={action.badge}
+      disabled={action.disabled}
       onScrim={onScrim}
       colors={colors}
     />
@@ -192,6 +210,14 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     paddingHorizontal: spacing.xs,
+  },
+  textButton: {
+    minWidth: hitTargets.minimum,
+    height: hitTargets.minimum,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   iconButton: {
     width: hitTargets.minimum,

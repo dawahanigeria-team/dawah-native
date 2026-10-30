@@ -4,6 +4,9 @@ import { FlashList } from "../../src/components/adapters/flashListCompat";
 import { Text, TouchableOpacity, View, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../../src/components/molecules/Card";
+import { LectureRow } from "../../src/components/molecules/LectureRow";
+import { episodeToRow } from "../../src/components/molecules/lectureRowModel";
+import { ScreenHeader } from "../../src/components/molecules/ScreenHeader";
 import { Button } from "../../src/components/atoms/Button";
 import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
 import { useGuardedPush } from "../../src/navigation/useGuardedPush";
@@ -375,29 +378,29 @@ function LibraryScreen() {
   const data = getTabData();
   const loading = isTabLoading();
 
-  const renderListItem = useCallback(({ item }: { item: Episode | Series }) => (
-    <View style={tw`mb-3`}>
-      <Card
-        variant="landscape"
-        data={item}
+  const renderListItem = useCallback(({ item }: { item: Episode | Series }) =>
+    "durationSec" in item ? (
+      <LectureRow
+        lecture={episodeToRow(item)}
         onPress={() => handleItemPress(item)}
         onLongPress={
-          activeTab === "Downloads" && "durationSec" in item
+          activeTab === "Downloads"
             ? () => handleDeleteDownload(item.id, item.title)
             : undefined
         }
-        showTime={"durationSec" in item}
-        showMeta={true}
-        metaValue={
-          "lecturerName" in item
-            ? item.lecturerName || "Unknown"
-            : activeTab === "Playlists"
-              ? `${playlistCounts.get(item.id) ?? 0} tracks`
-              : "Sheikh Nasir Kabara"
-        }
       />
-    </View>
-  ), [activeTab, handleItemPress, handleDeleteDownload, playlistCounts]);
+    ) : (
+      <View style={tw`mb-3 px-4`}>
+        <Card
+          variant="landscape"
+          data={item}
+          onPress={() => handleItemPress(item)}
+          showTime={false}
+          showMeta={true}
+          metaValue={`${playlistCounts.get(item.id) ?? 0} tracks`}
+        />
+      </View>
+    ), [activeTab, handleItemPress, handleDeleteDownload, playlistCounts]);
 
   const renderListEmpty = useCallback(() => {
     if (loading) {
@@ -424,42 +427,21 @@ function LibraryScreen() {
 
   return (
     <SafeAreaView
+      edges={["left", "right"]}
       style={[
         tw`flex-1`,
         { backgroundColor: colors.system.background.primary },
       ]}
     >
-      {/* Header */}
-      <View style={tw`px-4 py-3`}>
-        <View style={tw`flex-row items-center justify-between`}>
-          <Text
-            style={[
-              tw`text-2xl font-bold`,
-              { color: colors.system.label.primary },
-            ]}
-            accessibilityRole="header"
-          >
-            Library
-          </Text>
-          {activeTab === "Downloads" && downloadedEpisodes.length > 0 && (
-            <View style={tw`flex-row items-center`}>
-              <Ionicons
-                name="cloud-outline"
-                size={16}
-                color={colors.system.label.secondary}
-              />
-              <Text
-                style={[
-                  tw`text-sm ml-1`,
-                  { color: colors.system.label.secondary },
-                ]}
-              >
-                {getTotalStorageUsed()}
-              </Text>
-            </View>
-          )}
-        </View>
-      </View>
+      <ScreenHeader
+        variant="large"
+        title="Library"
+        subtitle={
+          activeTab === "Downloads" && downloadedEpisodes.length > 0
+            ? `${getTotalStorageUsed()} used`
+            : undefined
+        }
+      />
 
       {/* Segmented Control */}
       <View style={tw`px-4 mb-6`}>
@@ -509,7 +491,7 @@ function LibraryScreen() {
         renderItem={renderListItem}
         keyExtractor={(item) => String(item.id)}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={tw`pb-40 px-4`}
+        contentContainerStyle={tw`pb-40`}
         ListEmptyComponent={renderListEmpty}
         accessibilityLabel="Library content"
       />

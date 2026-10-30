@@ -109,3 +109,13 @@ test('row height is fixed per font scale and capped at 2x', () => {
   expect(lectureRowHeight(1.5)).toBe(102);
   expect(lectureRowHeight(3)).toBe(lectureRowHeight(2));
 });
+
+test('onLongPress fires from a long press and from the longpress accessibility action', () => {
+  const onLongPress = jest.fn();
+  const tree = render(<LectureRow lecture={lecture} onPress={() => {}} onLongPress={onLongPress} />);
+  const row = tree.root.find((n) => typeof n.type === 'string' && n.props.accessibilityRole === 'button');
+  expect(row.props.accessibilityActions).toEqual([{ name: 'longpress' }]);
+  act(() => tree.root.find((n) => n.props.onLongPress === onLongPress).props.onLongPress());
+  act(() => row.props.onAccessibilityAction({ nativeEvent: { actionName: 'longpress' } }));
+  expect(onLongPress.mock.calls).toHaveLength(2);
+});

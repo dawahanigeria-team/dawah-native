@@ -1,6 +1,5 @@
 import * as Haptics from "expo-haptics";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useGuardedPush } from "../../src/navigation/useGuardedPush";
 import React, { useCallback, useEffect, useState } from "react";
@@ -8,12 +7,14 @@ import { FlashList } from "../../src/components/adapters/flashListCompat";
 import {
   ActivityIndicator,
   Share,
-  TouchableOpacity,
   View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button, Text } from "../../src/components/atoms";
+import { LectureRow } from "../../src/components/molecules/LectureRow";
+import { searchLectureToRow } from "../../src/components/molecules/lectureRowModel";
+import { ScreenHeader } from "../../src/components/molecules/ScreenHeader";
 import { ApiError } from "../../src/services/api/base.api";
 import { lectureDetailApi } from "../../src/services/api/lectureDetail.api";
 import { linkingService } from "../../src/services/linking.service";
@@ -240,23 +241,14 @@ const PlaylistDetailScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={[tw`flex-1`, { backgroundColor: colors.system.background.primary }]}>
-      <View style={tw`flex-row items-center p-4`}>
-        <TouchableOpacity onPress={() => router.back()} style={tw`mr-4`}>
-          <Ionicons name="arrow-back" size={24} color={colors.system.label.primary} />
-        </TouchableOpacity>
-        <Text style={[tw`text-xl font-bold flex-1`, { color: colors.system.label.primary }]} numberOfLines={1}>
-          {playlistName || "Playlist"}
-        </Text>
-        <TouchableOpacity
-          onPress={handleShare}
-          style={tw`w-10 h-10 items-center justify-center`}
-          accessibilityRole="button"
-          accessibilityLabel="Share playlist"
-        >
-          <Ionicons name="share-outline" size={24} color={colors.system.label.primary} />
-        </TouchableOpacity>
-      </View>
+    <SafeAreaView
+      edges={["left", "right", "bottom"]}
+      style={[tw`flex-1`, { backgroundColor: colors.system.background.primary }]}
+    >
+      <ScreenHeader
+        title={playlistName || "Playlist"}
+        actions={[{ icon: "share-outline", accessibilityLabel: "Share playlist", onPress: handleShare }]}
+      />
 
       {playlistContents.length > 0 && (
         <View style={tw`flex-row gap-3 px-4 pb-3`}>
@@ -279,23 +271,12 @@ const PlaylistDetailScreen: React.FC = () => {
           data={playlistContents}
           keyExtractor={(item: SearchLecture) => item.id || item.nid?.toString() || ''}
           renderItem={({ item }: { item: SearchLecture }) => (
-            <TouchableOpacity
-              style={[tw`flex-row items-center p-4 border-b`, { borderColor: colors.system.separator.primary }]}
+            <LectureRow
+              lecture={searchLectureToRow(item)}
               onPress={() => {
                 guardedPush(`/lecture/${item.id || item.nid}`);
               }}
-            >
-              <Image
-                source={{ uri: item.img || item.CoverUrl || "https://via.placeholder.com/50" }}
-                style={tw`w-12 h-12 rounded-md mr-3`}
-                contentFit="cover"
-              />
-              <View style={tw`flex-1`}>
-                <Text style={[tw`font-semibold`, { color: colors.system.label.primary }]}>{item.Title}</Text>
-                <Text style={[tw`text-sm`, { color: colors.system.label.secondary }]}>{item.lecturer_name || item.rpname}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.system.label.tertiary} />
-            </TouchableOpacity>
+            />
           )}
         />
       )}

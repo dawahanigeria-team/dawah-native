@@ -88,3 +88,15 @@ test('overlay header floats over artwork with white icons on a scrim and respect
     expect.arrayContaining([{ paddingTop: 47 }, expect.objectContaining({ position: 'absolute' })]),
   );
 });
+
+test('a text action renders its label and reports disabled', () => {
+  const tree = render(
+    <ScreenHeader
+      title="Edit Profile"
+      actions={[{ label: 'Save', accessibilityLabel: 'Save profile', onPress: () => {}, disabled: true }]}
+    />,
+  );
+  expect(texts(tree)).toEqual(['Edit Profile', 'Save']);
+  const save = tree.root.find((n) => typeof n.type === 'string' && n.props.accessibilityLabel === 'Save profile');
+  expect(save.props.accessibilityState).toEqual({ disabled: true });
+});

@@ -71,6 +71,7 @@ export interface LectureRowProps {
   onPress: () => void;
   onPlay?: () => void;
   onMore?: () => void;
+  onLongPress?: () => void;
 }
 
 const LectureRowComponent: React.FC<LectureRowProps> = ({
@@ -80,6 +81,7 @@ const LectureRowComponent: React.FC<LectureRowProps> = ({
   onPress,
   onPlay,
   onMore,
+  onLongPress,
 }) => {
   const { colors } = useTheme();
   const { fontScale } = useWindowDimensions();
@@ -99,13 +101,15 @@ const LectureRowComponent: React.FC<LectureRowProps> = ({
   const accessibilityActions = [
     ...(onPlay ? [{ name: 'play', label: 'Play' }] : []),
     ...(onMore ? [{ name: 'more', label: 'More options' }] : []),
+    ...(onLongPress ? [{ name: 'longpress' }] : []),
   ];
   const onAccessibilityAction = useCallback(
     (event: AccessibilityActionEvent) => {
       if (event.nativeEvent.actionName === 'play') onPlay?.();
       if (event.nativeEvent.actionName === 'more') onMore?.();
+      if (event.nativeEvent.actionName === 'longpress') onLongPress?.();
     },
-    [onPlay, onMore],
+    [onPlay, onMore, onLongPress],
   );
 
   const { leading } = lecture;
@@ -114,6 +118,7 @@ const LectureRowComponent: React.FC<LectureRowProps> = ({
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
       accessibilityRole="button"
       accessibilityLabel={lectureRowAccessibilityLabel(lecture, playback, download)}
       accessibilityState={{ selected: isCurrent }}

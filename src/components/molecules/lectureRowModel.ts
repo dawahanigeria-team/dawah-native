@@ -134,3 +134,37 @@ export const searchLectureToRow = (lecture: SearchLecture, options: { position?:
   meta: playsMeta(lecture.views ?? lecture.Plays),
   leading: { kind: 'artwork', url: text(lecture.img, lecture.lec_img, lecture.CoverUrl), position: options.position },
 });
+
+export type ChartWindow = 'daily' | 'weekly' | 'monthly';
+
+const CHART_WINDOW_LABEL: Record<ChartWindow, string> = {
+  daily: 'today',
+  weekly: 'this week',
+  monthly: 'this month',
+};
+
+interface ChartLectureShape {
+  id: number;
+  mp3_title?: string;
+  lec_thumbnail?: string;
+  img?: string;
+  language?: string;
+  charts?: Record<ChartWindow, number>;
+}
+
+export const chartLectureToRow = (
+  item: ChartLectureShape,
+  context: { position: number; period: ChartWindow },
+): LectureRowModel => {
+  const count = item.charts?.[context.period] ?? 0;
+  return {
+    id: String(item.id),
+    title: text(item.mp3_title) ?? 'Untitled',
+    scholar: null,
+    durationSec: null,
+    meta: [text(item.language), `${compactCount(count)} plays ${CHART_WINDOW_LABEL[context.period]}`]
+      .filter(Boolean)
+      .join(' • '),
+    leading: { kind: 'artwork', url: text(item.lec_thumbnail, item.img), position: context.position },
+  };
+};

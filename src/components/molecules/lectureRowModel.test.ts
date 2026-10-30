@@ -2,6 +2,7 @@ import type { SearchLecture } from '../../types/api.types';
 import type { Episode } from '../../types/types';
 import {
   albumTrackToRow,
+  chartLectureToRow,
   compactCount,
   episodeToRow,
   formatClock,
@@ -134,5 +135,21 @@ test('searchLectureToRow falls back across the three API field generations', () 
     durationSec: 1200,
     meta: '2.5K plays',
     leading: { kind: 'artwork', url: null },
+  });
+});
+
+test('chartLectureToRow puts language and the period play count in meta', () => {
+  expect(
+    chartLectureToRow(
+      { id: 42, mp3_title: ' Fajr Talk ', lec_thumbnail: '', img: 'https://img/x.jpg', language: 'Hausa', charts: { daily: 3, weekly: 1500, monthly: 9000 } },
+      { position: 2, period: 'weekly' },
+    ),
+  ).toEqual({
+    id: '42',
+    title: 'Fajr Talk',
+    scholar: null,
+    durationSec: null,
+    meta: 'Hausa • 1.5K plays this week',
+    leading: { kind: 'artwork', url: 'https://img/x.jpg', position: 2 },
   });
 });
