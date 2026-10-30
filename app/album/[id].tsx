@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../../src/components/atoms';
+import { albumTrackToRow, LectureRow, ScreenHeader } from '../../src/components/molecules';
 import { Text } from '../../src/components/atoms/Text';
 import { useTheme } from '../../src/hooks/useTheme';
 import {
@@ -41,17 +42,6 @@ const formatCollectionDuration = (seconds: number): string => {
   return `${Math.max(1, minutes)} min`;
 };
 
-const formatTrackDuration = (duration: string | number | undefined): string => {
-  const seconds = parseAlbumTrackDuration(duration);
-  if (seconds <= 0) return 'Duration updating';
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
-  return hours > 0
-    ? `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
-    : `${minutes}:${String(secs).padStart(2, '0')}`;
-};
-
 const AlbumDetailScreen: React.FC = () => {
   const router = useRouter();
   const guardedPush = useGuardedPush();
@@ -62,6 +52,7 @@ const AlbumDetailScreen: React.FC = () => {
   const albumId = Array.isArray(id) ? id[0] : id;
   const { playQueue } = usePlayerActions();
   const currentEpisode = playerStore.use((state) => state.currentEpisode);
+  const isPlaying = playerStore.use((state) => state.isPlaying);
 
   const [album, setAlbum] = useState<Album | null>(null);
   const [tracks, setTracks] = useState<AlbumTrack[]>([]);
@@ -178,68 +169,41 @@ const AlbumDetailScreen: React.FC = () => {
   }, [album, albumId, tracks.length]);
 
   const renderTrackItem = useCallback(({ item, index }: { item: AlbumTrack; index: number }) => {
-    const isPlaying = currentEpisode?.id === String(item.id);
-    const itemDuration = formatTrackDuration(item.duration);
+    const isCurrent = currentEpisode?.id === String(item.id);
     return (
-      <TouchableOpacity
-        style={[
-          styles.trackItem,
-          { borderBottomColor: colors.system.separator.primary },
-          isPlaying && { backgroundColor: `${colors.brand.primary}12` },
-        ]}
+      <LectureRow
+        lecture={albumTrackToRow(item, { position: index + 1, scholar: album?.lecturerName })}
+        playback={isCurrent ? (isPlaying ? 'playing' : 'paused') : 'idle'}
         onPress={() => startQueue(index, false)}
-        activeOpacity={0.76}
-        accessibilityRole="button"
-        accessibilityLabel={`Lecture ${index + 1}, ${item.title}, ${itemDuration}`}
-      >
-        <View style={styles.trackNumber}>
-          {isPlaying ? (
-            <Icon name="musical-notes" size="sm" color="brand" />
-          ) : (
-            <Text variant="subheadline" color="tertiaryLabel" weight="semibold">
-              {index + 1}
-            </Text>
-          )}
-        </View>
-        <View style={styles.trackInfo}>
-          <Text
-            variant="body"
-            weight="semibold"
-            numberOfLines={2}
-            color={isPlaying ? 'brand' : 'label'}
-          >
-            {item.title}
-          </Text>
-          <Text variant="caption1" color="secondaryLabel" numberOfLines={1} style={styles.trackMeta}>
-            {`Lecture ${index + 1} • ${itemDuration}`}
-          </Text>
-        </View>
-        <View style={[styles.rowPlayButton, { backgroundColor: colors.system.fill.tertiary }]}>
-          <Icon name={isPlaying ? 'musical-note' : 'play'} size="sm" color={isPlaying ? 'brand' : 'label'} />
-        </View>
-      </TouchableOpacity>
+      />
     );
-  }, [colors, currentEpisode, startQueue]);
+  }, [album?.lecturerName, currentEpisode, isPlaying, startQueue]);
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.centered, { backgroundColor: colors.system.background.primary }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.system.background.primary }]} edges={['left', 'right', 'bottom']}>
         <Stack.Screen options={{ headerShown: false }} />
-        <ActivityIndicator size="large" color={colors.brand.primary} />
-        <Text variant="body" color="secondaryLabel" style={styles.loadingText}>Loading album…</Text>
+        <ScreenHeader onBack={handleBack} />
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.brand.primary} />
+          <Text variant="body" color="secondaryLabel" style={styles.loadingText}>Loading album…</Text>
+        </View>
       </SafeAreaView>
     );
   }
 
   if (error || !album) {
     return (
-      <SafeAreaView style={[styles.centered, { backgroundColor: colors.system.background.primary }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.system.background.primary }]} edges={['left', 'right', 'bottom']}>
         <Stack.Screen options={{ headerShown: false }} />
-        <Icon name="alert-circle" size="lg" color="systemRed" />
-        <Text variant="body" color="systemRed" style={styles.errorText}>{error || 'Album not found'}</Text>
-        <TouchableOpacity onPress={() => fetchAlbumData()} style={[styles.retryButton, { backgroundColor: colors.system.fill.secondary }]}>
-          <Text variant="body" weight="semibold">Try Again</Text>
-        </TouchableOpacity>
+        <ScreenHeader onBack={handleBack} />
+        <View style={styles.centered}>
+          <Icon name="alert-circle" size="lg" color="systemRed" />
+          <Text variant="body" color="systemRed" style={styles.errorText}>{error || 'Album not found'}</Text>
+          <TouchableOpacity onPress={() => fetchAlbumData()} style={[styles.retryButton, { backgroundColor: colors.system.fill.secondary }]}>
+            <Text variant="body" weight="semibold">Try Again</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     );
   }
@@ -326,22 +290,11 @@ const AlbumDetailScreen: React.FC = () => {
         windowSize={7}
       />
 
-      <TouchableOpacity
-        onPress={handleBack}
-        style={[styles.topButton, styles.backButton, { top: insets.top + 10, backgroundColor: colors.overlay.darkHeavy }]}
-        accessibilityRole="button"
-        accessibilityLabel="Go back"
-      >
-        <Icon name="arrow-back" size="md" color={colors.fixed.white} />
-      </TouchableOpacity>
-      <TouchableOpacity
-        onPress={handleShare}
-        style={[styles.topButton, styles.shareButton, { top: insets.top + 10, backgroundColor: colors.overlay.darkHeavy }]}
-        accessibilityRole="button"
-        accessibilityLabel="Share album"
-      >
-        <Icon name="share-social" size="sm" color={colors.fixed.white} />
-      </TouchableOpacity>
+      <ScreenHeader
+        variant="overlay"
+        onBack={handleBack}
+        actions={[{ icon: 'share-social', accessibilityLabel: 'Share album', onPress: handleShare }]}
+      />
     </SafeAreaView>
   );
 };
@@ -371,14 +324,6 @@ const styles = StyleSheet.create({
   playButton: { flex: 1, height: 52, borderRadius: 26, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9 },
   tracksHeader: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 },
   orderLabel: { marginTop: 3 },
-  trackItem: { flexDirection: 'row', alignItems: 'center', minHeight: 82, paddingVertical: 11, paddingHorizontal: 20, borderBottomWidth: StyleSheet.hairlineWidth },
-  trackNumber: { width: 30, alignItems: 'center', marginRight: 10 },
-  trackInfo: { flex: 1, minWidth: 0, marginRight: 12 },
-  trackMeta: { marginTop: 5 },
-  rowPlayButton: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
-  topButton: { position: 'absolute', zIndex: 10, width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
-  backButton: { left: 16 },
-  shareButton: { right: 16 },
 });
 
 export default AlbumDetailScreen;

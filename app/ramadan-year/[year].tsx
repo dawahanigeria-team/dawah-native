@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { useGuardedPush } from "../../src/navigation/useGuardedPush";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../../src/components/atoms";
+import { ScreenHeader } from "../../src/components/molecules";
 import { useTheme } from "../../src/hooks/useTheme";
 import { ramadanApi, RamadanAlbum } from "../../src/services/api/ramadan.api";
 import tw from "../../src/theme/twrnc";
@@ -477,26 +478,32 @@ export default function RamadanYearScreen() {
     );
   };
 
+  const header = <ScreenHeader title={`Ramadan ${yearNum}`} />;
+
   if (loading) {
     return (
       <SafeAreaView
+        edges={["left", "right", "bottom"]}
         style={[
-          tw`flex-1 items-center justify-center`,
+          tw`flex-1`,
           { backgroundColor: colors.system.background.primary },
         ]}
       >
-        <View
-          style={[
-            tw`w-16 h-16 rounded-full items-center justify-center mb-4`,
-            { backgroundColor: colors.brand.primary + "20" },
-          ]}
-        >
-          <Ionicons name="moon" size={32} color={colors.brand.primary} />
+        {header}
+        <View style={tw`flex-1 items-center justify-center`}>
+          <View
+            style={[
+              tw`w-16 h-16 rounded-full items-center justify-center mb-4`,
+              { backgroundColor: colors.brand.primary + "20" },
+            ]}
+          >
+            <Ionicons name="moon" size={32} color={colors.brand.primary} />
+          </View>
+          <ActivityIndicator size="large" color={colors.brand.primary} />
+          <Text variant="body" color="secondaryLabel" style={tw`mt-4`}>
+            Loading Ramadan {yearNum} collection...
+          </Text>
         </View>
-        <ActivityIndicator size="large" color={colors.brand.primary} />
-        <Text variant="body" color="secondaryLabel" style={tw`mt-4`}>
-          Loading Ramadan {yearNum} collection...
-        </Text>
       </SafeAreaView>
     );
   }
@@ -504,46 +511,50 @@ export default function RamadanYearScreen() {
   if (error) {
     return (
       <SafeAreaView
+        edges={["left", "right", "bottom"]}
         style={[
-          tw`flex-1 items-center justify-center px-6`,
+          tw`flex-1`,
           { backgroundColor: colors.system.background.primary },
         ]}
       >
-        <Ionicons
-          name="cloud-offline-outline"
-          size={64}
-          color={colors.system.label.tertiary}
-        />
-        <Text
-          variant="title3"
-          color="label"
-          weight="semibold"
-          style={tw`mt-4 text-center`}
-        >
-          Failed to load
-        </Text>
-        <Text
-          variant="body"
-          color="secondaryLabel"
-          style={tw`mt-2 text-center`}
-        >
-          Please check your connection and try again
-        </Text>
-        <TouchableOpacity
-          onPress={() => fetchAlbums(1, false)}
-          style={[
-            tw`mt-6 px-6 py-3 rounded-full`,
-            { backgroundColor: colors.brand.primary },
-          ]}
-        >
+        {header}
+        <View style={tw`flex-1 items-center justify-center px-6`}>
+          <Ionicons
+            name="cloud-offline-outline"
+            size={64}
+            color={colors.system.label.tertiary}
+          />
+          <Text
+            variant="title3"
+            color="label"
+            weight="semibold"
+            style={tw`mt-4 text-center`}
+          >
+            Failed to load
+          </Text>
           <Text
             variant="body"
-            weight="semibold"
-            style={{ color: colors.fixed.black }}
+            color="secondaryLabel"
+            style={tw`mt-2 text-center`}
           >
-            Retry
+            Please check your connection and try again
           </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => fetchAlbums(1, false)}
+            style={[
+              tw`mt-6 px-6 py-3 rounded-full`,
+              { backgroundColor: colors.brand.primary },
+            ]}
+          >
+            <Text
+              variant="body"
+              weight="semibold"
+              style={{ color: colors.fixed.black }}
+            >
+              Retry
+            </Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     );
   }
@@ -554,31 +565,9 @@ export default function RamadanYearScreen() {
         tw`flex-1`,
         { backgroundColor: colors.system.background.primary },
       ]}
-      edges={["top", "left", "right"]}
+      edges={["left", "right"]}
     >
-      {/* Header */}
-      <View style={tw`flex-row items-center px-4 py-2`}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={tw`p-2 -ml-2`}
-          activeOpacity={0.6}
-        >
-          <Ionicons
-            name="chevron-back"
-            size={28}
-            color={colors.brand.primary}
-          />
-        </TouchableOpacity>
-        <View style={tw`flex-1`} />
-        <TouchableOpacity
-          style={[
-            tw`w-10 h-10 rounded-full items-center justify-center`,
-            { backgroundColor: colors.brand.primary + "20" },
-          ]}
-        >
-          <Ionicons name="moon" size={20} color={colors.brand.primary} />
-        </TouchableOpacity>
-      </View>
+      {header}
 
       {/* Albums Grid */}
       <FlatList
