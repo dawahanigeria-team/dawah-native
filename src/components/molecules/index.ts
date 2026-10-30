@@ -7,3 +7,6 @@ export { LecturerRow } from './LecturerRow';
 export { LecturerCardSkeleton } from './LecturerCard.skeleton';
 export { ChartItem } from './ChartItem';
 export { ChartItemSkeleton } from './ChartItem.skeleton';
+export { ScreenHeader } from './ScreenHeader';
+export { LectureRow } from './LectureRow';
+export * from './lectureRowModel';
