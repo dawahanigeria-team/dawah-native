@@ -9,9 +9,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
-  useWindowDimensions,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -46,52 +44,6 @@ const HOME_SECTION_LIMIT = IS_ANDROID ? 6 : 10;
 const FEED_SKELETON_COUNT = 3;
 const HOME_QURAN_SKELETON_COUNT = IS_ANDROID ? 2 : 4;
 
-// Quick action items for the grid
-const QUICK_ACTIONS = [
-  {
-    id: "chart",
-    title: "Charts",
-    icon: "trending-up" as const,
-    route: "/charts",
-  },
-  {
-    id: "lecturers",
-    title: "Lecturers",
-    icon: "people" as const,
-    route: "/lecturers",
-  },
-  {
-    id: "playlists",
-    title: "Playlists",
-    icon: "list" as const,
-    route: "/playlists",
-  },
-  {
-    // Replaces the old "Latest" tile: recent lectures already have the hero
-    // slider at the top of this screen and the "Fresh Content" row below, so
-    // the tile was a third route to the same content. Categories is the one
-    // axis of the catalogue the app had no entry point for.
-    id: "categories",
-    title: "Categories",
-    icon: "grid" as const,
-    route: "/categories",
-  },
-  {
-    id: "quran",
-    title: "Quran",
-    icon: "book" as const,
-    route: "/section/quran-recitations",
-  },
-  {
-    // Replaces a Library tile that duplicated the tab bar. Ramadan Tafsir had no
-    // other way in from anywhere in the app.
-    id: "ramadan",
-    title: "Ramadan",
-    icon: "moon" as const,
-    route: "/ramadan-tafsir",
-  },
-];
-
 type FeedTab = "popular" | "recent";
 
 export default function HomeScreenWithBoundary() {
@@ -104,12 +56,8 @@ export default function HomeScreenWithBoundary() {
 
 function HomeScreen() {
   const guardedPush = useGuardedPush();
-  // useWindowDimensions rather than a module-scope Dimensions.get(), which
-  // was captured at import and never updated on rotation or resize.
-  const { width: SCREEN_WIDTH } = useWindowDimensions();
   const { colors } = useTheme();
-  const [searchValue, setSearchValue] = useState("");
-  const { isAuthenticated, isInitialized } = useAuthStore();
+  const { user, isAuthenticated, isInitialized } = useAuthStore();
   const { preferences, isHydrated: preferencesHydrated } =
     useListeningPreferencesStore();
 
@@ -128,15 +76,6 @@ function HomeScreen() {
   );
 
   const unreadCount = useUnreadAnnouncementsCount();
-
-  // Handle search submission
-  const handleSearchSubmit = useCallback(() => {
-    if (searchValue.trim()) {
-      guardedPush(`/search?q=${encodeURIComponent(searchValue.trim())}`);
-    } else {
-      guardedPush("/search");
-    }
-  }, [searchValue, guardedPush]);
 
   // Data fetching
   const {
@@ -295,51 +234,6 @@ function HomeScreen() {
     } as any);
   }, [guardedPush]);
 
-  // Render Quick Action
-  const renderQuickAction = useCallback(
-    (action: (typeof QUICK_ACTIONS)[0]) => (
-      // A plain View, deliberately. Wrapped in View these tiles
-      // rendered at near-zero opacity — Charts came through, Quran and Library
-      // were barely visible, and Lecturers, Playlists and Categories did not
-      // paint at all, so half of Browse was invisible and only tappable by
-      // accident. It is not the entering animation: removing that prop changed
-      // nothing, and swapping View for View fixed it outright. Six
-      // static tiles do not need a staggered fade badly enough to risk that.
-      <View key={action.id}>
-        <TouchableOpacity
-          onPress={() =>
-            guardedPush(action.route as Parameters<typeof router.push>[0])
-          }
-          style={[
-            styles.quickAction,
-            // Width is applied here rather than in StyleSheet.create, which is
-            // evaluated once at module load and so cannot read a hook value.
-            { width: (SCREEN_WIDTH - 48) / 3 },
-            { backgroundColor: colors.system.background.secondary },
-          ]}
-          activeOpacity={0.8}
-        >
-          <View
-            style={[
-              styles.quickActionIcon,
-              { backgroundColor: colors.brand.primary + "20" },
-            ]}
-          >
-            <Ionicons
-              name={action.icon}
-              size={20}
-              color={colors.brand.primary}
-            />
-          </View>
-          <Text variant="caption1" color="label" weight="medium">
-            {action.title}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    ),
-    [colors, SCREEN_WIDTH, guardedPush],
-  );
-
   // Render Section Header
   const renderSectionHeader = useCallback(
     (title: string, subtitle?: string, onSeeAll?: () => void) => (
@@ -466,27 +360,11 @@ function HomeScreen() {
           ]}
         >
           {/* Top Row: Greeting & Notifications */}
-          <View style={tw`flex-row items-center justify-between mb-3`}>
+          <View style={tw`flex-row items-center justify-between`}>
             <Text variant="title1" accessibilityRole="header" numberOfLines={1} style={tw`flex-1 mr-2`}>
               Assalamu alaikum
             </Text>
             <View style={tw`flex-row gap-2`}>
-              <TouchableOpacity
-                onPress={() => router.push("/listening-preferences" as any)}
-                style={[
-                  tw`w-11 h-11 rounded-full items-center justify-center`,
-                  { backgroundColor: colors.system.background.secondary },
-                ]}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel="Edit listening preferences"
-              >
-                <Ionicons
-                  name="options-outline"
-                  size={21}
-                  color={colors.system.label.primary}
-                />
-              </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => router.push("/inbox")}
                 style={[
@@ -519,52 +397,27 @@ function HomeScreen() {
                   </View>
                 )}
               </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => guardedPush("/profile")}
+                style={[
+                  tw`w-11 h-11 rounded-full items-center justify-center`,
+                  { backgroundColor: colors.system.background.tertiary },
+                ]}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Profile"
+              >
+                {user?.username ? (
+                  <Text variant="footnote" weight="semibold">
+                    {user.username.substring(0, 2).toUpperCase()}
+                  </Text>
+                ) : (
+                  <Ionicons name="person" size={20} color={colors.system.label.primary} />
+                )}
+              </TouchableOpacity>
             </View>
           </View>
 
-          {/* Search Bar */}
-          <View
-            style={[
-              styles.searchBar,
-              { backgroundColor: colors.system.background.secondary },
-            ]}
-          >
-            <Ionicons
-              name="search"
-              size={20}
-              color={colors.system.label.tertiary}
-            />
-            <TextInput
-              style={[
-                tw`flex-1 ml-3`,
-                styles.searchInput,
-                { color: colors.system.label.primary },
-              ]}
-              placeholder="Search lectures, scholars..."
-              placeholderTextColor={colors.system.label.tertiary}
-              value={searchValue}
-              onChangeText={setSearchValue}
-              onSubmitEditing={handleSearchSubmit}
-              returnKeyType="search"
-              autoCorrect={false}
-              autoCapitalize="none"
-            />
-            {searchValue.length > 0 && (
-              <TouchableOpacity
-                onPress={() => setSearchValue("")}
-                style={tw`w-11 h-11 rounded-lg items-center justify-center`}
-                activeOpacity={0.7}
-                accessibilityRole="button"
-                accessibilityLabel="Clear search"
-              >
-                <Ionicons
-                  name="close-circle"
-                  size={20}
-                  color={colors.system.label.tertiary}
-                />
-              </TouchableOpacity>
-            )}
-          </View>
         </View>
 
         {!preferences.configured && preferencesHydrated && (
@@ -636,6 +489,15 @@ function HomeScreen() {
                 </TouchableOpacity>
               );
             })}
+            <TouchableOpacity
+              onPress={() => router.push("/listening-preferences" as any)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Edit listening preferences"
+              style={styles.adjustFeed}
+            >
+              <Ionicons name="options-outline" size={22} color={colors.system.label.primary} />
+            </TouchableOpacity>
           </View>
           {primaryContentFailed ? (
             <View
@@ -732,16 +594,6 @@ function HomeScreen() {
           ) : null}
         </View>
 
-        {/* Quick Actions */}
-        <View style={tw`px-4 mt-8`}>
-          <Text variant="title3" color="label" weight="bold" style={tw`mb-4`}>
-            Browse
-          </Text>
-          <View style={styles.quickActionsGrid}>
-            {QUICK_ACTIONS.map((action) => renderQuickAction(action))}
-          </View>
-        </View>
-
       </ScrollView>
     </SafeAreaView>
   );
@@ -752,16 +604,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 16,
-  },
-  searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 16,
-  },
-  searchInput: {
-    fontSize: 16,
   },
   contentRecoveryCard: {
     marginHorizontal: 16,
@@ -794,26 +636,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  quickActionsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-  quickAction: {
-    // width is set at the call site from useWindowDimensions — see above.
-    paddingVertical: 16,
-    borderRadius: 16,
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  quickActionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
-  },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -826,6 +648,13 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 16,
     marginBottom: 6,
+  },
+  adjustFeed: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: "auto",
   },
   feedTab: {
     minHeight: 44,

@@ -38,14 +38,6 @@ const ProfileScreen = () => {
   const { plan, subscription_status } = usePremiumStore();
   const [isDeletingAccount, setIsDeletingAccount] = React.useState(false);
 
-  // Get time-based greeting (Arabic)
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Sabah al-Khayr"; // Good Morning
-    if (hour < 17) return "Masa al-Khayr"; // Good Afternoon/Evening
-    return "Assalamu Alaikum"; // Peace be upon you
-  };
-
   const handleAppearancePress = () => {
     Alert.alert(
       "Appearance",
@@ -437,11 +429,7 @@ const ProfileScreen = () => {
         { backgroundColor: colors.system.background.primary },
       ]}
     >
-      <ScreenHeader
-        variant="large"
-        title={isAuthenticated && user ? user.username : "Guest"}
-        subtitle={getGreeting()}
-      />
+      <ScreenHeader title="Profile" />
       <ScrollView
         style={tw`flex-1`}
         showsVerticalScrollIndicator={false}

@@ -26,6 +26,38 @@ export const pickResumable = <T extends ResumableItem>(
       item.lectureId !== excludeLectureId && resumePosition(item.progress, item.duration) > 0,
   );
 
+const isFinished = (item: ResumableItem): boolean =>
+  item.duration > 0 && item.progress >= item.duration - FINISHED_WITHIN_SECONDS;
+
+export interface SeriesResume {
+  index: number;
+  positionSec: number;
+}
+
+/**
+ * Where to pick a series back up, from the lecture in it heard most recently:
+ * the same lecture if unfinished, otherwise the one after it.
+ */
+export const findSeriesResume = (
+  lectureIds: readonly string[],
+  history: readonly ResumableItem[],
+): SeriesResume | null => {
+  for (const item of history) {
+    const index = lectureIds.indexOf(item.lectureId);
+    if (index === -1) continue;
+    if (isFinished(item)) {
+      return index + 1 < lectureIds.length ? { index: index + 1, positionSec: 0 } : null;
+    }
+    return { index, positionSec: resumePosition(item.progress, item.duration) };
+  }
+  return null;
+};
+
+export const countFinished = (
+  lectureIds: readonly string[],
+  history: readonly ResumableItem[],
+): number => history.filter((item) => lectureIds.includes(item.lectureId) && isFinished(item)).length;
+
 const formatMinutes = (seconds: number): string => {
   const minutes = Math.max(1, Math.round(seconds / 60));
   if (minutes < 60) return `${minutes} min`;

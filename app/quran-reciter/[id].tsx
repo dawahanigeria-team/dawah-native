@@ -10,12 +10,14 @@ import {
   Image,
   Share,
   StyleSheet,
+  TextInput,
   View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Icon, Text } from '../../src/components/atoms';
 import { LectureRow, quranRecitationToRow, ScreenHeader } from '../../src/components/molecules';
 import { useFollowGate } from '../../src/hooks/useFollowGate';
+import { useSeriesResume } from '../../src/hooks/useSeriesResume';
 import { useTheme } from '../../src/hooks/useTheme';
 import {
   followLecturer,
@@ -87,6 +89,7 @@ const QuranReciterScreen: React.FC = () => {
   }, [navigation, router]);
   const [album, setAlbum] = useState<QuranAlbum | null>(null);
   const [recitations, setRecitations] = useState<QuranRecitation[]>([]);
+  const [surahQuery, setSurahQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -409,6 +412,26 @@ const QuranReciterScreen: React.FC = () => {
     };
   }, []);
 
+  const playableRecitations = useMemo(
+    () => recitations.filter((recitation) => Boolean(recitation.audioUrl)),
+    [recitations],
+  );
+  const playableIds = useMemo(
+    () => playableRecitations.map((recitation) => String(recitation.id)),
+    [playableRecitations],
+  );
+  const { resume } = useSeriesResume(playableIds);
+  const resumeTitle = resume ? playableRecitations[resume.index]?.title : undefined;
+
+  const visibleRecitations = useMemo(() => {
+    const query = surahQuery.trim().toLowerCase();
+    if (!query) return recitations;
+    return recitations.filter((recitation, index) => {
+      const number = recitation.surahNumber ?? recitation.trackNumber ?? index + 1;
+      return String(number) === query || recitation.title.toLowerCase().includes(query);
+    });
+  }, [recitations, surahQuery]);
+
   const handlePlayAll = useCallback(async () => {
     if (!album || recitations.length === 0) return;
 
@@ -432,7 +455,7 @@ const QuranReciterScreen: React.FC = () => {
       }
 
       // Play queue from start
-      await playQueue(episodes, 0, false);
+      await playQueue(episodes, resume?.index ?? 0, false, { startAt: resume?.positionSec ?? 0 });
     } catch (err: any) {
       console.error('Play all error:', err);
       captureSentryException(err, {
@@ -442,7 +465,7 @@ const QuranReciterScreen: React.FC = () => {
         level: 'error',
       });
     }
-  }, [album, recitations, albumId, playQueue, recitationToEpisode]);
+  }, [album, recitations, albumId, playQueue, recitationToEpisode, resume]);
 
   const handleShuffle = useCallback(async () => {
     if (!album || recitations.length === 0) return;
@@ -566,12 +589,12 @@ const QuranReciterScreen: React.FC = () => {
     const isCurrent = currentEpisode?.id === String(item.id);
     return (
       <LectureRow
-        lecture={quranRecitationToRow(item, { position: index + 1, reciter: album?.name })}
+        lecture={quranRecitationToRow(item, { position: recitations.indexOf(item) + 1, reciter: album?.name })}
         playback={isCurrent ? (isPlaying ? 'playing' : 'paused') : 'idle'}
         onPress={() => handleRecitationPress(item, index)}
       />
     );
-  }, [album?.name, currentEpisode, isPlaying, handleRecitationPress]);
+  }, [album?.name, currentEpisode, isPlaying, handleRecitationPress, recitations]);
 
   if (loading) {
     return (
@@ -616,10 +639,17 @@ const QuranReciterScreen: React.FC = () => {
       />
 
       <FlatList
-        data={recitations}
+        data={visibleRecitations}
         keyExtractor={(item, index) => `${item.id}-${index}`}
         renderItem={renderRecitationItem}
+        ListEmptyComponent={
+          <Text variant="body" color="secondaryLabel" align="center" style={styles.noSurah}>
+            No surah matches “{surahQuery}”
+          </Text>
+        }
+        keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
+          <View>
           <LinearGradient
             colors={['#073B2A', '#0B5B3D', '#14855A']}
             start={{ x: 0, y: 0 }}
@@ -678,7 +708,7 @@ const QuranReciterScreen: React.FC = () => {
                 leftIcon={<Icon name="play" color={colors.brand.onPrimary} size="sm" />}
                 style={styles.actionButton}
               >
-                Play All
+                {resume ? 'Continue' : 'Play All'}
               </Button>
               <Button
                 variant="tinted"
@@ -715,10 +745,24 @@ const QuranReciterScreen: React.FC = () => {
             <View style={styles.queueHint}>
               <Icon name="list" size="sm" color="white" />
               <Text variant="caption1" style={styles.queueHintText}>
-                Tap any Surah to continue in Quran order
+                {resumeTitle ? `Continue with ${resumeTitle}` : 'Tap any Surah to continue in Quran order'}
               </Text>
             </View>
           </LinearGradient>
+          <View style={[styles.findSurah, { backgroundColor: colors.system.background.secondary }]}>
+            <Icon name="search" size="sm" color="secondaryLabel" />
+            <TextInput
+              value={surahQuery}
+              onChangeText={setSurahQuery}
+              placeholder="Find a surah by name or number"
+              placeholderTextColor={colors.system.label.tertiary}
+              returnKeyType="search"
+              autoCorrect={false}
+              accessibilityLabel="Find a surah by name or number"
+              style={[styles.findSurahInput, { color: colors.system.label.primary }]}
+            />
+          </View>
+          </View>
         }
         contentContainerStyle={[
           styles.listContent,
@@ -734,6 +778,23 @@ const QuranReciterScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  findSurah: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: designTokens.spacing.sm,
+    height: 48,
+    borderRadius: 24,
+    paddingHorizontal: designTokens.spacing.lg,
+    marginHorizontal: designTokens.spacing.lg,
+    marginVertical: designTokens.spacing.md,
+  },
+  findSurahInput: {
+    flex: 1,
+    fontSize: designTokens.typography.fontSize.callout,
+  },
+  noSurah: {
+    padding: designTokens.spacing['2xl'],
+  },
   container: {
     flex: 1,
     // Background handled dynamically

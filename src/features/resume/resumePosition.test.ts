@@ -1,4 +1,10 @@
-import { formatTimeLeft, pickResumable, resumePosition } from './resumePosition';
+import {
+  countFinished,
+  findSeriesResume,
+  formatTimeLeft,
+  pickResumable,
+  resumePosition,
+} from './resumePosition';
 
 describe('resumePosition', () => {
   test('starts from the top when only a sample was heard', () => {
@@ -53,5 +59,41 @@ describe('formatTimeLeft', () => {
 
   test('falls back to time listened without a duration', () => {
     expect(formatTimeLeft(600, 0)).toBe('10 min listened');
+  });
+});
+
+describe('series resume', () => {
+  const ids = ['a', 'b', 'c'];
+
+  test('returns nothing for a series not started', () => {
+    expect(findSeriesResume(ids, [{ lectureId: 'x', duration: 3000, progress: 900 }])).toBeNull();
+  });
+
+  test('continues a part left unfinished', () => {
+    expect(findSeriesResume(ids, [{ lectureId: 'b', duration: 3000, progress: 900 }])).toEqual({
+      index: 1,
+      positionSec: 900,
+    });
+  });
+
+  test('moves to the next part after a finished one', () => {
+    expect(findSeriesResume(ids, [{ lectureId: 'a', duration: 3000, progress: 2990 }])).toEqual({
+      index: 1,
+      positionSec: 0,
+    });
+  });
+
+  test('offers nothing once the last part is finished', () => {
+    expect(findSeriesResume(ids, [{ lectureId: 'c', duration: 3000, progress: 2990 }])).toBeNull();
+  });
+
+  test('counts only finished parts of this series', () => {
+    expect(
+      countFinished(ids, [
+        { lectureId: 'a', duration: 3000, progress: 2990 },
+        { lectureId: 'b', duration: 3000, progress: 900 },
+        { lectureId: 'x', duration: 3000, progress: 2990 },
+      ]),
+    ).toBe(1);
   });
 });

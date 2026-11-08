@@ -33,7 +33,7 @@ export default function TabLayout() {
    */
   const tabBarVisible = useMemo(() => {
     // Always show on main tab screens
-    if (pathname === "/" || pathname === "/library" || pathname === "/profile") {
+    if (pathname === "/" || pathname === "/explore" || pathname === "/library" || pathname === "/profile") {
       return true;
     }
 
@@ -122,6 +122,22 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="explore"
+        options={{
+          title: "Explore",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "compass" : "compass-outline"}
+              size={focused ? 26 : 24}
+              color={color}
+            />
+          ),
+        }}
+        listeners={{
+          tabPress: handleTabPress,
+        }}
+      />
+      <Tabs.Screen
         name="library"
         options={{
           title: "Library",
@@ -137,22 +153,8 @@ export default function TabLayout() {
           tabPress: handleTabPress,
         }}
       />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "person" : "person-outline"}
-              size={focused ? 26 : 24}
-              color={color}
-            />
-          ),
-        }}
-        listeners={{
-          tabPress: handleTabPress,
-        }}
-      />
+      {/* Opened from the Home avatar; it stays a route here so the tab bar remains. */}
+      <Tabs.Screen name="profile" options={{ href: null }} />
     </Tabs>
   );
 }

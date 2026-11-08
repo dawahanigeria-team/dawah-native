@@ -47,8 +47,11 @@ import { Loading } from "../atoms/Loading";
 import { Text } from "../atoms/Text";
 import { Touchable } from "../atoms/Touchable";
 import { boxShadow } from "../../utils/shadow";
+import { LectureRow } from "../molecules/LectureRow";
+import { episodeToRow } from "../molecules/lectureRowModel";
 
 const MINI_PLAYER_HEIGHT = 72;
+const UP_NEXT_LIMIT = 5;
 
 const formatClock = (seconds: number): string => {
   const mins = Math.floor(seconds / 60);
@@ -105,6 +108,8 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
     const playbackSpeed = playerStore.use((s) => s.playbackSpeed ?? 1);
     const repeatMode = playerStore.use((s) => s.repeatMode ?? "off");
     const isShuffled = playerStore.use((s) => s.isShuffled);
+    const queue = playerStore.use((s) => s.queue);
+    const currentQueueIndex = playerStore.use((s) => s.currentQueueIndex);
     const sleepTimerEndsAt = playerStore.use((s) => s.sleepTimerEndsAt);
     const sleepTimerEndOfTrack = playerStore.use((s) => s.sleepTimerEndOfTrack);
     const {
@@ -121,6 +126,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       setSleepTimer,
       setSleepTimerEndOfTrack,
       clearSleepTimer,
+      skipToQueueIndex,
     } = usePlayerActions();
     const {
       addToQueue,
@@ -176,9 +182,10 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
 
     // Check if we're on a screen where the bottom tab bar is actually visible.
     // This should stay in sync with `shouldShowTabs` in `app/(tabs)/_layout.tsx`:
-    // tabs are only visible on the main tab routes (Home, Library, Profile).
+    // tabs are only visible on the main tab routes (Home, Explore, Library, Profile).
     const isTabScreen =
       pathname === "/" ||
+      pathname === "/explore" ||
       pathname === "/library" ||
       pathname === "/profile";
 
@@ -285,6 +292,16 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
     );
 
     // Don't render if no episode is playing
+    const upcoming = useMemo(
+      () =>
+        isExpanded
+          ? queue
+              .map((episode, index) => ({ episode, index }))
+              .filter(({ index }) => index > currentQueueIndex)
+          : [],
+      [isExpanded, queue, currentQueueIndex],
+    );
+
     if (!currentEpisode) {
       return null;
     }
@@ -880,6 +897,26 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
               </Touchable>
             </View>
 
+            {upcoming.length > 0 && (
+              <View style={styles.upNextSection}>
+                <Text variant="title3" accessibilityRole="header" style={styles.upNextHeading}>
+                  Up next
+                </Text>
+                {upcoming.slice(0, UP_NEXT_LIMIT).map(({ episode, index }) => (
+                  <LectureRow
+                    key={`up-next-${episode.id}-${index}`}
+                    lecture={episodeToRow(episode)}
+                    onPress={() => void skipToQueueIndex(index)}
+                  />
+                ))}
+                {upcoming.length > UP_NEXT_LIMIT && (
+                  <Text variant="footnote" color="secondaryLabel" align="center" style={styles.upNextMore}>
+                    {upcoming.length - UP_NEXT_LIMIT} more after these
+                  </Text>
+                )}
+              </View>
+            )}
+
             {/* Detailed Metadata Section */}
             <View style={[styles.metadataSection, { borderTopColor: colors.system.separator.primary }]}>
               {releasedDateLabel ? (
@@ -1202,6 +1239,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   // Metadata Section Styles
+  upNextSection: {
+    alignSelf: "stretch",
+    marginTop: designTokens.spacing.lg,
+  },
+  upNextHeading: {
+    marginBottom: designTokens.spacing.xs,
+  },
+  upNextMore: {
+    paddingVertical: designTokens.spacing.md,
+  },
   metadataSection: {
     marginTop: designTokens.spacing.xl,
     paddingTop: designTokens.spacing.xl,
