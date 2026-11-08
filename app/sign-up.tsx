@@ -327,7 +327,7 @@ export default function SignUpScreen() {
         {options.showToggle && options.setShowPassword && (
           <Pressable
             onPress={() => options.setShowPassword!(!options.showPassword)}
-            hitSlop={8}
+            hitSlop={13}
             accessibilityRole="button"
             accessibilityLabel={options.showPassword ? "Hide password" : "Show password"}
           >
@@ -341,7 +341,7 @@ export default function SignUpScreen() {
         {!options.showToggle && value.length > 0 && (
           <Pressable
             onPress={() => setValue("")}
-            hitSlop={8}
+            hitSlop={13}
             accessibilityRole="button"
             accessibilityLabel={`Clear ${label.toLowerCase()}`}
           >
@@ -401,7 +401,7 @@ export default function SignUpScreen() {
                 style={{
                   fontSize: 24,
                   fontWeight: '700',
-                  color: colors.fixed.black,
+                  color: colors.brand.onPrimary,
                 }}
               >
                 DN
@@ -546,12 +546,12 @@ export default function SignUpScreen() {
               ]}
             >
               {isLoading ? (
-                <Loading size="small" color={colors.fixed.black} />
+                <Loading size="small" color={colors.brand.onPrimary} />
               ) : (
                 <Text
                   variant="body"
                   weight="semibold"
-                  style={{ color: colors.fixed.black, fontSize: 16 }}
+                  style={{ color: colors.brand.onPrimary, fontSize: 16 }}
                 >
                   Create Account
                 </Text>

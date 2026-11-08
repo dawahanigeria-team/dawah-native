@@ -221,7 +221,7 @@ const RamadanYearHeader = React.memo(
               key={lang}
               onPress={() => onLanguageSelect(lang)}
               style={[
-                tw`mr-2 px-4 py-2 rounded-full flex-row items-center`,
+                tw`mr-2 px-4 min-h-[44px] rounded-full flex-row items-center`,
                 {
                   backgroundColor: isSelected
                     ? colors.brand.primary
@@ -235,7 +235,7 @@ const RamadanYearHeader = React.memo(
                 weight={isSelected ? "semibold" : "regular"}
                 style={{
                   color: isSelected
-                    ? colors.fixed.black
+                    ? colors.brand.onPrimary
                     : colors.system.label.primary,
                 }}
               >
@@ -247,7 +247,7 @@ const RamadanYearHeader = React.memo(
                   tw`ml-1`,
                   {
                     color: isSelected
-                      ? colors.fixed.black + "80"
+                      ? colors.brand.onPrimary
                       : colors.system.label.secondary,
                   },
                 ]}
@@ -406,14 +406,14 @@ export default function RamadanYearScreen() {
                 ]}
               >
                 <Ionicons
-                  name="musical-notes"
+                  name="headset"
                   size={10}
-                  color={colors.fixed.black}
+                  color={colors.brand.onPrimary}
                 />
                 <Text
                   variant="caption2"
                   weight="semibold"
-                  style={[tw`ml-1`, { color: colors.fixed.black }]}
+                  style={[tw`ml-1`, { color: colors.brand.onPrimary }]}
                 >
                   {item.lec_no}
                 </Text>
@@ -549,7 +549,7 @@ export default function RamadanYearScreen() {
             <Text
               variant="body"
               weight="semibold"
-              style={{ color: colors.fixed.black }}
+              style={{ color: colors.brand.onPrimary }}
             >
               Retry
             </Text>

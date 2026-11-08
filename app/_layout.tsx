@@ -2,6 +2,7 @@ import { ObserveRoot } from "expo-observe";
 import { Stack, usePathname, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { Newsreader_500Medium } from "@expo-google-fonts/newsreader/500Medium";
 import { useFonts } from "expo-font";
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { InteractionManager, Linking, View } from "react-native";
@@ -126,7 +127,7 @@ function RootLayout() {
   const currentEpisodeRef = useRef<typeof currentEpisode | null>(null);
   const pendingPlayerNavigationRef = useRef(false);
   const pendingPlayerNavigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [, fontError] = useFonts(Ionicons.font);
+  const [, fontError] = useFonts({ ...Ionicons.font, Newsreader_500Medium });
 
   const clearPendingPlayerNavigationTimeout = useCallback(() => {
     const timeout = pendingPlayerNavigationTimeoutRef.current;

@@ -382,6 +382,11 @@ function LibraryScreen() {
       <LectureRow
         lecture={episodeToRow(item)}
         onPress={() => handleItemPress(item)}
+        onMore={
+          activeTab === "Downloads"
+            ? () => handleDeleteDownload(item.id, item.title)
+            : undefined
+        }
         onLongPress={
           activeTab === "Downloads"
             ? () => handleDeleteDownload(item.id, item.title)

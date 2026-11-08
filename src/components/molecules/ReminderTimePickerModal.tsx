@@ -84,7 +84,7 @@ const ReminderTimePickerModal: React.FC<ReminderTimePickerModalProps> = ({
                 weight={isSelected ? 'bold' : 'regular'}
                 style={{
                   color: isSelected
-                    ? colors.fixed.white
+                    ? colors.brand.onPrimary
                     : colors.system.label.primary,
                 }}
               >
@@ -140,7 +140,7 @@ const ReminderTimePickerModal: React.FC<ReminderTimePickerModalProps> = ({
                 { backgroundColor: colors.brand.primary },
               ]}
             >
-              <Text weight="semibold" style={{ color: colors.fixed.white }}>
+              <Text weight="semibold" style={{ color: colors.brand.onPrimary }}>
                 Confirm
               </Text>
             </Pressable>

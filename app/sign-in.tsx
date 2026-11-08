@@ -293,7 +293,7 @@ export default function SignInScreen() {
                 style={{
                   fontSize: 24,
                   fontWeight: '700',
-                  color: colors.fixed.black,
+                  color: colors.brand.onPrimary,
                 }}
               >
                 DN
@@ -397,7 +397,7 @@ export default function SignInScreen() {
               {email.length > 0 && (
                 <Pressable
                   onPress={() => setEmail("")}
-                  hitSlop={8}
+                  hitSlop={13}
                   accessibilityRole="button"
                   accessibilityLabel="Clear email"
                 >
@@ -476,7 +476,7 @@ export default function SignInScreen() {
               />
               <Pressable
                 onPress={() => setShowPassword(!showPassword)}
-                hitSlop={8}
+                hitSlop={13}
                 accessibilityRole="button"
                 accessibilityLabel={showPassword ? "Hide password" : "Show password"}
               >
@@ -499,7 +499,7 @@ export default function SignInScreen() {
 
           {/* Forgot Password */}
           <View>
-            <Pressable onPress={handleForgotPassword} style={tw`mb-6 self-end py-1`}>
+            <Pressable onPress={handleForgotPassword} style={tw`mb-6 self-end min-h-[44px] justify-center`}>
               <Text
                 variant="subheadline"
                 weight="semibold"
@@ -527,12 +527,12 @@ export default function SignInScreen() {
               ]}
             >
               {isLoading ? (
-                <Loading size="small" color={colors.fixed.black} />
+                <Loading size="small" color={colors.brand.onPrimary} />
               ) : (
                 <Text
                   variant="body"
                   weight="semibold"
-                  style={{ color: colors.fixed.black, fontSize: 16 }}
+                  style={{ color: colors.brand.onPrimary, fontSize: 16 }}
                 >
                   Sign In
                 </Text>

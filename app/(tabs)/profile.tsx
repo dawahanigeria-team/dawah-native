@@ -1,3 +1,4 @@
+import Constants from "expo-constants";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { useGuardedPush } from "../../src/navigation/useGuardedPush";
@@ -245,7 +246,7 @@ const ProfileScreen = () => {
     if (!isPremium) {
       return "Free";
     }
-    const planLabel = plan === "premium" ? "Premium" : String(plan);
+    const planLabel = "DN Supporter";
     return isNoteworthyStatus
       ? `${planLabel} · ${status.replace(/_/g, " ")}`
       : planLabel;
@@ -263,7 +264,7 @@ const ProfileScreen = () => {
     },
     {
       id: "premium",
-      title: "Premium",
+      title: "DN Supporter",
       subtitle: premiumSubtitle,
       icon: "diamond-outline",
       iconColor: colors.brand.primary,
@@ -312,7 +313,7 @@ const ProfileScreen = () => {
     {
       id: "about",
       title: "About",
-      subtitle: "Version 1.0.0",
+      subtitle: `Version ${Constants.expoConfig?.version ?? ""}`.trim(),
       icon: "information-circle-outline",
       iconColor: colors.system.label.secondary,
       onPress: () => guardedPush("/about" as any),
@@ -478,7 +479,7 @@ const ProfileScreen = () => {
                     style={{
                       fontSize: 24,
                       fontWeight: '700',
-                      color: colors.fixed.black,
+                      color: colors.brand.onPrimary,
                     }}
                   >
                     {user.username.substring(0, 2).toUpperCase()}
@@ -487,7 +488,7 @@ const ProfileScreen = () => {
                   <Ionicons
                     name="person"
                     size={28}
-                    color={colors.fixed.black}
+                    color={colors.brand.onPrimary}
                   />
                 )}
               </View>
@@ -533,14 +534,14 @@ const ProfileScreen = () => {
                 <Ionicons
                   name={isAuthenticated ? "log-out-outline" : "log-in-outline"}
                   size={18}
-                  color={isAuthenticated ? colors.semantic.red : colors.fixed.black}
+                  color={isAuthenticated ? colors.semantic.red : colors.brand.onPrimary}
                   style={{ marginRight: 6 }}
                 />
                 <Text
                   variant="subheadline"
                   weight="semibold"
                   style={{
-                    color: isAuthenticated ? colors.semantic.red : colors.fixed.black,
+                    color: isAuthenticated ? colors.semantic.red : colors.brand.onPrimary,
                   }}
                 >
                   {isAuthenticated ? "Sign Out" : "Sign In"}
@@ -572,7 +573,7 @@ const ProfileScreen = () => {
               style={{
                 fontSize: 16,
                 fontWeight: '700',
-                color: colors.fixed.black,
+                color: colors.brand.onPrimary,
               }}
             >
               DN

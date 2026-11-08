@@ -183,7 +183,7 @@ export default function RamadanTafsirScreen() {
               <Text
                 variant="caption1"
                 weight="semibold"
-                style={{ color: colors.fixed.black }}
+                style={{ color: colors.brand.onPrimary }}
               >
                 LATEST COLLECTION
               </Text>
@@ -248,14 +248,14 @@ export default function RamadanTafsirScreen() {
               <Text
                 variant="body"
                 weight="semibold"
-                style={{ color: colors.fixed.black }}
+                style={{ color: colors.brand.onPrimary }}
               >
                 View All {latestYear.totalCount} Albums
               </Text>
               <Ionicons
                 name="chevron-forward"
                 size={20}
-                color={colors.fixed.black}
+                color={colors.brand.onPrimary}
                 style={tw`ml-2`}
               />
             </TouchableOpacity>
@@ -476,7 +476,7 @@ export default function RamadanTafsirScreen() {
             <Text
               variant="body"
               weight="semibold"
-              style={{ color: colors.fixed.black }}
+              style={{ color: colors.brand.onPrimary }}
             >
               Retry
             </Text>

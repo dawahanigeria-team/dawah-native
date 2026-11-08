@@ -227,7 +227,7 @@ export default function ForgotPasswordScreen() {
                 onSubmitEditing={handleResetPassword}
               />
               {email.length > 0 && (
-                <Pressable onPress={() => setEmail("")} hitSlop={8}>
+                <Pressable onPress={() => setEmail("")} hitSlop={13}>
                   <Ionicons
                     name="close-circle"
                     size={18}
@@ -263,12 +263,12 @@ export default function ForgotPasswordScreen() {
               ]}
             >
               {isLoading ? (
-                <Loading size="small" color={colors.fixed.black} />
+                <Loading size="small" color={colors.brand.onPrimary} />
               ) : (
                 <Text
                   variant="body"
                   weight="semibold"
-                  style={{ color: colors.fixed.black, fontSize: 16 }}
+                  style={{ color: colors.brand.onPrimary, fontSize: 16 }}
                 >
                   Send Verification Code
                 </Text>

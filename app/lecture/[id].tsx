@@ -846,7 +846,7 @@ const LectureDetailScreen: React.FC = () => {
               />
             ) : (
               <View style={[tw`flex-1 items-center justify-center`, { backgroundColor: colors.system.fill.secondary }]}>
-                <Ionicons name="musical-notes-outline" size={64} color={colors.system.label.tertiary} />
+                <Ionicons name="headset-outline" size={64} color={colors.system.label.tertiary} />
               </View>
             )}
             <LinearGradient

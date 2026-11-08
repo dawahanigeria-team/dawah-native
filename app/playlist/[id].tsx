@@ -263,7 +263,7 @@ const PlaylistDetailScreen: React.FC = () => {
 
       {playlistContents.length === 0 ? (
         <View style={tw`flex-1 items-center justify-center`}>
-          <Ionicons name="musical-notes-outline" size={64} color={colors.system.label.tertiary} />
+          <Ionicons name="headset-outline" size={64} color={colors.system.label.tertiary} />
           <Text style={[tw`mt-4`, { color: colors.system.label.secondary }]}>This playlist is empty.</Text>
         </View>
       ) : (

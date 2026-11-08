@@ -883,11 +883,11 @@ function LecturerDetailScreen() {
         apiError.data?.feature === "multi_lecturer_follow"
       ) {
         Alert.alert(
-          "Premium feature",
-          "Free users can follow up to 2 lecturers. Upgrade to follow more.",
+          "DN Supporter feature",
+          "Free users can follow up to 2 lecturers. Become a DN Supporter to follow more.",
           [
             { text: "Not now", style: "cancel" },
-            { text: "Upgrade", onPress: () => router.push("/premium" as any) },
+            { text: "Become a Supporter", onPress: () => router.push("/premium" as any) },
           ],
         );
         return;
@@ -1101,7 +1101,7 @@ function LecturerDetailScreen() {
             ]}
           >
             <Ionicons
-              name="musical-notes"
+              name="headset"
               size={24}
               color={colors.system.label.tertiary}
             />
@@ -1397,7 +1397,7 @@ function LecturerDetailScreen() {
               disabled={followDisabled}
               activeOpacity={0.7}
               style={[
-                tw`flex-row items-center justify-center px-6 py-2.5 rounded-full`,
+                tw`flex-row items-center justify-center px-6 min-h-[44px] rounded-full`,
                 followButtonStyle,
               ]}
             >
@@ -1407,7 +1407,7 @@ function LecturerDetailScreen() {
                   color={
                     isFollowing
                       ? colors.system.label.primary
-                      : colors.fixed.white
+                      : colors.brand.onPrimary
                   }
                 />
               ) : (
@@ -1423,7 +1423,7 @@ function LecturerDetailScreen() {
                     <Ionicons
                       name="lock-closed"
                       size={14}
-                      color={colors.fixed.white}
+                      color={colors.brand.onPrimary}
                       style={tw`mr-1.5`}
                     />
                   ) : null}
@@ -1433,7 +1433,7 @@ function LecturerDetailScreen() {
                       {
                         color: isFollowing
                           ? colors.system.label.primary
-                          : colors.fixed.white,
+                          : colors.brand.onPrimary,
                       },
                     ]}
                   >

@@ -18,17 +18,19 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { FlashList } from "../../src/components/adapters/flashListCompat";
 import { Text } from "../../src/components/atoms";
 import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
-import { Card } from "../../src/components/molecules/Card";
+import { ContinueHero } from "../../src/components/organisms/ContinueHero";
+import { LectureRow } from "../../src/components/molecules/LectureRow";
+import { episodeToRow } from "../../src/components/molecules/lectureRowModel";
 import { CardSkeleton } from "../../src/components/molecules/Card.skeleton";
 import { useUnreadAnnouncementsCount } from "../../src/hooks/useAnnouncements";
 import { usePopularLecturesWithCache } from "../../src/hooks/usePopularLecturesWithCache";
 import { useQuranAlbums } from "../../src/hooks/useQuranAlbums";
-import { useRecentlyPlayedLectures } from "../../src/hooks/useRecentlyPlayedLectures";
+import { useContinueListening } from "../../src/hooks/useContinueListening";
 import { useRecent } from "../../src/hooks/useRecent";
 import { useTheme } from "../../src/hooks/useTheme";
 import { OBSERVE_ROUTE } from "../../src/services/config/observe.config";
 import { QuranAlbum } from "../../src/services/api/quran.api";
-import { useAuthStore } from "../../src/stores";
+import { playerStore, useAuthStore, usePlayerActions } from "../../src/stores";
 import {
   initializeListeningPreferences,
   useListeningPreferencesStore,
@@ -37,20 +39,12 @@ import tw from "../../src/theme/twrnc";
 import { SearchLecture } from "../../src/types/api.types";
 import { Episode } from "../../src/types/types";
 
-const CARD_WIDTH = 280;
-const CARD_SPACING = 12;
+const FEED_ROW_COUNT = 4;
+const QURAN_CARD_WIDTH = 140;
 const IS_ANDROID = Platform.OS === "android";
 const HOME_SECTION_LIMIT = IS_ANDROID ? 6 : 10;
-const HOME_SKELETON_COUNT = IS_ANDROID ? 2 : 3;
+const FEED_SKELETON_COUNT = 3;
 const HOME_QURAN_SKELETON_COUNT = IS_ANDROID ? 2 : 4;
-
-// Get greeting based on time of day (Arabic greetings)
-const getGreeting = (): string => {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Sabah al-Khayr"; // Good Morning
-  if (hour < 17) return "Masa al-Khayr"; // Good Afternoon/Evening
-  return "Assalamu Alaikum"; // Peace be upon you
-};
 
 // Quick action items for the grid
 const QUICK_ACTIONS = [
@@ -89,12 +83,16 @@ const QUICK_ACTIONS = [
     route: "/section/quran-recitations",
   },
   {
-    id: "library",
-    title: "Library",
-    icon: "library" as const,
-    route: "/(tabs)/library",
+    // Replaces a Library tile that duplicated the tab bar. Ramadan Tafsir had no
+    // other way in from anywhere in the app.
+    id: "ramadan",
+    title: "Ramadan",
+    icon: "moon" as const,
+    route: "/ramadan-tafsir",
   },
 ];
+
+type FeedTab = "popular" | "recent";
 
 export default function HomeScreenWithBoundary() {
   return (
@@ -110,9 +108,8 @@ function HomeScreen() {
   // was captured at import and never updated on rotation or resize.
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const { colors } = useTheme();
-  const [greeting] = useState(getGreeting());
   const [searchValue, setSearchValue] = useState("");
-  const { user, isAuthenticated, isInitialized } = useAuthStore();
+  const { isAuthenticated, isInitialized } = useAuthStore();
   const { preferences, isHydrated: preferencesHydrated } =
     useListeningPreferencesStore();
 
@@ -170,8 +167,11 @@ function HomeScreen() {
     });
   }, [quranAlbumsRaw]);
 
-  const { lectures: recentlyPlayed, loading: recentlyPlayedLoading } =
-    useRecentlyPlayedLectures(HOME_SECTION_LIMIT);
+  const { playEpisode } = usePlayerActions();
+  const currentEpisodeId = playerStore.use((state) => state.currentEpisode?.id);
+  const isPlaying = playerStore.use((state) => state.isPlaying);
+  const continueListening = useContinueListening(currentEpisodeId);
+  const [feedTab, setFeedTab] = useState<FeedTab>("popular");
 
   const [popularEpisodes, setPopularEpisodes] = useState<Episode[]>([]);
   const [isRetryingHome, setIsRetryingHome] = useState(false);
@@ -357,8 +357,10 @@ function HomeScreen() {
         {onSeeAll && (
           <TouchableOpacity
             onPress={onSeeAll}
-            style={tw`flex-row items-center`}
+            style={tw`flex-row items-center min-h-[44px]`}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={`See all ${title}`}
           >
             <Text variant="subheadline" weight="semibold" color="brand">
               See All
@@ -374,67 +376,6 @@ function HomeScreen() {
       </View>
     ),
     [colors],
-  );
-
-  // Render Lecture Card
-  const renderLectureCard = useCallback(
-    ({ item }: { item: Episode; index: number }) => {
-      if (!item?.id) return null;
-      return (
-        <View
-          style={{ width: CARD_WIDTH, marginRight: CARD_SPACING }}
-        >
-          <Card
-            variant="landscape"
-            data={item}
-            onPress={() => handleCarouselItemPress(item)}
-            playOnPress={false}
-            showTime={true}
-            showMeta={true}
-            metaValue={item.lecturerName || "Unknown"}
-          />
-        </View>
-      );
-    },
-    [handleCarouselItemPress],
-  );
-
-  const renderTrendingCard = useCallback(
-    ({ item, index }: { item: Episode; index: number }) => {
-      if (!item?.id) return null;
-      return (
-        <View
-          style={{ width: CARD_WIDTH, marginRight: CARD_SPACING }}
-        >
-          <View style={styles.trendingCardWrapper}>
-            <View
-              style={[
-                styles.rankBadge,
-                { backgroundColor: index < 3 ? colors.brand.primary : colors.system.fill.tertiary },
-              ]}
-            >
-              <Text
-                variant="caption1"
-                weight="bold"
-                style={{ color: index < 3 ? colors.fixed.black : colors.system.label.secondary }}
-              >
-                #{index + 1}
-              </Text>
-            </View>
-            <Card
-              variant="landscape"
-              data={item}
-              onPress={() => handleCarouselItemPress(item)}
-              playOnPress={false}
-              showTime={true}
-              showMeta={true}
-              metaValue={item.lecturerName || "Unknown Scholar"}
-            />
-          </View>
-        </View>
-      );
-    },
-    [colors, handleCarouselItemPress],
   );
 
   // Render Quran Album Card
@@ -480,30 +421,29 @@ function HomeScreen() {
     [colors, handleAlbumPress],
   );
 
-  // Render skeleton loaders
-  const renderSkeletons = (
-    count: number = HOME_SKELETON_COUNT,
-    variant: "landscape" | "square" = "landscape",
-  ) => {
-    const getSkeletonCardStyle = () => [
-      styles.skeletonCardWrapper,
-      { width: variant === "landscape" ? CARD_WIDTH : 140 },
-    ];
+  const renderQuranSkeletons = () => (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={tw`px-4`}
+    >
+      {[...Array(HOME_QURAN_SKELETON_COUNT)].map((_, i) => (
+        <View key={i} style={styles.quranCardWrapper}>
+          <CardSkeleton variant="square" />
+        </View>
+      ))}
+    </ScrollView>
+  );
 
-    return (
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={tw`px-4`}
-      >
-        {[...Array(count)].map((_, i) => (
-          <View key={i} style={getSkeletonCardStyle()}>
-            <CardSkeleton variant={variant} />
-          </View>
-        ))}
-      </ScrollView>
-    );
-  };
+  const feedOptions: { key: FeedTab; label: string }[] = [
+    { key: "popular", label: preferences.configured ? "For you" : "Most heard" },
+    { key: "recent", label: "Newly added" },
+  ];
+  const feedEpisodes = (feedTab === "popular" ? trendingNowLectures : recentLectures).slice(
+    0,
+    FEED_ROW_COUNT,
+  );
+  const feedLoading = feedTab === "popular" ? popularLoading : recentLoading;
 
   return (
     <SafeAreaView
@@ -527,35 +467,14 @@ function HomeScreen() {
         >
           {/* Top Row: Greeting & Notifications */}
           <View style={tw`flex-row items-center justify-between mb-3`}>
-            <View style={tw`flex-row items-center`}>
-              <View
-                style={[
-                  tw`w-10 h-10 rounded-full items-center justify-center mr-3`,
-                  { backgroundColor: colors.brand.primary },
-                ]}
-              >
-                <Text
-                  variant="headline"
-                  weight="bold"
-                  style={{ color: colors.fixed.black }}
-                >
-                  DN
-                </Text>
-              </View>
-              <View>
-                <Text variant="caption1" color="secondaryLabel">
-                  {greeting}
-                </Text>
-                <Text variant="headline" color="label" weight="semibold">
-                  {user?.username || "Marhaban"}
-                </Text>
-              </View>
-            </View>
+            <Text variant="title1" accessibilityRole="header" numberOfLines={1} style={tw`flex-1 mr-2`}>
+              Assalamu alaikum
+            </Text>
             <View style={tw`flex-row gap-2`}>
               <TouchableOpacity
                 onPress={() => router.push("/listening-preferences" as any)}
                 style={[
-                  tw`w-10 h-10 rounded-full items-center justify-center`,
+                  tw`w-11 h-11 rounded-full items-center justify-center`,
                   { backgroundColor: colors.system.background.secondary },
                 ]}
                 activeOpacity={0.8}
@@ -571,7 +490,7 @@ function HomeScreen() {
               <TouchableOpacity
                 onPress={() => router.push("/inbox")}
                 style={[
-                  tw`w-10 h-10 rounded-full items-center justify-center`,
+                  tw`w-11 h-11 rounded-full items-center justify-center`,
                   { backgroundColor: colors.system.background.secondary },
                 ]}
                 activeOpacity={0.8}
@@ -633,7 +552,7 @@ function HomeScreen() {
             {searchValue.length > 0 && (
               <TouchableOpacity
                 onPress={() => setSearchValue("")}
-                style={tw`w-8 h-8 rounded-lg items-center justify-center`}
+                style={tw`w-11 h-11 rounded-lg items-center justify-center`}
                 activeOpacity={0.7}
                 accessibilityRole="button"
                 accessibilityLabel="Clear search"
@@ -658,7 +577,7 @@ function HomeScreen() {
             ]}
           >
             <View style={[styles.preferencePromptIcon, { backgroundColor: colors.brand.primary }]}>
-              <Ionicons name="sparkles" size={20} color={colors.fixed.black} />
+              <Ionicons name="sparkles" size={20} color={colors.brand.onPrimary} />
             </View>
             <View style={tw`flex-1`}>
               <Text variant="headline" color="label" weight="semibold">
@@ -672,15 +591,52 @@ function HomeScreen() {
           </TouchableOpacity>
         )}
 
-        <View style={tw`mt-7`}>
-          {renderSectionHeader(
-            preferences.configured ? "For You" : "Trending Now",
-            preferences.configured
-              ? "Based on your languages and scholars"
-              : "What the community is listening to",
-            () =>
-            guardedPush("/section/trending"),
-          )}
+        {continueListening && (
+          <View style={tw`mt-3`}>
+            <ContinueHero
+              episode={continueListening.episode}
+              positionSec={continueListening.positionSec}
+              onResume={() =>
+                void playEpisode(continueListening.episode, {
+                  startAt: continueListening.positionSec,
+                })
+              }
+              onOpen={() => handleCarouselItemPress(continueListening.episode)}
+            />
+          </View>
+        )}
+
+        <View style={tw`mt-6`}>
+          <View style={styles.feedTabs} accessibilityRole="tablist">
+            {feedOptions.map((option) => {
+              const selected = feedTab === option.key;
+              return (
+                <TouchableOpacity
+                  key={option.key}
+                  onPress={() => setFeedTab(option.key)}
+                  activeOpacity={0.8}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected }}
+                  style={[
+                    styles.feedTab,
+                    {
+                      backgroundColor: selected
+                        ? colors.brand.primary
+                        : colors.system.background.secondary,
+                    },
+                  ]}
+                >
+                  <Text
+                    variant="subheadline"
+                    weight="semibold"
+                    style={{ color: selected ? colors.brand.onPrimary : colors.system.label.primary }}
+                  >
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
           {primaryContentFailed ? (
             <View
               style={[
@@ -714,77 +670,45 @@ function HomeScreen() {
                 <Ionicons
                   name={isRetryingHome ? "hourglass-outline" : "refresh"}
                   size={20}
-                  color={colors.fixed.black}
+                  color={colors.brand.onPrimary}
                 />
               </TouchableOpacity>
             </View>
-          ) : popularLoading ? (
-            renderSkeletons()
-          ) : trendingNowLectures.length > 0 ? (
-            <FlashList
-              data={trendingNowLectures}
-              renderItem={renderTrendingCard}
-              keyExtractor={(item) => `popular-${item.id}`}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={tw`px-4`}
-            />
-          ) : null}
-        </View>
-
-        {/* Quick Actions */}
-        <View style={tw`px-4 mt-6`}>
-          <Text variant="title3" color="label" weight="bold" style={tw`mb-4`}>
-            Browse
-          </Text>
-          <View style={styles.quickActionsGrid}>
-            {QUICK_ACTIONS.map((action) => renderQuickAction(action))}
-          </View>
-        </View>
-
-        {/* Continue Listening */}
-        {(recentlyPlayedLoading || recentlyPlayed.length > 0) && (
-          <View style={tw`mt-8`}>
-            {renderSectionHeader(
-              "Continue Listening",
-              "Pick up where you left off",
-              () => guardedPush("/section/recently-played"),
-            )}
-            {recentlyPlayedLoading ? (
-              renderSkeletons()
-            ) : (
-              <FlashList
-                data={recentlyPlayed}
-                renderItem={renderLectureCard}
-                keyExtractor={(item) => `recent-${item.id}`}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={tw`px-4`}
-
-              />
-            )}
-          </View>
-        )}
-
-        {/* Recently Posted */}
-        <View style={tw`mt-8`}>
-          {renderSectionHeader(
-            "Fresh Content",
-            "Latest from our scholars",
-            () => guardedPush("/section/recently-posted"),
+          ) : feedLoading && feedEpisodes.length === 0 ? (
+            <View style={tw`px-4`}>
+              {[...Array(FEED_SKELETON_COUNT)].map((_, i) => (
+                <CardSkeleton key={i} variant="list" />
+              ))}
+            </View>
+          ) : (
+            <>
+              {feedEpisodes.map((episode) => (
+                <LectureRow
+                  key={`feed-${episode.id}`}
+                  lecture={episodeToRow(episode)}
+                  playback={
+                    episode.id === currentEpisodeId ? (isPlaying ? "playing" : "paused") : "idle"
+                  }
+                  onPress={() => handleCarouselItemPress(episode)}
+                  onPlay={() => void playEpisode(episode)}
+                />
+              ))}
+              {feedEpisodes.length > 0 && (
+                <TouchableOpacity
+                  onPress={() =>
+                    guardedPush(feedTab === "popular" ? "/section/trending" : "/section/recently-posted")
+                  }
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  style={styles.seeAll}
+                >
+                  <Text variant="subheadline" weight="semibold" color="brand">
+                    See all lectures
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </>
           )}
-          {recentLoading ? (
-            renderSkeletons()
-          ) : recentLectures.length > 0 ? (
-            <FlashList
-              data={recentLectures}
-              renderItem={renderLectureCard}
-              keyExtractor={(item) => `recent-${item.id}`}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={tw`px-4`}
-            />
-          ) : null}
         </View>
 
         {/* Quran Recitations */}
@@ -795,7 +719,7 @@ function HomeScreen() {
             () => guardedPush("/section/quran-recitations"),
           )}
           {quranLoading ? (
-            renderSkeletons(HOME_QURAN_SKELETON_COUNT, "square")
+            renderQuranSkeletons()
           ) : quranAlbums.length > 0 ? (
             <FlashList
               data={quranAlbums}
@@ -806,6 +730,16 @@ function HomeScreen() {
               contentContainerStyle={tw`px-4`}
             />
           ) : null}
+        </View>
+
+        {/* Quick Actions */}
+        <View style={tw`px-4 mt-8`}>
+          <Text variant="title3" color="label" weight="bold" style={tw`mb-4`}>
+            Browse
+          </Text>
+          <View style={styles.quickActionsGrid}>
+            {QUICK_ACTIONS.map((action) => renderQuickAction(action))}
+          </View>
         </View>
 
       </ScrollView>
@@ -887,19 +821,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 16,
   },
-  trendingCardWrapper: {
-    position: "relative",
-    paddingTop: 12,
+  feedTabs: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 16,
+    marginBottom: 6,
   },
-  rankBadge: {
-    position: "absolute",
-    zIndex: 2,
-    top: 0,
-    left: 12,
-    minWidth: 38,
-    height: 24,
-    paddingHorizontal: 8,
-    borderRadius: 12,
+  feedTab: {
+    minHeight: 44,
+    paddingHorizontal: 16,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  seeAll: {
+    minHeight: 44,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -918,11 +854,8 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
   },
-  skeletonCardWrapper: {
-    marginRight: 12,
-  },
   quranCardWrapper: {
-    width: 140,
+    width: QURAN_CARD_WIDTH,
     marginRight: 12,
   },
 });

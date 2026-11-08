@@ -54,7 +54,7 @@ const AboutScreen = () => {
               style={{
                 fontSize: 28,
                 fontWeight: "700",
-                color: colors.fixed.black,
+                color: colors.brand.onPrimary,
               }}
             >
               DN
@@ -161,7 +161,7 @@ const AboutScreen = () => {
           <Text
             style={[
               tw`text-xs mt-1`,
-              { color: colors.system.label.quaternary },
+              { color: colors.system.label.tertiary },
             ]}
           >
             {new Date().getFullYear()} dawahnigeria. All rights reserved.

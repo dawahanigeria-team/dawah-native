@@ -551,7 +551,6 @@ function SearchScreen() {
           value={searchInput}
           onChangeText={setSearchInput}
           onSearch={handleSearch}
-          onMicPress={() => {}}
         />
       </View>
 

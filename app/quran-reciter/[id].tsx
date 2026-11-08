@@ -324,11 +324,11 @@ const QuranReciterScreen: React.FC = () => {
           apiError.data?.feature === 'multi_lecturer_follow'
         ) {
           Alert.alert(
-            'Premium feature',
-            'Free users can follow up to 2 lecturers or reciters. Upgrade to follow more.',
+            'DN Supporter feature',
+            'Free users can follow up to 2 lecturers or reciters. Become a DN Supporter to follow more.',
             [
               { text: 'Not now', style: 'cancel' },
-              { text: 'Upgrade', onPress: () => router.push('/premium' as any) },
+              { text: 'Become a Supporter', onPress: () => router.push('/premium' as any) },
             ],
           );
           return;
@@ -675,7 +675,7 @@ const QuranReciterScreen: React.FC = () => {
               <Button
                 variant="filled"
                 onPress={handlePlayAll}
-                leftIcon={<Icon name="play" color="white" size="sm" />}
+                leftIcon={<Icon name="play" color={colors.brand.onPrimary} size="sm" />}
                 style={styles.actionButton}
               >
                 Play All
@@ -700,7 +700,7 @@ const QuranReciterScreen: React.FC = () => {
                   isFollowing ? (
                     <Icon name="checkmark" color="label" size="sm" />
                   ) : !canFollowMore ? (
-                    <Icon name="lock-closed" color="white" size="sm" />
+                    <Icon name="lock-closed" color={colors.brand.onPrimary} size="sm" />
                   ) : undefined
                 }
                 style={styles.followButton}

@@ -112,7 +112,7 @@ export default function PlaylistsScreen() {
         ) : (
           <>
             <TouchableOpacity onPress={() => setModalVisible(true)} style={{ marginTop: spacing.lg, padding: spacing.md, backgroundColor: colors.brand.primary, borderRadius: borderRadius.md }}>
-              <Text style={{ color: colors.fixed.white, textAlign: 'center' }}>Create New Playlist</Text>
+              <Text style={{ color: colors.brand.onPrimary, textAlign: 'center' }}>Create New Playlist</Text>
             </TouchableOpacity>
             <FlashList
               data={playlists}

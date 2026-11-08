@@ -233,7 +233,7 @@ const AlbumDetailScreen: React.FC = () => {
                 />
               ) : (
                 <View style={[styles.albumCover, styles.albumCoverPlaceholder, { backgroundColor: colors.system.fill.tertiary }]}>
-                  <Icon name="musical-notes" size="lg" color="tertiaryLabel" />
+                  <Icon name="headset" size="lg" color="tertiaryLabel" />
                 </View>
               )}
               <View style={styles.albumInfo}>
@@ -269,8 +269,8 @@ const AlbumDetailScreen: React.FC = () => {
                 accessibilityRole="button"
                 accessibilityLabel="Play all lectures in order"
               >
-                <Icon name="play" size="md" color={colors.fixed.black} />
-                <Text variant="body" weight="bold" style={{ color: colors.fixed.black }}>Play in order</Text>
+                <Icon name="play" size="md" color={colors.brand.onPrimary} />
+                <Text variant="body" weight="bold" style={{ color: colors.brand.onPrimary }}>Play in order</Text>
               </TouchableOpacity>
             </View>
 

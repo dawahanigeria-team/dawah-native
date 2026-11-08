@@ -461,7 +461,7 @@ export const Card: React.FC<CardProps> = memo(
                 <Icon
                   name="play"
                   size="md"
-                  color={colors.fixed.black}
+                  color={colors.brand.onPrimary}
                   style={{
                     marginLeft: 2, // Optical alignment for play icon
                   }}
@@ -746,7 +746,7 @@ export const Card: React.FC<CardProps> = memo(
                 <Icon
                   name="play"
                   size="md"
-                  color={colors.fixed.black}
+                  color={colors.brand.onPrimary}
                   accessibilityLabel="Play button"
                   style={{
                     marginLeft: 1, // Optical alignment for play icon

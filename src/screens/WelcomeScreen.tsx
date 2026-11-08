@@ -7,14 +7,16 @@ import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Text } from "../components/atoms";
-import { useTheme } from "../hooks/useTheme";
 import { OBSERVE_ROUTE } from "../services/config/observe.config";
 import { type Lecturer, lecturersApi } from "../services/api/lecturers.api";
+import { designTokens } from "../theme/designTokens";
+
+// This screen is dark in both themes, so it cannot take the themed brand colour.
+const WELCOME_BRAND = designTokens.colorsDark.brand.primary;
 
 const FALLBACK_PORTRAITS = ["A", "Y", "H", "E", "N", "I"];
 
 export default function WelcomeScreen() {
-  const { colors } = useTheme();
   const [lecturers, setLecturers] = useState<Lecturer[]>([]);
   const { markInteractive } = useObserve();
 
@@ -51,7 +53,7 @@ export default function WelcomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.brandRow}>
-          <View style={[styles.mark, { backgroundColor: colors.brand.primary }]}>
+          <View style={[styles.mark, { backgroundColor: WELCOME_BRAND }]}>
             <Text style={styles.markText}>DN</Text>
           </View>
           <Text variant="title2" weight="bold" style={styles.whiteText}>
@@ -76,7 +78,7 @@ export default function WelcomeScreen() {
             const image = lecturer?.img || lecturer?.rp_thumbnail;
             return (
               <View key={`${String(lecturer?.id ?? "fallback")}-${index}`} style={styles.portraitItem}>
-                <View style={[styles.portrait, { borderColor: `${colors.brand.primary}70` }]}>
+                <View style={[styles.portrait, { borderColor: `${WELCOME_BRAND}70` }]}>
                   {image ? (
                     <Image
                       source={{ uri: image }}
@@ -104,7 +106,7 @@ export default function WelcomeScreen() {
             onPress={() => router.push({ pathname: "/sign-up", params: { returnTo } })}
             style={({ pressed }) => [
               styles.primaryButton,
-              { backgroundColor: colors.brand.primary, opacity: pressed ? 0.86 : 1 },
+              { backgroundColor: WELCOME_BRAND, opacity: pressed ? 0.86 : 1 },
             ]}
             accessibilityRole="button"
           >

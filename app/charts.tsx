@@ -302,7 +302,9 @@ const styles = StyleSheet.create({
   },
   segmentedControlOption: {
     flex: 1,
+    minHeight: 44,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   segmentedControlOptionSelected: {
     borderBottomWidth: 2,

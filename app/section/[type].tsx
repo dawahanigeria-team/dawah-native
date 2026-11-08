@@ -501,7 +501,7 @@ function SectionScreen() {
                     { backgroundColor: colors.brand.primary },
                   ]}
                 >
-                  <Ionicons name="play" size={16} color={colors.fixed.black} />
+                  <Ionicons name="play" size={16} color={colors.brand.onPrimary} />
                 </View>
               </View>
 

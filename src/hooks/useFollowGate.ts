@@ -32,11 +32,11 @@ export function useFollowGate(): FollowGate {
       if (canFollowMore) return true;
 
       Alert.alert(
-        "Premium feature",
-        `Free users can follow up to ${free_follow_limit} lecturers. Upgrade to follow more.`,
+        "DN Supporter feature",
+        `Free users can follow up to ${free_follow_limit} lecturers. Become a DN Supporter to follow more.`,
         [
           { text: "Not now", style: "cancel" },
-          { text: "Upgrade", onPress: () => router.push("/premium" as never) },
+          { text: "Become a Supporter", onPress: () => router.push("/premium" as never) },
         ],
       );
       return false;
