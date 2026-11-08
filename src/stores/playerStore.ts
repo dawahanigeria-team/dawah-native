@@ -308,7 +308,8 @@ const persistQueueSnapshot = (state: PlayerState) => {
 // Defined as standalone constants to ensure closure capture
 // ----------------------------------------------------------------------
 
-const playEpisode = async (episode: Episode) => {
+const playEpisode = async (episode: Episode, options: { startAt?: number } = {}) => {
+  const startAt = options.startAt ?? 0;
   const requestId = beginPlaybackRequest();
   logger.debug('🎮 PlayerStore: playEpisode called with:', episode.title);
 
@@ -383,7 +384,7 @@ const playEpisode = async (episode: Episode) => {
       currentQueueIndex: 0,
       currentEpisode: episode,
       isPlaying: false,
-      progress: 0,
+      progress: startAt,
       duration: episode.durationSec,
       isExpanded: false,
       isLoading: true,
@@ -414,6 +415,9 @@ const playEpisode = async (episode: Episode) => {
       await TrackPlayer.add(tracks, { activate: false });
       await TrackPlayer.setPlaylistKey(buildPlaylistKey(queue));
       await TrackPlayer.skip(0);
+      if (startAt > 0) {
+        await TrackPlayer.seekTo(startAt);
+      }
 
       if (requestId !== currentPlayRequestId) return;
 
@@ -427,7 +431,7 @@ const playEpisode = async (episode: Episode) => {
 
       // Add to history
       try {
-        await historyService.addToHistory(episode, 0);
+        await historyService.addToHistory(episode, startAt);
         logger.debug('📚 Added lecture to history');
       } catch (error) {
         logger.error('Failed to add to history', error as Error, {
