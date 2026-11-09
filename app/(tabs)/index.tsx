@@ -107,7 +107,7 @@ function HomeScreen() {
     });
   }, [quranAlbumsRaw]);
 
-  const { playEpisode } = usePlayerActions();
+  const { playEpisode, togglePlayPause } = usePlayerActions();
   const currentEpisodeId = useEntity(playerStore, (state) => state.currentEpisode?.id);
   const isPlaying = useEntity(playerStore, (state) => state.isPlaying);
   const continueListening = useContinueListening(currentEpisodeId);
@@ -553,7 +553,9 @@ function HomeScreen() {
                     episode.id === currentEpisodeId ? (isPlaying ? "playing" : "paused") : "idle"
                   }
                   onPress={() => handleCarouselItemPress(episode)}
-                  onPlay={() => void playEpisode(episode)}
+                  onPlay={() =>
+                    void (episode.id === currentEpisodeId ? togglePlayPause() : playEpisode(episode))
+                  }
                 />
               ))}
               {feedEpisodes.length > 0 && (
