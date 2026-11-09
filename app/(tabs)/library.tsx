@@ -24,6 +24,7 @@ import { playlistApi } from "../../src/services/api/playlist.api";
 import type { UserPlaylist } from "../../src/types/api.types";
 import { resolveFavoriteIdsForLoad } from "../../src/features/library/resolveFavoriteIdsForLoad";
 import { mapWithConcurrency } from "../../src/utils/mapWithConcurrency";
+import { type DownloadGroupHeader, groupDownloads } from "../../src/features/library/groupDownloads";
 
 type LibraryTab = "Downloads" | "History" | "Liked" | "Playlists";
 
@@ -42,6 +43,7 @@ const downloadToEpisode = (download: DownloadMetadata): Episode => ({
   language: "",
   downloads: 0,
   createdAt: download.downloadedAt,
+  seriesTitle: download.seriesTitle,
 });
 
 export default function LibraryScreenWithBoundary() {
@@ -224,7 +226,7 @@ function LibraryScreen() {
   const getTabData = () => {
     switch (activeTab) {
       case "Downloads":
-        return downloadedEpisodes;
+        return groupDownloads(downloadedEpisodes);
       case "History":
         return historyEpisodes;
       case "Liked":
@@ -377,8 +379,21 @@ function LibraryScreen() {
   const data = getTabData();
   const loading = isTabLoading();
 
-  const renderListItem = useCallback(({ item }: { item: Episode | Series }) =>
-    "durationSec" in item ? (
+  const renderListItem = useCallback(({ item }: { item: Episode | Series | DownloadGroupHeader }) =>
+    "kind" in item ? (
+      <View style={tw`flex-row items-center justify-between px-4 pt-5 pb-1`}>
+        <Text
+          style={[tw`text-lg font-semibold flex-1 mr-3`, { color: colors.system.label.primary }]}
+          numberOfLines={1}
+          accessibilityRole="header"
+        >
+          {item.title}
+        </Text>
+        <Text style={[tw`text-sm`, { color: colors.system.label.secondary }]}>
+          {item.count} {item.count === 1 ? "lecture" : "lectures"}
+        </Text>
+      </View>
+    ) : "durationSec" in item ? (
       <LectureRow
         lecture={episodeToRow(item)}
         onPress={() => handleItemPress(item)}
@@ -404,7 +419,7 @@ function LibraryScreen() {
           metaValue={`${playlistCounts.get(item.id) ?? 0} tracks`}
         />
       </View>
-    ), [activeTab, handleItemPress, handleDeleteDownload, playlistCounts]);
+    ), [activeTab, handleItemPress, handleDeleteDownload, playlistCounts, colors]);
 
   const renderListEmpty = useCallback(() => {
     if (loading) {

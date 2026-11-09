@@ -109,6 +109,7 @@ export interface DownloadMetadata {
   duration: number;
   downloadedAt: string;
   fileSize?: number;
+  seriesTitle?: string;
   resumableData?: string; // To store resumable state
 }
 
@@ -340,6 +341,7 @@ class DownloadsService {
       lecturerName,
       coverUrl,
       durationSec,
+      seriesTitle,
     } = episode;
 
     if (!this.downloadsDirectory) {
@@ -448,6 +450,7 @@ class DownloadsService {
         duration: durationSec,
         downloadedAt: new Date().toISOString(),
         fileSize: bytesDownloaded,
+        seriesTitle,
       };
 
       this.metadataCache.set(lectureId, metadata);
@@ -830,6 +833,7 @@ class DownloadsService {
         duration: resumableDownload.episode.durationSec,
         downloadedAt: new Date().toISOString(),
         fileSize: bytesDownloaded,
+        seriesTitle: resumableDownload.episode.seriesTitle,
       };
 
       this.metadataCache.set(id, metadata);

@@ -403,6 +403,7 @@ const QuranReciterScreen: React.FC = () => {
       audioUrl: recitation.audioUrl,
       coverUrl: album.alb_thumbnail || album.img,
       seriesId: album.id,
+      seriesTitle: album.name,
       plays: recitation.plays || 0,
       liked: false,
       language: album.language || 'Arabic',

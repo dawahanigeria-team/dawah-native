@@ -62,6 +62,7 @@ const detailToEpisode = (detail: {
   postedDate?: string
   updatedDate?: string
   albumId?: string
+  albumName?: string
   isReciter?: boolean
   reciter?: { name?: string; isReciter?: boolean }
 }): Episode => ({
@@ -71,6 +72,7 @@ const detailToEpisode = (detail: {
   coverUrl: detail.coverUrl ?? '',
   audioUrl: detail.audioUrl ?? '',
   seriesId: detail.albumId ?? '',
+  seriesTitle: detail.albumName || undefined,
   plays: detail.views ?? 0,
   liked: false,
   language: detail.language ?? 'Unknown',

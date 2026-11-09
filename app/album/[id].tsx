@@ -108,6 +108,7 @@ const AlbumDetailScreen: React.FC = () => {
     plays: track.plays || 0,
     liked: false,
     seriesId: String(currentAlbum.id || ''),
+    seriesTitle: currentAlbum.title,
     language: currentAlbum.language || 'Unknown',
     downloads: 0,
     createdAt: currentAlbum.createdAt || new Date().toISOString(),
