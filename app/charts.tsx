@@ -34,7 +34,7 @@ const ChartsScreen: React.FC = memo(() => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState<ChartPeriod>('weekly');
-  const [selectedChartType, setSelectedChartType] = useState<ChartType>('album');
+  const [selectedChartType, setSelectedChartType] = useState<ChartType>('lecture');
 
   const insets = useSafeAreaInsets();
 
@@ -69,7 +69,7 @@ const ChartsScreen: React.FC = memo(() => {
       });
       setChartData(sortedData);
     } catch (err) {
-      setError('An error occurred while fetching chart data.');
+      setError("We couldn't load the charts. Check your connection and try again.");
       console.error(err);
     } finally {
       setLoading(false);
@@ -146,39 +146,39 @@ const ChartsScreen: React.FC = memo(() => {
     <>
       <View style={[styles.segmentedControlContainer, { backgroundColor: colors.system.fill.secondary, borderRadius: borderRadius.lg, marginHorizontal: spacing.lg, marginVertical: spacing.md, padding: spacing.xs }]}>
         <SegmentedControlOption
-          label="Album"
-          isSelected={selectedChartType === 'album'}
-          onPress={() => setSelectedChartType('album')}
+          label="Lectures"
+          isSelected={selectedChartType === 'lecture'}
+          onPress={() => setSelectedChartType('lecture')}
         />
         <SegmentedControlOption
-          label="Lecturer"
+          label="Scholars"
           isSelected={selectedChartType === 'lecturer'}
           onPress={() => setSelectedChartType('lecturer')}
         />
         <SegmentedControlOption
-          label="Playlist"
-          isSelected={selectedChartType === 'playlist'}
-          onPress={() => setSelectedChartType('playlist')}
+          label="Series"
+          isSelected={selectedChartType === 'album'}
+          onPress={() => setSelectedChartType('album')}
         />
         <SegmentedControlOption
-          label="Lecture"
-          isSelected={selectedChartType === 'lecture'}
-          onPress={() => setSelectedChartType('lecture')}
+          label="Playlists"
+          isSelected={selectedChartType === 'playlist'}
+          onPress={() => setSelectedChartType('playlist')}
         />
       </View>
       <View style={[styles.segmentedControlContainer, { backgroundColor: colors.system.fill.secondary, borderRadius: borderRadius.lg, marginHorizontal: spacing.lg, marginVertical: spacing.md, padding: spacing.xs }]}>
         <SegmentedControlOption
-          label="Daily"
+          label="Today"
           isSelected={selectedPeriod === 'daily'}
           onPress={() => setSelectedPeriod('daily')}
         />
         <SegmentedControlOption
-          label="Weekly"
+          label="This week"
           isSelected={selectedPeriod === 'weekly'}
           onPress={() => setSelectedPeriod('weekly')}
         />
         <SegmentedControlOption
-          label="Monthly"
+          label="This month"
           isSelected={selectedPeriod === 'monthly'}
           onPress={() => setSelectedPeriod('monthly')}
         />
@@ -207,8 +207,16 @@ const ChartsScreen: React.FC = memo(() => {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.system.background.primary }]} edges={['bottom']}>
         {renderHeader()}
+        {renderFilters()}
         <View style={styles.centered}>
-          <Text variant="body" color="systemRed">{error}</Text>
+          <Text variant="body" color="secondaryLabel" align="center">{error}</Text>
+          <TouchableOpacity
+            onPress={() => getChartData(selectedChartType, selectedPeriod)}
+            accessibilityRole="button"
+            style={[styles.retry, { backgroundColor: colors.brand.primary }]}
+          >
+            <Text variant="headline" style={{ color: colors.brand.onPrimary }}>Try again</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -267,9 +275,12 @@ const SegmentedControlOption: React.FC<SegmentedControlOptionProps> = memo(({ la
         ],
       ]}
       onPress={onPress}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: isSelected }}
     >
       <Text
         variant="subheadline"
+        numberOfLines={1}
         weight={isSelected ? 'semibold' : 'regular'}
         color={isSelected ? 'label' : 'secondaryLabel'}
       >
@@ -282,6 +293,14 @@ const SegmentedControlOption: React.FC<SegmentedControlOptionProps> = memo(({ la
 SegmentedControlOption.displayName = 'SegmentedControlOption';
 
 const styles = StyleSheet.create({
+  retry: {
+    marginTop: 16,
+    minHeight: 48,
+    paddingHorizontal: 24,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   container: {
     flex: 1,
   },

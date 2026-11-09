@@ -242,7 +242,7 @@ const AlbumDetailScreen: React.FC = () => {
                 </View>
               )}
               <View style={styles.albumInfo}>
-                <Text variant="caption1" color="secondaryLabel" weight="semibold" style={styles.eyebrow}>LECTURE ALBUM</Text>
+                <Text variant="caption1" color="secondaryLabel" weight="semibold" style={styles.eyebrow}>Series</Text>
                 <Text variant="title1" weight="bold" style={styles.albumTitle}>{album.title}</Text>
                 {album.lecturerName && (
                   <TouchableOpacity onPress={handleLecturerPress} activeOpacity={0.7}>

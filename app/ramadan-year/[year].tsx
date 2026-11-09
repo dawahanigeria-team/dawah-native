@@ -71,7 +71,7 @@ const RamadanYearHeader = React.memo(
             weight="semibold"
             style={[tw`ml-2`, { color: colors.brand.primary }]}
           >
-            TAFSEER COLLECTION
+            Tafsir collection
           </Text>
         </View>
 
@@ -119,7 +119,7 @@ const RamadanYearHeader = React.memo(
               color="secondaryLabel"
               style={tw`text-center`}
             >
-              ALBUMS
+              Series
             </Text>
           </View>
 
@@ -142,7 +142,7 @@ const RamadanYearHeader = React.memo(
               color="secondaryLabel"
               style={tw`text-center`}
             >
-              LECTURES
+              Lectures
             </Text>
           </View>
 
@@ -165,7 +165,7 @@ const RamadanYearHeader = React.memo(
               color="secondaryLabel"
               style={tw`text-center`}
             >
-              LANGUAGES
+              Languages
             </Text>
           </View>
         </View>

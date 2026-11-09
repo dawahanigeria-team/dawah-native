@@ -24,6 +24,7 @@ import { useAuthStore } from "../../src/stores/authStore";
 import { useTheme } from "../../src/hooks/useTheme";
 import tw from "../../src/theme/twrnc";
 import { SearchLecture } from "../../src/types/api.types";
+import { mapWithConcurrency } from "../../src/utils/mapWithConcurrency";
 import { Episode } from "../../src/types/types";
 import { appendShareSignature } from "../../src/utils/shareMessage";
 
@@ -157,7 +158,9 @@ const PlaylistDetailScreen: React.FC = () => {
         const audioIds = response.data.flatMap((item: any) => item.audio || []);
 
         // Fetch details for each audio ID
-        const lectureDetailsPromises = audioIds.map(async (audioId: number) => {
+        // Four at a time, as Library does: one request per lecture at once
+        // overwhelmed slow connections on long playlists.
+        const lectureDetails = await mapWithConcurrency(audioIds, 4, async (audioId: number) => {
           try {
             const lectureDetail = await lectureDetailApi.getLectureDetail({ lectureId: audioId, countView: false });
             // Map LectureDetail to SearchLecture format
@@ -186,7 +189,7 @@ const PlaylistDetailScreen: React.FC = () => {
           }
         });
 
-        const fetchedLectures = (await Promise.all(lectureDetailsPromises)).filter(Boolean) as SearchLecture[];
+        const fetchedLectures = lectureDetails.filter(Boolean) as SearchLecture[];
         setPlaylistContents(fetchedLectures);
 
         // Playlist name and privacy are now passed via navigation params
@@ -233,8 +236,11 @@ const PlaylistDetailScreen: React.FC = () => {
         <Text style={[tw`mt-4 text-lg font-bold text-center`, { color: colors.system.label.primary }]}>
           {error}
         </Text>
-        <Button variant="filled" size="large" style={tw`mt-6`} onPress={() => router.back()}>
-          Go Back
+        <Button variant="filled" size="large" style={tw`mt-6`} onPress={() => void fetchPlaylistDetails()}>
+          Try again
+        </Button>
+        <Button variant="plain" size="large" style={tw`mt-2`} onPress={() => router.back()}>
+          Go back
         </Button>
       </SafeAreaView>
     );
@@ -253,7 +259,7 @@ const PlaylistDetailScreen: React.FC = () => {
       {playlistContents.length > 0 && (
         <View style={tw`flex-row gap-3 px-4 pb-3`}>
           <Button variant="filled" size="large" style={tw`flex-1`} onPress={handlePlayAll}>
-            Play All
+            Play all
           </Button>
           <Button variant="plain" size="large" style={tw`flex-1`} onPress={handleShuffle}>
             Shuffle

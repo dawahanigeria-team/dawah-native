@@ -105,14 +105,14 @@ export default function PlaylistsScreen() {
         {!isAuthenticated ? (
           <View style={{ marginTop: spacing.lg, alignItems: 'center' }}>
             <Text style={{ color: colors.system.label.secondary, marginBottom: spacing.md }}>
-              Please log in to create and manage your playlists.
+              Sign in to create playlists and keep your lectures organized.
             </Text>
-            <Button onPress={() => router.push('/sign-in')}>Log In</Button>
+            <Button onPress={() => router.push('/sign-in')}>Sign in</Button>
           </View>
         ) : (
           <>
-            <TouchableOpacity onPress={() => setModalVisible(true)} style={{ marginTop: spacing.lg, padding: spacing.md, backgroundColor: colors.brand.primary, borderRadius: borderRadius.md }}>
-              <Text style={{ color: colors.brand.onPrimary, textAlign: 'center' }}>Create New Playlist</Text>
+            <TouchableOpacity onPress={() => setModalVisible(true)} style={{ marginTop: spacing.lg, minHeight: 48, justifyContent: 'center', backgroundColor: colors.brand.primary, borderRadius: borderRadius.full }}>
+              <Text style={{ color: colors.brand.onPrimary, textAlign: 'center', fontWeight: '600' }}>New playlist</Text>
             </TouchableOpacity>
             <FlashList
               data={playlists}
@@ -147,16 +147,16 @@ export default function PlaylistsScreen() {
           }}
         >
           <View style={{ width: '80%', backgroundColor: colors.system.background.secondary, padding: spacing.xl, borderRadius: borderRadius.lg }}>
-            <Text style={{ fontSize: typography.fontSize.title3, fontWeight: 'bold', color: colors.system.label.primary }}>New Playlist</Text>
+            <Text style={{ fontSize: typography.fontSize.title3, fontWeight: 'bold', color: colors.system.label.primary }}>New playlist</Text>
             <TextInput
-              placeholder="Playlist Name"
+              placeholder="Playlist name"
               placeholderTextColor={colors.system.label.secondary}
               style={{ marginTop: spacing.lg, padding: spacing.md, backgroundColor: colors.system.background.primary, borderRadius: borderRadius.md, color: colors.system.label.primary }}
               value={newPlaylistName}
               onChangeText={setNewPlaylistName}
             />
             <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: spacing.xl }}>
-              <Button variant="destructive" onPress={() => setModalVisible(false)}>Cancel</Button>
+              <Button variant="gray" onPress={() => setModalVisible(false)}>Cancel</Button>
               <Button onPress={handleCreatePlaylist}>Create</Button>
             </View>
           </View>

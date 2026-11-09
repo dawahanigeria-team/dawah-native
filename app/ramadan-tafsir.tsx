@@ -1,13 +1,11 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useGuardedPush } from "../src/navigation/useGuardedPush";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
   ScrollView,
   TouchableOpacity,
-  useWindowDimensions,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -27,10 +25,6 @@ interface YearGroup {
 
 export default function RamadanTafsirScreen() {
   const guardedPush = useGuardedPush();
-  // useWindowDimensions, not a module-scope Dimensions.get(): the old
-  // value was captured at import and never updated on rotation or resize.
-  const { width: SCREEN_WIDTH } = useWindowDimensions();
-  const CARD_WIDTH = (SCREEN_WIDTH - 48 - 12) / 2; // 2 columns with padding and gap
   const { colors } = useTheme();
   const [yearGroups, setYearGroups] = useState<YearGroup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,86 +60,9 @@ export default function RamadanTafsirScreen() {
     fetchRamadanData();
   }, []);
 
-  const toggleYearExpanded = (year: number) => {
-    setYearGroups((prev) =>
-      prev.map((group) =>
-        group.year === year ? { ...group, isExpanded: !group.isExpanded } : group
-      )
-    );
-  };
-
-  const handleAlbumPress = useCallback((album: RamadanAlbum) => {
-    if (!album?.id) return;
-    guardedPush(`/album/${album.id}`);
-  }, [guardedPush]);
-
   const handleViewAllAlbums = (year: number) => {
     guardedPush(`/ramadan-year/${year}`);
   };
-
-  const renderAlbumCard = useCallback(
-    (album: RamadanAlbum, _index: number) => {
-      return (
-        <View
-          key={album.id}
-          style={{ width: CARD_WIDTH }}
-        >
-          <TouchableOpacity
-            onPress={() => handleAlbumPress(album)}
-            activeOpacity={0.8}
-            style={[
-              tw`rounded-xl overflow-hidden`,
-              {
-                backgroundColor: colors.system.background.secondary,
-              },
-            ]}
-          >
-            <View style={tw`relative`}>
-              <Image
-                source={{ uri: album.alb_thumbnail || album.img }}
-                style={[tw`w-full aspect-square`, { borderRadius: 12 }]}
-                resizeMode="cover"
-              />
-              {/* Views badge */}
-              <View
-                style={[
-                  tw`absolute bottom-2 left-2 flex-row items-center px-2 py-1 rounded-full`,
-                  { backgroundColor: "rgba(0,0,0,0.7)" },
-                ]}
-              >
-                <Ionicons name="eye-outline" size={12} color="#fff" />
-                <Text
-                  variant="caption2"
-                  style={[tw`ml-1`, { color: "#fff" }]}
-                >
-                  {album.views || 0}
-                </Text>
-              </View>
-            </View>
-            <View style={tw`p-3`}>
-              <Text
-                variant="subheadline"
-                color="label"
-                weight="semibold"
-                numberOfLines={3}
-                style={tw`leading-5`}
-              >
-                {album.name}
-              </Text>
-              <Text
-                variant="caption2"
-                color="secondaryLabel"
-                style={tw`mt-1`}
-              >
-                {album.lec_no} {album.lec_no === 1 ? 'lecture' : 'lectures'}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      );
-    },
-    [colors, handleAlbumPress, CARD_WIDTH]
-  );
 
   const renderLatestYearHero = () => {
     if (yearGroups.length === 0) return null;
@@ -185,7 +102,7 @@ export default function RamadanTafsirScreen() {
                 weight="semibold"
                 style={{ color: colors.brand.onPrimary }}
               >
-                LATEST COLLECTION
+                Latest collection
               </Text>
             </View>
 
@@ -232,7 +149,7 @@ export default function RamadanTafsirScreen() {
                 color="secondaryLabel"
                 style={tw`ml-2`}
               >
-                Albums
+                Series
               </Text>
             </View>
 
@@ -250,7 +167,7 @@ export default function RamadanTafsirScreen() {
                 weight="semibold"
                 style={{ color: colors.brand.onPrimary }}
               >
-                View All {latestYear.totalCount} Albums
+                Browse {latestYear.year} AH
               </Text>
               <Ionicons
                 name="chevron-forward"
@@ -262,147 +179,40 @@ export default function RamadanTafsirScreen() {
           </View>
         </LinearGradient>
 
-        {/* Preview Section */}
-        <View style={tw`mt-6 px-4`}>
-          <View style={tw`flex-row items-center justify-between mb-3`}>
-            <View>
-              <Text
-                variant="caption1"
-                weight="semibold"
-                style={{ color: colors.brand.primary }}
-              >
-                PREVIEW
-              </Text>
-              <Text variant="caption1" color="secondaryLabel">
-                Showing {Math.min(4, latestYear.albums.length)} of{" "}
-                {latestYear.totalCount} albums
-              </Text>
-            </View>
-          </View>
-
-          {/* Preview Albums Grid */}
-          <View style={tw`flex-row flex-wrap justify-between`}>
-            {latestYear.albums.slice(0, 4).map((album, index) => (
-              <View key={album.id} style={tw`mb-3`}>
-                {renderAlbumCard(album, index)}
-              </View>
-            ))}
-          </View>
-        </View>
       </View>
     );
   };
 
   const renderPreviousYears = () => {
     if (yearGroups.length <= 1) return null;
-    const previousYears = yearGroups.slice(1);
 
     return (
-      <View style={tw`px-4 mt-4`}>
-        <Text
-          variant="title2"
-          color="label"
-          weight="semibold"
-          style={tw`mb-6`}
-        >
-          Previous Years
+      <View style={tw`px-4 mt-2`}>
+        <Text variant="title3" color="label" style={tw`mb-2`} accessibilityRole="header">
+          Earlier years
         </Text>
-
-        {previousYears.map((yearGroup) => (
-          <View
+        {yearGroups.slice(1).map((yearGroup) => (
+          <TouchableOpacity
             key={yearGroup.year}
+            onPress={() => handleViewAllAlbums(yearGroup.year)}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={`${yearGroup.year} AH, ${yearGroup.totalCount} series`}
             style={[
-              tw`mb-6 rounded-2xl overflow-hidden`,
-              { backgroundColor: colors.system.background.secondary },
+              tw`flex-row items-center justify-between py-4`,
+              { borderBottomWidth: 1, borderBottomColor: colors.system.separator.primary },
             ]}
           >
-            {/* Year Header - Always visible */}
-            <TouchableOpacity
-              onPress={() => toggleYearExpanded(yearGroup.year)}
-              activeOpacity={0.8}
-              style={tw`p-4`}
-            >
-              <View style={tw`flex-row items-center justify-between`}>
-                <View style={tw`flex-row items-center`}>
-                  {/* Timeline dot */}
-                  <View
-                    style={[
-                      tw`w-3 h-3 rounded-full mr-4`,
-                      { backgroundColor: colors.brand.primary },
-                    ]}
-                  />
-                  <View>
-                    {/* Year Badge */}
-                    <View
-                      style={[
-                        tw`self-start px-3 py-1 rounded-lg mb-2`,
-                        { backgroundColor: colors.system.fill.tertiary },
-                      ]}
-                    >
-                      <Text
-                        variant="subheadline"
-                        weight="semibold"
-                        style={{ color: colors.brand.primary }}
-                      >
-                        {yearGroup.year} AH
-                      </Text>
-                    </View>
-                    <Text variant="headline" color="label" weight="semibold">
-                      {yearGroup.name}
-                    </Text>
-                    <Text variant="footnote" color="secondaryLabel" style={tw`mt-1`}>
-                      {yearGroup.totalCount} albums available
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Expand/Collapse Icon */}
-                <Ionicons
-                  name={yearGroup.isExpanded ? "chevron-up" : "chevron-down"}
-                  size={24}
-                  color={colors.system.label.secondary}
-                />
-              </View>
-            </TouchableOpacity>
-
-            {/* Expanded Content */}
-            {yearGroup.isExpanded && (
-              <View style={tw`px-4 pb-4`}>
-                {/* View All Button */}
-                <TouchableOpacity
-                  onPress={() => handleViewAllAlbums(yearGroup.year)}
-                  style={[
-                    tw`flex-row items-center justify-center py-3 rounded-xl mb-4`,
-                    { backgroundColor: colors.brand.primary + "20" },
-                  ]}
-                  activeOpacity={0.8}
-                >
-                  <Text
-                    variant="subheadline"
-                    weight="semibold"
-                    style={{ color: colors.brand.primary }}
-                  >
-                    View All {yearGroup.totalCount} Albums
-                  </Text>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={18}
-                    color={colors.brand.primary}
-                    style={tw`ml-1`}
-                  />
-                </TouchableOpacity>
-
-                {/* Preview Albums */}
-                <View style={tw`flex-row flex-wrap justify-between`}>
-                  {yearGroup.albums.slice(0, 4).map((album, index) => (
-                    <View key={album.id} style={tw`mb-3`}>
-                      {renderAlbumCard(album, index)}
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
-          </View>
+            <Text variant="title3" color="label">
+              {yearGroup.year} AH
+            </Text>
+            <View style={tw`flex-row items-center`}>
+              <Text variant="subheadline" color="secondaryLabel" style={tw`mr-2`}>
+                {yearGroup.totalCount} series
+              </Text>
+              <Ionicons name="chevron-forward" size={20} color={colors.system.label.tertiary} />
+            </View>
+          </TouchableOpacity>
         ))}
       </View>
     );

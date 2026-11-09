@@ -49,7 +49,7 @@ export default function CategoriesScreen() {
       setError(
         err instanceof ApiError && (err.isTimeout || err.isNetworkError)
           ? err.message
-          : "We couldn't load the categories.",
+          : "We couldn't load the topics.",
       );
     } finally {
       setLoading(false);
@@ -118,7 +118,7 @@ export default function CategoriesScreen() {
         <View style={tw`flex-1 items-center justify-center`}>
           <ActivityIndicator size="small" color={colors.brand.primary} />
           <Text style={[tw`mt-2`, { color: colors.system.label.secondary }]}>
-            Loading categories...
+            Loading topics...
           </Text>
         </View>
       );
@@ -172,8 +172,8 @@ export default function CategoriesScreen() {
               ]}
             >
               {searchQuery
-                ? "No categories match your search"
-                : "No categories available"}
+                ? "No topics match your search"
+                : "No topics available"}
             </Text>
           </View>
         }
@@ -189,7 +189,7 @@ export default function CategoriesScreen() {
         { backgroundColor: colors.system.background.primary },
       ]}
     >
-      <ScreenHeader title="Categories" />
+      <ScreenHeader title="Topics" />
 
       <View style={tw`px-5 pb-4`}>
         <View
@@ -205,7 +205,7 @@ export default function CategoriesScreen() {
           />
           <TextInput
             style={[tw`flex-1 ml-3`, { color: colors.system.label.primary }]}
-            placeholder="Search categories"
+            placeholder="Search topics"
             placeholderTextColor={colors.system.label.tertiary}
             value={searchQuery}
             onChangeText={setSearchQuery}
