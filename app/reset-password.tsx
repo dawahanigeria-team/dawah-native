@@ -211,7 +211,7 @@ export default function ResetPasswordScreen() {
               color="label"
               style={styles.titleText}
             >
-              Reset Password
+              Enter your code
             </Text>
             <Text
               variant="subheadline"
@@ -236,7 +236,7 @@ export default function ResetPasswordScreen() {
               color="label"
               style={styles.labelText}
             >
-              Verification Code
+              Verification code
             </Text>
             <View
               style={[
@@ -312,7 +312,7 @@ export default function ResetPasswordScreen() {
               color="label"
               style={styles.labelText}
             >
-              New Password
+              New password
             </Text>
             <View
               style={[

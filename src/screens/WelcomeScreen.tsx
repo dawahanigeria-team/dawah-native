@@ -1,4 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { AppMark } from "../components/atoms/AppMark";
 import { Image } from "expo-image";
 import { useObserve } from "expo-observe";
 import { router } from "expo-router";
@@ -53,9 +54,7 @@ export default function WelcomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.brandRow}>
-          <View style={[styles.mark, { backgroundColor: WELCOME_BRAND }]}>
-            <Text style={styles.markText}>DN</Text>
-          </View>
+          <AppMark size={42} />
           <Text variant="title2" weight="bold" style={styles.whiteText}>
             dawahnigeria
           </Text>
@@ -141,8 +140,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 18, paddingBottom: 24, gap: 26 },
   brandRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
-  mark: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  markText: { color: "#07110d", fontSize: 16, fontWeight: "800" },
   copy: { alignItems: "center", gap: 10 },
   title: { color: "#f7fbf8", textAlign: "center", lineHeight: 42, maxWidth: 390 },
   subtitle: { color: "#aebcb5", textAlign: "center", lineHeight: 23, maxWidth: 360 },

@@ -1,4 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { AppMark } from "../src/components/atoms/AppMark";
+import { SocialSignIn } from "../src/components/molecules/SocialSignIn";
 import { statusCodes } from "@react-native-google-signin/google-signin";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
@@ -264,7 +266,10 @@ export default function SignInScreen() {
         { backgroundColor: colors.system.background.primary },
       ]}
     >
-      <ScreenHeader onBack={handleBack} />
+      <ScreenHeader
+        onBack={handleBack}
+        actions={[{ label: "Not now", accessibilityLabel: "Continue without signing in", onPress: () => router.replace("/(tabs)") }]}
+      />
       <KeyboardAvoidingView
         style={tw`flex-1`}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -275,46 +280,21 @@ export default function SignInScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Logo/Brand */}
-          <View
-            style={tw`items-center mb-8`}
-          >
-            <View
-              style={[
-                tw`w-16 h-16 rounded-2xl items-center justify-center mb-4`,
-                { 
-                  backgroundColor: colors.brand.primary,
-                  // elevation 4 folded in: boxShadow renders on both platforms.
-                  boxShadow: boxShadow(colors.brand.primary, 0.3, 8, 4, 0),
-                },
-              ]}
-            >
-              <Text
-                style={{
-                  fontSize: 24,
-                  fontWeight: '700',
-                  color: colors.brand.onPrimary,
-                }}
-              >
-                DN
-              </Text>
-            </View>
-            <Text
-              variant="title1"
-              weight="bold"
-              color="label"
-              style={{ textAlign: "center", marginBottom: 6 }}
-            >
-              Marhaban!
+          <View style={tw`mb-6`}>
+            <AppMark size={64} />
+            <Text variant="title1" color="label" style={tw`mt-4 mb-2`}>
+              Assalamu alaikum
             </Text>
-            <Text
-              variant="subheadline"
-              color="secondaryLabel"
-              style={{ textAlign: "center" }}
-            >
-              Sign in to continue to dawahnigeria
+            <Text variant="callout" color="secondaryLabel">
+              Sign in to keep your library, downloads and scholars on every device.
             </Text>
           </View>
+
+          <SocialSignIn
+            onApple={() => void handleAppleSignIn()}
+            onGoogle={() => void handleGoogleSignIn()}
+            disabled={isLoading}
+          />
 
           {/* Error Alert */}
           {error && (
@@ -505,7 +485,7 @@ export default function SignInScreen() {
                 weight="semibold"
                 style={{ color: colors.brand.primary }}
               >
-                Forgot Password?
+                Forgot password?
               </Text>
             </Pressable>
           </View>
@@ -534,94 +514,10 @@ export default function SignInScreen() {
                   weight="semibold"
                   style={{ color: colors.brand.onPrimary, fontSize: 16 }}
                 >
-                  Sign In
+                  Sign in
                 </Text>
               )}
             </TouchableOpacity>
-          </View>
-
-          {/* Divider */}
-          <View
-            style={tw`flex-row items-center my-5`}
-          >
-            <View
-              style={[
-                tw`flex-1 h-px`,
-                { backgroundColor: colors.system.separator.primary },
-              ]}
-            />
-            <Text
-              variant="caption1"
-              color="tertiaryLabel"
-              style={{ marginHorizontal: 12 }}
-            >
-              or continue with
-            </Text>
-            <View
-              style={[
-                tw`flex-1 h-px`,
-                { backgroundColor: colors.system.separator.primary },
-              ]}
-            />
-          </View>
-
-          {/* Social Sign In Buttons */}
-          <View
-            style={tw`flex-row gap-3 mb-6`}
-          >
-            {/* Google Sign In */}
-            <TouchableOpacity
-              onPress={handleGoogleSignIn}
-              disabled={isLoading}
-              style={[
-                tw`flex-1 py-3 rounded-xl flex-row items-center justify-center`,
-                {
-                  backgroundColor: colors.system.background.secondary,
-                  borderWidth: 1,
-                  borderColor: colors.system.separator.primary,
-                  opacity: isLoading ? 0.7 : 1,
-                },
-              ]}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name="logo-google"
-                size={18}
-                color={colors.system.label.primary}
-                style={{ marginRight: 6 }}
-              />
-              <Text variant="subheadline" weight="semibold" color="label">
-                Google
-              </Text>
-            </TouchableOpacity>
-
-            {/* Apple Sign In */}
-            {Platform.OS === "ios" && (
-              <TouchableOpacity
-                onPress={handleAppleSignIn}
-                disabled={isLoading}
-                style={[
-                  tw`flex-1 py-3 rounded-xl flex-row items-center justify-center`,
-                  {
-                    backgroundColor: colors.system.background.secondary,
-                    borderWidth: 1,
-                    borderColor: colors.system.separator.primary,
-                    opacity: isLoading ? 0.7 : 1,
-                  },
-                ]}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name="logo-apple"
-                  size={18}
-                  color={colors.system.label.primary}
-                  style={{ marginRight: 6 }}
-                />
-                <Text variant="subheadline" weight="semibold" color="label">
-                  Apple
-                </Text>
-              </TouchableOpacity>
-            )}
           </View>
 
           {/* Sign Up Link */}
