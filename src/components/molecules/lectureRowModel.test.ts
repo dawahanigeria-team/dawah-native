@@ -22,6 +22,12 @@ test('parseClockDuration reads HH:MM:SS, MM:SS, bare seconds and rejects zero or
   expect(parseClockDuration(undefined)).toBeNull();
 });
 
+test('searchLectureToRow accepts a numeric id, as the live API sends', () => {
+  const lecture = { id: 4821, Title: 'Tafsir' } as unknown as SearchLecture;
+
+  expect(searchLectureToRow(lecture).id).toBe('4821');
+});
+
 test('formatters produce visible and spoken durations', () => {
   expect(formatClock(3723)).toBe('1:02:03');
   expect(formatClock(754)).toBe('12:34');
