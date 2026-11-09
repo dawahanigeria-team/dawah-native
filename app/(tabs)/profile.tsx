@@ -1,3 +1,6 @@
+import Constants from "expo-constants";
+import { LinearGradient } from "expo-linear-gradient";
+import { AppMark } from "../../src/components/atoms/AppMark";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { useGuardedPush } from "../../src/navigation/useGuardedPush";
@@ -36,14 +39,6 @@ const ProfileScreen = () => {
   const { user, isAuthenticated, logout, deleteAccount } = useAuthStore();
   const { plan, subscription_status } = usePremiumStore();
   const [isDeletingAccount, setIsDeletingAccount] = React.useState(false);
-
-  // Get time-based greeting (Arabic)
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Sabah al-Khayr"; // Good Morning
-    if (hour < 17) return "Masa al-Khayr"; // Good Afternoon/Evening
-    return "Assalamu Alaikum"; // Peace be upon you
-  };
 
   const handleAppearancePress = () => {
     Alert.alert(
@@ -222,6 +217,13 @@ const ProfileScreen = () => {
           showChevron: true,
         },
         {
+          id: "sign-out",
+          title: "Sign out",
+          icon: "log-out-outline",
+          onPress: handleSignOut,
+          showChevron: false,
+        },
+        {
           id: "delete-account",
           title: "Delete Account",
           subtitle: isDeletingAccount
@@ -245,7 +247,7 @@ const ProfileScreen = () => {
     if (!isPremium) {
       return "Free";
     }
-    const planLabel = plan === "premium" ? "Premium" : String(plan);
+    const planLabel = "DN Supporter";
     return isNoteworthyStatus
       ? `${planLabel} · ${status.replace(/_/g, " ")}`
       : planLabel;
@@ -263,7 +265,7 @@ const ProfileScreen = () => {
     },
     {
       id: "premium",
-      title: "Premium",
+      title: "DN Supporter",
       subtitle: premiumSubtitle,
       icon: "diamond-outline",
       iconColor: colors.brand.primary,
@@ -312,7 +314,7 @@ const ProfileScreen = () => {
     {
       id: "about",
       title: "About",
-      subtitle: "Version 1.0.0",
+      subtitle: `Version ${Constants.expoConfig?.version ?? ""}`.trim(),
       icon: "information-circle-outline",
       iconColor: colors.system.label.secondary,
       onPress: () => guardedPush("/about" as any),
@@ -436,11 +438,7 @@ const ProfileScreen = () => {
         { backgroundColor: colors.system.background.primary },
       ]}
     >
-      <ScreenHeader
-        variant="large"
-        title={isAuthenticated && user ? user.username : "Guest"}
-        subtitle={getGreeting()}
-      />
+      <ScreenHeader title="Profile" />
       <ScrollView
         style={tw`flex-1`}
         showsVerticalScrollIndicator={false}
@@ -478,7 +476,7 @@ const ProfileScreen = () => {
                     style={{
                       fontSize: 24,
                       fontWeight: '700',
-                      color: colors.fixed.black,
+                      color: colors.brand.onPrimary,
                     }}
                   >
                     {user.username.substring(0, 2).toUpperCase()}
@@ -487,7 +485,7 @@ const ProfileScreen = () => {
                   <Ionicons
                     name="person"
                     size={28}
-                    color={colors.fixed.black}
+                    color={colors.brand.onPrimary}
                   />
                 )}
               </View>
@@ -514,47 +512,64 @@ const ProfileScreen = () => {
               </View>
             </View>
 
-            {/* Action Button */}
-            <TouchableOpacity
-              style={[
-                tw`mt-4 py-3 rounded-xl items-center justify-center`,
-                {
-                  backgroundColor: isAuthenticated
-                    ? colors.system.fill.tertiary
-                    : colors.brand.primary,
-                },
-              ]}
-              onPress={isAuthenticated ? handleSignOut : handleSignIn}
-              activeOpacity={0.8}
-              accessibilityLabel={isAuthenticated ? "Sign out" : "Sign in"}
-              accessibilityRole="button"
-            >
-              <View style={tw`flex-row items-center`}>
+            {/* Signed-in users find Sign out in the Account group at the end. */}
+            {!isAuthenticated && (
+              <TouchableOpacity
+                style={[
+                  tw`mt-4 py-3 rounded-full items-center justify-center flex-row`,
+                  { backgroundColor: colors.brand.primary, minHeight: 48 },
+                ]}
+                onPress={handleSignIn}
+                activeOpacity={0.8}
+                accessibilityLabel="Sign in"
+                accessibilityRole="button"
+              >
                 <Ionicons
-                  name={isAuthenticated ? "log-out-outline" : "log-in-outline"}
+                  name="log-in-outline"
                   size={18}
-                  color={isAuthenticated ? colors.semantic.red : colors.fixed.black}
+                  color={colors.brand.onPrimary}
                   style={{ marginRight: 6 }}
                 />
-                <Text
-                  variant="subheadline"
-                  weight="semibold"
-                  style={{
-                    color: isAuthenticated ? colors.semantic.red : colors.fixed.black,
-                  }}
-                >
-                  {isAuthenticated ? "Sign Out" : "Sign In"}
+                <Text variant="subheadline" weight="semibold" style={{ color: colors.brand.onPrimary }}>
+                  Sign in
                 </Text>
-              </View>
-            </TouchableOpacity>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
+        {plan === "free" && (
+          <TouchableOpacity
+            onPress={() => guardedPush("/premium" as any)}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Become a DN Supporter. Keep knowledge free for everyone."
+            style={tw`px-5 mb-6`}
+          >
+            <LinearGradient
+              colors={["#0F4A3C", "#1F6B3E"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={tw`rounded-2xl p-4 flex-row items-center`}
+            >
+              <View style={tw`flex-1`}>
+                <Text variant="title3" style={{ color: "#FFFFFF" }}>
+                  Become a DN Supporter
+                </Text>
+                <Text variant="footnote" style={{ color: "#E3EDDD", marginTop: 2 }}>
+                  Keep knowledge free for everyone.
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={22} color="#FFFFFF" />
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+
         {/* Menu Sections */}
         <View style={tw`px-5`}>
-          {renderSection("Account", accountItems, 200)}
           {renderSection("Preferences", settingsItems, 300)}
           {renderSection("Support", supportItems, 400)}
+          {renderSection("Account", accountItems, 200)}
           {__DEV__ && renderSection("Developer", debugItems, 500)}
         </View>
 
@@ -562,21 +577,8 @@ const ProfileScreen = () => {
         <View
           style={tw`items-center mt-4 mb-8`}
         >
-          <View
-            style={[
-              tw`w-12 h-12 rounded-xl items-center justify-center mb-3`,
-              { backgroundColor: colors.brand.primary },
-            ]}
-          >
-            <Text
-              style={{
-                fontSize: 16,
-                fontWeight: '700',
-                color: colors.fixed.black,
-              }}
-            >
-              DN
-            </Text>
+          <View style={tw`mb-3`}>
+            <AppMark size={48} />
           </View>
           <Text variant="footnote" color="tertiaryLabel">
             dawahnigeria

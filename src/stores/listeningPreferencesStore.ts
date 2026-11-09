@@ -1,5 +1,5 @@
 import AsyncStorage from "expo-sqlite/kv-store";
-import { entity } from "simpler-state";
+import { entity, useEntity } from "simpler-state";
 
 import { listeningPreferencesApi } from "../services/api/listeningPreferences.api";
 import {
@@ -174,4 +174,4 @@ export const clearListeningPreferencesForSignedOutSession = async (): Promise<vo
   });
 };
 
-export const useListeningPreferencesStore = () => listeningPreferencesStore.use();
+export const useListeningPreferencesStore = () => useEntity(listeningPreferencesStore);

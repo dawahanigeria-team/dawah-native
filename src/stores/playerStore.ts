@@ -1,6 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
 import AsyncStorage from "expo-sqlite/kv-store";
-import { entity } from "simpler-state";
+import { entity, useEntity } from "simpler-state";
 import type { AudioPlaybackControls } from "../hooks/useAudioPlayback";
 import { addSentryBreadcrumb, captureSentryException } from "../services/config/sentry.config";
 import { downloadsService, isExpectedDownloadRefusal } from "../services/downloads.service";
@@ -308,7 +308,8 @@ const persistQueueSnapshot = (state: PlayerState) => {
 // Defined as standalone constants to ensure closure capture
 // ----------------------------------------------------------------------
 
-const playEpisode = async (episode: Episode) => {
+const playEpisode = async (episode: Episode, options: { startAt?: number } = {}) => {
+  const startAt = options.startAt ?? 0;
   const requestId = beginPlaybackRequest();
   logger.debug('🎮 PlayerStore: playEpisode called with:', episode.title);
 
@@ -383,7 +384,7 @@ const playEpisode = async (episode: Episode) => {
       currentQueueIndex: 0,
       currentEpisode: episode,
       isPlaying: false,
-      progress: 0,
+      progress: startAt,
       duration: episode.durationSec,
       isExpanded: false,
       isLoading: true,
@@ -414,6 +415,9 @@ const playEpisode = async (episode: Episode) => {
       await TrackPlayer.add(tracks, { activate: false });
       await TrackPlayer.setPlaylistKey(buildPlaylistKey(queue));
       await TrackPlayer.skip(0);
+      if (startAt > 0) {
+        await TrackPlayer.seekTo(startAt);
+      }
 
       if (requestId !== currentPlayRequestId) return;
 
@@ -427,7 +431,7 @@ const playEpisode = async (episode: Episode) => {
 
       // Add to history
       try {
-        await historyService.addToHistory(episode, 0);
+        await historyService.addToHistory(episode, startAt);
         logger.debug('📚 Added lecture to history');
       } catch (error) {
         logger.error('Failed to add to history', error as Error, {
@@ -674,7 +678,13 @@ const playPrevious = async () => {
   }
 };
 
-const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: boolean = false) => {
+const playQueue = async (
+  episodes: Episode[],
+  startIndex: number = 0,
+  shuffle: boolean = false,
+  options: { startAt?: number } = {},
+) => {
+  const startAt = options.startAt ?? 0;
   const requestId = beginPlaybackRequest();
   logger.debug('🎵 PlayerStore: playQueue called with', episodes.length, 'episodes, startIndex:', startIndex);
 
@@ -740,6 +750,9 @@ const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: b
     await TrackPlayer.setPlaylistKey(buildPlaylistKey(filteredQueue));
     if (requestId !== currentPlayRequestId) return;
     await TrackPlayer.skip(safeFilteredStartIndex);
+    if (startAt > 0) {
+      await TrackPlayer.seekTo(startAt);
+    }
     if (requestId !== currentPlayRequestId) return;
     await TrackPlayer.play();
     await waitForPlaybackReady(PLAYBACK_START_TIMEOUT_MS, requestId);
@@ -754,7 +767,7 @@ const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: b
       isShuffled: shuffle,
       isPlaying: true,
       isLoading: false,
-      progress: 0,
+      progress: startAt,
     };
     setAndPersistPlayerState(nextState);
     persistQueueSnapshot(nextState);
@@ -1044,6 +1057,38 @@ const addToQueue = async (episodes: Episode | Episode[]) => {
   }
 };
 
+const skipToQueueIndex = async (index: number) => {
+  const currentState = playerStore.get();
+  const queue = Array.isArray(currentState.queue) ? currentState.queue : [];
+  const target = queue[index];
+  if (!target || index === currentState.currentQueueIndex) return;
+
+  try {
+    await ensureTrackPlayerReady();
+    // A restored session keeps the queue in the store but not in the native player.
+    const playerQueue = await TrackPlayer.getQueue();
+    if (playerQueue.length !== queue.length) {
+      await TrackPlayer.reset();
+      await TrackPlayer.add(buildQueue(queue, resolvePlaybackUri), { activate: false });
+      await TrackPlayer.setPlaylistKey(buildPlaylistKey(queue));
+    }
+    await TrackPlayer.skip(index);
+    await TrackPlayer.play();
+
+    const nextState = {
+      ...playerStore.get(),
+      currentQueueIndex: index,
+      currentEpisode: target,
+      isPlaying: true,
+      progress: 0,
+    };
+    setAndPersistPlayerState(nextState);
+    persistQueueSnapshot(nextState);
+  } catch (error) {
+    logger.error('Failed to skip to queue item', error as Error, { index });
+  }
+};
+
 const removeFromQueue = (index: number) => {
   const currentState = playerStore.get();
   const queue = Array.isArray(currentState.queue) ? currentState.queue : [];
@@ -1324,6 +1369,7 @@ const actions = {
   closePlayer,
   addToQueue,
   removeFromQueue,
+  skipToQueueIndex,
   toggleShuffle,
   setRepeatMode,
   clearQueue,
@@ -1353,7 +1399,7 @@ export const usePlayerStore = () => {
   // Get state from the store. simpler-state's .use() is a React hook
   // and should not be wrapped in try-catch as that can corrupt React's
   // internal hook tracking (causing areHookInputsEqual to fail).
-  const rawState = playerStore.use();
+  const rawState = useEntity(playerStore);
 
   // Merge with initialState to ensure all properties are always defined.
   // This prevents "Cannot read property 'X' of undefined" errors when the

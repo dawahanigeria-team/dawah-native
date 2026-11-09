@@ -1,4 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { AppMark } from "../src/components/atoms/AppMark";
+import { SocialSignIn } from "../src/components/molecules/SocialSignIn";
 import { statusCodes } from "@react-native-google-signin/google-signin";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -40,19 +42,15 @@ export default function SignUpScreen() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [usernameError, setUsernameError] = useState("");
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
-  const [confirmPasswordError, setConfirmPasswordError] = useState("");
 
   const [usernameFocused, setUsernameFocused] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
-  const [confirmPasswordFocused, setConfirmPasswordFocused] = useState(false);
 
   useEffect(() => {
     if (!ENV.GOOGLE_WEB_CLIENT_ID) {
@@ -110,28 +108,14 @@ export default function SignUpScreen() {
     return true;
   };
 
-  const validateConfirmPassword = (text: string): boolean => {
-    if (!text) {
-      setConfirmPasswordError("Please confirm your password");
-      return false;
-    }
-    if (text !== password) {
-      setConfirmPasswordError("Passwords do not match");
-      return false;
-    }
-    setConfirmPasswordError("");
-    return true;
-  };
-
   const handleSignUp = async () => {
     clearError();
 
     const isUsernameValid = validateUsername(username);
     const isEmailValid = validateEmail(email);
     const isPasswordValid = validatePassword(password);
-    const isConfirmPasswordValid = validateConfirmPassword(confirmPassword);
 
-    if (!isUsernameValid || !isEmailValid || !isPasswordValid || !isConfirmPasswordValid) {
+    if (!isUsernameValid || !isEmailValid || !isPasswordValid) {
       return;
     }
 
@@ -327,7 +311,7 @@ export default function SignUpScreen() {
         {options.showToggle && options.setShowPassword && (
           <Pressable
             onPress={() => options.setShowPassword!(!options.showPassword)}
-            hitSlop={8}
+            hitSlop={13}
             accessibilityRole="button"
             accessibilityLabel={options.showPassword ? "Hide password" : "Show password"}
           >
@@ -341,7 +325,7 @@ export default function SignUpScreen() {
         {!options.showToggle && value.length > 0 && (
           <Pressable
             onPress={() => setValue("")}
-            hitSlop={8}
+            hitSlop={13}
             accessibilityRole="button"
             accessibilityLabel={`Clear ${label.toLowerCase()}`}
           >
@@ -372,7 +356,10 @@ export default function SignUpScreen() {
         { backgroundColor: colors.system.background.primary },
       ]}
     >
-      <ScreenHeader onBack={() => router.back()} />
+      <ScreenHeader
+        onBack={() => router.back()}
+        actions={[{ label: "Not now", accessibilityLabel: "Continue without signing in", onPress: () => router.replace("/(tabs)") }]}
+      />
       <KeyboardAvoidingView
         style={tw`flex-1`}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -383,46 +370,21 @@ export default function SignUpScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Logo/Brand */}
-          <View
-            style={tw`items-center mb-6`}
-          >
-            <View
-              style={[
-                tw`w-16 h-16 rounded-2xl items-center justify-center mb-4`,
-                { 
-                  backgroundColor: colors.brand.primary,
-                  // elevation 4 folded in: boxShadow renders on both platforms.
-                  boxShadow: boxShadow(colors.brand.primary, 0.3, 8, 4, 0),
-                },
-              ]}
-            >
-              <Text
-                style={{
-                  fontSize: 24,
-                  fontWeight: '700',
-                  color: colors.fixed.black,
-                }}
-              >
-                DN
-              </Text>
-            </View>
-            <Text
-              variant="title1"
-              weight="bold"
-              color="label"
-              style={{ textAlign: "center", marginBottom: 6 }}
-            >
-              Ahlan wa Sahlan!
+          <View style={tw`mb-6`}>
+            <AppMark size={64} />
+            <Text variant="title1" color="label" style={tw`mt-4 mb-2`}>
+              Create your free account
             </Text>
-            <Text
-              variant="subheadline"
-              color="secondaryLabel"
-              style={{ textAlign: "center" }}
-            >
-              Join dawahnigeria community
+            <Text variant="callout" color="secondaryLabel">
+              Keep your library, downloads and scholars on every device.
             </Text>
           </View>
+
+          <SocialSignIn
+            onApple={() => void handleAppleSignIn()}
+            onGoogle={() => void handleGoogleSignIn()}
+            disabled={isLoading}
+          />
 
           {/* Error Alert */}
           {error && (
@@ -489,7 +451,6 @@ export default function SignUpScreen() {
             password,
             (text) => {
               setPassword(text);
-              if (confirmPassword) validateConfirmPassword(confirmPassword);
             },
             passwordError,
             validatePassword,
@@ -503,27 +464,6 @@ export default function SignUpScreen() {
               setShowPassword: setShowPassword,
               autoComplete: "password-new",
               delay: 300,
-            }
-          )}
-
-          {/* Confirm Password Input */}
-          {renderInput(
-            "Confirm Password",
-            "lock-closed-outline",
-            confirmPassword,
-            setConfirmPassword,
-            confirmPasswordError,
-            validateConfirmPassword,
-            confirmPasswordFocused,
-            setConfirmPasswordFocused,
-            {
-              placeholder: "Confirm your password",
-              secureTextEntry: true,
-              showToggle: true,
-              showPassword: showConfirmPassword,
-              setShowPassword: setShowConfirmPassword,
-              autoComplete: "password-new",
-              delay: 350,
             }
           )}
 
@@ -546,101 +486,17 @@ export default function SignUpScreen() {
               ]}
             >
               {isLoading ? (
-                <Loading size="small" color={colors.fixed.black} />
+                <Loading size="small" color={colors.brand.onPrimary} />
               ) : (
                 <Text
                   variant="body"
                   weight="semibold"
-                  style={{ color: colors.fixed.black, fontSize: 16 }}
+                  style={{ color: colors.brand.onPrimary, fontSize: 16 }}
                 >
-                  Create Account
+                  Create account
                 </Text>
               )}
             </TouchableOpacity>
-          </View>
-
-          {/* Divider */}
-          <View
-            style={tw`flex-row items-center my-5`}
-          >
-            <View
-              style={[
-                tw`flex-1 h-px`,
-                { backgroundColor: colors.system.separator.primary },
-              ]}
-            />
-            <Text
-              variant="caption1"
-              color="tertiaryLabel"
-              style={{ marginHorizontal: 12 }}
-            >
-              or continue with
-            </Text>
-            <View
-              style={[
-                tw`flex-1 h-px`,
-                { backgroundColor: colors.system.separator.primary },
-              ]}
-            />
-          </View>
-
-          {/* Social Sign Up Buttons */}
-          <View
-            style={tw`flex-row gap-3 mb-6`}
-          >
-            {/* Google Sign Up */}
-            <TouchableOpacity
-              onPress={handleGoogleSignIn}
-              disabled={isLoading}
-              style={[
-                tw`flex-1 py-3 rounded-xl flex-row items-center justify-center`,
-                {
-                  backgroundColor: colors.system.background.secondary,
-                  borderWidth: 1,
-                  borderColor: colors.system.separator.primary,
-                  opacity: isLoading ? 0.7 : 1,
-                },
-              ]}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name="logo-google"
-                size={18}
-                color={colors.system.label.primary}
-                style={{ marginRight: 6 }}
-              />
-              <Text variant="subheadline" weight="semibold" color="label">
-                Google
-              </Text>
-            </TouchableOpacity>
-
-            {/* Apple Sign Up */}
-            {Platform.OS === "ios" && (
-              <TouchableOpacity
-                onPress={handleAppleSignIn}
-                disabled={isLoading}
-                style={[
-                  tw`flex-1 py-3 rounded-xl flex-row items-center justify-center`,
-                  {
-                    backgroundColor: colors.system.background.secondary,
-                    borderWidth: 1,
-                    borderColor: colors.system.separator.primary,
-                    opacity: isLoading ? 0.7 : 1,
-                  },
-                ]}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name="logo-apple"
-                  size={18}
-                  color={colors.system.label.primary}
-                  style={{ marginRight: 6 }}
-                />
-                <Text variant="subheadline" weight="semibold" color="label">
-                  Apple
-                </Text>
-              </TouchableOpacity>
-            )}
           </View>
 
           {/* Sign In Link */}

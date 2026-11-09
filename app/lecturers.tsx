@@ -620,7 +620,7 @@ export default function LecturersScreen() {
                 key={loc}
                 onPress={() => setSelectedLocation(loc === 'All' ? null : loc)}
                 style={[
-                  tw`px-4 py-2 rounded-full mr-2`,
+                  tw`px-4 min-h-[44px] justify-center rounded-full mr-2`,
                   {
                     backgroundColor: isSelected
                       ? colors.brand.primary
@@ -633,7 +633,7 @@ export default function LecturersScreen() {
                     tw`text-sm font-medium`,
                     {
                       color: isSelected
-                        ? colors.fixed.white
+                        ? colors.brand.onPrimary
                         : colors.system.label.primary,
                     },
                   ]}
@@ -706,14 +706,14 @@ export default function LecturersScreen() {
                 accessibilityState={{ selected: view === mode }}
                 accessibilityLabel={`${mode === "list" ? "List" : "Grid"} view`}
                 style={[
-                  tw`px-3 py-1.5 rounded-md`,
+                  tw`px-3 min-h-[44px] justify-center rounded-md`,
                   view === mode && { backgroundColor: colors.brand.primary },
                 ]}
               >
                 <Ionicons
                   name={mode === "list" ? "list" : "grid"}
                   size={16}
-                  color={view === mode ? colors.fixed.white : colors.system.label.secondary}
+                  color={view === mode ? colors.brand.onPrimary : colors.system.label.secondary}
                 />
               </TouchableOpacity>
             ))}
@@ -728,7 +728,7 @@ export default function LecturersScreen() {
               setSortBy(sortOptions[nextIndex]);
             }}
             style={[
-              tw`flex-row items-center px-3 py-2 rounded-lg`,
+              tw`flex-row items-center px-3 min-h-[44px] rounded-lg`,
               { backgroundColor: colors.system.background.secondary },
             ]}
           >

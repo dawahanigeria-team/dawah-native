@@ -211,7 +211,7 @@ export default function ResetPasswordScreen() {
               color="label"
               style={styles.titleText}
             >
-              Reset Password
+              Enter your code
             </Text>
             <Text
               variant="subheadline"
@@ -236,7 +236,7 @@ export default function ResetPasswordScreen() {
               color="label"
               style={styles.labelText}
             >
-              Verification Code
+              Verification code
             </Text>
             <View
               style={[
@@ -283,7 +283,7 @@ export default function ResetPasswordScreen() {
                 editable={!isLoading}
               />
               {code.length > 0 && (
-                <Pressable onPress={() => setCode("")} hitSlop={8}>
+                <Pressable onPress={() => setCode("")} hitSlop={13}>
                   <Ionicons
                     name="close-circle"
                     size={18}
@@ -312,7 +312,7 @@ export default function ResetPasswordScreen() {
               color="label"
               style={styles.labelText}
             >
-              New Password
+              New password
             </Text>
             <View
               style={[
@@ -366,7 +366,7 @@ export default function ResetPasswordScreen() {
               />
               <Pressable
                 onPress={() => setShowPassword(!showPassword)}
-                hitSlop={8}
+                hitSlop={13}
               >
                 <Ionicons
                   name={showPassword ? "eye-off-outline" : "eye-outline"}
@@ -448,7 +448,7 @@ export default function ResetPasswordScreen() {
               />
               <Pressable
                 onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                hitSlop={8}
+                hitSlop={13}
               >
                 <Ionicons
                   name={
@@ -486,12 +486,12 @@ export default function ResetPasswordScreen() {
               ]}
             >
               {isLoading ? (
-                <Loading size="small" color={colors.fixed.black} />
+                <Loading size="small" color={colors.brand.onPrimary} />
               ) : (
                 <Text
                   variant="body"
                   weight="semibold"
-                  style={[styles.submitButtonText, { color: colors.fixed.black }]}
+                  style={[styles.submitButtonText, { color: colors.brand.onPrimary }]}
                 >
                   Reset Password
                 </Text>

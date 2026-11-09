@@ -11,7 +11,6 @@ import {
   defaultNotificationPrefs,
   disablePushNotificationsAsync,
   getNotificationPrefs,
-  getStoredPushToken,
   registerForPushNotificationsAsync,
   setNotificationPrefs,
   syncNotificationPreferencesAsync,
@@ -30,9 +29,6 @@ const NotificationsScreen = () => {
     defaultNotificationPrefs,
   );
   const [loading, setLoading] = useState(true);
-  const [pushTokenStatus, setPushTokenStatus] = useState<"present" | "missing">(
-    "missing",
-  );
   const [activeTimePicker, setActiveTimePicker] = useState<ReminderType | null>(
     null,
   );
@@ -43,8 +39,6 @@ const NotificationsScreen = () => {
       try {
         const storedPrefs = await getNotificationPrefs();
         setPrefs(storedPrefs);
-        const storedToken = await getStoredPushToken();
-        setPushTokenStatus(storedToken ? "present" : "missing");
       } catch (e) {
         console.warn("Failed to load notification prefs", e);
       } finally {
@@ -72,12 +66,8 @@ const NotificationsScreen = () => {
           } else {
             await disablePushNotificationsAsync(next);
         }
-        const storedToken = await getStoredPushToken();
-        setPushTokenStatus(storedToken ? "present" : "missing");
       } else {
         await syncNotificationPreferencesAsync(next);
-        const storedToken = await getStoredPushToken();
-        setPushTokenStatus(storedToken ? "present" : "missing");
       }
     } catch (e) {
       console.warn("Failed to save notification prefs", e);
@@ -119,12 +109,6 @@ const NotificationsScreen = () => {
           <Text style={[tw`text-sm`, { color: colors.system.label.secondary }]}>
             Control how dawahnigeria notifies you about new content and updates.
             You can also turn notifications off entirely.
-          </Text>
-          <Text
-            style={[tw`text-xs mt-2`, { color: colors.system.label.tertiary }]}
-          >
-            Push token:{" "}
-            {pushTokenStatus === "present" ? "registered" : "not registered"}
           </Text>
         </View>
 

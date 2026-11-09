@@ -88,7 +88,7 @@ test('playing numbered row swaps the number for an indicator and announces state
     'Tafsir Al-Fatiha, Sheikh Gumi, 1 hour 2 minutes, Now playing, Downloading 46%',
   ]);
   const icons = tree.root.findAll((node) => node.type === ('Ionicons' as never)).map((n) => n.props.name);
-  expect(icons).toEqual(['musical-notes', 'arrow-down-circle-outline']);
+  expect(icons).toEqual(['volume-high', 'arrow-down-circle-outline']);
 });
 
 test('missing artwork and unknown duration render a placeholder and omit duration', () => {

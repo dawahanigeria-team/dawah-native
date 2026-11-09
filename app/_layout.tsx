@@ -1,7 +1,9 @@
+import { useEntity } from "simpler-state";
 import { ObserveRoot } from "expo-observe";
 import { Stack, usePathname, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { Newsreader_500Medium } from "@expo-google-fonts/newsreader/500Medium";
 import { useFonts } from "expo-font";
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { InteractionManager, Linking, View } from "react-native";
@@ -25,7 +27,7 @@ import { useNotificationObserver } from "../src/hooks/useNotificationObserver";
 import { userService } from "../src/services/user.service";
 import { authStore, initializeAuth, subscribeToAuthChange } from "../src/stores/authStore";
 import { fetchFavorites } from "../src/stores/favoritesStore";
-import { usePlayerActions, playerStore } from "../src/stores";
+import { playerStore } from "../src/stores";
 
 // Initialize Sentry as early as possible
 initSentry();
@@ -121,12 +123,11 @@ function RootLayout() {
   const safePush = useSafeRoutePush();
   const hasInitializedApp = useRef(false);
   const { isDark } = useTheme();
-  const { expandPlayer } = usePlayerActions();
-  const currentEpisode = playerStore.use((state) => state.currentEpisode);
+  const currentEpisode = useEntity(playerStore, (state) => state.currentEpisode);
   const currentEpisodeRef = useRef<typeof currentEpisode | null>(null);
   const pendingPlayerNavigationRef = useRef(false);
   const pendingPlayerNavigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [, fontError] = useFonts(Ionicons.font);
+  const [, fontError] = useFonts({ ...Ionicons.font, Newsreader_500Medium });
 
   const clearPendingPlayerNavigationTimeout = useCallback(() => {
     const timeout = pendingPlayerNavigationTimeoutRef.current;
@@ -244,7 +245,6 @@ function RootLayout() {
   useEffect(() => {
     let cancelled = false;
     const navigateToPlayer = () => {
-      expandPlayer();
       const episodeId = currentEpisodeRef.current?.id;
       if (episodeId) {
         clearPendingPlayerNavigationTimeout();
@@ -311,7 +311,7 @@ function RootLayout() {
       clearPendingPlayerNavigationTimeout();
       subscription.remove();
     };
-  }, [clearPendingPlayerNavigationTimeout, expandPlayer, safePush]);
+  }, [clearPendingPlayerNavigationTimeout, safePush]);
 
   useEffect(() => {
     if (!pendingPlayerNavigationRef.current) {
@@ -323,9 +323,8 @@ function RootLayout() {
     }
     clearPendingPlayerNavigationTimeout();
     pendingPlayerNavigationRef.current = false;
-    expandPlayer();
     safePush(`/lecture/${episodeId}`, "pending_player_navigation");
-  }, [clearPendingPlayerNavigationTimeout, currentEpisode?.id, expandPlayer, safePush]);
+  }, [clearPendingPlayerNavigationTimeout, currentEpisode?.id, safePush]);
 
   useEffect(() => {
     return () => {

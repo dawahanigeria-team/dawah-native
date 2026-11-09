@@ -1,4 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { AppMark } from "../src/components/atoms/AppMark";
 import Constants from "expo-constants";
 import React from "react";
 import { Linking, ScrollView, TouchableOpacity, View } from "react-native";
@@ -8,7 +9,6 @@ import { Text } from "../src/components/atoms";
 import { ScreenHeader } from "../src/components/molecules";
 import { useTheme } from "../src/hooks/useTheme";
 import tw from "../src/theme/twrnc";
-import { boxShadow } from "../src/utils/shadow";
 
 const appVersion = Constants.expoConfig?.version || "1.0.0";
 const buildNumber =
@@ -40,25 +40,8 @@ const AboutScreen = () => {
       >
         {/* App Icon & Info */}
         <View style={tw`items-center mt-6 mb-8`}>
-          <View
-            style={[
-              tw`w-20 h-20 rounded-2xl items-center justify-center mb-4`,
-              {
-                backgroundColor: colors.brand.primary,
-                // elevation 4 folded in: boxShadow renders on both platforms.
-                boxShadow: boxShadow(colors.brand.primary, 0.3, 8, 4, 0),
-              },
-            ]}
-          >
-            <Text
-              style={{
-                fontSize: 28,
-                fontWeight: "700",
-                color: colors.fixed.black,
-              }}
-            >
-              DN
-            </Text>
+          <View style={tw`mb-4`}>
+            <AppMark size={80} />
           </View>
           <Text
             style={[
@@ -161,7 +144,7 @@ const AboutScreen = () => {
           <Text
             style={[
               tw`text-xs mt-1`,
-              { color: colors.system.label.quaternary },
+              { color: colors.system.label.tertiary },
             ]}
           >
             {new Date().getFullYear()} dawahnigeria. All rights reserved.

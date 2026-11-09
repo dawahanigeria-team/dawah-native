@@ -1,4 +1,4 @@
-import { entity, type Plugin } from 'simpler-state';
+import { entity, type Plugin, useEntity } from 'simpler-state';
 import {
   authApi,
   type User,
@@ -155,7 +155,7 @@ const clearLocalSessionData = async (): Promise<void> => {
 export const useAuthStore = () => {
   // simpler-state's .use() is a React hook and should not be wrapped
   // in try/catch, which can corrupt hook tracking.
-  const rawState = authStore.use();
+  const rawState = useEntity(authStore);
   const state: AuthState = {
     ...initialState,
     ...(rawState || {}),

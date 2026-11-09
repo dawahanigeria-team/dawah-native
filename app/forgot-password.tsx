@@ -153,15 +153,14 @@ export default function ForgotPasswordScreen() {
               color="label"
               style={{ textAlign: "center", marginBottom: 8 }}
             >
-              Forgot Password?
+              Reset your password
             </Text>
             <Text
               variant="subheadline"
               color="secondaryLabel"
               style={{ textAlign: "center", paddingHorizontal: 20 }}
             >
-              Don&apos;t worry! Enter your email address and we&apos;ll send you a
-              verification code to reset your password.
+              Enter your email and we will send you a 6-digit code.
             </Text>
           </View>
 
@@ -175,7 +174,7 @@ export default function ForgotPasswordScreen() {
               color="label"
               style={{ marginBottom: 6 }}
             >
-              Email Address
+              Email
             </Text>
             <View
               style={[
@@ -227,7 +226,7 @@ export default function ForgotPasswordScreen() {
                 onSubmitEditing={handleResetPassword}
               />
               {email.length > 0 && (
-                <Pressable onPress={() => setEmail("")} hitSlop={8}>
+                <Pressable onPress={() => setEmail("")} hitSlop={13}>
                   <Ionicons
                     name="close-circle"
                     size={18}
@@ -263,14 +262,14 @@ export default function ForgotPasswordScreen() {
               ]}
             >
               {isLoading ? (
-                <Loading size="small" color={colors.fixed.black} />
+                <Loading size="small" color={colors.brand.onPrimary} />
               ) : (
                 <Text
                   variant="body"
                   weight="semibold"
-                  style={{ color: colors.fixed.black, fontSize: 16 }}
+                  style={{ color: colors.brand.onPrimary, fontSize: 16 }}
                 >
-                  Send Verification Code
+                  Send code
                 </Text>
               )}
             </TouchableOpacity>
@@ -281,7 +280,7 @@ export default function ForgotPasswordScreen() {
             style={tw`flex-row items-center justify-center mt-4`}
           >
             <Text variant="subheadline" color="secondaryLabel">
-              Remember your password?{" "}
+              Remembered it?{" "}
             </Text>
             <Pressable onPress={() => router.back()}>
               <Text
@@ -289,7 +288,7 @@ export default function ForgotPasswordScreen() {
                 weight="semibold"
                 style={{ color: colors.brand.primary }}
               >
-                Sign In
+                Sign in
               </Text>
             </Pressable>
           </View>
@@ -316,8 +315,7 @@ export default function ForgotPasswordScreen() {
                   color="secondaryLabel"
                   style={{ flex: 1, lineHeight: 18 }}
                 >
-                  If you don&apos;t receive an email within a few minutes, please
-                  check your spam folder or try again.
+                  If it does not arrive in a few minutes, check your spam folder.
                 </Text>
               </View>
             </View>

@@ -3,7 +3,7 @@
  * Global state management for liked lectures
  */
 
-import { entity } from 'simpler-state';
+import { entity, useEntity } from 'simpler-state';
 import { favoritesApi } from '../services/api/favorites.api';
 import { addSentryBreadcrumb, captureSentryException } from '../services/config/sentry.config';
 import { logger } from '@/utils/logger';
@@ -135,7 +135,7 @@ export const clearFavorites = async (): Promise<void> => {
  * Hook to use favorites store
  */
 export const useFavoritesStore = () => {
-  const rawState = favoritesStore.use();
+  const rawState = useEntity(favoritesStore);
   const state: FavoritesState = {
     ...initialState,
     ...(rawState || {}),

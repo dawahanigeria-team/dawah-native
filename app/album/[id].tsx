@@ -1,3 +1,4 @@
+import { useEntity } from "simpler-state";
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,6 +17,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Icon } from '../../src/components/atoms';
 import { albumTrackToRow, LectureRow, ScreenHeader } from '../../src/components/molecules';
 import { Text } from '../../src/components/atoms/Text';
+import { useSeriesResume } from '../../src/hooks/useSeriesResume';
 import { useTheme } from '../../src/hooks/useTheme';
 import {
   Album,
@@ -51,8 +53,8 @@ const AlbumDetailScreen: React.FC = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const albumId = Array.isArray(id) ? id[0] : id;
   const { playQueue } = usePlayerActions();
-  const currentEpisode = playerStore.use((state) => state.currentEpisode);
-  const isPlaying = playerStore.use((state) => state.isPlaying);
+  const currentEpisode = useEntity(playerStore, (state) => state.currentEpisode);
+  const isPlaying = useEntity(playerStore, (state) => state.isPlaying);
 
   const [album, setAlbum] = useState<Album | null>(null);
   const [tracks, setTracks] = useState<AlbumTrack[]>([]);
@@ -106,6 +108,7 @@ const AlbumDetailScreen: React.FC = () => {
     plays: track.plays || 0,
     liked: false,
     seriesId: String(currentAlbum.id || ''),
+    seriesTitle: currentAlbum.title,
     language: currentAlbum.language || 'Unknown',
     downloads: 0,
     createdAt: currentAlbum.createdAt || new Date().toISOString(),
@@ -119,9 +122,11 @@ const AlbumDetailScreen: React.FC = () => {
     () => episodes.reduce((total, episode) => total + episode.durationSec, 0),
     [episodes],
   );
+  const lectureIds = useMemo(() => episodes.map((episode) => episode.id), [episodes]);
+  const { resume, finishedCount } = useSeriesResume(lectureIds);
   const durationLabel = album?.totalDuration || formatCollectionDuration(totalKnownDuration);
 
-  const startQueue = useCallback(async (startIndex: number, shuffle: boolean) => {
+  const startQueue = useCallback(async (startIndex: number, shuffle: boolean, startAt = 0) => {
     if (!album || episodes.length === 0) return;
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -131,7 +136,7 @@ const AlbumDetailScreen: React.FC = () => {
         lectureCount: episodes.length,
         startIndex,
       });
-      await playQueue(episodes, startIndex, shuffle);
+      await playQueue(episodes, startIndex, shuffle, { startAt });
     } catch (err: unknown) {
       captureSentryException(err instanceof Error ? err : new Error(String(err)), {
         component: 'AlbumDetailScreen',
@@ -233,11 +238,11 @@ const AlbumDetailScreen: React.FC = () => {
                 />
               ) : (
                 <View style={[styles.albumCover, styles.albumCoverPlaceholder, { backgroundColor: colors.system.fill.tertiary }]}>
-                  <Icon name="musical-notes" size="lg" color="tertiaryLabel" />
+                  <Icon name="headset" size="lg" color="tertiaryLabel" />
                 </View>
               )}
               <View style={styles.albumInfo}>
-                <Text variant="caption1" color="secondaryLabel" weight="semibold" style={styles.eyebrow}>LECTURE ALBUM</Text>
+                <Text variant="caption1" color="secondaryLabel" weight="semibold" style={styles.eyebrow}>Series</Text>
                 <Text variant="title1" weight="bold" style={styles.albumTitle}>{album.title}</Text>
                 {album.lecturerName && (
                   <TouchableOpacity onPress={handleLecturerPress} activeOpacity={0.7}>
@@ -265,19 +270,21 @@ const AlbumDetailScreen: React.FC = () => {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.playButton, { backgroundColor: colors.brand.primary }]}
-                onPress={() => startQueue(0, false)}
+                onPress={() => startQueue(resume?.index ?? 0, false, resume?.positionSec ?? 0)}
                 accessibilityRole="button"
-                accessibilityLabel="Play all lectures in order"
+                accessibilityLabel={resume ? `Continue with lecture ${resume.index + 1}` : 'Play all lectures in order'}
               >
-                <Icon name="play" size="md" color={colors.fixed.black} />
-                <Text variant="body" weight="bold" style={{ color: colors.fixed.black }}>Play in order</Text>
+                <Icon name="play" size="md" color={colors.brand.onPrimary} />
+                <Text variant="body" weight="bold" style={{ color: colors.brand.onPrimary }}>{resume ? `Continue lecture ${resume.index + 1}` : 'Play in order'}</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.tracksHeader}>
               <View>
                 <Text variant="title3" weight="bold">Lectures</Text>
-                <Text variant="caption1" color="secondaryLabel" style={styles.orderLabel}>Oldest lesson first</Text>
+                <Text variant="caption1" color="secondaryLabel" style={styles.orderLabel}>
+                  {finishedCount > 0 ? `${finishedCount} of ${tracks.length} finished` : 'Oldest lesson first'}
+                </Text>
               </View>
               <Text variant="caption1" color="secondaryLabel">{tracks.length} total</Text>
             </View>

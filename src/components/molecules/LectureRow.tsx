@@ -86,7 +86,7 @@ const LectureRowComponent: React.FC<LectureRowProps> = ({
   const { colors } = useTheme();
   const { fontScale } = useWindowDimensions();
   const isCurrent = playback !== 'idle';
-  const indicatorIcon = playback === 'paused' ? 'pause' : 'musical-notes';
+  const indicatorIcon = playback === 'paused' ? 'pause' : 'volume-high';
   const downloadIcon = DOWNLOAD_ICON[download.status];
   const secondary = [
     lecture.scholar,
@@ -158,7 +158,7 @@ const LectureRowComponent: React.FC<LectureRowProps> = ({
               accessible={false}
             />
           ) : (
-            <Ionicons name="musical-note" size={22} color={colors.system.label.tertiary} />
+            <Ionicons name="headset-outline" size={22} color={colors.system.label.tertiary} />
           )}
           {isCurrent && (
             <View style={[styles.artworkOverlay, { backgroundColor: colors.overlay.darkMedium }]}>

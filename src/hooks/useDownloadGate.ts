@@ -83,10 +83,10 @@ export function useDownloadGate(): DownloadGate {
 
     Alert.alert(
       "Monthly downloads used",
-      `You've used all ${limit} free downloads this month. Upgrade to Premium for unlimited offline listening, or wait for your allowance to reset next month.`,
+      `You've used all ${limit} free downloads this month. Become a DN Supporter for unlimited offline listening, or wait for your allowance to reset next month.`,
       [
         { text: "Not now", style: "cancel" },
-        { text: "Upgrade", onPress: goToPremium },
+        { text: "Become a Supporter", onPress: goToPremium },
       ],
     );
     return false;

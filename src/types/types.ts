@@ -29,6 +29,8 @@ export interface Episode {
   coverUrlLarge?: string;
   audioUrl: string;
   seriesId: string;
+  /** Album or series name, set only where it is known, so downloads can group by it. */
+  seriesTitle?: string;
   plays: number;
   liked: boolean;
   language: string;

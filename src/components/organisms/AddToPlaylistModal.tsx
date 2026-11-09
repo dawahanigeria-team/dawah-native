@@ -132,7 +132,7 @@ const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
                   disabled={addingAudio}
                 >
                   <Ionicons
-                    name="musical-notes-outline"
+                    name="headset-outline"
                     size={24}
                     color={colors.system.label.secondary}
                     style={tw`mr-3`}

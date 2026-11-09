@@ -1,4 +1,4 @@
-import { entity } from "simpler-state";
+import { entity, useEntity } from "simpler-state";
 import { premiumApi, type PlatformReceiptPayload } from "../services/api/premium.api";
 import type {
   PremiumFeatureFlags,
@@ -138,7 +138,7 @@ export const canUsePremiumFeature = (feature: PremiumFeatureKey): boolean => {
 };
 
 export const usePremiumStore = () => {
-  const rawState = premiumStore.use();
+  const rawState = useEntity(premiumStore);
   const state: PremiumStoreState = {
     ...initialState,
     ...(rawState || {}),

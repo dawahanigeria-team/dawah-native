@@ -36,6 +36,7 @@ import {
 } from '../../stores/playerStore'
 import type { Episode, PlayerState } from '../../types/types'
 import { shouldWriteProgress } from '../../utils/progressThrottle'
+import { historyService } from '../../services/history.service'
 
 interface AudioProviderProps {
   children: React.ReactNode
@@ -61,6 +62,7 @@ const detailToEpisode = (detail: {
   postedDate?: string
   updatedDate?: string
   albumId?: string
+  albumName?: string
   isReciter?: boolean
   reciter?: { name?: string; isReciter?: boolean }
 }): Episode => ({
@@ -70,6 +72,7 @@ const detailToEpisode = (detail: {
   coverUrl: detail.coverUrl ?? '',
   audioUrl: detail.audioUrl ?? '',
   seriesId: detail.albumId ?? '',
+  seriesTitle: detail.albumName || undefined,
   plays: detail.views ?? 0,
   liked: false,
   language: detail.language ?? 'Unknown',
@@ -386,6 +389,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
 
           playerStore.set(nextStateSnapshot)
           persistQueueSnapshot(nextStateSnapshot)
+          void historyService.recordPosition(currentState.currentEpisode, nextStateSnapshot.progress)
         } catch (error) {
           captureSentryException(error as Error, {
             component: 'AudioProvider',
@@ -403,6 +407,12 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
 
   const audioControls = useAudioPlayback({
     onPlaybackStatusUpdate: (status) => {
+      // Ahead of the foreground check: most long lectures are heard with the screen off.
+      const playingEpisode = playerStore.get().currentEpisode
+      if (playingEpisode && status.isPlaying) {
+        void historyService.recordPosition(playingEpisode, status.currentTime)
+      }
+
       if (appStateRef.current !== 'active') {
         return
       }

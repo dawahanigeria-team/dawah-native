@@ -83,6 +83,10 @@ export const Badge: React.FC<BadgeProps> = memo(({
   };
 
   const hasColoredBackground = variant !== 'secondary';
+  const onBackground =
+    variant === 'success' || variant === 'warning' || variant === 'error' || variant === 'info'
+      ? colors.fixed.white
+      : colors.brand.onPrimary;
 
   const getTextVariant = () => {
     switch (size) {
@@ -112,7 +116,7 @@ export const Badge: React.FC<BadgeProps> = memo(({
         color="label"
         weight="semibold"
         align="center"
-        style={hasColoredBackground ? { color: colors.fixed.white } : undefined}
+        style={hasColoredBackground ? { color: onBackground } : undefined}
       >
         {children}
       </Text>

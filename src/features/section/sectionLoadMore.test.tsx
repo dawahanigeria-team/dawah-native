@@ -1,12 +1,12 @@
 import React from 'react';
 import renderer, { act } from 'react-test-renderer';
-import SectionScreen from './[type]';
-import { ApiError } from '../../src/services/api/base.api';
-import { quranApi } from '../../src/services/api/quran.api';
+import SectionScreen from '../../../app/section/[type]';
+import { ApiError } from '../../services/api/base.api';
+import { quranApi } from '../../services/api/quran.api';
 
 let mockListProps: any;
 
-jest.mock('../../src/components/adapters/flashListCompat', () => ({
+jest.mock('../../components/adapters/flashListCompat', () => ({
   FlashList: (props: any) => {
     mockListProps = props;
     const Footer = props.ListFooterComponent;
@@ -19,20 +19,20 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('expo-linear-gradient', () => ({ LinearGradient: 'LinearGradient' }));
 jest.mock('@expo/vector-icons/Ionicons', () => 'Ionicons');
-jest.mock('../../src/navigation/useGuardedPush', () => ({ useGuardedPush: () => jest.fn() }));
-jest.mock('../../src/hooks/useTheme', () => ({
-  useTheme: () => ({ colors: require('../../src/theme/designTokens').colorsLight }),
+jest.mock('../../navigation/useGuardedPush', () => ({ useGuardedPush: () => jest.fn() }));
+jest.mock('../../hooks/useTheme', () => ({
+  useTheme: () => ({ colors: require('../../theme/designTokens').colorsLight }),
 }));
-jest.mock('../../src/components/molecules/Card', () => ({ Card: 'Card' }));
-jest.mock('../../src/components/molecules/SearchBar', () => ({ SearchBar: 'SearchBar' }));
-jest.mock('../../src/components/molecules/ScreenHeader', () => ({ ScreenHeader: 'ScreenHeader' }));
-jest.mock('../../src/components/molecules/LectureRow', () => ({ LectureRow: 'LectureRow' }));
-jest.mock('../../src/components/atoms', () => ({ Chip: 'Chip', Text: 'Text' }));
-jest.mock('../../src/stores', () => ({ usePlayerActions: () => ({ playEpisode: jest.fn() }) }));
-jest.mock('../../src/stores/authStore', () => ({
+jest.mock('../../components/molecules/Card', () => ({ Card: 'Card' }));
+jest.mock('../../components/molecules/SearchBar', () => ({ SearchBar: 'SearchBar' }));
+jest.mock('../../components/molecules/ScreenHeader', () => ({ ScreenHeader: 'ScreenHeader' }));
+jest.mock('../../components/molecules/LectureRow', () => ({ LectureRow: 'LectureRow' }));
+jest.mock('../../components/atoms', () => ({ Chip: 'Chip', Text: 'Text' }));
+jest.mock('../../stores', () => ({ usePlayerActions: () => ({ playEpisode: jest.fn() }) }));
+jest.mock('../../stores/authStore', () => ({
   useAuthStore: () => ({ isAuthenticated: false, isInitialized: true }),
 }));
-jest.mock('../../src/stores/listeningPreferencesStore', () => ({
+jest.mock('../../stores/listeningPreferencesStore', () => ({
   initializeListeningPreferences: jest.fn(),
   useListeningPreferencesStore: () => ({
     preferences: { languageIds: [], lecturerIds: [] },
@@ -43,13 +43,13 @@ const mockIdleFeed = {
   lectures: [], albums: [], loading: false, error: null, refetch: jest.fn(),
   loadMore: jest.fn(), hasMore: false, isLoadingMore: false,
 };
-jest.mock('../../src/hooks/useTrending', () => ({ useTrending: () => mockIdleFeed }));
-jest.mock('../../src/hooks/useRecent', () => ({ useRecent: () => mockIdleFeed }));
-jest.mock('../../src/hooks/useRamadanAlbums', () => ({ useRamadanAlbums: () => mockIdleFeed }));
-jest.mock('../../src/hooks/useRecentlyPlayedLectures', () => ({
+jest.mock('../../hooks/useTrending', () => ({ useTrending: () => mockIdleFeed }));
+jest.mock('../../hooks/useRecent', () => ({ useRecent: () => mockIdleFeed }));
+jest.mock('../../hooks/useRamadanAlbums', () => ({ useRamadanAlbums: () => mockIdleFeed }));
+jest.mock('../../hooks/useRecentlyPlayedLectures', () => ({
   useRecentlyPlayedLectures: () => mockIdleFeed,
 }));
-jest.mock('../../src/services/api/quran.api', () => ({
+jest.mock('../../services/api/quran.api', () => ({
   quranApi: { getQuranAlbums: jest.fn() },
 }));
 

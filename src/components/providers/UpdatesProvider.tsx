@@ -156,7 +156,7 @@ export const UpdatesProvider: React.FC = () => {
             style={[styles.reloadButton, { backgroundColor: colors.brand.primary }]}
             hitSlop={8}
           >
-            <Text style={[styles.reloadText, { color: colors.fixed.black }]}>Update</Text>
+            <Text style={[styles.reloadText, { color: colors.brand.onPrimary }]}>Update</Text>
           </Pressable>
         </View>
       </View>

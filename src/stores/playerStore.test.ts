@@ -206,6 +206,62 @@ test('playEpisode builds queue and uses TrackPlayer', async () => {
   expect(TrackPlayer.play).toHaveBeenCalledTimes(1)
 })
 
+test('playEpisode seeks to the saved position before playback starts', async () => {
+  const episode = {
+    id: 'resume-1',
+    title: 'Lecture to resume',
+    audioUrl: 'https://example.com/audio.mp3',
+    lecturerName: 'Ustadh',
+    coverUrl: 'cover.png',
+    durationSec: 3600,
+    seriesId: '',
+    plays: 0,
+    liked: false,
+    language: 'Unknown',
+    downloads: 0,
+    createdAt: new Date().toISOString(),
+  }
+
+  mockGetPlaybackUri.mockReturnValue('file:///audio.mp3')
+  mockIsDownloaded.mockReturnValue(false)
+  mockAddToHistory.mockResolvedValue(undefined)
+
+  await usePlayerActions().playEpisode(episode, { startAt: 1200 })
+
+  const seek = (TrackPlayer.seekTo as jest.Mock).mock.invocationCallOrder[0]
+  const play = (TrackPlayer.play as jest.Mock).mock.invocationCallOrder[0]
+  expect(TrackPlayer.seekTo).toHaveBeenCalledWith(1200)
+  expect(seek).toBeLessThan(play)
+  expect(mockAddToHistory).toHaveBeenCalledWith(episode, 1200)
+})
+
+test('skipToQueueIndex jumps to the chosen lecture', async () => {
+  const lecture = (id: string) => ({
+    id,
+    title: `Lecture ${id}`,
+    audioUrl: `https://example.com/${id}.mp3`,
+    lecturerName: 'Ustadh',
+    coverUrl: '',
+    durationSec: 600,
+    seriesId: '',
+    plays: 0,
+    liked: false,
+    language: 'Unknown',
+    downloads: 0,
+    createdAt: new Date().toISOString(),
+  })
+  const queue = [lecture('a'), lecture('b'), lecture('c')]
+  playerStore.set({ ...playerStore.get(), queue, currentQueueIndex: 0, currentEpisode: queue[0] })
+  ;(TrackPlayer.getQueue as jest.Mock).mockResolvedValue([{}, {}, {}])
+
+  await usePlayerActions().skipToQueueIndex(2)
+
+  expect(TrackPlayer.skip).toHaveBeenCalledWith(2)
+  expect(TrackPlayer.play).toHaveBeenCalled()
+  expect(playerStore.get().currentEpisode?.id).toBe('c')
+  expect(playerStore.get().currentQueueIndex).toBe(2)
+})
+
 test('activates and seeks a restored queue only when the user resumes it', async () => {
   const episode = {
     id: 'restored-1',

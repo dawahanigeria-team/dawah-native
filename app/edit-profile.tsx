@@ -99,7 +99,7 @@ const EditProfileScreen = () => {
                 style={{
                   fontSize: 32,
                   fontWeight: "700",
-                  color: colors.fixed.black,
+                  color: colors.brand.onPrimary,
                 }}
               >
                 {(user?.username || "G").substring(0, 2).toUpperCase()}
@@ -201,7 +201,7 @@ const EditProfileScreen = () => {
             <Text
               style={{
                 color: hasChanges && !isLoading
-                  ? colors.fixed.black
+                  ? colors.brand.onPrimary
                   : colors.system.label.tertiary,
                 fontWeight: "600",
                 fontSize: 16,

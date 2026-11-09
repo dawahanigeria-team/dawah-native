@@ -26,6 +26,18 @@ type ColorVariant =
   | 'systemRed'
   | 'brand';
 
+// Titles use the bundled display face. It ships one weight, so a bold request
+// would only make Android synthesise a smeared bold or drop the family.
+const DISPLAY_VARIANTS: readonly IOSTextStyle[] = ['largeTitle', 'title1', 'title2', 'title3'];
+const DISPLAY_LINE_HEIGHT = 1.2;
+// Hausa and Yoruba letters the display face has no glyph for. A title holding one
+// stays in the system font, rather than mixing two typefaces inside a word.
+const UNSUPPORTED_BY_DISPLAY = /[ṢṣƁɓƊɗƘƙƳƴ]/;
+
+export const usesDisplayFace = (variant: IOSTextStyle, children: React.ReactNode): boolean =>
+  DISPLAY_VARIANTS.includes(variant) &&
+  !(typeof children === 'string' && UNSUPPORTED_BY_DISPLAY.test(children));
+
 interface TextProps extends Omit<RNTextProps, 'style'> {
   variant?: IOSTextStyle;
   color?: ColorVariant;
@@ -48,6 +60,7 @@ export const Text: React.FC<TextProps> = ({
   ...props
 }) => {
   const colors = useThemeColors();
+  const isDisplay = usesDisplayFace(variant, children);
 
   const getVariantStyles = () => {
     switch (variant) {
@@ -162,7 +175,7 @@ export const Text: React.FC<TextProps> = ({
   };
 
   const getFontWeight = () => {
-    if (weight) {
+    if (weight && !isDisplay) {
       return { fontWeight: designTokens.typography.fontWeight[weight] };
     }
     return {};
@@ -175,6 +188,10 @@ export const Text: React.FC<TextProps> = ({
 
   const combinedStyle = [
     getVariantStyles(),
+    isDisplay && {
+      fontFamily: designTokens.typography.fontFamily.display,
+      lineHeight: designTokens.typography.fontSize[variant] * DISPLAY_LINE_HEIGHT,
+    },
     getColorStyle(),
     getFontWeight(),
     getTextAlign(),

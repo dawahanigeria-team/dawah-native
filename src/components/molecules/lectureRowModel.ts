@@ -58,9 +58,10 @@ export const compactCount = (value: number): string => {
   return String(value);
 };
 
-const text = (...candidates: (string | null | undefined)[]): string | null => {
+// The API sends some of these fields, such as `id`, as numbers despite their types.
+const text = (...candidates: (string | number | null | undefined)[]): string | null => {
   for (const candidate of candidates) {
-    const trimmed = candidate?.trim();
+    const trimmed = candidate == null ? null : String(candidate).trim();
     if (trimmed) return trimmed;
   }
   return null;

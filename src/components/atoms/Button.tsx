@@ -129,6 +129,7 @@ export const Button: React.FC<ButtonProps> = memo(
 
       switch (variant) {
         case "filled":
+          return { fixedColor: colors.brand.onPrimary };
         case "destructive":
           return { fixedColor: colors.fixed.black };
         case "tinted":
@@ -175,9 +176,11 @@ export const Button: React.FC<ButtonProps> = memo(
     const textColorConfig = getTextColor();
 
     // Determine loader color based on button variant
-    const loaderColor = (variant === 'filled' || variant === 'destructive')
-      ? colors.fixed.black
-      : colors.system.label.primary;
+    const loaderColor = variant === 'filled'
+      ? colors.brand.onPrimary
+      : variant === 'destructive'
+        ? colors.fixed.black
+        : colors.system.label.primary;
 
     return (
       <Pressable

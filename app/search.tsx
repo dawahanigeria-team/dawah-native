@@ -6,11 +6,14 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Modal,
+  Pressable,
+  ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button, Text } from "../src/components/atoms";
 import { toUserFacingError } from "../src/utils/userFacingError";
 import { ErrorBoundary } from "../src/components/atoms/ErrorBoundary";
@@ -37,26 +40,19 @@ import {
   Language,
   SearchFilters,
   SortOption,
-  Topic,
 } from "../src/types/search";
 
 const languages: Language[] = [
   "All",
   "English",
-  "Yoruba",
   "Hausa",
-  "Igala",
-  "Fulani",
+  "Yoruba",
+  "Arabic",
   "Igbo",
-];
-const topics: Topic[] = [
-  "All",
-  "Quran Recitation",
-  "Tafsir",
-  "Faith & Creed",
-  "Charity",
-  "Fajr Talk",
-  "Ramadan",
+  "Igala",
+  "Nupe",
+  "Ebira",
+  "Pidgin English",
 ];
 
 const sortOptions = [
@@ -81,6 +77,7 @@ export default function SearchScreenWithBoundary() {
 function SearchScreen() {
   const guardedPush = useGuardedPush();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const searchParams = useLocalSearchParams();
   const initialQuery = (searchParams.q as string) || "";
 
@@ -90,11 +87,12 @@ function SearchScreen() {
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<SearchFilters>({
     language: "All",
-    topic: "All",
     surah: "All",
     sortBy: "followers",
     lecturerId: undefined,
   });
+  const isFiltered =
+    filters.language !== "All" || Boolean(filters.lecturerId) || filters.surah !== "All";
 
   // Local state for search input - separate from actual search query
   const [searchInput, setSearchInput] = useState(initialQuery);
@@ -187,7 +185,6 @@ function SearchScreen() {
       analytics.capture("search_performed", {
         query,
         language: filters.language,
-        topic: filters.topic,
       });
     }
     setActiveSection("overview");
@@ -198,10 +195,12 @@ function SearchScreen() {
     key: K,
     value: SearchFilters[K]
   ) => {
+    setActiveSection("overview");
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
   const updateSurahFilter = (value: string) => {
+    setActiveSection("overview");
     // @ts-ignore - Safe type assertion since FilterSection options are from surahs array
     setFilters((prev) => ({ ...prev, surah: value }));
   };
@@ -213,7 +212,6 @@ function SearchScreen() {
   const clearFilters = () => {
     setFilters({
       language: "All",
-      topic: "All",
       surah: "All",
       sortBy: "followers",
       lecturerId: undefined,
@@ -410,17 +408,24 @@ function SearchScreen() {
     );
   };
 
-  const visibleLecturers =
-    activeSection === "lecturers" ? lecturerResults : lecturerResults.slice(0, 2);
-  const visibleAlbums =
-    activeSection === "albums" ? albumResults : albumResults.slice(0, 2);
+  // Scholar and album discovery cannot be filtered, so filtered searches show lectures alone.
+  const visibleLecturers = isFiltered
+    ? []
+    : activeSection === "lecturers"
+      ? lecturerResults
+      : lecturerResults.slice(0, 2);
+  const visibleAlbums = isFiltered
+    ? []
+    : activeSection === "albums"
+      ? albumResults
+      : albumResults.slice(0, 2);
   const visibleLectures =
     activeSection === "overview"
       ? filteredAndSortedResults.slice(0, 5)
       : activeSection === "lectures"
         ? filteredAndSortedResults
         : [];
-  const combinedTotal = lecturerTotal + totalResults + albumTotal;
+  const combinedTotal = isFiltered ? totalResults : lecturerTotal + totalResults + albumTotal;
   const currentSectionTotal =
     activeSection === "lecturers"
       ? lecturerTotal
@@ -464,7 +469,9 @@ function SearchScreen() {
         {error
           ? "Something went wrong"
           : actualSearchQuery || hasActiveFilters()
-            ? "No results found"
+            ? actualSearchQuery
+              ? `No results for “${actualSearchQuery}”`
+              : "No results found"
             : "Discover Islamic content"}
       </Text>
       <Text
@@ -494,6 +501,10 @@ function SearchScreen() {
         >
           Try again
         </Button>
+      ) : hasActiveFilters() ? (
+        <Button size="medium" onPress={clearFilters} style={tw`mt-5`}>
+          Clear filters
+        </Button>
       ) : null}
     </View>
   );
@@ -502,30 +513,26 @@ function SearchScreen() {
     ? toUserFacingError(error, "Search is not available right now. Please try again.").message
     : "";
 
-  const hasActiveFilters = () => {
-    return (
-      filters.language !== "All" ||
-      filters.topic !== "All" ||
-      (filters.lecturerId && filters.lecturerId !== "All") ||
-      (["Quran Recitation", "Tafsir"].includes(filters.topic) &&
-        filters.surah !== "All")
-    );
-  };
+  const hasActiveFilters = () => isFiltered;
 
   const getActiveFilterCount = () => {
     let count = 0;
     if (filters.language !== "All") count++;
-    if (filters.topic !== "All") count++;
     if (filters.lecturerId && filters.lecturerId !== "All") count++;
-    if (
-      ["Quran Recitation", "Tafsir"].includes(filters.topic) &&
-      filters.surah !== "All"
-    )
-      count++;
+    if (filters.surah !== "All") count++;
     return count;
   };
 
   const activeFilterCount = getActiveFilterCount();
+
+  const scholarFilterName = filters.lecturerId
+    ? lecturerCards.find((lecturer) => lecturer.id === filters.lecturerId)?.name
+    : undefined;
+  const activeFilterChips = [
+    filters.language !== "All" && { label: filters.language, clear: () => updateFilter("language", "All") },
+    scholarFilterName && { label: scholarFilterName, clear: () => updateFilter("lecturerId", undefined) },
+    filters.surah !== "All" && { label: filters.surah, clear: () => updateFilter("surah", "All") },
+  ].filter(Boolean) as { label: string; clear: () => void }[];
 
   return (
     <SafeAreaView
@@ -551,9 +558,32 @@ function SearchScreen() {
           value={searchInput}
           onChangeText={setSearchInput}
           onSearch={handleSearch}
-          onMicPress={() => {}}
         />
       </View>
+
+      {activeFilterChips.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={tw`px-5 pb-3`}
+          style={tw`grow-0`}
+        >
+          {activeFilterChips.map((chip) => (
+            <TouchableOpacity
+              key={chip.label}
+              onPress={chip.clear}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove ${chip.label} filter`}
+              style={[styles.activeFilter, { backgroundColor: `${colors.brand.primary}22` }]}
+            >
+              <Text variant="subheadline" weight="semibold" color="brand">
+                {chip.label}
+              </Text>
+              <Ionicons name="close" size={15} color={colors.brand.primary} />
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
 
       {/* Results summary and lecture sorting */}
       <View style={tw`px-5 mb-5`}>
@@ -612,84 +642,7 @@ function SearchScreen() {
               </TouchableOpacity>
             )}
 
-            {showFilters && (activeSection === "overview" || activeSection === "lectures") ? (
-            <View
-              style={[
-                tw`pt-6 pb-4 mb-6 mx-1 rounded-xl`,
-                {
-                  backgroundColor: colors.system.background.secondary,
-                  borderWidth: StyleSheet.hairlineWidth,
-                  borderColor: colors.system.separator.primary,
-                },
-              ]}
-            >
-              {/* Filter Header */}
-              <View style={tw`flex-row items-center justify-between px-5 mb-6`}>
-                <Text variant="title2" color="label" weight="bold">
-                  Filters
-                </Text>
-                {hasActiveFilters() && (
-                  <TouchableOpacity
-                    onPress={clearFilters}
-                    style={[
-                      tw`px-3 py-1 rounded-lg min-h-[44px] justify-center`,
-                      { backgroundColor: colors.system.fill.tertiary },
-                    ]}
-                  >
-                    <Text variant="subheadline" color="brand" weight="semibold">
-                      Clear All
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {/* Language Filter */}
-              <FilterSection
-                title="Language"
-                options={languages}
-                selectedValue={filters.language}
-                onSelect={(value) => updateFilter("language", value as Language)}
-              />
-
-              {/* Topic Filter */}
-              <FilterSection
-                title="Topics"
-                options={topics}
-                selectedValue={filters.topic}
-                onSelect={(value) => updateFilter("topic", value as Topic)}
-              />
-
-              {/* Scholar Filter */}
-              <FilterSection
-                title="Scholar"
-                options={["All", ...lecturerCards.map((l) => l.name)]}
-                selectedValue={
-                  filters.lecturerId
-                    ? lecturerCards.find((l) => l.id === filters.lecturerId)
-                        ?.name || "All"
-                    : "All"
-                }
-                onSelect={(name) => {
-                  const lecturer = lecturerCards.find((l) => l.name === name);
-                  updateFilter("lecturerId", lecturer ? lecturer.id : undefined);
-                }}
-                searchable={true}
-              />
-
-              {/* Surah Filter - show when Quran Recitation or Tafsir is selected */}
-              {["Quran Recitation", "Tafsir"].includes(filters.topic) && (
-                <FilterSection
-                  title="Surah"
-                  options={[...surahs]}
-                  selectedValue={filters.surah}
-                  onSelect={updateSurahFilter}
-                  searchable={true}
-                />
-              )}
-            </View>
-            ) : null}
-
-            {(activeSection === "overview" || activeSection === "lecturers") && (
+            {!isFiltered && (activeSection === "overview" || activeSection === "lecturers") && (
               <View style={tw`mb-6`}>
                 {renderSectionHeader(
                   "Scholars",
@@ -735,7 +688,7 @@ function SearchScreen() {
         ListFooterComponent={
           hasVisibleResults ? (
             <View style={tw`px-5`}>
-              {activeSection === "overview" && (
+              {activeSection === "overview" && !isFiltered && (
                 <View style={tw`pt-5`}>
                   {renderSectionHeader(
                     "Albums",
@@ -781,6 +734,118 @@ function SearchScreen() {
         maxToRenderPerBatch={5}
         windowSize={5}
       />
+
+      <Modal
+        visible={showFilters}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowFilters(false)}
+      >
+        <View style={[styles.sheetBackdrop, { backgroundColor: colors.overlay.darkMedium }]}>
+          <Pressable
+            style={tw`flex-1`}
+            onPress={() => setShowFilters(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Close filters"
+          />
+          <View
+            style={[
+              styles.sheet,
+              {
+                backgroundColor: colors.system.background.secondary,
+                paddingBottom: insets.bottom + 16,
+              },
+            ]}
+          >
+            <View style={[styles.sheetHandle, { backgroundColor: colors.system.separator.primary }]} />
+            <View style={styles.sheetHeader}>
+              <Text variant="title1" accessibilityRole="header">
+                Filters
+              </Text>
+              {hasActiveFilters() && (
+                <TouchableOpacity
+                  onPress={clearFilters}
+                  accessibilityRole="button"
+                  style={styles.sheetClear}
+                >
+                  <Text variant="subheadline" weight="semibold" color="brand">
+                    Clear all
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <ScrollView keyboardShouldPersistTaps="handled">
+              <FilterSection
+                title="Language"
+                options={languages}
+                selectedValue={filters.language}
+                onSelect={(value) => updateFilter("language", value as Language)}
+              />
+              <FilterSection
+                title="Scholar"
+                options={["All", ...lecturerCards.map((l) => l.name)]}
+                selectedValue={scholarFilterName ?? "All"}
+                onSelect={(name) => {
+                  const lecturer = lecturerCards.find((l) => l.name === name);
+                  updateFilter("lecturerId", lecturer ? lecturer.id : undefined);
+                }}
+                searchable={true}
+              />
+              <FilterSection
+                title="Surah"
+                options={[...surahs]}
+                selectedValue={filters.surah}
+                onSelect={updateSurahFilter}
+                searchable={true}
+              />
+            </ScrollView>
+            <View style={tw`px-4 pt-2`}>
+              <Button size="large" borderRadius="full" fullWidth onPress={() => setShowFilters(false)}>
+                {actualSearchQuery && !loading ? `Show ${totalResults} results` : "Show results"}
+              </Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  activeFilter: {
+    minHeight: 44,
+    paddingHorizontal: 14,
+    marginRight: 8,
+    borderRadius: 22,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  sheetBackdrop: {
+    flex: 1,
+  },
+  sheet: {
+    maxHeight: "85%",
+    paddingTop: 10,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
+  sheetHandle: {
+    alignSelf: "center",
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    marginBottom: 8,
+  },
+  sheetHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  sheetClear: {
+    minHeight: 44,
+    justifyContent: "center",
+  },
+});

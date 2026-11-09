@@ -1,5 +1,5 @@
 import AsyncStorage from 'expo-sqlite/kv-store';
-import { entity } from "simpler-state";
+import { entity, useEntity } from "simpler-state";
 
 interface ThemeState {
   isDark: boolean;
@@ -25,7 +25,7 @@ if (typeof window !== 'undefined') {
 }
 
 export const useThemeStore = () => {
-  const state = themeStore.use();
+  const state = useEntity(themeStore);
 
   const toggleTheme = async () => {
     const newIsDark = !state.isDark;
