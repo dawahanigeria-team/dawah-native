@@ -1,4 +1,4 @@
-import { matchesSurah, surahNumberFromTitle } from "./surahSearch";
+import { matchesSurah, surahNumberFromTitle, surahSearchPhrase } from "./surahSearch";
 
 const title = "Q002 - Shaykh Abdullah Abba";
 
@@ -20,4 +20,10 @@ test("finds a surah by name even when the title omits it", () => {
 
 test("an empty search matches everything", () => {
   expect(matchesSurah(title, 2, "  ")).toBe(true);
+});
+
+test("builds a search phrase from a surah name", () => {
+  expect(surahSearchPhrase("Al-Baqarah")).toBe("Baqara");
+  expect(surahSearchPhrase("Ali-Imran")).toBe("Imran");
+  expect(surahSearchPhrase("Yunus")).toBe("Yunus");
 });

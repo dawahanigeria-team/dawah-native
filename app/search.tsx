@@ -40,26 +40,19 @@ import {
   Language,
   SearchFilters,
   SortOption,
-  Topic,
 } from "../src/types/search";
 
 const languages: Language[] = [
   "All",
   "English",
-  "Yoruba",
   "Hausa",
-  "Igala",
-  "Fulani",
+  "Yoruba",
+  "Arabic",
   "Igbo",
-];
-const topics: Topic[] = [
-  "All",
-  "Quran Recitation",
-  "Tafsir",
-  "Faith & Creed",
-  "Charity",
-  "Fajr Talk",
-  "Ramadan",
+  "Igala",
+  "Nupe",
+  "Ebira",
+  "Pidgin English",
 ];
 
 const sortOptions = [
@@ -94,11 +87,12 @@ function SearchScreen() {
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<SearchFilters>({
     language: "All",
-    topic: "All",
     surah: "All",
     sortBy: "followers",
     lecturerId: undefined,
   });
+  const isFiltered =
+    filters.language !== "All" || Boolean(filters.lecturerId) || filters.surah !== "All";
 
   // Local state for search input - separate from actual search query
   const [searchInput, setSearchInput] = useState(initialQuery);
@@ -191,7 +185,6 @@ function SearchScreen() {
       analytics.capture("search_performed", {
         query,
         language: filters.language,
-        topic: filters.topic,
       });
     }
     setActiveSection("overview");
@@ -202,10 +195,12 @@ function SearchScreen() {
     key: K,
     value: SearchFilters[K]
   ) => {
+    setActiveSection("overview");
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
   const updateSurahFilter = (value: string) => {
+    setActiveSection("overview");
     // @ts-ignore - Safe type assertion since FilterSection options are from surahs array
     setFilters((prev) => ({ ...prev, surah: value }));
   };
@@ -217,7 +212,6 @@ function SearchScreen() {
   const clearFilters = () => {
     setFilters({
       language: "All",
-      topic: "All",
       surah: "All",
       sortBy: "followers",
       lecturerId: undefined,
@@ -414,17 +408,24 @@ function SearchScreen() {
     );
   };
 
-  const visibleLecturers =
-    activeSection === "lecturers" ? lecturerResults : lecturerResults.slice(0, 2);
-  const visibleAlbums =
-    activeSection === "albums" ? albumResults : albumResults.slice(0, 2);
+  // Scholar and album discovery cannot be filtered, so filtered searches show lectures alone.
+  const visibleLecturers = isFiltered
+    ? []
+    : activeSection === "lecturers"
+      ? lecturerResults
+      : lecturerResults.slice(0, 2);
+  const visibleAlbums = isFiltered
+    ? []
+    : activeSection === "albums"
+      ? albumResults
+      : albumResults.slice(0, 2);
   const visibleLectures =
     activeSection === "overview"
       ? filteredAndSortedResults.slice(0, 5)
       : activeSection === "lectures"
         ? filteredAndSortedResults
         : [];
-  const combinedTotal = lecturerTotal + totalResults + albumTotal;
+  const combinedTotal = isFiltered ? totalResults : lecturerTotal + totalResults + albumTotal;
   const currentSectionTotal =
     activeSection === "lecturers"
       ? lecturerTotal
@@ -512,26 +513,13 @@ function SearchScreen() {
     ? toUserFacingError(error, "Search is not available right now. Please try again.").message
     : "";
 
-  const hasActiveFilters = () => {
-    return (
-      filters.language !== "All" ||
-      filters.topic !== "All" ||
-      (filters.lecturerId && filters.lecturerId !== "All") ||
-      (["Quran Recitation", "Tafsir"].includes(filters.topic) &&
-        filters.surah !== "All")
-    );
-  };
+  const hasActiveFilters = () => isFiltered;
 
   const getActiveFilterCount = () => {
     let count = 0;
     if (filters.language !== "All") count++;
-    if (filters.topic !== "All") count++;
     if (filters.lecturerId && filters.lecturerId !== "All") count++;
-    if (
-      ["Quran Recitation", "Tafsir"].includes(filters.topic) &&
-      filters.surah !== "All"
-    )
-      count++;
+    if (filters.surah !== "All") count++;
     return count;
   };
 
@@ -542,13 +530,8 @@ function SearchScreen() {
     : undefined;
   const activeFilterChips = [
     filters.language !== "All" && { label: filters.language, clear: () => updateFilter("language", "All") },
-    filters.topic !== "All" && {
-      label: filters.topic,
-      clear: () => setFilters((prev) => ({ ...prev, topic: "All", surah: "All" })),
-    },
     scholarFilterName && { label: scholarFilterName, clear: () => updateFilter("lecturerId", undefined) },
-    ["Quran Recitation", "Tafsir"].includes(filters.topic) &&
-      filters.surah !== "All" && { label: filters.surah, clear: () => updateFilter("surah", "All") },
+    filters.surah !== "All" && { label: filters.surah, clear: () => updateFilter("surah", "All") },
   ].filter(Boolean) as { label: string; clear: () => void }[];
 
   return (
@@ -659,7 +642,7 @@ function SearchScreen() {
               </TouchableOpacity>
             )}
 
-            {(activeSection === "overview" || activeSection === "lecturers") && (
+            {!isFiltered && (activeSection === "overview" || activeSection === "lecturers") && (
               <View style={tw`mb-6`}>
                 {renderSectionHeader(
                   "Scholars",
@@ -705,7 +688,7 @@ function SearchScreen() {
         ListFooterComponent={
           hasVisibleResults ? (
             <View style={tw`px-5`}>
-              {activeSection === "overview" && (
+              {activeSection === "overview" && !isFiltered && (
                 <View style={tw`pt-5`}>
                   {renderSectionHeader(
                     "Albums",
@@ -799,12 +782,6 @@ function SearchScreen() {
                 onSelect={(value) => updateFilter("language", value as Language)}
               />
               <FilterSection
-                title="Topics"
-                options={topics}
-                selectedValue={filters.topic}
-                onSelect={(value) => updateFilter("topic", value as Topic)}
-              />
-              <FilterSection
                 title="Scholar"
                 options={["All", ...lecturerCards.map((l) => l.name)]}
                 selectedValue={scholarFilterName ?? "All"}
@@ -814,15 +791,13 @@ function SearchScreen() {
                 }}
                 searchable={true}
               />
-              {["Quran Recitation", "Tafsir"].includes(filters.topic) && (
-                <FilterSection
-                  title="Surah"
-                  options={[...surahs]}
-                  selectedValue={filters.surah}
-                  onSelect={updateSurahFilter}
-                  searchable={true}
-                />
-              )}
+              <FilterSection
+                title="Surah"
+                options={[...surahs]}
+                selectedValue={filters.surah}
+                onSelect={updateSurahFilter}
+                searchable={true}
+              />
             </ScrollView>
             <View style={tw`px-4 pt-2`}>
               <Button size="large" borderRadius="full" fullWidth onPress={() => setShowFilters(false)}>

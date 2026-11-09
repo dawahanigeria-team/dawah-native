@@ -13,6 +13,13 @@ export const surahNumberFromTitle = (title: string): number | undefined => {
   return match ? Number(match[1]) : undefined;
 };
 
+/**
+ * The most distinctive part of a surah's name, for matching catalogue text:
+ * "Al-Baqarah" becomes "Baqara", which also finds the spelling "Baqarah".
+ */
+export const surahSearchPhrase = (name: string): string =>
+  name.replace(/^(?:A[a-z]|Ali)-/, "").replace(/h$/, "");
+
 export const matchesSurah = (
   title: string,
   number: number,

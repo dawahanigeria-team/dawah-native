@@ -3,6 +3,7 @@
  * Provides optimized search with debouncing, caching, and state management
  */
 
+import { resolveSearchFacets } from '../features/search/searchFacets';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '../services/api/base.api';
 import { searchApi } from '../services/api/search.api';
@@ -144,19 +145,18 @@ export function useSearch<T = any>(
 
       try {
         // Map UI filters to API params
+        const facets = searchType === 'lectures' ? resolveSearchFacets(searchFilters) : null;
         const apiParams: any = {
-          type: searchType,
+          type: facets ? 'all' : searchType,
           query: searchQuery,
           page,
           quick: enableQuickSearch && page === 1,
-          ...searchFilters
+          ...searchFilters,
+          contentType: facets?.contentType,
+          phrase: facets?.phrase,
         };
         
         // Handle specific filter mappings if needed
-        if (searchFilters.topic && searchFilters.topic !== 'All') {
-          apiParams.category = searchFilters.topic;
-        }
-        
         if (searchFilters.lecturerId) {
           apiParams.lecturer_nid = searchFilters.lecturerId;
         }
