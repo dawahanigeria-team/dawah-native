@@ -40,7 +40,9 @@ export const useContinueListening = (
       return () => {
         active = false;
       };
-    }, []),
+      // Re-read when the player changes lecture or closes, since Home stays focused meanwhile.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentLectureId]),
   );
 
   return useMemo(() => {
