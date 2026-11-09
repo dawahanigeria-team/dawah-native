@@ -17,6 +17,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Button, Icon, Text } from '../../src/components/atoms';
 import { LectureRow, quranRecitationToRow, ScreenHeader } from '../../src/components/molecules';
 import { useFollowGate } from '../../src/hooks/useFollowGate';
+import { matchesSurah, surahNumberFromTitle } from '../../src/features/quran/surahSearch';
 import { useSeriesResume } from '../../src/hooks/useSeriesResume';
 import { useTheme } from '../../src/hooks/useTheme';
 import {
@@ -424,11 +425,10 @@ const QuranReciterScreen: React.FC = () => {
   const resumeTitle = resume ? playableRecitations[resume.index]?.title : undefined;
 
   const visibleRecitations = useMemo(() => {
-    const query = surahQuery.trim().toLowerCase();
-    if (!query) return recitations;
     return recitations.filter((recitation, index) => {
-      const number = recitation.surahNumber ?? recitation.trackNumber ?? index + 1;
-      return String(number) === query || recitation.title.toLowerCase().includes(query);
+      const number =
+        recitation.surahNumber ?? surahNumberFromTitle(recitation.title) ?? recitation.trackNumber ?? index + 1;
+      return matchesSurah(recitation.title, number, surahQuery);
     });
   }, [recitations, surahQuery]);
 
