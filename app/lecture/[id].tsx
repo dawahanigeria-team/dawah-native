@@ -28,6 +28,8 @@ import { Button, Chip, Text, Touchable } from "../../src/components/atoms";
 import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
 import { SeekBar } from "../../src/components/molecules/SeekBar";
 import AddToPlaylistModal from "../../src/components/organisms/AddToPlaylistModal";
+import { UpNext } from "../../src/components/organisms/UpNext";
+import { useSleepTimer } from "../../src/hooks/useSleepTimer";
 import { useDownloadGate } from "../../src/hooks/useDownloadGate";
 import { OBSERVE_ROUTE } from "../../src/services/config/observe.config";
 import { useLectureDetail } from "../../src/hooks/useLectureDetail";
@@ -35,7 +37,8 @@ import { useTheme } from "../../src/hooks/useTheme";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
 import { DownloadStatus } from "../../src/services/downloads/downloadQueue.service";
 import { linkingService } from "../../src/services/linking.service";
-import { authStore, useDownloadsStore, useFavoritesStore, usePlayerStore } from "../../src/stores";
+import { useEntity } from "simpler-state";
+import { authStore, playerStore, useDownloadsStore, useFavoritesStore, usePlayerStore } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import type { LectureDetail } from "../../src/types/api.types";
@@ -177,6 +180,7 @@ const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
     togglePlayPause,
   } = usePlayerStore();
 
+  const sleepTimer = useSleepTimer();
   const isCurrentLecture = Boolean(episode && currentEpisode?.id === episode.id);
   const isCurrentlyPlaying = isCurrentLecture && isPlaying;
   const progress = isCurrentLecture ? currentProgress : 0;
@@ -327,9 +331,9 @@ const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
       </View>
 
       {/* Secondary Actions */}
-      <View style={tw`flex-row items-center justify-between mt-2`}>
+      <View style={tw`flex-row items-start justify-between mt-2`}>
         {/* Download Button Group */}
-        <View style={tw`flex-row items-center`}>
+        <View style={tw`items-center min-w-[48px]`}>
         { (downloadStatus === DownloadStatus.DOWNLOADING ||
           downloadStatus === DownloadStatus.PAUSED ||
           downloadStatus === DownloadStatus.QUEUED) && (
@@ -352,7 +356,7 @@ const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
             accessibilityRole="button"
             accessibilityLabel={downloadA11yLabel(downloadStatus, downloadProgress)}
             hitSlop={HIT_SLOP}
-            style={tw`flex-row items-center`}
+            style={tw`items-center min-w-[48px]`}
           >
             <Ionicons
               name={
@@ -386,7 +390,7 @@ const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
                     ? "systemRed"
                     : "secondaryLabel"
               }
-              style={tw`ml-2`}
+              style={tw`mt-1`}
             >
               {downloadStatus === DownloadStatus.COMPLETED
                 ? "Downloaded"
@@ -408,10 +412,10 @@ const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
           accessibilityRole="button"
           accessibilityLabel="Share this lecture"
           hitSlop={HIT_SLOP}
-          style={tw`flex-row items-center`}
+          style={tw`items-center min-w-[48px]`}
         >
           <Ionicons name="share-outline" size={24} color={colors.system.label.secondary} />
-          <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
+          <Text variant="caption1" color="secondaryLabel" style={tw`mt-1`}>
             Share
           </Text>
         </TouchableOpacity>
@@ -421,11 +425,11 @@ const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
           accessibilityRole="button"
           accessibilityLabel="Add to playlist"
           hitSlop={HIT_SLOP}
-          style={tw`flex-row items-center`}
+          style={tw`items-center min-w-[48px]`}
         >
           <Ionicons name="add-circle-outline" size={24} color={colors.system.label.secondary} />
-          <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
-            Add to Playlist
+          <Text variant="caption1" color="secondaryLabel" style={tw`mt-1`}>
+            Save
           </Text>
         </TouchableOpacity>
 
@@ -434,11 +438,39 @@ const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
           accessibilityRole="button"
           accessibilityLabel={`Playback speed ${playbackSpeed} times. Double tap to change.`}
           hitSlop={HIT_SLOP}
-          style={tw`flex-row items-center`}
+          style={tw`items-center min-w-[48px]`}
         >
           <Ionicons name="speedometer-outline" size={24} color={colors.system.label.secondary} />
-          <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
+          <Text variant="caption1" color="secondaryLabel" style={tw`mt-1`}>
             {playbackSpeed}x
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={sleepTimer.press}
+          accessibilityRole="button"
+          accessibilityLabel={
+            sleepTimer.endOfTrack
+              ? "Sleep timer on, stops at end of lecture. Double tap to cancel."
+              : sleepTimer.minutesRemaining !== null
+                ? `Sleep timer on, ${sleepTimer.minutesRemaining} minutes left. Double tap to cancel.`
+                : "Set sleep timer"
+          }
+          accessibilityState={{ selected: sleepTimer.isArmed }}
+          hitSlop={HIT_SLOP}
+          style={tw`items-center min-w-[48px]`}
+        >
+          <Ionicons
+            name="moon-outline"
+            size={24}
+            color={sleepTimer.isArmed ? colors.brand.primary : colors.system.label.secondary}
+          />
+          <Text variant="caption1" color="secondaryLabel" style={tw`mt-1`}>
+            {sleepTimer.minutesRemaining !== null
+              ? `${sleepTimer.minutesRemaining}m`
+              : sleepTimer.endOfTrack
+                ? "End"
+                : "Sleep"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -464,6 +496,18 @@ const LectureDetailScreen: React.FC = () => {
 
   // Data Hooks
   const { lecture, loading, error, refetch } = useLectureDetail(lectureId);
+
+  // This screen is the full player. When the lecture it shows ends and the
+  // queue moves on, follow it rather than stay on a lecture no longer playing.
+  const playingId = useEntity(playerStore, (state) => state.currentEpisode?.id);
+  const previousPlayingId = useRef(playingId);
+  useEffect(() => {
+    const previous = previousPlayingId.current;
+    previousPlayingId.current = playingId;
+    if (playingId && previous === lectureId && playingId !== lectureId) {
+      router.replace(`/lecture/${playingId}`);
+    }
+  }, [playingId, lectureId, router]);
 
   // This screen is the other way into the app: notification taps and
   // dawahnigeria.com/dawahcast/l links open straight here without ever
@@ -1098,6 +1142,7 @@ const LectureDetailScreen: React.FC = () => {
             );
           })()}
         </View>
+        <UpNext lectureId={lectureId} />
       </ScrollView>
     );
   };

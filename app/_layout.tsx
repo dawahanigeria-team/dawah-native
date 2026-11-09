@@ -27,7 +27,7 @@ import { useNotificationObserver } from "../src/hooks/useNotificationObserver";
 import { userService } from "../src/services/user.service";
 import { authStore, initializeAuth, subscribeToAuthChange } from "../src/stores/authStore";
 import { fetchFavorites } from "../src/stores/favoritesStore";
-import { usePlayerActions, playerStore } from "../src/stores";
+import { playerStore } from "../src/stores";
 
 // Initialize Sentry as early as possible
 initSentry();
@@ -123,7 +123,6 @@ function RootLayout() {
   const safePush = useSafeRoutePush();
   const hasInitializedApp = useRef(false);
   const { isDark } = useTheme();
-  const { expandPlayer } = usePlayerActions();
   const currentEpisode = useEntity(playerStore, (state) => state.currentEpisode);
   const currentEpisodeRef = useRef<typeof currentEpisode | null>(null);
   const pendingPlayerNavigationRef = useRef(false);
@@ -246,7 +245,6 @@ function RootLayout() {
   useEffect(() => {
     let cancelled = false;
     const navigateToPlayer = () => {
-      expandPlayer();
       const episodeId = currentEpisodeRef.current?.id;
       if (episodeId) {
         clearPendingPlayerNavigationTimeout();
@@ -313,7 +311,7 @@ function RootLayout() {
       clearPendingPlayerNavigationTimeout();
       subscription.remove();
     };
-  }, [clearPendingPlayerNavigationTimeout, expandPlayer, safePush]);
+  }, [clearPendingPlayerNavigationTimeout, safePush]);
 
   useEffect(() => {
     if (!pendingPlayerNavigationRef.current) {
@@ -325,9 +323,8 @@ function RootLayout() {
     }
     clearPendingPlayerNavigationTimeout();
     pendingPlayerNavigationRef.current = false;
-    expandPlayer();
     safePush(`/lecture/${episodeId}`, "pending_player_navigation");
-  }, [clearPendingPlayerNavigationTimeout, currentEpisode?.id, expandPlayer, safePush]);
+  }, [clearPendingPlayerNavigationTimeout, currentEpisode?.id, safePush]);
 
   useEffect(() => {
     return () => {
