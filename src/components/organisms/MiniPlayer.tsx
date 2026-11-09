@@ -1,3 +1,4 @@
+import { useEntity } from "simpler-state";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import { usePathname } from "expo-router";
@@ -65,7 +66,7 @@ const ProgressMarks: React.FC<{
   fillStyle: StyleProp<ViewStyle>;
   thumbStyle: StyleProp<ViewStyle>;
 }> = ({ fillStyle, thumbStyle }) => {
-  const percentage = playerStore.use((s) =>
+  const percentage = useEntity(playerStore, (s) =>
     s.duration > 0 ? (s.progress / s.duration) * 100 : 0,
   );
   return (
@@ -77,7 +78,7 @@ const ProgressMarks: React.FC<{
 };
 
 const ClockText: React.FC<{ part: "elapsed" | "total" | "both" }> = ({ part }) => {
-  const label = playerStore.use((s) =>
+  const label = useEntity(playerStore, (s) =>
     part === "elapsed"
       ? formatClock(s.progress)
       : part === "total"
@@ -101,17 +102,17 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
     // height and the progress track its original width after a rotation or
     // split-view resize.
     const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-    const currentEpisode = playerStore.use((s) => s.currentEpisode);
-    const isPlaying = playerStore.use((s) => s.isPlaying);
-    const isExpanded = playerStore.use((s) => s.isExpanded);
-    const isLoading = playerStore.use((s) => s.isLoading);
-    const playbackSpeed = playerStore.use((s) => s.playbackSpeed ?? 1);
-    const repeatMode = playerStore.use((s) => s.repeatMode ?? "off");
-    const isShuffled = playerStore.use((s) => s.isShuffled);
-    const queue = playerStore.use((s) => s.queue);
-    const currentQueueIndex = playerStore.use((s) => s.currentQueueIndex);
-    const sleepTimerEndsAt = playerStore.use((s) => s.sleepTimerEndsAt);
-    const sleepTimerEndOfTrack = playerStore.use((s) => s.sleepTimerEndOfTrack);
+    const currentEpisode = useEntity(playerStore, (s) => s.currentEpisode);
+    const isPlaying = useEntity(playerStore, (s) => s.isPlaying);
+    const isExpanded = useEntity(playerStore, (s) => s.isExpanded);
+    const isLoading = useEntity(playerStore, (s) => s.isLoading);
+    const playbackSpeed = useEntity(playerStore, (s) => s.playbackSpeed ?? 1);
+    const repeatMode = useEntity(playerStore, (s) => s.repeatMode ?? "off");
+    const isShuffled = useEntity(playerStore, (s) => s.isShuffled);
+    const queue = useEntity(playerStore, (s) => s.queue);
+    const currentQueueIndex = useEntity(playerStore, (s) => s.currentQueueIndex);
+    const sleepTimerEndsAt = useEntity(playerStore, (s) => s.sleepTimerEndsAt);
+    const sleepTimerEndOfTrack = useEntity(playerStore, (s) => s.sleepTimerEndOfTrack);
     const {
       togglePlayPause,
       expandPlayer,

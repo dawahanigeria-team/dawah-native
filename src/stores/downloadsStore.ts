@@ -3,7 +3,7 @@
  * Manages download state by integrating with DownloadQueueService
  */
 
-import { entity } from 'simpler-state';
+import { entity, useEntity } from 'simpler-state';
 import { downloadsService, DownloadMetadata } from '../services/downloads.service';
 import { downloadQueueService, QueuedDownload, DownloadStatus } from '../services/downloads/downloadQueue.service';
 import type { Episode } from '../types/types';
@@ -148,7 +148,7 @@ const downloadGetters = {
 };
 
 export const useDownloadsStore = () => {
-  const rawState = downloadsStore.use();
+  const rawState = useEntity(downloadsStore);
 
   // Ensure state is always properly shaped
   const state: DownloadState = {

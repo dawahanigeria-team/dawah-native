@@ -1,6 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
 import AsyncStorage from "expo-sqlite/kv-store";
-import { entity } from "simpler-state";
+import { entity, useEntity } from "simpler-state";
 import type { AudioPlaybackControls } from "../hooks/useAudioPlayback";
 import { addSentryBreadcrumb, captureSentryException } from "../services/config/sentry.config";
 import { downloadsService, isExpectedDownloadRefusal } from "../services/downloads.service";
@@ -1399,7 +1399,7 @@ export const usePlayerStore = () => {
   // Get state from the store. simpler-state's .use() is a React hook
   // and should not be wrapped in try-catch as that can corrupt React's
   // internal hook tracking (causing areHookInputsEqual to fail).
-  const rawState = playerStore.use();
+  const rawState = useEntity(playerStore);
 
   // Merge with initialState to ensure all properties are always defined.
   // This prevents "Cannot read property 'X' of undefined" errors when the

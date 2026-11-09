@@ -1,3 +1,4 @@
+import { useEntity } from "simpler-state";
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
@@ -64,8 +65,8 @@ const QuranReciterScreen: React.FC = () => {
   ), [albumId, albumIds]);
   const followEntityId = typeof reciterId === 'string' && reciterId !== '0' ? reciterId : albumId;
   const { playQueue } = usePlayerActions();
-  const currentEpisode = playerStore.use((state) => state.currentEpisode);
-  const isPlaying = playerStore.use((state) => state.isPlaying);
+  const currentEpisode = useEntity(playerStore, (state) => state.currentEpisode);
+  const isPlaying = useEntity(playerStore, (state) => state.isPlaying);
   const insets = useSafeAreaInsets();
   const { isAuthenticated, user } = useAuthStore();
   const { canFollowMore, requireFollowAccess } = useFollowGate();

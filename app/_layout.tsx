@@ -1,3 +1,4 @@
+import { useEntity } from "simpler-state";
 import { ObserveRoot } from "expo-observe";
 import { Stack, usePathname, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -123,7 +124,7 @@ function RootLayout() {
   const hasInitializedApp = useRef(false);
   const { isDark } = useTheme();
   const { expandPlayer } = usePlayerActions();
-  const currentEpisode = playerStore.use((state) => state.currentEpisode);
+  const currentEpisode = useEntity(playerStore, (state) => state.currentEpisode);
   const currentEpisodeRef = useRef<typeof currentEpisode | null>(null);
   const pendingPlayerNavigationRef = useRef(false);
   const pendingPlayerNavigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);

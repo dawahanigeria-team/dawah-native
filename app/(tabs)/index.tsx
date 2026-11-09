@@ -1,3 +1,4 @@
+import { useEntity } from "simpler-state";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image as ExpoImage } from "expo-image";
 import { router } from "expo-router";
@@ -107,8 +108,8 @@ function HomeScreen() {
   }, [quranAlbumsRaw]);
 
   const { playEpisode } = usePlayerActions();
-  const currentEpisodeId = playerStore.use((state) => state.currentEpisode?.id);
-  const isPlaying = playerStore.use((state) => state.isPlaying);
+  const currentEpisodeId = useEntity(playerStore, (state) => state.currentEpisode?.id);
+  const isPlaying = useEntity(playerStore, (state) => state.isPlaying);
   const continueListening = useContinueListening(currentEpisodeId);
   const [feedTab, setFeedTab] = useState<FeedTab>("popular");
 

@@ -1,3 +1,4 @@
+import { useEntity } from "simpler-state";
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -52,8 +53,8 @@ const AlbumDetailScreen: React.FC = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const albumId = Array.isArray(id) ? id[0] : id;
   const { playQueue } = usePlayerActions();
-  const currentEpisode = playerStore.use((state) => state.currentEpisode);
-  const isPlaying = playerStore.use((state) => state.isPlaying);
+  const currentEpisode = useEntity(playerStore, (state) => state.currentEpisode);
+  const isPlaying = useEntity(playerStore, (state) => state.isPlaying);
 
   const [album, setAlbum] = useState<Album | null>(null);
   const [tracks, setTracks] = useState<AlbumTrack[]>([]);
