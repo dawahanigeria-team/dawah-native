@@ -37,6 +37,7 @@ import {
 import type { Episode, PlayerState } from '../../types/types'
 import { shouldWriteProgress } from '../../utils/progressThrottle'
 import { historyService } from '../../services/history.service'
+import { saveResumePositionOnPause } from '../../features/resume/savePositionOnPause'
 
 interface AudioProviderProps {
   children: React.ReactNode
@@ -615,6 +616,11 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   }, [])
 
   useTrackPlayerEvents(progressEvents, handleProgressForSleepTimer)
+
+  useEffect(() => {
+    const subscription = saveResumePositionOnPause()
+    return () => subscription.remove()
+  }, [])
 
   useEffect(() => {
     if (!isInitializedRef.current) {
