@@ -1,5 +1,4 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -10,7 +9,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FlashList } from "../../src/components/adapters/flashListCompat";
-import { Card } from "../../src/components/molecules/Card";
+import {
+  episodeToRow,
+  LectureRow,
+  ScreenHeader,
+} from "../../src/components/molecules";
 import { useTheme } from "../../src/hooks/useTheme";
 import { useGuardedPush } from "../../src/navigation/useGuardedPush";
 import { ApiError } from "../../src/services/api/base.api";
@@ -121,14 +124,10 @@ export default function CategoryLecturesScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: CategoryLecture }) => (
-      <Card
-        variant="section"
-        data={toEpisode(item)}
+      <LectureRow
+        lecture={episodeToRow({ ...toEpisode(item), language: item.lang })}
         onPress={() => guardedPush(`/lecture/${item.nid}`)}
-        onPlayPress={() => playEpisode(toEpisode(item))}
-        showTime
-        showMeta
-        metaValue={item.rpname}
+        onPlay={() => playEpisode(toEpisode(item))}
       />
     ),
     [guardedPush, playEpisode],
@@ -198,46 +197,19 @@ export default function CategoryLecturesScreen() {
 
   return (
     <SafeAreaView
+      edges={["left", "right", "bottom"]}
       style={[
         tw`flex-1`,
         { backgroundColor: colors.system.background.primary },
       ]}
     >
-      <View style={tw`flex-row items-center px-5 py-4`}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={[
-            tw`w-10 h-10 rounded-full items-center justify-center`,
-            { backgroundColor: colors.system.background.secondary },
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-        >
-          <Ionicons
-            name="arrow-back"
-            size={22}
-            color={colors.system.label.primary}
-          />
-        </TouchableOpacity>
-
-        <Text
-          style={[
-            tw`text-lg font-bold flex-1 text-center px-2`,
-            { color: colors.system.label.primary },
-          ]}
-          numberOfLines={2}
-        >
-          {categoryName}
-        </Text>
-
-        <View style={tw`w-10`} />
-      </View>
+      <ScreenHeader title={categoryName} />
 
       <FlashList
         data={lectures}
         renderItem={renderItem}
         keyExtractor={(item: CategoryLecture) => item._key}
-        contentContainerStyle={tw`px-4 pb-20`}
+        contentContainerStyle={tw`pb-20`}
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}
         ListEmptyComponent={renderEmpty}

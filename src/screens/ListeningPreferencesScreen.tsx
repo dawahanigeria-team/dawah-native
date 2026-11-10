@@ -163,7 +163,7 @@ export default function ListeningPreferencesScreen() {
           <View style={[styles.progressFill, { backgroundColor: colors.brand.primary }]} />
         </View>
         {isOnboarding ? (
-          <Pressable onPress={handleSkip} hitSlop={10}>
+          <Pressable onPress={handleSkip} hitSlop={10} accessibilityRole="button">
             <Text variant="subheadline" weight="semibold" color="secondaryLabel">
               Skip
             </Text>
@@ -211,11 +211,11 @@ export default function ListeningPreferencesScreen() {
                     },
                   ]}
                 >
-                  {selected && <Ionicons name="checkmark" size={15} color={colors.fixed.black} />}
+                  {selected && <Ionicons name="checkmark" size={15} color={colors.brand.onPrimary} />}
                   <Text
                     variant="subheadline"
                     weight="semibold"
-                    style={{ color: selected ? colors.fixed.black : colors.system.label.primary }}
+                    style={{ color: selected ? colors.brand.onPrimary : colors.system.label.primary }}
                   >
                     {language.name}
                   </Text>
@@ -285,7 +285,7 @@ export default function ListeningPreferencesScreen() {
                       )}
                       {selected && (
                         <View style={[styles.check, { backgroundColor: colors.brand.primary }]}>
-                          <Ionicons name="checkmark" size={13} color={colors.fixed.black} />
+                          <Ionicons name="checkmark" size={13} color={colors.brand.onPrimary} />
                         </View>
                       )}
                     </View>
@@ -334,13 +334,13 @@ export default function ListeningPreferencesScreen() {
           ]}
         >
           {isSaving ? (
-            <ActivityIndicator size="small" color={colors.fixed.black} />
+            <ActivityIndicator size="small" color={colors.brand.onPrimary} />
           ) : (
             <>
-              <Text variant="headline" weight="bold" style={{ color: colors.fixed.black }}>
+              <Text variant="headline" weight="bold" style={{ color: colors.brand.onPrimary }}>
                 {isOnboarding ? "Build my Home" : "Save"}
               </Text>
-              <Ionicons name="arrow-forward" size={18} color={colors.fixed.black} />
+              <Ionicons name="arrow-forward" size={18} color={colors.brand.onPrimary} />
             </>
           )}
         </Pressable>

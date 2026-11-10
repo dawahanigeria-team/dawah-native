@@ -1,5 +1,4 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { router } from "expo-router";
 import { useGuardedPush } from "../src/navigation/useGuardedPush";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlashList } from "../src/components/adapters/flashListCompat";
@@ -17,22 +16,26 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { logger } from "../src/utils/logger";
 import AsyncStorage from "expo-sqlite/kv-store";
 import { LecturerCard } from "../src/components/molecules/LecturerCard";
+import { ScreenHeader } from "../src/components/molecules";
 import { LecturerRow } from "../src/components/molecules/LecturerRow";
 import { LecturerCardSkeleton } from "../src/components/molecules/LecturerCard.skeleton";
 import { Lecturer, lecturersApi } from "../src/services/api/lecturers.api";
 import { ApiError } from "../src/services/api/base.api";
 import { useTheme } from "../src/hooks/useTheme";
 import tw from "../src/theme/twrnc";
+import { spacing } from "../src/theme/designTokens";
 import { getLanguageName } from "../src/utils/languages";
 
 type ViewMode = "list" | "grid";
 
 const VIEW_STORAGE_KEY = "dn:lecturers:view";
 
+const MINI_PLAYER_HEIGHT = 72;
+const LIST_BOTTOM_PADDING = MINI_PLAYER_HEIGHT + spacing.lg;
+
 export default function LecturersScreen() {
   const { colors } = useTheme();
   const [lecturers, setLecturers] = useState<Lecturer[]>([]);
-  const [filteredLecturers, setFilteredLecturers] = useState<Lecturer[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -311,8 +314,13 @@ export default function LecturersScreen() {
     }
   }, [debouncedQuery, normalizedState, fetchSearchResults]);
 
-  // Apply search and sorting (client-side only)
-  useEffect(() => {
+  // Apply search and sorting (client-side only).
+  //
+  // Derived during render rather than pushed into state by an effect. As an
+  // effect this rendered the list once with the previous filter's results still
+  // on screen and then again with the new ones, which on a 324-name list is a
+  // visible flash of the wrong scholars.
+  const filteredLecturers = useMemo(() => {
     let result = [...lecturers];
 
     logger.debug('Filtering with:', {
@@ -342,7 +350,7 @@ export default function LecturersScreen() {
       }
     });
 
-    setFilteredLecturers(result);
+    return result;
   }, [lecturers, searchQuery, sortBy, debouncedQuery]);
 
   const handleLoadMore = () => {
@@ -546,40 +554,13 @@ export default function LecturersScreen() {
 
   return (
     <SafeAreaView
+      edges={["left", "right", "bottom"]}
       style={[
         tw`flex-1`,
         { backgroundColor: colors.system.background.primary },
       ]}
     >
-      <View style={tw`flex-row items-center px-5 py-4`}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={[
-            tw`w-10 h-10 rounded-full items-center justify-center`,
-            { backgroundColor: colors.system.background.secondary },
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-        >
-          <Ionicons
-            name="arrow-back"
-            size={22}
-            color={colors.system.label.primary}
-          />
-        </TouchableOpacity>
-
-        <Text
-          style={[
-            tw`text-xl font-bold flex-1 text-center`,
-            { color: colors.system.label.primary },
-          ]}
-          accessibilityRole="header"
-        >
-          Scholars
-        </Text>
-
-        <View style={tw`w-10`} />
-      </View>
+      <ScreenHeader title="Scholars" />
 
       {/* Search Bar */}
       <View style={tw`px-5 pb-3`}>
@@ -639,7 +620,7 @@ export default function LecturersScreen() {
                 key={loc}
                 onPress={() => setSelectedLocation(loc === 'All' ? null : loc)}
                 style={[
-                  tw`px-4 py-2 rounded-full mr-2`,
+                  tw`px-4 min-h-[44px] justify-center rounded-full mr-2`,
                   {
                     backgroundColor: isSelected
                       ? colors.brand.primary
@@ -652,7 +633,7 @@ export default function LecturersScreen() {
                     tw`text-sm font-medium`,
                     {
                       color: isSelected
-                        ? colors.fixed.white
+                        ? colors.brand.onPrimary
                         : colors.system.label.primary,
                     },
                   ]}
@@ -725,14 +706,14 @@ export default function LecturersScreen() {
                 accessibilityState={{ selected: view === mode }}
                 accessibilityLabel={`${mode === "list" ? "List" : "Grid"} view`}
                 style={[
-                  tw`px-3 py-1.5 rounded-md`,
+                  tw`px-3 min-h-[44px] justify-center rounded-md`,
                   view === mode && { backgroundColor: colors.brand.primary },
                 ]}
               >
                 <Ionicons
                   name={mode === "list" ? "list" : "grid"}
                   size={16}
-                  color={view === mode ? colors.fixed.white : colors.system.label.secondary}
+                  color={view === mode ? colors.brand.onPrimary : colors.system.label.secondary}
                 />
               </TouchableOpacity>
             ))}
@@ -747,7 +728,7 @@ export default function LecturersScreen() {
               setSortBy(sortOptions[nextIndex]);
             }}
             style={[
-              tw`flex-row items-center px-3 py-2 rounded-lg`,
+              tw`flex-row items-center px-3 min-h-[44px] rounded-lg`,
               { backgroundColor: colors.system.background.secondary },
             ]}
           >
@@ -779,7 +760,7 @@ export default function LecturersScreen() {
             </View>
           )}
           numColumns={2}
-          contentContainerStyle={tw`px-3 pb-10`}
+          contentContainerStyle={{ ...tw`px-3`, paddingBottom: LIST_BOTTOM_PADDING }}
           columnWrapperStyle={tw`justify-between`}
           showsVerticalScrollIndicator={false}
         />
@@ -792,7 +773,10 @@ export default function LecturersScreen() {
           // view or the list keeps handing rows into two-column slots.
           key={view}
           numColumns={view === "grid" ? 2 : 1}
-          contentContainerStyle={view === "grid" ? tw`px-3 pb-10` : tw`pb-10`}
+          contentContainerStyle={{
+            ...(view === "grid" ? tw`px-3` : null),
+            paddingBottom: LIST_BOTTOM_PADDING,
+          }}
           ListEmptyComponent={renderEmptyState}
           ListFooterComponent={renderFooter}
           onEndReached={handleLoadMore}

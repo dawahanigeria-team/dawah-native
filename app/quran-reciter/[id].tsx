@@ -1,3 +1,4 @@
+import { useEntity } from "simpler-state";
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
@@ -10,12 +11,15 @@ import {
   Image,
   Share,
   StyleSheet,
-  TouchableOpacity,
+  TextInput,
   View
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Icon, Text } from '../../src/components/atoms';
+import { LectureRow, quranRecitationToRow, ScreenHeader } from '../../src/components/molecules';
 import { useFollowGate } from '../../src/hooks/useFollowGate';
+import { matchesSurah, surahNumberFromTitle } from '../../src/features/quran/surahSearch';
+import { useSeriesResume } from '../../src/hooks/useSeriesResume';
 import { useTheme } from '../../src/hooks/useTheme';
 import {
   followLecturer,
@@ -32,7 +36,7 @@ import {
   setCachedLecturerFollowState,
 } from '../../src/services/lecturerFollowCache.service';
 import { linkingService } from '../../src/services/linking.service';
-import { useAuthStore, usePlayerStore } from '../../src/stores';
+import { useAuthStore, usePlayerActions, playerStore } from '../../src/stores';
 import { designTokens } from '../../src/theme/designTokens';
 import { Episode } from '../../src/types/types';
 import {
@@ -41,7 +45,6 @@ import {
 } from '../../src/utils/lecturerFollowAuth';
 import { appendShareSignature } from '../../src/utils/shareMessage';
 import { durationToSeconds } from '../../src/utils/quran';
-import { boxShadow } from "../../src/utils/shadow";
 
 const QuranReciterScreen: React.FC = () => {
   const router = useRouter();
@@ -61,7 +64,10 @@ const QuranReciterScreen: React.FC = () => {
       : [albumId]
   ), [albumId, albumIds]);
   const followEntityId = typeof reciterId === 'string' && reciterId !== '0' ? reciterId : albumId;
-  const { playQueue, currentEpisode } = usePlayerStore();
+  const { playQueue } = usePlayerActions();
+  const currentEpisode = useEntity(playerStore, (state) => state.currentEpisode);
+  const isPlaying = useEntity(playerStore, (state) => state.isPlaying);
+  const insets = useSafeAreaInsets();
   const { isAuthenticated, user } = useAuthStore();
   const { canFollowMore, requireFollowAccess } = useFollowGate();
   const { colors } = useTheme();
@@ -85,6 +91,7 @@ const QuranReciterScreen: React.FC = () => {
   }, [navigation, router]);
   const [album, setAlbum] = useState<QuranAlbum | null>(null);
   const [recitations, setRecitations] = useState<QuranRecitation[]>([]);
+  const [surahQuery, setSurahQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -322,11 +329,11 @@ const QuranReciterScreen: React.FC = () => {
           apiError.data?.feature === 'multi_lecturer_follow'
         ) {
           Alert.alert(
-            'Premium feature',
-            'Free users can follow up to 2 lecturers or reciters. Upgrade to follow more.',
+            'DN Supporter feature',
+            'Free users can follow up to 2 lecturers or reciters. Become a DN Supporter to follow more.',
             [
               { text: 'Not now', style: 'cancel' },
-              { text: 'Upgrade', onPress: () => router.push('/premium' as any) },
+              { text: 'Become a Supporter', onPress: () => router.push('/premium' as any) },
             ],
           );
           return;
@@ -396,6 +403,7 @@ const QuranReciterScreen: React.FC = () => {
       audioUrl: recitation.audioUrl,
       coverUrl: album.alb_thumbnail || album.img,
       seriesId: album.id,
+      seriesTitle: album.name,
       plays: recitation.plays || 0,
       liked: false,
       language: album.language || 'Arabic',
@@ -406,6 +414,25 @@ const QuranReciterScreen: React.FC = () => {
       isReciter: true,
     };
   }, []);
+
+  const playableRecitations = useMemo(
+    () => recitations.filter((recitation) => Boolean(recitation.audioUrl)),
+    [recitations],
+  );
+  const playableIds = useMemo(
+    () => playableRecitations.map((recitation) => String(recitation.id)),
+    [playableRecitations],
+  );
+  const { resume } = useSeriesResume(playableIds);
+  const resumeTitle = resume ? playableRecitations[resume.index]?.title : undefined;
+
+  const visibleRecitations = useMemo(() => {
+    return recitations.filter((recitation, index) => {
+      const number =
+        recitation.surahNumber ?? surahNumberFromTitle(recitation.title) ?? recitation.trackNumber ?? index + 1;
+      return matchesSurah(recitation.title, number, surahQuery);
+    });
+  }, [recitations, surahQuery]);
 
   const handlePlayAll = useCallback(async () => {
     if (!album || recitations.length === 0) return;
@@ -430,7 +457,7 @@ const QuranReciterScreen: React.FC = () => {
       }
 
       // Play queue from start
-      await playQueue(episodes, 0, false);
+      await playQueue(episodes, resume?.index ?? 0, false, { startAt: resume?.positionSec ?? 0 });
     } catch (err: any) {
       console.error('Play all error:', err);
       captureSentryException(err, {
@@ -440,7 +467,7 @@ const QuranReciterScreen: React.FC = () => {
         level: 'error',
       });
     }
-  }, [album, recitations, albumId, playQueue, recitationToEpisode]);
+  }, [album, recitations, albumId, playQueue, recitationToEpisode, resume]);
 
   const handleShuffle = useCallback(async () => {
     if (!album || recitations.length === 0) return;
@@ -561,81 +588,21 @@ const QuranReciterScreen: React.FC = () => {
   }, [album, recitations, albumId]);
 
   const renderRecitationItem = useCallback(({ item, index }: { item: QuranRecitation; index: number }) => {
-    const isPlaying = currentEpisode?.id === String(item.id);
-
+    const isCurrent = currentEpisode?.id === String(item.id);
     return (
-      <TouchableOpacity
-        style={[
-          styles.recitationItem,
-          { borderBottomColor: colors.system.separator.primary },
-          isPlaying && { backgroundColor: colors.system.fill.quaternary }
-        ]}
+      <LectureRow
+        lecture={quranRecitationToRow(item, { position: recitations.indexOf(item) + 1, reciter: album?.name })}
+        playback={isCurrent ? (isPlaying ? 'playing' : 'paused') : 'idle'}
         onPress={() => handleRecitationPress(item, index)}
-        activeOpacity={0.7}
-        accessibilityRole="button"
-        accessibilityLabel={`Play ${item.title}`}
-        accessibilityHint="Starts here and continues in Quran order"
-      >
-        <View style={styles.trackNumberContainer}>
-          {isPlaying ? (
-            <Icon name="musical-notes" size="sm" color="brand" />
-          ) : (
-            <Text
-              variant="subheadline"
-              color="secondaryLabel"
-              weight="regular"
-              style={styles.trackNumber}
-            >
-              {item.trackNumber || index + 1}
-            </Text>
-          )}
-        </View>
-
-        <View style={styles.recitationContent}>
-          <Text
-            variant="body"
-            weight={isPlaying ? "semibold" : "regular"}
-            color={isPlaying ? "brand" : "label"}
-            numberOfLines={1}
-            style={styles.recitationTitle}
-          >
-            {item.title}
-          </Text>
-          <View style={styles.recitationMeta}>
-            <Text variant="caption1" color="secondaryLabel">
-              {item.duration}
-            </Text>
-            {(item.plays || 0) > 0 && (
-              <>
-                <Text variant="caption1" color="secondaryLabel"> • </Text>
-                <Text variant="caption1" color="secondaryLabel">
-                  {(item.plays || 0).toLocaleString()} plays
-                </Text>
-              </>
-            )}
-          </View>
-        </View>
-
-        <Icon name="play-circle-outline" size="lg" color={isPlaying ? 'brand' : 'secondaryLabel'} />
-      </TouchableOpacity>
+      />
     );
-  }, [currentEpisode, handleRecitationPress, colors]);
+  }, [album?.name, currentEpisode, isPlaying, handleRecitationPress, recitations]);
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.system.background.primary }]} edges={['top', 'bottom']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.system.background.primary }]} edges={['bottom']}>
         <Stack.Screen options={{ title: 'Quran Reciter' }} />
-        <View style={styles.customHeader}>
-          <TouchableOpacity
-            onPress={handleBack}
-            style={[styles.headerButton, { backgroundColor: colors.system.background.primary }]}
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-          >
-            <Icon name="chevron-back" size="lg" color="label" />
-          </TouchableOpacity>
-          <View style={styles.headerButton} />
-        </View>
+        <ScreenHeader onBack={handleBack} />
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.brand.primary} />
           <Text variant="body" color="secondaryLabel" style={styles.loadingText}>
@@ -648,19 +615,9 @@ const QuranReciterScreen: React.FC = () => {
 
   if (error || !album) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.system.background.primary }]} edges={['top', 'bottom']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.system.background.primary }]} edges={['bottom']}>
         <Stack.Screen options={{ title: 'Quran Reciter' }} />
-        <View style={styles.customHeader}>
-          <TouchableOpacity
-            onPress={handleBack}
-            style={[styles.headerButton, { backgroundColor: colors.system.background.primary }]}
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-          >
-            <Icon name="chevron-back" size="lg" color="label" />
-          </TouchableOpacity>
-          <View style={styles.headerButton} />
-        </View>
+        <ScreenHeader onBack={handleBack} />
         <View style={styles.centered}>
           <Icon name="alert-circle" size="xl" color="systemRed" />
           <Text variant="body" color="secondaryLabel" style={styles.errorText}>
@@ -674,60 +631,27 @@ const QuranReciterScreen: React.FC = () => {
     );
   }
 
-  // Compute navigation state for UI (checked fresh on each render)
-  let canGoBack = false;
-  try {
-    canGoBack = navigation.canGoBack();
-  } catch {
-    canGoBack = false;
-  }
-
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.system.background.primary }]} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.system.background.primary }]} edges={['bottom']}>
       <Stack.Screen options={{ title: album.name || 'Quran Reciter' }} />
-      <View style={styles.customHeader}>
-        <TouchableOpacity
-          onPress={handleBack}
-          style={[
-            styles.headerButton,
-            {
-              backgroundColor: colors.system.background.primary,
-              // elevation 4 folded in: boxShadow renders on both platforms.
-              boxShadow: boxShadow(colors.system.label.primary, 0.15, 4, 2, 0),
-            }
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel={canGoBack ? "Go back" : "Go home"}
-        >
-          <Icon
-            name={canGoBack ? "chevron-back" : "home"}
-            size="lg"
-            color="label"
-          />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={handleShare}
-          style={[
-            styles.headerButton,
-            {
-              backgroundColor: colors.system.background.primary,
-              // elevation 4 folded in: boxShadow renders on both platforms.
-              boxShadow: boxShadow(colors.system.label.primary, 0.15, 4, 2, 0),
-            }
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel="Share reciter"
-        >
-          <Icon name="share-outline" size="lg" color="brand" />
-        </TouchableOpacity>
-      </View>
+      <ScreenHeader
+        variant="overlay"
+        onBack={handleBack}
+        actions={[{ icon: 'share-outline', accessibilityLabel: 'Share reciter', onPress: handleShare }]}
+      />
 
       <FlatList
-        data={recitations}
+        data={visibleRecitations}
         keyExtractor={(item, index) => `${item.id}-${index}`}
         renderItem={renderRecitationItem}
+        ListEmptyComponent={
+          <Text variant="body" color="secondaryLabel" align="center" style={styles.noSurah}>
+            No surah matches “{surahQuery}”
+          </Text>
+        }
+        keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
+          <View>
           <LinearGradient
             colors={['#073B2A', '#0B5B3D', '#14855A']}
             start={{ x: 0, y: 0 }}
@@ -783,10 +707,10 @@ const QuranReciterScreen: React.FC = () => {
               <Button
                 variant="filled"
                 onPress={handlePlayAll}
-                leftIcon={<Icon name="play" color="white" size="sm" />}
+                leftIcon={<Icon name="play" color={colors.brand.onPrimary} size="sm" />}
                 style={styles.actionButton}
               >
-                Play All
+                {resume ? 'Continue' : 'Play All'}
               </Button>
               <Button
                 variant="tinted"
@@ -808,7 +732,7 @@ const QuranReciterScreen: React.FC = () => {
                   isFollowing ? (
                     <Icon name="checkmark" color="label" size="sm" />
                   ) : !canFollowMore ? (
-                    <Icon name="lock-closed" color="white" size="sm" />
+                    <Icon name="lock-closed" color={colors.brand.onPrimary} size="sm" />
                   ) : undefined
                 }
                 style={styles.followButton}
@@ -823,12 +747,29 @@ const QuranReciterScreen: React.FC = () => {
             <View style={styles.queueHint}>
               <Icon name="list" size="sm" color="white" />
               <Text variant="caption1" style={styles.queueHintText}>
-                Tap any Surah to continue in Quran order
+                {resumeTitle ? `Continue with ${resumeTitle}` : 'Tap any Surah to continue in Quran order'}
               </Text>
             </View>
           </LinearGradient>
+          <View style={[styles.findSurah, { backgroundColor: colors.system.background.secondary }]}>
+            <Icon name="search" size="sm" color="secondaryLabel" />
+            <TextInput
+              value={surahQuery}
+              onChangeText={setSurahQuery}
+              placeholder="Find a surah by name or number"
+              placeholderTextColor={colors.system.label.tertiary}
+              returnKeyType="search"
+              autoCorrect={false}
+              accessibilityLabel="Find a surah by name or number"
+              style={[styles.findSurahInput, { color: colors.system.label.primary }]}
+            />
+          </View>
+          </View>
         }
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingTop: insets.top + designTokens.hitTargets.minimum + designTokens.spacing.sm },
+        ]}
         showsVerticalScrollIndicator={false}
         initialNumToRender={10}
         maxToRenderPerBatch={5}
@@ -839,6 +780,23 @@ const QuranReciterScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  findSurah: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: designTokens.spacing.sm,
+    height: 48,
+    borderRadius: 24,
+    paddingHorizontal: designTokens.spacing.lg,
+    marginHorizontal: designTokens.spacing.lg,
+    marginVertical: designTokens.spacing.md,
+  },
+  findSurahInput: {
+    flex: 1,
+    fontSize: designTokens.typography.fontSize.callout,
+  },
+  noSurah: {
+    padding: designTokens.spacing['2xl'],
+  },
   container: {
     flex: 1,
     // Background handled dynamically
@@ -862,20 +820,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: designTokens.spacing['4xl'],
-  },
-  customHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: designTokens.spacing.md,
-    paddingVertical: designTokens.spacing.sm,
-  },
-  headerButton: {
-    width: designTokens.hitTargets.minimum,
-    height: designTokens.hitTargets.minimum,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: designTokens.borderRadius.full,
   },
   headerContainer: {
     alignItems: 'center',
@@ -953,34 +897,6 @@ const styles = StyleSheet.create({
   },
   queueHintText: {
     color: 'rgba(255,255,255,0.78)',
-  },
-  recitationItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: designTokens.spacing.md,
-    paddingHorizontal: designTokens.spacing.lg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    // Border color handled dynamically
-  },
-  trackNumberContainer: {
-    width: 32,
-    alignItems: 'center',
-    marginRight: designTokens.spacing.sm,
-  },
-  trackNumber: {
-    opacity: 0.7,
-  },
-  recitationContent: {
-    flex: 1,
-    justifyContent: 'center',
-    marginRight: designTokens.spacing.md,
-  },
-  recitationTitle: {
-    marginBottom: 2,
-  },
-  recitationMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
 });
 

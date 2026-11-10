@@ -7,12 +7,12 @@ import AsyncStorage from "expo-sqlite/kv-store";
 import { Directory, File, Paths } from "expo-file-system";
 import {
   createDownloadResumable,
+  moveAsync,
   type DownloadPauseState,
   type DownloadProgressData as LegacyDownloadProgressData,
   type DownloadResumable as LegacyDownloadResumable,
 } from "expo-file-system/legacy";
 import type { Episode } from "../types/types";
-import { copyWithOverwrite } from "../utils/fileCopy";
 import { logger } from "../utils/logger";
 import { requestStoragePermission } from "../utils/permissions";
 import { encodeMediaUrl } from "../utils/mediaUrl";
@@ -109,6 +109,7 @@ export interface DownloadMetadata {
   duration: number;
   downloadedAt: string;
   fileSize?: number;
+  seriesTitle?: string;
   resumableData?: string; // To store resumable state
 }
 
@@ -125,6 +126,7 @@ export interface ResumableDownload {
   downloadUrl: string;
   progressCallback: (progress: DownloadProgress) => void;
   isPaused: boolean;
+  isCancelled?: boolean;
   bytesDownloaded: number;
   totalBytes: number;
   downloadTask: LegacyDownloadResumable | null;
@@ -339,6 +341,7 @@ class DownloadsService {
       lecturerName,
       coverUrl,
       durationSec,
+      seriesTitle,
     } = episode;
 
     if (!this.downloadsDirectory) {
@@ -447,6 +450,7 @@ class DownloadsService {
         duration: durationSec,
         downloadedAt: new Date().toISOString(),
         fileSize: bytesDownloaded,
+        seriesTitle,
       };
 
       this.metadataCache.set(lectureId, metadata);
@@ -742,6 +746,8 @@ class DownloadsService {
         resumableDownload.resumeState
       );
 
+      if (resumableDownload.isCancelled) return "cancelled";
+
       if (!result) {
         return resumableDownload.isPaused ? "paused" : "cancelled";
       }
@@ -800,11 +806,22 @@ class DownloadsService {
       const bytesDownloaded = Math.max(resumableDownload.bytesDownloaded, this.getFileSize(file));
       const finalFile = this.getDownloadFile(id);
 
-      // File.copy is asynchronous on Expo SDK 57. Keep the partial file until
-      // Android has finished copying it into its permanent location.
-      await copyWithOverwrite(file, finalFile);
-      if (file.exists) {
-        file.delete();
+      // Both files are in the same directory. Native async rename avoids
+      // copying a potentially hours-long recording through a synchronous JSI
+      // filesystem call, which stalls JS and duplicates disk usage.
+      try {
+        await moveAsync({ from: file.uri, to: finalFile.uri });
+      } catch (error) {
+        if (resumableDownload.isCancelled) return "cancelled";
+        if (!file.exists) {
+          await this.recoverFromMissingPartialFile(id);
+          throw new DownloadFailedError(DOWNLOAD_FILE_MISSING_MESSAGE, { lectureId: id });
+        }
+        throw error;
+      }
+      if (resumableDownload.isCancelled) {
+        await this.deleteFileIfExists(finalFile);
+        return "cancelled";
       }
 
       const metadata: DownloadMetadata = {
@@ -816,6 +833,7 @@ class DownloadsService {
         duration: resumableDownload.episode.durationSec,
         downloadedAt: new Date().toISOString(),
         fileSize: bytesDownloaded,
+        seriesTitle: resumableDownload.episode.seriesTitle,
       };
 
       this.metadataCache.set(id, metadata);
@@ -895,6 +913,8 @@ class DownloadsService {
   async cancelDownload(lectureId: string): Promise<void> {
     const download = this.activeDownloads.get(lectureId);
     if (download) {
+      // Mark cancellation before awaiting native work: completion may race it.
+      download.isCancelled = true;
       try {
         await download.downloadTask?.cancelAsync();
       } catch (error) {

@@ -44,6 +44,8 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({ children }) => {
     currentQueueIndex: 0,
     isShuffled: false,
     repeatMode: 'off',
+    sleepTimerEndsAt: null,
+    sleepTimerEndOfTrack: false,
   });
 
   const playEpisode = useCallback((episode: Episode) => {

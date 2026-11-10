@@ -1,23 +1,24 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { FlashList } from "../../src/components/adapters/flashListCompat";
 import { LinearGradient } from "expo-linear-gradient";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { useGuardedPush } from "../../src/navigation/useGuardedPush";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  FlatList,
   Image,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  UIManager,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Chip, Text } from "../../src/components/atoms";
 import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
 import { Card } from "../../src/components/molecules/Card";
+import { LectureRow } from "../../src/components/molecules/LectureRow";
+import { episodeToRow } from "../../src/components/molecules/lectureRowModel";
+import { ScreenHeader } from "../../src/components/molecules/ScreenHeader";
 import { SearchBar } from "../../src/components/molecules/SearchBar";
 import { useQuranAlbums } from "../../src/hooks/useQuranAlbums";
 import { useRamadanAlbums } from "../../src/hooks/useRamadanAlbums";
@@ -36,7 +37,6 @@ import {
   initializeListeningPreferences,
   useListeningPreferencesStore,
 } from "../../src/stores/listeningPreferencesStore";
-import { formatDuration } from "../../src/utils/formatTime";
 import { boxShadow } from "../../src/utils/shadow";
 
 type AlbumType = QuranAlbum | RamadanAlbum;
@@ -134,11 +134,6 @@ function SectionScreen() {
     lecturerIds: preferences.lecturerIds,
     enabled: preferencesHydrated,
   };
-  const supportsAutoLayoutView = Boolean(
-    UIManager.getViewManagerConfig?.("AutoLayoutView"),
-  );
-  // Guard against runtime module/export issues; always keep FlatList as a safe fallback.
-  const canUseFlashList = supportsAutoLayoutView && Boolean(FlashList);
 
   // Trending = velocity-scored. Recently-posted = date-sorted. They share a
   // shape so the rest of the screen can read from one set of locals.
@@ -382,8 +377,9 @@ function SectionScreen() {
   const handleQuranAlbumPress = useCallback((album: QuranAlbum) => {
     if (!album?.id) return;
     guardedPush({
-      pathname: `/quran-reciter/${album.id}`,
+      pathname: "/quran-reciter/[id]",
       params: {
+        id: album.id,
         albumIds: (album.albumIds || [album.id]).join(','),
         reciterId: album.reciterId,
         reciterName: album.name,
@@ -409,11 +405,14 @@ function SectionScreen() {
         type === "quran-recitations" ||
         type === "ramadan-tafsir") &&
       hasMore &&
-      !isLoadingMore
+      !isLoadingMore &&
+      // A failed page waits for the footer's Retry. FlashList calls this again
+      // as soon as the loading footer collapses, so retrying here loops.
+      !hasError
     ) {
       loadMore();
     }
-  }, [type, hasMore, isLoadingMore, loadMore]);
+  }, [type, hasMore, isLoadingMore, hasError, loadMore]);
 
   // Render item for list
   const renderItem = useCallback(
@@ -502,7 +501,7 @@ function SectionScreen() {
                     { backgroundColor: colors.brand.primary },
                   ]}
                 >
-                  <Ionicons name="play" size={16} color={colors.fixed.black} />
+                  <Ionicons name="play" size={16} color={colors.brand.onPrimary} />
                 </View>
               </View>
 
@@ -576,84 +575,13 @@ function SectionScreen() {
         );
       }
 
-      // Handle Episodes
       if (sectionInfo.variant === "section") {
-        const shouldNavigate =
-          type === "trending" ||
-          type === "recently-posted" ||
-          type === "recently-played";
-
-        if (type === "trending") {
-          const episode = item as Episode;
-          const durationLabel = episode.durationSec > 0
-            ? formatDuration(episode.durationSec)
-            : "Duration updating";
-
-          return (
-            <TouchableOpacity
-              onPress={() => handleLecturePress(episode)}
-              activeOpacity={0.82}
-              style={[
-                styles.chartRow,
-                { borderBottomColor: colors.system.separator.primary },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel={`Number ${index + 1}, ${episode.title}, ${durationLabel}`}
-            >
-              <Text
-                variant={index < 3 ? "title2" : "headline"}
-                weight="bold"
-                style={[
-                  styles.chartRank,
-                  { color: index < 3 ? colors.brand.primary : colors.system.label.tertiary },
-                ]}
-              >
-                {index + 1}
-              </Text>
-              <Image
-                source={{ uri: episode.coverUrl }}
-                style={styles.chartArtwork}
-                resizeMode="cover"
-              />
-              <View style={styles.chartContent}>
-                <Text variant="headline" color="label" weight="semibold" numberOfLines={2}>
-                  {episode.title}
-                </Text>
-                <Text variant="caption1" color="secondaryLabel" numberOfLines={1} style={tw`mt-1`}>
-                  {episode.lecturerName || "Unknown Scholar"}
-                </Text>
-                <Text variant="caption2" color="tertiaryLabel" numberOfLines={1} style={tw`mt-1`}>
-                  {[episode.language, durationLabel].filter(Boolean).join(" • ")}
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={(event) => {
-                  event.stopPropagation?.();
-                  playEpisode(episode);
-                }}
-                style={[styles.chartPlayButton, { backgroundColor: colors.brand.primary }]}
-                accessibilityRole="button"
-                accessibilityLabel={`Play ${episode.title}`}
-              >
-                <Ionicons name="play" size={18} color={colors.fixed.black} />
-              </TouchableOpacity>
-            </TouchableOpacity>
-          );
-        }
-
+        const episode = item as Episode;
         return (
-          <Card
-            variant="section"
-            data={item as Episode}
-            onPress={
-              shouldNavigate
-                ? () => handleLecturePress(item as Episode)
-                : undefined
-            }
-            playOnPress={false}
-            showTime={true}
-            showMeta={true}
-            metaValue={(item as Episode).lecturerName || "Unknown"}
+          <LectureRow
+            lecture={episodeToRow(episode, { position: index + 1 })}
+            onPress={() => handleLecturePress(episode)}
+            onPlay={type === "trending" ? () => playEpisode(episode) : undefined}
           />
         );
       } else {
@@ -701,6 +629,32 @@ function SectionScreen() {
 
   // Render footer (loading indicator) for list
   const renderFooter = useCallback(() => {
+    if (hasError && !isLoadingMore && rawData.length > 0) {
+      return (
+        <View style={tw`py-4 items-center`}>
+          <Text variant="caption1" color="secondaryLabel" style={tw`mb-2`}>
+            Could not load more {sectionInfo.title.toLowerCase()}
+          </Text>
+          <TouchableOpacity
+            onPress={() => loadMore()}
+            style={[
+              tw`px-5 py-2 rounded-full items-center justify-center`,
+              {
+                backgroundColor: colors.system.fill.quaternary,
+                minHeight: designTokens.hitTargets.minimum,
+              },
+            ]}
+            accessibilityLabel={`Retry loading more ${sectionInfo.title.toLowerCase()}`}
+            accessibilityRole="button"
+            activeOpacity={0.8}
+          >
+            <Text variant="subheadline" color="label" style={tw`font-semibold`}>
+              Retry
+            </Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
     if (!isLoadingMore) return null;
     return (
       <View style={tw`py-4 items-center`}>
@@ -710,7 +664,7 @@ function SectionScreen() {
         </Text>
       </View>
     );
-  }, [isLoadingMore, colors]);
+  }, [isLoadingMore, hasError, rawData.length, loadMore, sectionInfo.title, colors]);
 
   // Empty component for list
   const renderEmpty = useCallback(() => {
@@ -818,9 +772,9 @@ function SectionScreen() {
         tw`flex-1 pb-4`,
         { backgroundColor: colors.system.background.primary },
       ]}
-      edges={["top", "left", "right", "bottom"]}
+      edges={["left", "right", "bottom"]}
     >
-      {/* Header */}
+      <ScreenHeader title={sectionInfo.title} />
       <View
         style={[
           tw`px-6 pt-2 pb-4`,
@@ -829,26 +783,6 @@ function SectionScreen() {
           },
         ]}
       >
-        {/* Navigation Bar */}
-        <View style={tw`flex-row items-center mb-4`}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={tw`mr-4 p-1`}
-            accessibilityLabel="Go back"
-            accessibilityRole="button"
-            activeOpacity={0.6}
-          >
-            <Ionicons
-              name="chevron-back"
-              size={28}
-              color={colors.brand.primary}
-            />
-          </TouchableOpacity>
-          <Text variant="title1" color="label" style={tw`font-semibold`}>
-            {sectionInfo.title}
-          </Text>
-        </View>
-
         {type === "quran-recitations" ? (
           <LinearGradient
             colors={["#073B2A", "#0B6845", "#18A46F"]}
@@ -1081,81 +1015,30 @@ function SectionScreen() {
       </View>
 
       {/* Content with Dynamic Spacing */}
-      {canUseFlashList ? (
-        <FlashList
-          data={filteredData}
-          renderItem={renderItem}
-          keyExtractor={(item, index) => `${item.id}-${index}`}
-          ListEmptyComponent={renderEmpty}
-          ListFooterComponent={renderFooter}
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.5}
-          contentContainerStyle={[
-            tw`px-6 pb-20`,
-            {
-              paddingTop: showFilters
-                ? designTokens.spacing.md
-                : designTokens.spacing.lg,
-            },
-          ]}
-          showsVerticalScrollIndicator={false}
-        />
-      ) : (
-        <FlatList
-          data={filteredData}
-          renderItem={renderItem}
-          keyExtractor={(item, index) => `${item.id}-${index}`}
-          ListEmptyComponent={renderEmpty}
-          ListFooterComponent={renderFooter}
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.5}
-          contentContainerStyle={[
-            tw`px-6 pb-20`,
-            {
-              paddingTop: showFilters
-                ? designTokens.spacing.md
-                : designTokens.spacing.lg,
-            },
-          ]}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
+      <FlashList
+        data={filteredData}
+        renderItem={renderItem}
+        keyExtractor={(item, index) => `${item.id}-${index}`}
+        ListEmptyComponent={renderEmpty}
+        ListFooterComponent={renderFooter}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
+        contentContainerStyle={[
+          sectionInfo.variant === "section" ? tw`pb-20` : tw`px-6 pb-20`,
+          {
+            paddingTop: showFilters
+              ? designTokens.spacing.md
+              : designTokens.spacing.lg,
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+      />
+
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  chartRow: {
-    minHeight: 100,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  chartRank: {
-    width: 32,
-    textAlign: "center",
-    marginRight: 8,
-  },
-  chartArtwork: {
-    width: 68,
-    height: 68,
-    borderRadius: 12,
-    backgroundColor: "#252529",
-  },
-  chartContent: {
-    flex: 1,
-    minWidth: 0,
-    marginLeft: 12,
-    marginRight: 10,
-  },
-  chartPlayButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   quranAlbumCard: {
     // Shadow moved to the merge site: the colour is a theme value and
     // boxShadow needs the opacity folded into it.

@@ -5,6 +5,7 @@
 
 import * as Sentry from "@sentry/react-native";
 import Constants from "expo-constants";
+import * as Application from "expo-application";
 import { Platform } from "react-native";
 import {
   isCancelledErrorText,
@@ -16,7 +17,9 @@ import {
 import {
   isExpectedExpoUpdatesCheckFailure,
   isExpectedMissingAccessTokenFailure,
+  isExpectedSocialSignInFailure,
   isExpectedUserInputRefusalFailure,
+  scrubSensitiveBreadcrumb,
   scrubSensitiveExtras,
   shouldDropExpectedUserInputRefusalEvent,
   shouldDropExpectedExpoUpdatesCheckEvent,
@@ -144,11 +147,9 @@ export const initSentry = () => {
 
     // Environment and release tracking
     environment,
-    release: `dawah-nigeria@${Constants.expoConfig?.version || "1.0.0"}`,
+    release: `dawah-nigeria@${Application.nativeApplicationVersion || Constants.expoConfig?.version || "1.0.0"}`,
     dist: String(
-      Constants.expoConfig?.ios?.buildNumber ||
-        Constants.expoConfig?.android?.versionCode ||
-        1,
+      Application.nativeBuildVersion || 1,
     ),
 
     // Enable debug mode in development (set to false to reduce console noise)
@@ -221,7 +222,7 @@ export const initSentry = () => {
       if (breadcrumb.category === "console") {
         return null; // Don't send console logs as breadcrumbs
       }
-      return breadcrumb;
+      return scrubSensitiveBreadcrumb(breadcrumb);
     },
 
     // Ignore specific errors
@@ -367,6 +368,15 @@ export const captureSentryException = (
     return;
   }
   if (isExpectedUserInputRefusalFailure(error, context)) {
+    return;
+  }
+  if (isExpectedSocialSignInFailure(error, context)) {
+    return;
+  }
+  // The API client already judged this failure expected and declined to report
+  // it. Callers that catch the same error and capture it again would otherwise
+  // undo that, one issue per screen.
+  if ((error as { isExpectedRefusal?: boolean } | null)?.isExpectedRefusal === true) {
     return;
   }
   const statusCode = (error as { statusCode?: number } | null)?.statusCode;

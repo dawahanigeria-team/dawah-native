@@ -1,22 +1,17 @@
 import { useEffect } from "react";
 import { useRouter } from "expo-router";
 
-import { usePlayerActions, usePlayerStore } from "../src/stores";
+import { usePlayerStore } from "../src/stores";
 
 export default function NotificationClick() {
   const router = useRouter();
-  const { expandPlayer } = usePlayerActions();
   const { currentEpisode } = usePlayerStore();
 
   useEffect(() => {
-    // Always keep this route silent and redirect away immediately.
-    if (currentEpisode?.id) {
-      expandPlayer();
-    }
-
-    // Return to the main tabs so no unmatched route is shown.
-    router.replace("/(tabs)");
-  }, [currentEpisode?.id, expandPlayer, router]);
+    // Always keep this route silent and redirect away immediately: to the
+    // lecture screen, which is the full player, or back to the tabs.
+    router.replace(currentEpisode?.id ? `/lecture/${currentEpisode.id}` : "/(tabs)");
+  }, [currentEpisode?.id, router]);
 
   return null;
 }

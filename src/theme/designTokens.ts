@@ -51,6 +51,7 @@ export const typography = {
   },
   fontFamily: {
     system: "System", // iOS will use SF Pro automatically
+    display: "Newsreader_500Medium", // Bundled title face, loaded in app/_layout.tsx
     mono: "Menlo", // iOS monospace font
   },
 } as const;
@@ -92,16 +93,16 @@ export const shadows = {
 export const colorsDark = {
   system: {
     background: {
-      primary: "#000000",
-      secondary: "#1C1C1E",
-      tertiary: "#2C2C2E",
-      grouped: "#000000",
+      primary: "#0D1510",
+      secondary: "#17221B",
+      tertiary: "#223027",
+      grouped: "#0D1510",
     },
     label: {
-      primary: "#FFFFFF",
-      secondary: "rgba(235, 235, 245, 0.6)",
-      tertiary: "rgba(235, 235, 245, 0.3)",
-      quaternary: "rgba(235, 235, 245, 0.18)",
+      primary: "#F4F1E6",
+      secondary: "#BAC4B6",
+      tertiary: "#909C8E",
+      quaternary: "rgba(244, 241, 230, 0.18)",
     },
     fill: {
       primary: "rgba(120, 120, 128, 0.32)",
@@ -110,12 +111,13 @@ export const colorsDark = {
       quaternary: "rgba(118, 118, 128, 0.14)",
     },
     separator: {
-      primary: "rgba(84, 84, 88, 0.65)",
-      opaque: "#38383A",
+      primary: "#2A382F",
+      opaque: "#2A382F",
     },
   },
   brand: {
-    primary: "#30D158",
+    primary: "#C8EE5A",
+    onPrimary: "#10200F",
     secondary: "#007AFF",
     accent: "#5AC8FA",
   },
@@ -167,18 +169,16 @@ export const colorsDark = {
     emerald500: "#10B981",
     orange500: "#F97316",
     notificationLight: "#FF231F7C",
-    placeholderDefault: "#4ECDC4",
+    placeholderDefault: "#0F4A3C",
     placeholder: [
-      "#FF6B6B", // Coral
-      "#4ECDC4", // Teal
-      "#45B7D1", // Blue
-      "#96CEB4", // Mint
-      "#FFEAA7", // Yellow
-      "#DDA0DD", // Plum
-      "#98D8C8", // Sea Green
-      "#F7DC6F", // Gold
-      "#BB8FCE", // Lavender
-      "#85C1E9", // Sky Blue
+      "#0F4A3C",
+      "#7A4A12",
+      "#8A3324",
+      "#2B3A78",
+      "#6B2A55",
+      "#3D4E1E",
+      "#1F3B57",
+      "#7A2F4A",
     ],
   },
 } as const;
@@ -186,15 +186,15 @@ export const colorsDark = {
 export const colorsLight = {
   system: {
     background: {
-      primary: "#FFFFFF",
-      secondary: "#F2F2F7",
-      tertiary: "#FFFFFF",
-      grouped: "#F2F2F7",
+      primary: "#F6F3E9",
+      secondary: "#FFFDF6",
+      tertiary: "#E9E5D6",
+      grouped: "#F6F3E9",
     },
     label: {
-      primary: "#000000",
-      secondary: "rgba(60, 60, 67, 0.6)",
-      tertiary: "rgba(60, 60, 67, 0.3)",
+      primary: "#14231A",
+      secondary: "#47564B",
+      tertiary: "#5C6A5F",
       quaternary: "rgba(60, 60, 67, 0.18)",
     },
     fill: {
@@ -204,12 +204,13 @@ export const colorsLight = {
       quaternary: "rgba(118, 118, 128, 0.08)",
     },
     separator: {
-      primary: "rgba(60, 60, 67, 0.29)",
-      opaque: "#C6C6C8",
+      primary: "#D9D4C3",
+      opaque: "#D9D4C3",
     },
   },
   brand: {
-    primary: "#34C759", // Slightly darker for light mode contrast
+    primary: "#1F6B3E",
+    onPrimary: "#FFFFFF",
     secondary: "#007AFF",
     accent: "#5AC8FA",
   },
@@ -261,18 +262,16 @@ export const colorsLight = {
     emerald500: "#10B981",
     orange500: "#F97316",
     notificationLight: "#FF231F7C",
-    placeholderDefault: "#4ECDC4",
+    placeholderDefault: "#0F4A3C",
     placeholder: [
-      "#FF6B6B", // Coral
-      "#4ECDC4", // Teal
-      "#45B7D1", // Blue
-      "#96CEB4", // Mint
-      "#FFEAA7", // Yellow
-      "#DDA0DD", // Plum
-      "#98D8C8", // Sea Green
-      "#F7DC6F", // Gold
-      "#BB8FCE", // Lavender
-      "#85C1E9", // Sky Blue
+      "#0F4A3C",
+      "#7A4A12",
+      "#8A3324",
+      "#2B3A78",
+      "#6B2A55",
+      "#3D4E1E",
+      "#1F3B57",
+      "#7A2F4A",
     ],
   },
 } as const;

@@ -5,7 +5,9 @@
     "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": [
+        "src/*"
+      ]
     },
     "jsx": "react-jsx",
     "esModuleInterop": true,
@@ -13,7 +15,13 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "noEmit": true
+    "noEmit": true,
+    "types": [
+      "jest",
+      "react",
+      "react-native",
+      "node"
+    ]
   },
   "include": [
     "**/*.ts",

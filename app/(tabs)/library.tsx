@@ -4,6 +4,10 @@ import { FlashList } from "../../src/components/adapters/flashListCompat";
 import { Text, TouchableOpacity, View, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../../src/components/molecules/Card";
+import { LectureRow } from "../../src/components/molecules/LectureRow";
+import { episodeToRow } from "../../src/components/molecules/lectureRowModel";
+import { ScreenHeader } from "../../src/components/molecules/ScreenHeader";
+import { Button } from "../../src/components/atoms/Button";
 import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
 import { useGuardedPush } from "../../src/navigation/useGuardedPush";
 import { usePlayerActions, useDownloadsStore, useFavoritesStore } from "../../src/stores";
@@ -19,6 +23,8 @@ import { lectureDetailApi } from "../../src/services/api/lectureDetail.api";
 import { playlistApi } from "../../src/services/api/playlist.api";
 import type { UserPlaylist } from "../../src/types/api.types";
 import { resolveFavoriteIdsForLoad } from "../../src/features/library/resolveFavoriteIdsForLoad";
+import { mapWithConcurrency } from "../../src/utils/mapWithConcurrency";
+import { type DownloadGroupHeader, groupDownloads } from "../../src/features/library/groupDownloads";
 
 type LibraryTab = "Downloads" | "History" | "Liked" | "Playlists";
 
@@ -37,6 +43,7 @@ const downloadToEpisode = (download: DownloadMetadata): Episode => ({
   language: "",
   downloads: 0,
   createdAt: download.downloadedAt,
+  seriesTitle: download.seriesTitle,
 });
 
 export default function LibraryScreenWithBoundary() {
@@ -77,27 +84,6 @@ function LibraryScreen() {
     });
   }, [refreshDownloads]);
 
-  // Load history when History tab is active
-  useEffect(() => {
-    if (activeTab === 'History') {
-      loadHistory();
-    }
-  }, [activeTab]);
-
-  // Load favorites when Liked tab is active
-  useEffect(() => {
-    if (activeTab === 'Liked') {
-      loadFavorites();
-    }
-  }, [activeTab]);
-
-  // Load playlists when Playlists tab is active
-  useEffect(() => {
-    if (activeTab === 'Playlists') {
-      loadPlaylists();
-    }
-  }, [activeTab, isAuthenticated]);
-
   const loadHistory = async () => {
     try {
       setLoadingHistory(true);
@@ -123,31 +109,29 @@ function LibraryScreen() {
 
       const favoriteIdsToLoad = await resolveFavoriteIdsForLoad(favoriteIds, fetchFavorites);
 
-      // Fetch lecture details for each favorite ID
-      const episodes: Episode[] = [];
-      for (const lectureId of favoriteIdsToLoad) {
-        try {
-          const lecture = await lectureDetailApi.getLectureDetail({ lectureId });
-          if (lecture) {
-            episodes.push({
-              id: lecture.id,
-              title: lecture.title,
-              lecturerName: lecture.lecturerName || 'Unknown',
-              durationSec: lecture.durationSec || 0,
-              coverUrl: lecture.coverUrl || '',
-              audioUrl: lecture.audioUrl || '',
-              seriesId: lecture.albumId || '',
-              plays: lecture.views || 0,
-              liked: true,
-              language: lecture.language || '',
-              downloads: lecture.downloads || 0,
-              createdAt: lecture.postedDate || new Date().toISOString(),
-            });
-          }
-        } catch (err) {
+      // Four at a time: a serial loop made 20 likes cost ~20 round trips.
+      const lectures = await mapWithConcurrency(favoriteIdsToLoad, 4, (lectureId) =>
+        lectureDetailApi.getLectureDetail({ lectureId, countView: false }).catch((err) => {
           console.warn(`Failed to load lecture ${lectureId}:`, err);
-        }
-      }
+          return undefined;
+        }),
+      );
+      const episodes: Episode[] = lectures
+        .filter((lecture): lecture is NonNullable<typeof lecture> => Boolean(lecture))
+        .map((lecture) => ({
+          id: lecture.id,
+          title: lecture.title,
+          lecturerName: lecture.lecturerName || 'Unknown',
+          durationSec: lecture.durationSec || 0,
+          coverUrl: lecture.coverUrl || '',
+          audioUrl: lecture.audioUrl || '',
+          seriesId: lecture.albumId || '',
+          plays: lecture.views || 0,
+          liked: true,
+          language: lecture.language || '',
+          downloads: lecture.downloads || 0,
+          createdAt: lecture.postedDate || new Date().toISOString(),
+        }));
 
       setLikedEpisodes(episodes);
       logger.debug(`Loaded ${episodes.length} liked lectures`);
@@ -189,6 +173,32 @@ function LibraryScreen() {
     }
   };
 
+  // Declared above the effects that call them: as `const`, a reference from
+  // an effect placed earlier binds before initialization, so the effect cannot
+  // see a later definition. The dependency arrays stay keyed on the active tab
+  // because these are re-created every render and depending on them would
+  // refetch on every render.
+  // Load history when History tab is active
+  useEffect(() => {
+    if (activeTab === 'History') {
+      loadHistory();
+    }
+  }, [activeTab]);
+
+  // Load favorites when Liked tab is active
+  useEffect(() => {
+    if (activeTab === 'Liked') {
+      loadFavorites();
+    }
+  }, [activeTab]);
+
+  // Load playlists when Playlists tab is active
+  useEffect(() => {
+    if (activeTab === 'Playlists') {
+      loadPlaylists();
+    }
+  }, [activeTab, isAuthenticated]);
+
   // Convert downloads to Episodes
   const downloadedEpisodes = useMemo(() => {
     logger.debug('Library: Total downloads:', downloads.length);
@@ -216,7 +226,7 @@ function LibraryScreen() {
   const getTabData = () => {
     switch (activeTab) {
       case "Downloads":
-        return downloadedEpisodes;
+        return groupDownloads(downloadedEpisodes);
       case "History":
         return historyEpisodes;
       case "Liked":
@@ -348,37 +358,68 @@ function LibraryScreen() {
         {tab === "Downloads" && "Download episodes to listen offline"}
         {tab === "History" && "Your listening history will appear here"}
         {tab === "Liked" && "Like episodes to see them here"}
-        {tab === "Playlists" && "Create playlists to organize your content"}
+        {tab === "Playlists" &&
+          (isAuthenticated
+            ? "Create playlists to organize your content"
+            : "Sign in to create playlists and keep your lectures organized")}
       </Text>
+      {tab === "Playlists" && !isAuthenticated && (
+        <View style={tw`mt-5`}>
+          <Button
+            size="medium"
+            onPress={() => guardedPush({ pathname: "/sign-in", params: { returnTo: "/library" } })}
+          >
+            Sign in to create playlists
+          </Button>
+        </View>
+      )}
     </View>
   );
 
   const data = getTabData();
   const loading = isTabLoading();
 
-  const renderListItem = useCallback(({ item }: { item: Episode | Series }) => (
-    <View style={tw`mb-3`}>
-      <Card
-        variant="landscape"
-        data={item}
+  const renderListItem = useCallback(({ item }: { item: Episode | Series | DownloadGroupHeader }) =>
+    "kind" in item ? (
+      <View style={tw`flex-row items-center justify-between px-4 pt-5 pb-1`}>
+        <Text
+          style={[tw`text-lg font-semibold flex-1 mr-3`, { color: colors.system.label.primary }]}
+          numberOfLines={1}
+          accessibilityRole="header"
+        >
+          {item.title}
+        </Text>
+        <Text style={[tw`text-sm`, { color: colors.system.label.secondary }]}>
+          {item.count} {item.count === 1 ? "lecture" : "lectures"}
+        </Text>
+      </View>
+    ) : "durationSec" in item ? (
+      <LectureRow
+        lecture={episodeToRow(item)}
         onPress={() => handleItemPress(item)}
-        onLongPress={
-          activeTab === "Downloads" && "durationSec" in item
+        onMore={
+          activeTab === "Downloads"
             ? () => handleDeleteDownload(item.id, item.title)
             : undefined
         }
-        showTime={"durationSec" in item}
-        showMeta={true}
-        metaValue={
-          "lecturerName" in item
-            ? item.lecturerName || "Unknown"
-            : activeTab === "Playlists"
-              ? `${playlistCounts.get(item.id) ?? 0} tracks`
-              : "Sheikh Nasir Kabara"
+        onLongPress={
+          activeTab === "Downloads"
+            ? () => handleDeleteDownload(item.id, item.title)
+            : undefined
         }
       />
-    </View>
-  ), [activeTab, handleItemPress, handleDeleteDownload, playlistCounts]);
+    ) : (
+      <View style={tw`mb-3 px-4`}>
+        <Card
+          variant="landscape"
+          data={item}
+          onPress={() => handleItemPress(item)}
+          showTime={false}
+          showMeta={true}
+          metaValue={`${playlistCounts.get(item.id) ?? 0} tracks`}
+        />
+      </View>
+    ), [activeTab, handleItemPress, handleDeleteDownload, playlistCounts, colors]);
 
   const renderListEmpty = useCallback(() => {
     if (loading) {
@@ -401,53 +442,32 @@ function LibraryScreen() {
     }
 
     return renderEmptyState(activeTab);
-  }, [activeTab, loading, colors]);
+  }, [activeTab, loading, colors, isAuthenticated]);
 
   return (
     <SafeAreaView
+      edges={["left", "right"]}
       style={[
         tw`flex-1`,
         { backgroundColor: colors.system.background.primary },
       ]}
     >
-      {/* Header */}
-      <View style={tw`px-4 py-3`}>
-        <View style={tw`flex-row items-center justify-between`}>
-          <Text
-            style={[
-              tw`text-2xl font-bold`,
-              { color: colors.system.label.primary },
-            ]}
-            accessibilityRole="header"
-          >
-            Library
-          </Text>
-          {activeTab === "Downloads" && downloadedEpisodes.length > 0 && (
-            <View style={tw`flex-row items-center`}>
-              <Ionicons
-                name="cloud-outline"
-                size={16}
-                color={colors.system.label.secondary}
-              />
-              <Text
-                style={[
-                  tw`text-sm ml-1`,
-                  { color: colors.system.label.secondary },
-                ]}
-              >
-                {getTotalStorageUsed()}
-              </Text>
-            </View>
-          )}
-        </View>
-      </View>
+      <ScreenHeader
+        variant="large"
+        title="Library"
+        subtitle={
+          activeTab === "Downloads" && downloadedEpisodes.length > 0
+            ? `${getTotalStorageUsed()} used`
+            : undefined
+        }
+      />
 
       {/* Segmented Control */}
       <View style={tw`px-4 mb-6`}>
         <View
           style={[
             tw`rounded-2xl p-1 flex-row`,
-            { backgroundColor: colors.system.background.tertiary },
+            { backgroundColor: colors.system.background.secondary },
           ]}
         >
           {tabs.map((tab) => (
@@ -490,7 +510,7 @@ function LibraryScreen() {
         renderItem={renderListItem}
         keyExtractor={(item) => String(item.id)}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={tw`pb-40 px-4`}
+        contentContainerStyle={tw`pb-40`}
         ListEmptyComponent={renderListEmpty}
         accessibilityLabel="Library content"
       />

@@ -15,7 +15,6 @@
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://api.dawahnigeria.com",
         "EXPO_PUBLIC_PUSH_REGISTER_URL": "https://api.dawahnigeria.com/api/register_push_token.php",
-        "EXPO_PUBLIC_POSTHOG_KEY": "phc_WZcuuwHzWZEmX4PKpoZhL2aQuuRaiVL07LHOs8KlBo6",
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "739832430566-5prajbumn1so6557o1f95cgslutmaqum.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "739832430566-i4h4ftr4hedrg6anghbv2bnvvdlgrvus.apps.googleusercontent.com",
         "EXPO_PUBLIC_PREMIUM_MONTHLY_PRODUCT_ID": "dawahnigeria_premium_monthly",
@@ -34,7 +33,6 @@
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://api.dawahnigeria.com",
         "EXPO_PUBLIC_PUSH_REGISTER_URL": "https://api.dawahnigeria.com/api/register_push_token.php",
-        "EXPO_PUBLIC_POSTHOG_KEY": "phc_WZcuuwHzWZEmX4PKpoZhL2aQuuRaiVL07LHOs8KlBo6",
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "739832430566-5prajbumn1so6557o1f95cgslutmaqum.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "739832430566-i4h4ftr4hedrg6anghbv2bnvvdlgrvus.apps.googleusercontent.com",
         "EXPO_PUBLIC_PREMIUM_MONTHLY_PRODUCT_ID": "dawahnigeria_premium_monthly",
@@ -56,11 +54,11 @@
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://api.dawahnigeria.com",
         "EXPO_PUBLIC_PUSH_REGISTER_URL": "https://api.dawahnigeria.com/api/register_push_token.php",
-        "EXPO_PUBLIC_POSTHOG_KEY": "phc_WZcuuwHzWZEmX4PKpoZhL2aQuuRaiVL07LHOs8KlBo6",
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "739832430566-5prajbumn1so6557o1f95cgslutmaqum.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "739832430566-i4h4ftr4hedrg6anghbv2bnvvdlgrvus.apps.googleusercontent.com",
         "EXPO_PUBLIC_PREMIUM_MONTHLY_PRODUCT_ID": "dawahnigeria_premium_monthly",
-        "EXPO_PUBLIC_PREMIUM_YEARLY_PRODUCT_ID": "dawahnigeria_premium_yearly"
+        "EXPO_PUBLIC_PREMIUM_YEARLY_PRODUCT_ID": "dawahnigeria_premium_yearly",
+        "EXPO_PUBLIC_OBSERVE_SAMPLE_RATE": "0.25"
       },
       "channel": "production"
     },

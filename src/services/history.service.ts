@@ -19,9 +19,12 @@ export interface HistoryItem {
   language?: string;
 }
 
+const POSITION_WRITE_INTERVAL_MS = 15000;
+
 class HistoryService {
   private readonly HISTORY_KEY = 'lecture_history';
   private readonly MAX_HISTORY_ITEMS = 100; // Keep last 100 played lectures
+  private lastPositionWrite = { lectureId: '', at: 0 };
 
   /**
    * Add lecture to history (called when playback starts)
@@ -99,6 +102,22 @@ class HistoryService {
       downloads: 0,
       createdAt: item.playedAt,
     }));
+  }
+
+  /**
+   * Save the listening position. Called on every playback tick, so writes are
+   * throttled per lecture. It also records lectures started from a queue,
+   * which never pass through playEpisode.
+   */
+  async recordPosition(episode: Episode, position: number): Promise<void> {
+    if (!Number.isFinite(position) || position <= 0) return;
+
+    const now = Date.now();
+    const { lectureId, at } = this.lastPositionWrite;
+    if (lectureId === episode.id && now - at < POSITION_WRITE_INTERVAL_MS) return;
+
+    this.lastPositionWrite = { lectureId: episode.id, at: now };
+    await this.addToHistory(episode, position);
   }
 
   /**

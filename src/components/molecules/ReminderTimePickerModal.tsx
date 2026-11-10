@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import {
   Modal,
   Pressable,
@@ -35,12 +35,20 @@ const ReminderTimePickerModal: React.FC<ReminderTimePickerModalProps> = ({
   const [hour, setHour] = useState(initialParts[0] ?? '07')
   const [minute, setMinute] = useState(initialParts[1] ?? '00')
 
-  useEffect(() => {
-    if (!visible) return
+  // Adjusted during render rather than in an effect, so the picker never paints
+  // one frame showing the previously chosen time before correcting itself.
+  // `syncedFrom` is null while the modal is closed, which is what makes a
+  // reopen re-read `value` even when `value` itself never changed.
+  // https://react.dev/learn/you-might-not-need-an-effect
+  const [syncedFrom, setSyncedFrom] = useState<string | null>(visible ? value : null)
+  if (!visible && syncedFrom !== null) {
+    setSyncedFrom(null)
+  } else if (visible && syncedFrom !== value) {
     const [nextHour = '07', nextMinute = '00'] = value.split(':')
+    setSyncedFrom(value)
     setHour(nextHour)
     setMinute(nextMinute)
-  }, [value, visible])
+  }
 
   const renderOptions = (
     options: string[],
@@ -76,7 +84,7 @@ const ReminderTimePickerModal: React.FC<ReminderTimePickerModalProps> = ({
                 weight={isSelected ? 'bold' : 'regular'}
                 style={{
                   color: isSelected
-                    ? colors.fixed.white
+                    ? colors.brand.onPrimary
                     : colors.system.label.primary,
                 }}
               >
@@ -132,7 +140,7 @@ const ReminderTimePickerModal: React.FC<ReminderTimePickerModalProps> = ({
                 { backgroundColor: colors.brand.primary },
               ]}
             >
-              <Text weight="semibold" style={{ color: colors.fixed.white }}>
+              <Text weight="semibold" style={{ color: colors.brand.onPrimary }}>
                 Confirm
               </Text>
             </Pressable>

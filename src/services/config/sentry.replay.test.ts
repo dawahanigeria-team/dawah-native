@@ -30,9 +30,9 @@ describe('Session Replay bandwidth', () => {
     expect(o.sessionSampleRate).toBe(0);
   });
 
-  test('still uploads a replay when something actually breaks', () => {
+  test('does not keep an error replay buffer in production', () => {
     const o = buildReplayOptions({ platform: 'ios', isDevelopment: false });
-    expect(o.onErrorSampleRate).toBe(1.0);
+    expect(o.onErrorSampleRate).toBe(0);
   });
 
   test('records full sessions in development, where it costs nobody', () => {
@@ -49,7 +49,7 @@ describe('Session Replay platform gate', () => {
     expect(o.onErrorSampleRate).toBe(0);
   });
 
-  test('is on for iOS', () => {
-    expect(buildReplayOptions({ platform: 'ios', isDevelopment: false }).enabled).toBe(true);
+  test('does not install replay on production iOS', () => {
+    expect(buildReplayOptions({ platform: 'ios', isDevelopment: false }).enabled).toBe(false);
   });
 });

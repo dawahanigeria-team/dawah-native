@@ -1,17 +1,16 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Text } from "../src/components/atoms";
+import { ScreenHeader } from "../src/components/molecules";
 import ReminderTimePickerModal from "../src/components/molecules/ReminderTimePickerModal";
 import { useTheme } from "../src/hooks/useTheme";
 import {
   defaultNotificationPrefs,
   disablePushNotificationsAsync,
   getNotificationPrefs,
-  getStoredPushToken,
   registerForPushNotificationsAsync,
   setNotificationPrefs,
   syncNotificationPreferencesAsync,
@@ -25,15 +24,11 @@ import {
 import tw from "../src/theme/twrnc";
 
 const NotificationsScreen = () => {
-  const router = useRouter();
   const { colors } = useTheme();
   const [prefs, setPrefs] = useState<NotificationPrefs>(
     defaultNotificationPrefs,
   );
   const [loading, setLoading] = useState(true);
-  const [pushTokenStatus, setPushTokenStatus] = useState<"present" | "missing">(
-    "missing",
-  );
   const [activeTimePicker, setActiveTimePicker] = useState<ReminderType | null>(
     null,
   );
@@ -44,8 +39,6 @@ const NotificationsScreen = () => {
       try {
         const storedPrefs = await getNotificationPrefs();
         setPrefs(storedPrefs);
-        const storedToken = await getStoredPushToken();
-        setPushTokenStatus(storedToken ? "present" : "missing");
       } catch (e) {
         console.warn("Failed to load notification prefs", e);
       } finally {
@@ -73,12 +66,8 @@ const NotificationsScreen = () => {
           } else {
             await disablePushNotificationsAsync(next);
         }
-        const storedToken = await getStoredPushToken();
-        setPushTokenStatus(storedToken ? "present" : "missing");
       } else {
         await syncNotificationPreferencesAsync(next);
-        const storedToken = await getStoredPushToken();
-        setPushTokenStatus(storedToken ? "present" : "missing");
       }
     } catch (e) {
       console.warn("Failed to save notification prefs", e);
@@ -108,43 +97,18 @@ const NotificationsScreen = () => {
 
   return (
     <SafeAreaView
+      edges={["bottom", "left", "right"]}
       style={[
         tw`flex-1`,
         { backgroundColor: colors.system.background.primary },
       ]}
     >
+      <ScreenHeader title="Notifications" />
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Header */}
-        <View style={tw`flex-row items-center px-4 py-3`}>
-          <View style={tw`w-10 h-10 items-center justify-center mr-2`}>
-            <Ionicons
-              name="arrow-back"
-              size={24}
-              color={colors.system.label.primary}
-              onPress={() => router.back()}
-            />
-          </View>
-          <Text
-            style={[
-              tw`text-2xl font-bold`,
-              { color: colors.system.label.primary },
-            ]}
-            accessibilityRole="header"
-          >
-            Notifications
-          </Text>
-        </View>
-
         <View style={tw`px-4 pb-4`}>
           <Text style={[tw`text-sm`, { color: colors.system.label.secondary }]}>
             Control how dawahnigeria notifies you about new content and updates.
             You can also turn notifications off entirely.
-          </Text>
-          <Text
-            style={[tw`text-xs mt-2`, { color: colors.system.label.tertiary }]}
-          >
-            Push token:{" "}
-            {pushTokenStatus === "present" ? "registered" : "not registered"}
           </Text>
         </View>
 

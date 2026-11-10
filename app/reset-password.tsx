@@ -13,8 +13,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { Loading, Text } from "../src/components/atoms";
+import { ScreenHeader } from "../src/components/molecules";
 import { useTheme } from "../src/hooks/useTheme";
 import { resetPasswordWithCode } from "../src/services/api/passwordReset.api";
 import {
@@ -170,42 +170,25 @@ export default function ResetPasswordScreen() {
 
   return (
     <SafeAreaView
+      edges={["bottom", "left", "right"]}
       style={[
         tw`flex-1`,
         { backgroundColor: colors.system.background.primary },
       ]}
     >
+      <ScreenHeader />
       <KeyboardAvoidingView
         style={tw`flex-1`}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
           style={tw`flex-1`}
-          contentContainerStyle={tw`px-6 py-6 pb-32`}
+          contentContainerStyle={tw`px-6 pb-32 pt-2`}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Back Button */}
-          <Animated.View entering={FadeIn.duration(300)}>
-            <Pressable
-              onPress={() => router.back()}
-              style={[
-                tw`mb-6 self-start p-2 -ml-2 rounded-full`,
-                { backgroundColor: colors.system.fill.tertiary },
-              ]}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons
-                name="chevron-back"
-                size={24}
-                color={colors.system.label.primary}
-              />
-            </Pressable>
-          </Animated.View>
-
           {/* Icon */}
-          <Animated.View
-            entering={FadeInDown.delay(100).duration(400)}
+          <View
             style={tw`items-center mb-8`}
           >
             <View
@@ -228,7 +211,7 @@ export default function ResetPasswordScreen() {
               color="label"
               style={styles.titleText}
             >
-              Reset Password
+              Enter your code
             </Text>
             <Text
               variant="subheadline"
@@ -241,11 +224,10 @@ export default function ResetPasswordScreen() {
               </Text>{" "}
               and create a new password.
             </Text>
-          </Animated.View>
+          </View>
 
           {/* Verification Code Input */}
-          <Animated.View
-            entering={FadeInDown.delay(200).duration(400)}
+          <View
             style={tw`mb-4`}
           >
             <Text
@@ -254,7 +236,7 @@ export default function ResetPasswordScreen() {
               color="label"
               style={styles.labelText}
             >
-              Verification Code
+              Verification code
             </Text>
             <View
               style={[
@@ -301,7 +283,7 @@ export default function ResetPasswordScreen() {
                 editable={!isLoading}
               />
               {code.length > 0 && (
-                <Pressable onPress={() => setCode("")} hitSlop={8}>
+                <Pressable onPress={() => setCode("")} hitSlop={13}>
                   <Ionicons
                     name="close-circle"
                     size={18}
@@ -318,11 +300,10 @@ export default function ResetPasswordScreen() {
                 {codeError}
               </Text>
             )}
-          </Animated.View>
+          </View>
 
           {/* New Password Input */}
-          <Animated.View
-            entering={FadeInDown.delay(250).duration(400)}
+          <View
             style={tw`mb-4`}
           >
             <Text
@@ -331,7 +312,7 @@ export default function ResetPasswordScreen() {
               color="label"
               style={styles.labelText}
             >
-              New Password
+              New password
             </Text>
             <View
               style={[
@@ -385,7 +366,7 @@ export default function ResetPasswordScreen() {
               />
               <Pressable
                 onPress={() => setShowPassword(!showPassword)}
-                hitSlop={8}
+                hitSlop={13}
               >
                 <Ionicons
                   name={showPassword ? "eye-off-outline" : "eye-outline"}
@@ -402,11 +383,10 @@ export default function ResetPasswordScreen() {
                 {passwordError}
               </Text>
             )}
-          </Animated.View>
+          </View>
 
           {/* Confirm Password Input */}
-          <Animated.View
-            entering={FadeInDown.delay(300).duration(400)}
+          <View
             style={tw`mb-6`}
           >
             <Text
@@ -468,7 +448,7 @@ export default function ResetPasswordScreen() {
               />
               <Pressable
                 onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                hitSlop={8}
+                hitSlop={13}
               >
                 <Ionicons
                   name={
@@ -487,10 +467,10 @@ export default function ResetPasswordScreen() {
                 {confirmPasswordError}
               </Text>
             )}
-          </Animated.View>
+          </View>
 
           {/* Reset Password Button */}
-          <Animated.View entering={FadeInDown.delay(350).duration(400)}>
+          <View>
             <TouchableOpacity
               onPress={handleResetPassword}
               disabled={isLoading}
@@ -506,22 +486,21 @@ export default function ResetPasswordScreen() {
               ]}
             >
               {isLoading ? (
-                <Loading size="small" color={colors.fixed.black} />
+                <Loading size="small" color={colors.brand.onPrimary} />
               ) : (
                 <Text
                   variant="body"
                   weight="semibold"
-                  style={[styles.submitButtonText, { color: colors.fixed.black }]}
+                  style={[styles.submitButtonText, { color: colors.brand.onPrimary }]}
                 >
                   Reset Password
                 </Text>
               )}
             </TouchableOpacity>
-          </Animated.View>
+          </View>
 
           {/* Help Text */}
-          <Animated.View
-            entering={FadeInDown.delay(400).duration(400)}
+          <View
             style={tw`mt-4`}
           >
             <View
@@ -555,11 +534,10 @@ export default function ResetPasswordScreen() {
                 </View>
               </View>
             </View>
-          </Animated.View>
+          </View>
 
           {/* Resend Code Link */}
-          <Animated.View
-            entering={FadeInDown.delay(450).duration(400)}
+          <View
             style={tw`flex-row items-center justify-center mt-6`}
           >
             <Text variant="subheadline" color="secondaryLabel">
@@ -574,7 +552,7 @@ export default function ResetPasswordScreen() {
                 Resend
               </Text>
             </Pressable>
-          </Animated.View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

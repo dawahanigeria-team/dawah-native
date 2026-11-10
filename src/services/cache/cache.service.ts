@@ -311,7 +311,12 @@ class CacheService {
       const cacheKeys = keys.filter(key => key.startsWith('cache_'));
 
       // Remove all cache entries
-      await AsyncStorage.multiRemove(cacheKeys);
+      // expo-sqlite multiRemove opens an exclusive transaction on a second
+      // connection. It races playback/auth writes during logout (Sentry 3X).
+      // Use the shared connection and yield between individual deletions.
+      for (const key of cacheKeys) {
+        await AsyncStorage.removeItem(key);
+      }
 
       // Reset stats
       this.stats = {

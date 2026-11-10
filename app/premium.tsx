@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Platform,
   RefreshControl,
   ScrollView,
@@ -16,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button, Text } from "../src/components/atoms";
 import { ENV } from "../src/config/env";
+import { ScreenHeader } from "../src/components/molecules";
 import { useTheme } from "../src/hooks/useTheme";
 import { addSentryBreadcrumb } from "../src/services/config/sentry.config";
 import { analytics } from "../src/services/analytics.service";
@@ -27,6 +29,20 @@ const PREMIUM_PRODUCT_IDS = [
   ENV.PREMIUM_MONTHLY_PRODUCT_ID,
   ENV.PREMIUM_YEARLY_PRODUCT_ID,
 ].filter(Boolean);
+
+const PREMIUM_BENEFITS = [
+  ["Premium audio", "premium_audio"],
+  ["Offline downloads", "offline_download"],
+  ["Ad-free listening", "ad_free"],
+  ["Background play", "background_play"],
+  ["Follow more scholars", "multi_lecturer_follow"],
+] as const;
+
+const PLANS_UNAVAILABLE_MESSAGE =
+  "Plans are not available right now. Check your connection and try again.";
+
+const TERMS_URL = "https://dawahnigeria.com/terms";
+const PRIVACY_URL = "https://dawahnigeria.com/privacy";
 
 const isPurchased = (purchase: Purchase): boolean =>
   purchase.purchaseState === "purchased" && !("isSuspendedAndroid" in purchase && purchase.isSuspendedAndroid);
@@ -65,10 +81,12 @@ export default function PremiumScreen() {
     syncPlatformReceipt,
   } = usePremiumStore();
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [chosenProductId, setChosenProductId] = useState<string | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
   const syncedPurchaseIdsRef = useRef(new Set<string>());
   const [productLoadError, setProductLoadError] = useState<string | null>(null);
   const [lastIapError, setLastIapError] = useState<string | null>(null);
+  const [productsSettled, setProductsSettled] = useState(false);
 
   const {
     connected,
@@ -117,7 +135,7 @@ export default function PremiumScreen() {
             product_id: purchase.productId,
             platform: Platform.OS,
           });
-          Alert.alert("Premium activated", "Your subscription is now active.");
+          Alert.alert("Thank you for your support", "You are now a DN Supporter.");
         } else {
           Alert.alert(
             "Subscription not active",
@@ -150,19 +168,26 @@ export default function PremiumScreen() {
     });
   }, [subscriptions]);
 
+  const yearlySubscription = sortedSubscriptions.find(
+    (subscription) => subscription.id === ENV.PREMIUM_YEARLY_PRODUCT_ID,
+  );
+  const chosenSubscription =
+    sortedSubscriptions.find((subscription) => subscription.id === chosenProductId) ??
+    yearlySubscription ??
+    sortedSubscriptions[0];
+  const isSupporter = plan !== "free";
+  const noteworthyStatus = !["none", "inactive", "active"].includes(String(subscription_status))
+    ? String(subscription_status).replace(/_/g, " ")
+    : null;
+
   const activeSubscriptionSku = useMemo(() => {
     return activeSubscriptions.find((sub) => sub.isActive)?.productId;
   }, [activeSubscriptions]);
 
-  const activeFeatureLabels = useMemo(() => {
-    return [
-      ["Premium audio", feature_flags.premium_audio],
-      ["Offline downloads", feature_flags.offline_download],
-      ["Ad-free listening", feature_flags.ad_free],
-      ["Background play", feature_flags.background_play],
-      ["Follow more lecturers", feature_flags.multi_lecturer_follow],
-    ].filter(([, enabled]) => enabled) as [string, boolean][];
-  }, [feature_flags]);
+  const benefitLabels = useMemo(() => {
+    if (!isAuthenticated) return PREMIUM_BENEFITS.map(([label]) => label);
+    return PREMIUM_BENEFITS.filter(([, flag]) => feature_flags[flag]).map(([label]) => label);
+  }, [feature_flags, isAuthenticated]);
 
   // Surfaced only when products fail to load, so a real "billing unavailable"
   // can be told apart from an empty product list (IDs/state/build-origin issue).
@@ -181,37 +206,54 @@ export default function PremiumScreen() {
     ].filter(Boolean) as string[];
   }, [connected, subscriptions.length, lastIapError, productLoadError]);
 
-  const showIapDiagnostics =
-    (connected && subscriptions.length === 0) || !!productLoadError || !!lastIapError;
+  const plansUnavailable =
+    sortedSubscriptions.length === 0 &&
+    (PREMIUM_PRODUCT_IDS.length === 0 ||
+      (productsSettled && (connected || !!productLoadError || !!lastIapError)));
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.replace({
-        pathname: "/sign-in",
-        params: { returnTo: "/premium" },
-      });
-      return;
-    }
+    if (!isAuthenticated) return;
 
     refreshPremiumFeatures().catch((error) => {
       addSentryBreadcrumb("Premium features refresh failed", "premium", {
         message: (error as { message?: string })?.message,
       });
     });
-  }, [isAuthenticated, refreshPremiumFeatures, router]);
+  }, [isAuthenticated, refreshPremiumFeatures]);
+
+  const loadProducts = useCallback(async () => {
+    setProductLoadError(null);
+    setLastIapError(null);
+    setProductsSettled(false);
+    try {
+      await fetchProducts({ skus: PREMIUM_PRODUCT_IDS, type: "subs" });
+    } catch (error) {
+      setProductLoadError(formatIapError(error));
+      logger.warn("Failed to fetch subscription products", error);
+    } finally {
+      setProductsSettled(true);
+    }
+  }, [fetchProducts]);
 
   useEffect(() => {
     if (!connected || PREMIUM_PRODUCT_IDS.length === 0) return;
-    const request = fetchProducts({ skus: PREMIUM_PRODUCT_IDS, type: "subs" });
-    queueMicrotask(() => setProductLoadError(null));
-    request.catch((error) => {
-      setProductLoadError(formatIapError(error));
-      logger.warn("Failed to fetch subscription products", error);
-    });
+    queueMicrotask(() => void loadProducts());
     getActiveSubscriptions(PREMIUM_PRODUCT_IDS).catch((error) => {
       logger.warn("Failed to fetch active subscriptions", error);
     });
-  }, [connected, fetchProducts, getActiveSubscriptions]);
+  }, [connected, loadProducts, getActiveSubscriptions]);
+
+  const handleRetryPlans = useCallback(async () => {
+    if (connected) {
+      await loadProducts();
+      return;
+    }
+    const didReconnect = await reconnect();
+    if (!didReconnect) {
+      setProductLoadError("Could not connect to the store");
+      setProductsSettled(true);
+    }
+  }, [connected, loadProducts, reconnect]);
 
   useEffect(() => {
     if (!isRestoring || availablePurchases.length === 0) return;
@@ -234,7 +276,7 @@ export default function PremiumScreen() {
           syncedPurchaseIdsRef.current.add(syncKey);
         }
         if (lastSnapshot && lastSnapshot.plan === "premium") {
-          Alert.alert("Subscription restored", "Your premium status has been refreshed.");
+          Alert.alert("Subscription restored", "Your DN Supporter plan is active again.");
         } else {
           Alert.alert(
             "No active subscription",
@@ -257,6 +299,11 @@ export default function PremiumScreen() {
 
   const handleSubscribe = useCallback(
     async (subscription: ProductSubscription) => {
+      if (!isAuthenticated) {
+        router.push({ pathname: "/sign-in", params: { returnTo: "/premium" } });
+        return;
+      }
+
       if (!connected) {
         const didReconnect = await reconnect();
         if (!didReconnect) {
@@ -299,10 +346,14 @@ export default function PremiumScreen() {
         );
       }
     },
-    [connected, reconnect, requestPurchase, user],
+    [connected, isAuthenticated, reconnect, requestPurchase, router, user],
   );
 
   const handleRestore = useCallback(async () => {
+    if (!isAuthenticated) {
+      router.push({ pathname: "/sign-in", params: { returnTo: "/premium" } });
+      return;
+    }
     // Reset dedupe set so a previously-failed sync can be retried.
     syncedPurchaseIdsRef.current.clear();
     setIsRestoring(true);
@@ -315,7 +366,7 @@ export default function PremiumScreen() {
         (error as { message?: string })?.message || "Please try again.",
       );
     }
-  }, [getAvailablePurchases]);
+  }, [getAvailablePurchases, isAuthenticated, router]);
 
   const handleManageSubscription = useCallback(() => {
     // Prefer the SKU the user actually subscribed to (from the store),
@@ -338,28 +389,27 @@ export default function PremiumScreen() {
 
   return (
     <SafeAreaView
+      edges={["bottom", "left", "right"]}
       style={[
         tw`flex-1`,
         { backgroundColor: colors.system.background.primary },
       ]}
     >
-      <View style={tw`flex-row items-center px-4 py-3`}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={tw`w-10 h-10 items-center justify-center mr-2`}
-          accessibilityLabel="Go back"
-          accessibilityRole="button"
-        >
-          <Ionicons name="arrow-back" size={24} color={colors.system.label.primary} />
-        </TouchableOpacity>
-        <Text variant="title2" color="label" weight="bold">
-          Premium
-        </Text>
-      </View>
+      <ScreenHeader
+        title="DN Supporter"
+        actions={[
+          {
+            label: isRestoring ? "Restoring" : "Restore",
+            accessibilityLabel: "Restore purchase",
+            onPress: () => void handleRestore(),
+            disabled: isRestoring,
+          },
+        ]}
+      />
 
       <ScrollView
         style={tw`flex-1`}
-        contentContainerStyle={{ padding: spacing.lg, paddingBottom: 48 }}
+        contentContainerStyle={{ padding: spacing.lg, paddingTop: spacing.sm, paddingBottom: 48 }}
         refreshControl={
           <RefreshControl
             refreshing={isLoading}
@@ -383,19 +433,31 @@ export default function PremiumScreen() {
             },
           ]}
         >
-          <Text variant="caption1" color="secondaryLabel" weight="semibold">
-            Current plan
-          </Text>
-          <Text variant="title1" color="label" weight="bold" style={tw`mt-1`}>
-            {String(plan).toUpperCase()}
+          {isAuthenticated && (
+            <>
+              <Text variant="caption1" color="secondaryLabel" weight="semibold">
+                Current plan
+              </Text>
+              <Text variant="title1" color="label" style={tw`mt-1`}>
+                {isSupporter ? "DN Supporter" : "Free"}
+              </Text>
+              {noteworthyStatus && (
+                <Text variant="subheadline" color="secondaryLabel" style={tw`mt-1`}>
+                  {noteworthyStatus}
+                </Text>
+              )}
+            </>
+          )}
+          <Text variant="title2" color="label" style={isAuthenticated ? tw`mt-4` : undefined}>
+            Keep knowledge free
           </Text>
           <Text variant="subheadline" color="secondaryLabel" style={tw`mt-1`}>
-            Status: {String(subscription_status).replace(/_/g, " ")}
+            Your support keeps these lectures open to everyone, and makes listening easier for you.
           </Text>
 
-          {activeFeatureLabels.length > 0 && (
+          {benefitLabels.length > 0 && (
             <View style={tw`mt-4`}>
-              {activeFeatureLabels.map(([label]) => (
+              {benefitLabels.map((label) => (
                 <View key={label} style={tw`flex-row items-center mt-2`}>
                   <Ionicons name="checkmark-circle" size={18} color={colors.brand.primary} />
                   <Text variant="subheadline" color="label" style={tw`ml-2`}>
@@ -407,11 +469,11 @@ export default function PremiumScreen() {
           )}
         </View>
 
-        <Text variant="headline" color="label" weight="bold" style={tw`mb-3`}>
+        <Text variant="title3" color="label" style={tw`mb-3`}>
           Choose a plan
         </Text>
 
-        {!connected && (
+        {!connected && !plansUnavailable && (
           <View style={tw`flex-row items-center mb-3`}>
             <ActivityIndicator size="small" color={colors.brand.primary} />
             <Text variant="subheadline" color="secondaryLabel" style={tw`ml-2`}>
@@ -420,7 +482,7 @@ export default function PremiumScreen() {
           </View>
         )}
 
-        {connected && sortedSubscriptions.length === 0 && (
+        {plansUnavailable && (
           <View
             style={[
               tw`p-4 mb-4`,
@@ -430,15 +492,16 @@ export default function PremiumScreen() {
               },
             ]}
           >
-            <Text variant="subheadline" color="secondaryLabel">
-              No subscription products are available yet. Confirm the store product IDs match:
-              {"\n"}
-              {PREMIUM_PRODUCT_IDS.join("\n")}
+            <Text variant="subheadline" color="secondaryLabel" style={tw`mb-3`}>
+              {PLANS_UNAVAILABLE_MESSAGE}
             </Text>
+            <Button size="medium" onPress={() => void handleRetryPlans()}>
+              Retry
+            </Button>
           </View>
         )}
 
-        {showIapDiagnostics && (
+        {__DEV__ && plansUnavailable && (
           <View
             style={[
               tw`p-4 mb-4`,
@@ -462,66 +525,85 @@ export default function PremiumScreen() {
         )}
 
         {sortedSubscriptions.map((subscription) => {
-          // Spin while the user is purchasing or while we're syncing
-          // the resulting receipt for this specific card.
-          const isBuying = selectedProductId === subscription.id;
+          const isChosen = subscription.id === chosenSubscription?.id;
           return (
             <TouchableOpacity
               key={subscription.id}
-              onPress={() => void handleSubscribe(subscription)}
-              disabled={isBuying}
+              onPress={() => setChosenProductId(subscription.id)}
               style={[
-                tw`p-4 mb-3`,
+                tw`p-4 mb-3 flex-row items-center`,
                 {
                   borderRadius: borderRadius.xl,
-                  backgroundColor: colors.system.background.secondary,
-                  borderWidth: 1,
-                  borderColor: colors.system.separator.primary,
-                  opacity: isBuying ? 0.7 : 1,
+                  backgroundColor: isChosen
+                    ? `${colors.brand.primary}1F`
+                    : colors.system.background.secondary,
+                  borderWidth: isChosen ? 2 : 1,
+                  borderColor: isChosen ? colors.brand.primary : colors.system.separator.primary,
                 },
               ]}
-              accessibilityRole="button"
-              accessibilityLabel={`Subscribe to ${subscription.title}`}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: isChosen }}
+              accessibilityLabel={`${subscription.title}, ${subscription.displayPrice}`}
             >
-              <View style={tw`flex-row items-center justify-between`}>
-                <View style={tw`flex-1 pr-3`}>
-                  <Text variant="headline" color="label" weight="bold">
-                    {subscription.title}
-                  </Text>
-                  <Text variant="subheadline" color="secondaryLabel" style={tw`mt-1`}>
-                    {subscription.description}
-                  </Text>
-                </View>
-                {isBuying ? (
-                  <ActivityIndicator color={colors.brand.primary} />
-                ) : (
-                  <Text variant="headline" color="brand" weight="bold">
-                    {subscription.displayPrice}
-                  </Text>
-                )}
+              <Ionicons
+                name={isChosen ? "radio-button-on" : "radio-button-off"}
+                size={24}
+                color={isChosen ? colors.brand.primary : colors.system.label.tertiary}
+              />
+              <View style={tw`flex-1 px-3`}>
+                <Text variant="headline" color="label">
+                  {subscription.title}
+                </Text>
+                <Text variant="footnote" color="secondaryLabel" style={tw`mt-1`}>
+                  {subscription.id === yearlySubscription?.id && sortedSubscriptions.length > 1
+                    ? `Best value. ${subscription.description}`
+                    : subscription.description}
+                </Text>
               </View>
+              <Text variant="headline" color="label">
+                {subscription.displayPrice}
+              </Text>
             </TouchableOpacity>
           );
         })}
 
-        <View style={tw`mt-4`}>
-          <Button
-            variant="plain"
-            size="large"
-            onPress={handleRestore}
-            disabled={isRestoring}
-          >
-            {isRestoring ? "Restoring..." : "Restore Purchase"}
+        {chosenSubscription && (
+          <View style={tw`mt-2`}>
+            <Button
+              size="large"
+              borderRadius="full"
+              fullWidth
+              loading={selectedProductId === chosenSubscription.id}
+              onPress={() => void handleSubscribe(chosenSubscription)}
+            >
+              {isSupporter ? "Change plan" : "Become a Supporter"}
+            </Button>
+            <Text
+              variant="footnote"
+              color="secondaryLabel"
+              align="center"
+              style={tw`mt-3`}
+            >
+              Renews automatically at the price shown until cancelled. You can cancel any time in
+              your {Platform.OS === "ios" ? "App Store" : "Google Play"} account settings.
+            </Text>
+          </View>
+        )}
+
+        <View style={tw`flex-row justify-center mt-2`}>
+          <Button variant="plain" size="small" onPress={() => void Linking.openURL(TERMS_URL)}>
+            Terms of Service
           </Button>
-          <Button
-            variant="plain"
-            size="large"
-            style={tw`mt-2`}
-            onPress={handleManageSubscription}
-          >
-            Manage Subscription
+          <Button variant="plain" size="small" onPress={() => void Linking.openURL(PRIVACY_URL)}>
+            Privacy Policy
           </Button>
         </View>
+
+        {isSupporter && (
+          <Button variant="plain" size="large" onPress={handleManageSubscription}>
+            Manage Subscription
+          </Button>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

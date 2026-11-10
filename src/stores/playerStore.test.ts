@@ -1,5 +1,5 @@
 import TrackPlayer from '../services/expoTrackPlayerCompat'
-import { playerStore, resolveEpisodeArtistName, setAudioControls, usePlayerActions } from './playerStore'
+import { getPlaybackRequestId, playerStore, resolveEpisodeArtistName, setAudioControls, usePlayerActions } from './playerStore'
 import { downloadsService } from '../services/downloads.service'
 import { historyService } from '../services/history.service'
 import { ensureTrackPlayerReady } from '../services/trackPlayerReady.service'
@@ -118,6 +118,8 @@ beforeEach(() => {
     currentQueueIndex: -1,
     isShuffled: false,
     repeatMode: 'off',
+    sleepTimerEndsAt: null,
+    sleepTimerEndOfTrack: false,
   })
 
   setAudioControls({
@@ -202,6 +204,62 @@ test('playEpisode builds queue and uses TrackPlayer', async () => {
   expect(TrackPlayer.reset).toHaveBeenCalledTimes(1)
   expect(TrackPlayer.add).toHaveBeenCalledTimes(1)
   expect(TrackPlayer.play).toHaveBeenCalledTimes(1)
+})
+
+test('playEpisode seeks to the saved position before playback starts', async () => {
+  const episode = {
+    id: 'resume-1',
+    title: 'Lecture to resume',
+    audioUrl: 'https://example.com/audio.mp3',
+    lecturerName: 'Ustadh',
+    coverUrl: 'cover.png',
+    durationSec: 3600,
+    seriesId: '',
+    plays: 0,
+    liked: false,
+    language: 'Unknown',
+    downloads: 0,
+    createdAt: new Date().toISOString(),
+  }
+
+  mockGetPlaybackUri.mockReturnValue('file:///audio.mp3')
+  mockIsDownloaded.mockReturnValue(false)
+  mockAddToHistory.mockResolvedValue(undefined)
+
+  await usePlayerActions().playEpisode(episode, { startAt: 1200 })
+
+  const seek = (TrackPlayer.seekTo as jest.Mock).mock.invocationCallOrder[0]
+  const play = (TrackPlayer.play as jest.Mock).mock.invocationCallOrder[0]
+  expect(TrackPlayer.seekTo).toHaveBeenCalledWith(1200)
+  expect(seek).toBeLessThan(play)
+  expect(mockAddToHistory).toHaveBeenCalledWith(episode, 1200)
+})
+
+test('skipToQueueIndex jumps to the chosen lecture', async () => {
+  const lecture = (id: string) => ({
+    id,
+    title: `Lecture ${id}`,
+    audioUrl: `https://example.com/${id}.mp3`,
+    lecturerName: 'Ustadh',
+    coverUrl: '',
+    durationSec: 600,
+    seriesId: '',
+    plays: 0,
+    liked: false,
+    language: 'Unknown',
+    downloads: 0,
+    createdAt: new Date().toISOString(),
+  })
+  const queue = [lecture('a'), lecture('b'), lecture('c')]
+  playerStore.set({ ...playerStore.get(), queue, currentQueueIndex: 0, currentEpisode: queue[0] })
+  ;(TrackPlayer.getQueue as jest.Mock).mockResolvedValue([{}, {}, {}])
+
+  await usePlayerActions().skipToQueueIndex(2)
+
+  expect(TrackPlayer.skip).toHaveBeenCalledWith(2)
+  expect(TrackPlayer.play).toHaveBeenCalled()
+  expect(playerStore.get().currentEpisode?.id).toBe('c')
+  expect(playerStore.get().currentQueueIndex).toBe(2)
 })
 
 test('activates and seeks a restored queue only when the user resumes it', async () => {
@@ -365,6 +423,74 @@ test('playEpisode fails before player setup when remote audio returns 404', asyn
     expect.any(Object)
   )
   expect(mockCaptureSentryException).not.toHaveBeenCalled()
+})
+
+const buildEpisode = (id: string, audioUrl = 'https://example.com/audio.mp3') => ({
+  id,
+  title: `Lecture ${id}`,
+  audioUrl,
+  lecturerName: 'Ustadh',
+  coverUrl: 'cover.png',
+  durationSec: 120,
+  seriesId: '',
+  plays: 0,
+  liked: false,
+  language: 'Unknown',
+  downloads: 0,
+  createdAt: new Date().toISOString(),
+})
+
+test('playEpisode does not file a slow start in Sentry', async () => {
+  jest.useFakeTimers()
+  const episode = buildEpisode('slow-1')
+
+  mockGetPlaybackUri.mockReturnValue(episode.audioUrl)
+  mockIsDownloaded.mockReturnValue(false)
+  mockGetPlaybackState.mockResolvedValue({ state: 'paused' })
+  mockGetProgress.mockResolvedValue({ position: 0, duration: 120, buffered: 0 })
+
+  const playPromise = usePlayerActions().playEpisode(episode)
+  await jest.advanceTimersByTimeAsync(21000)
+  await playPromise
+
+  expect(playerStore.get().errorMessage).toBe(
+    'Audio is taking longer than usual to load. Please try again.',
+  )
+  expect(mockLoggerError).not.toHaveBeenCalled()
+  expect(mockCaptureSentryException).not.toHaveBeenCalled()
+})
+
+test('playQueue reports an unavailable first track to the listener, not to Sentry', async () => {
+  const episodes = [buildEpisode('queue-1'), buildEpisode('queue-2')]
+
+  mockGetPlaybackUri.mockImplementation((_id: string, url: string) => url)
+  mockIsDownloaded.mockReturnValue(false)
+  mockFetch.mockResolvedValue({ status: 404 })
+
+  await usePlayerActions().playQueue(episodes, 0, false)
+
+  expect(TrackPlayer.play).not.toHaveBeenCalled()
+  expect(playerStore.get().errorMessage).toBe(
+    'This audio file is currently unavailable. Please try another lecture.',
+  )
+  expect(mockLoggerError).not.toHaveBeenCalled()
+  expect(mockCaptureSentryException).not.toHaveBeenCalled()
+})
+
+test('playQueue still reports an unexpected failure', async () => {
+  const episodes = [buildEpisode('queue-3')]
+
+  mockGetPlaybackUri.mockImplementation((_id: string, url: string) => url)
+  mockIsDownloaded.mockReturnValue(false)
+  mockEnsureReady.mockRejectedValue(new Error('player setup exploded'))
+
+  await usePlayerActions().playQueue(episodes, 0, false)
+
+  expect(mockCaptureSentryException).toHaveBeenCalledWith(
+    expect.objectContaining({ message: 'player setup exploded' }),
+    expect.objectContaining({ action: 'playQueue' }),
+  )
+  expect(playerStore.get().errorMessage).toBe('Failed to play audio. Please try again.')
 })
 
 test('playEpisode preserves pre-encoded reserved characters in remote audio URL checks', async () => {
@@ -620,4 +746,46 @@ test('rebuilds the player queue when it was released while the store kept its in
 
   expect(TrackPlayer.skip).toHaveBeenCalledWith(77)
   expect(TrackPlayer.play).toHaveBeenCalledTimes(1)
+})
+
+
+test('closing before controls mount clears stale UI and invalidates pending playback', async () => {
+  setAudioControls(null)
+  playerStore.set({ ...playerStore.get(), isExpanded: true, isLoading: true })
+  const requestId = getPlaybackRequestId()
+  usePlayerActions().closePlayer()
+  expect(playerStore.get()).toMatchObject({ currentEpisode: null, isExpanded: false, isLoading: false })
+  expect(getPlaybackRequestId()).toBeGreaterThan(requestId)
+  await Promise.resolve()
+  expect(TrackPlayer.reset).toHaveBeenCalledTimes(1)
+})
+
+test('closing reports native reset failure without an unhandled rejection', async () => {
+  const error = new Error('native reset failed')
+  ;(TrackPlayer.reset as jest.Mock).mockRejectedValueOnce(error)
+  usePlayerActions().closePlayer()
+  await new Promise(resolve => setTimeout(resolve, 0))
+  expect(logger.error).toHaveBeenCalledWith('Failed to reset closed player', error)
+  expect(playerStore.get().currentEpisode).toBeNull()
+})
+
+test.each(['playEpisode', 'togglePlayPause'] as const)('%s reloads the same episode after a source failure', async (action) => {
+  const episode = {
+    id: 'failed-source', title: 'Retry lecture', audioUrl: 'https://example.com/retry.mp3',
+    durationSec: 120, seriesId: '', plays: 0, liked: false,
+    coverUrl: 'cover.png', language: 'English', downloads: 0, createdAt: '2026-09-19',
+  }
+  playerStore.set({
+    ...playerStore.get(), currentEpisode: episode, queue: [episode], currentQueueIndex: 0,
+    isPlaying: false, errorMessage: 'This audio could not be loaded. Please try again.',
+  })
+  mockGetPlaybackUri.mockReturnValue(episode.audioUrl)
+  mockIsDownloaded.mockReturnValue(false)
+  const actions = usePlayerActions()
+  if (action === 'playEpisode') await actions.playEpisode(episode)
+  else await actions.togglePlayPause()
+  expect(TrackPlayer.reset).toHaveBeenCalledTimes(1)
+  expect(TrackPlayer.add).toHaveBeenCalledTimes(1)
+  expect(TrackPlayer.skip).toHaveBeenCalledWith(0)
+  expect(playerStore.get()).toMatchObject({ isPlaying: true, isLoading: false, errorMessage: null })
 })

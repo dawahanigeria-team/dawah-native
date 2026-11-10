@@ -11,6 +11,7 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
+  cancelAnimation,
   withTiming,
   interpolate,
 } from "react-native-reanimated";
@@ -52,13 +53,13 @@ export const Skeleton: React.FC<SkeletonProps> = ({
     }
 
     shimmer.value = withRepeat(withTiming(1, { duration: 1200 }), -1, false);
+    return () => cancelAnimation(shimmer);
   }, [animationEnabled, shimmer]);
 
-  useEffect(() => {
-    if (typeof width === "number" && width !== containerWidth) {
-      setContainerWidth(width);
-    }
-  }, [width, containerWidth]);
+  // An explicit numeric `width` prop is the answer outright, so it is used
+  // directly rather than copied into state by an effect. Only the measured
+  // fallback below needs state, and that genuinely arrives from outside React.
+  const resolvedWidth = typeof width === "number" ? width : containerWidth;
 
   const handleLayout = (event: LayoutChangeEvent) => {
     if (!animationEnabled || typeof width === "number") return;
@@ -77,8 +78,8 @@ export const Skeleton: React.FC<SkeletonProps> = ({
     return {
       transform: [
         {
-          translateX: containerWidth
-            ? interpolate(shimmer.value, [0, 1], [-containerWidth, containerWidth])
+          translateX: resolvedWidth
+            ? interpolate(shimmer.value, [0, 1], [-resolvedWidth, resolvedWidth])
             : 0,
         },
       ],
@@ -102,7 +103,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({
 
   return (
     <View style={[styles.skeleton, skeletonStyle, style]} onLayout={handleLayout}>
-      {animationEnabled && containerWidth > 0 && (
+      {animationEnabled && resolvedWidth > 0 && (
         <AnimatedLinearGradient
           colors={["transparent", "rgba(255,255,255,0.15)", "transparent"]}
           start={{ x: 0, y: 0.5 }}

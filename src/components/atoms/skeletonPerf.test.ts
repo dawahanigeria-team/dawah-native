@@ -8,8 +8,8 @@ describe("skeletonPerf", () => {
     expect(resolveSkeletonAnimationEnabled(undefined, "android")).toBe(false);
   });
 
-  test("enables shimmer by default on iOS", () => {
-    expect(resolveSkeletonAnimationEnabled(undefined, "ios")).toBe(true);
+  test("disables shimmer by default on iOS", () => {
+    expect(resolveSkeletonAnimationEnabled(undefined, "ios")).toBe(false);
   });
 
   test("respects explicit animation override", () => {

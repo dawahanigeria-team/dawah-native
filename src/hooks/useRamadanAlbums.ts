@@ -21,13 +21,21 @@ export const useRamadanAlbums = (
   const [albums, setAlbums] = useState<RamadanAlbum[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const [currentPage, setCurrentPage] = useState(params?.page || 1);
+  const [currentPage, setCurrentPage] = useState(params?.page ?? 1);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const hasFetched = useRef(false);
 
   // Skip fetching if params is undefined
   const shouldFetch = params !== undefined;
+
+  // Read off `params` here rather than inside the callback below. Closing over
+  // the object while declaring `params?.limit` as the dependency makes the
+  // compiler infer a dependency on all of `params`, which it cannot reconcile
+  // with the narrower list - so it gives up and leaves this whole hook
+  // unoptimized. Closing over the primitives instead lets it through.
+  const limit = params?.limit ?? 20;
+  const initialPage = params?.page ?? 1;
 
   const fetchAlbums = useCallback(
     async (page: number = 1, append: boolean = false) => {
@@ -43,7 +51,7 @@ export const useRamadanAlbums = (
 
         const response = await ramadanApi.getRamadanAlbums({
           page,
-          limit: params?.limit || 20,
+          limit,
         });
 
         if (append) {
@@ -62,7 +70,7 @@ export const useRamadanAlbums = (
         setIsLoadingMore(false);
       }
     },
-    [shouldFetch, params?.limit]
+    [shouldFetch, limit]
   );
 
   const refetch = useCallback(() => {
@@ -79,9 +87,9 @@ export const useRamadanAlbums = (
   useEffect(() => {
     if (shouldFetch && !hasFetched.current) {
       hasFetched.current = true;
-      fetchAlbums(params?.page || 1, false);
+      fetchAlbums(initialPage, false);
     }
-  }, [shouldFetch, fetchAlbums, params?.page]);
+  }, [shouldFetch, fetchAlbums, initialPage]);
 
   return {
     albums,

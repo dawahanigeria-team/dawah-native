@@ -12,6 +12,7 @@ export const setTrackPlayerSetupPromise = (promise: Promise<void>) => {
     })
     .catch(() => {
       isReady = false
+      if (setupPromise === promise) setupPromise = null
     })
 }
 
@@ -29,14 +30,16 @@ export const ensureTrackPlayerReady = async (): Promise<void> => {
   if (isReady) return
 
   if (setupPromise) {
+    const pendingSetup = setupPromise
     try {
-      await setupPromise
+      await pendingSetup
       return
     } catch (error) {
       if (isTrackPlayerAlreadyInitializedError(error)) {
         isReady = true
         return
       }
+      if (setupPromise === pendingSetup) setupPromise = null
       throw error
     }
   }
@@ -57,6 +60,7 @@ export const ensureTrackPlayerReady = async (): Promise<void> => {
       isReady = true
       return
     }
+    if (setupPromise === promise) setupPromise = null
     throw error
   }
 }

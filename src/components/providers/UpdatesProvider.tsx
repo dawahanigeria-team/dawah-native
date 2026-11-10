@@ -45,6 +45,7 @@ export const UpdatesProvider: React.FC = () => {
 
     checkingRef.current = true;
     let attemptSucceeded = false;
+    let downloading = false;
 
     try {
       const result = await Updates.checkForUpdateAsync();
@@ -68,6 +69,7 @@ export const UpdatesProvider: React.FC = () => {
       logger.debug('OTA update available, downloading...');
       addSentryBreadcrumb('OTA update available', 'updates');
 
+      downloading = true;
       await Updates.fetchUpdateAsync();
       pendingUpdateIdRef.current = availableUpdateId;
       setUpdateReady(true);
@@ -78,8 +80,10 @@ export const UpdatesProvider: React.FC = () => {
         const message = error instanceof Error ? error.message : 'Unknown update check failure';
         logger.warn('[UpdatesProvider] OTA check skipped:', message);
         addSentryBreadcrumb('OTA check failed', 'updates', { reason: message });
-        // Avoid noisy retries while offline by respecting the normal check interval.
-        attemptSucceeded = true;
+        // A failed check waits out the normal interval to avoid noisy retries
+        // while offline. A download that dropped retries at the next foreground:
+        // the update exists and the device is only one good connection from it.
+        attemptSucceeded = !downloading;
         return;
       }
       captureSentryException(error as Error, { action: 'check_for_update' });
@@ -152,7 +156,7 @@ export const UpdatesProvider: React.FC = () => {
             style={[styles.reloadButton, { backgroundColor: colors.brand.primary }]}
             hitSlop={8}
           >
-            <Text style={[styles.reloadText, { color: colors.fixed.black }]}>Update</Text>
+            <Text style={[styles.reloadText, { color: colors.brand.onPrimary }]}>Update</Text>
           </Pressable>
         </View>
       </View>

@@ -11,6 +11,7 @@ export type QueueEpisodeSnapshot = Pick<
   | 'coverUrl'
   | 'audioUrl'
   | 'seriesId'
+  | 'seriesTitle'
   | 'plays'
   | 'liked'
   | 'language'
@@ -32,6 +33,7 @@ export const toQueueEpisodeSnapshot = (episode: Episode): QueueEpisodeSnapshot =
   coverUrl: episode.coverUrl,
   audioUrl: episode.audioUrl,
   seriesId: episode.seriesId,
+  seriesTitle: episode.seriesTitle,
   plays: episode.plays,
   liked: episode.liked,
   language: episode.language,

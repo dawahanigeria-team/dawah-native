@@ -22,6 +22,11 @@ import {
 
 const SLOW_API_REQUEST_THRESHOLD_MS = 2000;
 
+// A user-facing GET must reach a retry state quickly on a dead connection.
+// Without a cap a 60 s timeout times 3 attempts keeps a spinner up for minutes.
+const GET_ATTEMPT_TIMEOUT_CAP_MS = 20000;
+const GET_MAX_ATTEMPTS = 2;
+
 /**
  * Why a token refresh did not produce a usable session.
  *
@@ -31,13 +36,20 @@ const SLOW_API_REQUEST_THRESHOLD_MS = 2000;
  * secure storage failed. Collapsing the two logs people out of a working
  * account over one bad request, and tells them to sign in when the real
  * advice is to try again.
+ *
+ * `offline` is the part of "never got an answer" that is the network's doing:
+ * the refresh request itself dropped, timed out or was cut off when the app was
+ * suspended. It means the same as `unavailable` to the user, but it is not a
+ * fault worth reporting.
  */
-export type TokenRefreshOutcome = 'refreshed' | 'rejected' | 'unavailable';
+export type TokenRefreshOutcome = 'refreshed' | 'rejected' | 'unavailable' | 'offline';
 
 // Custom error class for API errors
 export class ApiError extends Error {
   /** Set when this error survived a token refresh attempt. */
   public refreshOutcome?: TokenRefreshOutcome;
+  /** The client judged this failure expected and did not report it. */
+  public isExpectedRefusal = false;
 
   constructor(
     message: string,
@@ -76,7 +88,23 @@ export const createTokenRefreshRetryConfig = (config: RequestConfig): RequestCon
   return { ...retryConfig, skipTokenRefresh: true };
 };
 
-export const isMissingAccessTokenError = (errorData: any): boolean => {
+/**
+ * Only the server refusing the refresh token ends the session. A request that
+ * never got an answer is the network's doing, and anything else - a shape we
+ * did not expect, a server fault - leaves the session unknown.
+ */
+export const classifyRefreshFailure = (
+  error: unknown,
+): Exclude<TokenRefreshOutcome, 'refreshed'> => {
+  if (!(error instanceof ApiError)) return 'unavailable';
+  if (error.statusCode === 401 || error.statusCode === 403) return 'rejected';
+  const neverAnswered =
+    error.statusCode === undefined &&
+    (error.isNetworkError || error.isTimeout || error.isCancelled);
+  return neverAnswered ? 'offline' : 'unavailable';
+};
+
+export const isMissingAccessTokenError =(errorData: any): boolean => {
   const text = String(errorData?.message || errorData?.error || '').toLowerCase();
   return text.includes('access token') && text.includes('required');
 };
@@ -111,6 +139,12 @@ export const shouldCaptureApiHttpError = (
   // it is refused with whatever wording that endpoint uses - so this cannot be
   // recognised from the message the way a missing access token can.
   if (expectedAuthFailure && (statusCode === 401 || statusCode === 403)) return false;
+  // The download screen handles this structured business refusal with the
+  // premium prompt; retain reporting for every other forbidden response.
+  if (statusCode === 403 && errorData?.code === 'DOWNLOAD_LIMIT_REACHED') return false;
+  // Likewise a premium-only feature: the lecturer and reciter screens answer it
+  // with the upgrade prompt.
+  if (statusCode === 403 && errorData?.code === 'FEATURE_NOT_AVAILABLE') return false;
   const errorText = getApiErrorText(errorData);
   // A wrong password or a duplicate signup is the user's situation, not a
   // defect, whatever else is going on with the session.
@@ -122,7 +156,11 @@ export const shouldCaptureApiHttpError = (
   if (afterTokenRefreshRetry && isInvalidOrExpiredTokenMessage(errorText)) return false;
   // A refresh the server refused is expected too. `unavailable` is still
   // reported: that one is a real anomaly and does not end the session.
-  return !(isMissingAccessTokenError(errorData) || refreshOutcome === 'rejected');
+  return !(
+    isMissingAccessTokenError(errorData) ||
+    refreshOutcome === 'rejected' ||
+    refreshOutcome === 'offline'
+  );
 };
 
 /**
@@ -302,10 +340,7 @@ class ApiClient {
         await secureStoreCompat.setItemAsync('auth_token', tokens.accessToken);
         return 'refreshed';
       } catch (error) {
-        // Only the server refusing the refresh token ends the session. Anything
-        // else - offline, timeout, a shape we did not expect - leaves it unknown.
-        const status = error instanceof ApiError ? error.statusCode : undefined;
-        return status === 401 || status === 403 ? 'rejected' : 'unavailable';
+        return classifyRefreshFailure(error);
       }
     })().finally(() => {
       this._refreshPromise = null;
@@ -467,6 +502,54 @@ class ApiClient {
   }
 
   /**
+   * Aborts a response whose body is still downloading. fetch() resolves at the
+   * headers, after the request timer is gone, so the body needs its own.
+   */
+  private bodyAborters = new WeakMap<Response, () => void>();
+
+  private isGetConfig(config: RequestConfig): boolean {
+    return (config.method || 'GET').toUpperCase() === 'GET';
+  }
+
+  private attemptTimeoutMs(config: RequestConfig): number {
+    const timeout = config.timeout || API_CONFIG.TIMEOUTS.DEFAULT;
+    return this.isGetConfig(config)
+      ? Math.min(timeout, GET_ATTEMPT_TIMEOUT_CAP_MS)
+      : timeout;
+  }
+
+  private maxAttempts(config: RequestConfig): number {
+    const attempts = config.retryAttempts || API_CONFIG.RETRY.MAX_ATTEMPTS;
+    return this.isGetConfig(config) ? Math.min(attempts, GET_MAX_ATTEMPTS) : attempts;
+  }
+
+  private async readBodyWithTimeout(
+    response: Response,
+    timeoutMs: number,
+  ): Promise<string> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timedOut = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        this.bodyAborters.get(response)?.();
+        reject(
+          new ApiError(
+            'The request is taking longer than usual. Please check your internet connection and try again.',
+            undefined,
+            undefined,
+            false,
+            true,
+          ),
+        );
+      }, timeoutMs);
+    });
+    try {
+      return await Promise.race([response.text(), timedOut]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
    * Execute request with timeout
    */
   private async executeWithTimeout(
@@ -518,6 +601,7 @@ class ApiClient {
       if (externalSignal) {
         externalSignal.removeEventListener('abort', onExternalAbort);
       }
+      this.bodyAborters.set(response, () => abortController.abort());
       return response;
     } catch (error: any) {
       clearTimeout(timeoutId);
@@ -555,8 +639,8 @@ class ApiClient {
     requestToken: RequestToken,
     attempt: number = 1,
   ): Promise<Response> {
-    const maxAttempts = config.retryAttempts || API_CONFIG.RETRY.MAX_ATTEMPTS;
-    const timeout = config.timeout || API_CONFIG.TIMEOUTS.DEFAULT;
+    const maxAttempts = this.maxAttempts(config);
+    const timeout = this.attemptTimeoutMs(config);
 
     if (requestToken.cancelled) {
       throw new ApiError('Request cancelled', undefined, undefined, false, false, true);
@@ -688,8 +772,6 @@ class ApiClient {
     let requestToken: RequestToken | null = null;
 
     try {
-      // Enforce rate limiting
-      await this.enforceRateLimit();
       await this.hydrateAuthTokenFromStorage();
 
       url = this.buildUrl(endpoint, config.params);
@@ -715,6 +797,9 @@ class ApiClient {
           };
         }
       }
+
+      // Cached reads do not consume network capacity or wait behind requests.
+      await this.enforceRateLimit();
 
       // Check if body is FormData to handle it specially
       const isFormData = config.body instanceof FormData;
@@ -779,7 +864,10 @@ class ApiClient {
         });
       }
 
-      const responseText = await response.text();
+      const responseText = await this.readBodyWithTimeout(
+        response,
+        this.attemptTimeoutMs(requestConfig),
+      );
       const tryParseJson = (text: string) => {
         if (!text) return { parsed: null, isJson: false };
         try {
@@ -803,7 +891,9 @@ class ApiClient {
         ) {
           refreshOutcome = await this.refreshAccessToken();
           if (refreshOutcome === 'refreshed') {
-            return this.request<T>(endpoint, createTokenRefreshRetryConfig(config));
+            // Retry beneath GET deduplication: the public request is still pending
+            // and joining it here would make it wait on itself forever.
+            return this.performRequest<T>(endpoint, createTokenRefreshRetryConfig(config));
           }
           // Only tear the session down when the server actually refused the
           // refresh token. On 'unavailable' the credentials may be perfectly
@@ -838,6 +928,7 @@ class ApiClient {
           config.skipTokenRefresh,
         );
         suppressSentryFailureTelemetry = !shouldReportToSentry;
+        apiError.isExpectedRefusal = !shouldReportToSentry;
 
         if (shouldReportToSentry) {
           captureSentryException(apiError, {
@@ -1127,7 +1218,12 @@ class ApiClient {
       });
 
       if (cacheKeys.length > 0) {
-        await AsyncStorage.multiRemove(cacheKeys);
+        // expo-sqlite multiRemove opens an exclusive transaction on a second
+        // connection. It races playback/auth writes during logout (Sentry 3X).
+        // Use the shared connection and yield between individual deletions.
+        for (const key of cacheKeys) {
+          await AsyncStorage.removeItem(key);
+        }
         if (__DEV__) console.log(`Cleared ${cacheKeys.length} cache entries`);
       }
     } catch (error) {

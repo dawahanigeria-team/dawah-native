@@ -1,13 +1,15 @@
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 import { useGuardedPush } from '../src/navigation/useGuardedPush';
 import React, { memo, useCallback, useEffect, useState } from 'react';
 import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Icon } from '../src/components/atoms/Icon';
 import { Text } from '../src/components/atoms/Text';
 import { FlashList } from '../src/components/adapters/flashListCompat';
 import { ChartItem } from '../src/components/molecules/ChartItem';
 import { ChartItemSkeleton } from '../src/components/molecules/ChartItem.skeleton';
+import { LectureRow } from '../src/components/molecules/LectureRow';
+import { chartLectureToRow } from '../src/components/molecules/lectureRowModel';
+import { ScreenHeader } from '../src/components/molecules/ScreenHeader';
 import {
   ChartItem as ChartItemType,
   ChartPeriod,
@@ -32,10 +34,9 @@ const ChartsScreen: React.FC = memo(() => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState<ChartPeriod>('weekly');
-  const [selectedChartType, setSelectedChartType] = useState<ChartType>('album');
+  const [selectedChartType, setSelectedChartType] = useState<ChartType>('lecture');
 
   const insets = useSafeAreaInsets();
-  const router = useRouter();
 
   const listPaddingBottom = spacing.lg + MINI_PLAYER_HEIGHT + getTabBarPaddingBottom(insets.bottom);
 
@@ -68,7 +69,7 @@ const ChartsScreen: React.FC = memo(() => {
       });
       setChartData(sortedData);
     } catch (err) {
-      setError('An error occurred while fetching chart data.');
+      setError("We couldn't load the charts. Check your connection and try again.");
       console.error(err);
     } finally {
       setLoading(false);
@@ -135,77 +136,49 @@ const ChartsScreen: React.FC = memo(() => {
   };
 
   const renderHeader = () => (
-    <View
-      style={[
-        styles.header,
-        {
-          paddingHorizontal: spacing.lg,
-          paddingVertical: spacing.sm,
-          backgroundColor: colors.system.background.primary,
-          borderBottomColor: colors.system.separator.primary,
-        },
-      ]}
-    >
+    <>
       <Stack.Screen options={{ title: getTitle() }} />
-      <TouchableOpacity
-        onPress={() => router.back()}
-        style={[
-          styles.backButton,
-          {
-            backgroundColor: colors.system.background.secondary,
-            borderColor: colors.system.separator.primary,
-          },
-        ]}
-        accessibilityLabel="Go back"
-        accessibilityRole="button"
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      >
-        <Icon name="arrow-back" size="lg" color="label" />
-      </TouchableOpacity>
-      <Text variant="title3" weight="semibold" color="label">
-        Charts
-      </Text>
-      <View style={styles.headerSpacer} />
-    </View>
+      <ScreenHeader title="Charts" />
+    </>
   );
 
   const renderFilters = () => (
     <>
       <View style={[styles.segmentedControlContainer, { backgroundColor: colors.system.fill.secondary, borderRadius: borderRadius.lg, marginHorizontal: spacing.lg, marginVertical: spacing.md, padding: spacing.xs }]}>
         <SegmentedControlOption
-          label="Album"
-          isSelected={selectedChartType === 'album'}
-          onPress={() => setSelectedChartType('album')}
+          label="Lectures"
+          isSelected={selectedChartType === 'lecture'}
+          onPress={() => setSelectedChartType('lecture')}
         />
         <SegmentedControlOption
-          label="Lecturer"
+          label="Scholars"
           isSelected={selectedChartType === 'lecturer'}
           onPress={() => setSelectedChartType('lecturer')}
         />
         <SegmentedControlOption
-          label="Playlist"
-          isSelected={selectedChartType === 'playlist'}
-          onPress={() => setSelectedChartType('playlist')}
+          label="Series"
+          isSelected={selectedChartType === 'album'}
+          onPress={() => setSelectedChartType('album')}
         />
         <SegmentedControlOption
-          label="Lecture"
-          isSelected={selectedChartType === 'lecture'}
-          onPress={() => setSelectedChartType('lecture')}
+          label="Playlists"
+          isSelected={selectedChartType === 'playlist'}
+          onPress={() => setSelectedChartType('playlist')}
         />
       </View>
       <View style={[styles.segmentedControlContainer, { backgroundColor: colors.system.fill.secondary, borderRadius: borderRadius.lg, marginHorizontal: spacing.lg, marginVertical: spacing.md, padding: spacing.xs }]}>
         <SegmentedControlOption
-          label="Daily"
+          label="Today"
           isSelected={selectedPeriod === 'daily'}
           onPress={() => setSelectedPeriod('daily')}
         />
         <SegmentedControlOption
-          label="Weekly"
+          label="This week"
           isSelected={selectedPeriod === 'weekly'}
           onPress={() => setSelectedPeriod('weekly')}
         />
         <SegmentedControlOption
-          label="Monthly"
+          label="This month"
           isSelected={selectedPeriod === 'monthly'}
           onPress={() => setSelectedPeriod('monthly')}
         />
@@ -215,7 +188,7 @@ const ChartsScreen: React.FC = memo(() => {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.system.background.primary }]} edges={['top', 'bottom']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.system.background.primary }]} edges={['bottom']}>
         {renderHeader()}
         <View style={styles.content}>
           {renderFilters()}
@@ -232,29 +205,47 @@ const ChartsScreen: React.FC = memo(() => {
 
   if (error) {
     return (
-      <SafeAreaView style={[styles.centered, { backgroundColor: colors.system.background.primary }]} edges={['top', 'bottom']}>
-        <Text variant="body" color="systemRed">{error}</Text>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.system.background.primary }]} edges={['bottom']}>
+        {renderHeader()}
+        {renderFilters()}
+        <View style={styles.centered}>
+          <Text variant="body" color="secondaryLabel" align="center">{error}</Text>
+          <TouchableOpacity
+            onPress={() => getChartData(selectedChartType, selectedPeriod)}
+            accessibilityRole="button"
+            style={[styles.retry, { backgroundColor: colors.brand.primary }]}
+          >
+            <Text variant="headline" style={{ color: colors.brand.onPrimary }}>Try again</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.system.background.primary }]} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.system.background.primary }]} edges={['bottom']}>
       {renderHeader()}
       <View style={styles.content}>
         {renderFilters()}
         <FlashList
           data={chartData}
           keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item, index }) => (
-            <ChartItem
-              item={item}
-              index={index}
-              selectedPeriod={selectedPeriod}
-              selectedChartType={selectedChartType}
-              onPress={() => handleChartItemPress(item)}
-            />
-          )}
+          renderItem={({ item, index }) =>
+            selectedChartType === 'lecture' ? (
+              <LectureRow
+                lecture={chartLectureToRow(item, { position: index + 1, period: selectedPeriod })}
+                onPress={() => handleChartItemPress(item)}
+              />
+            ) : (
+              <ChartItem
+                item={item}
+                index={index}
+                selectedPeriod={selectedPeriod}
+                selectedChartType={selectedChartType}
+                onPress={() => handleChartItemPress(item)}
+              />
+            )
+          }
           contentContainerStyle={[styles.listContent, { paddingBottom: listPaddingBottom }]}
         />
       </View>
@@ -284,9 +275,12 @@ const SegmentedControlOption: React.FC<SegmentedControlOptionProps> = memo(({ la
         ],
       ]}
       onPress={onPress}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: isSelected }}
     >
       <Text
         variant="subheadline"
+        numberOfLines={1}
         weight={isSelected ? 'semibold' : 'regular'}
         color={isSelected ? 'label' : 'secondaryLabel'}
       >
@@ -299,6 +293,14 @@ const SegmentedControlOption: React.FC<SegmentedControlOptionProps> = memo(({ la
 SegmentedControlOption.displayName = 'SegmentedControlOption';
 
 const styles = StyleSheet.create({
+  retry: {
+    marginTop: 16,
+    minHeight: 48,
+    paddingHorizontal: 24,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   container: {
     flex: 1,
   },
@@ -319,27 +321,12 @@ const styles = StyleSheet.create({
   },
   segmentedControlOption: {
     flex: 1,
+    minHeight: 44,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   segmentedControlOptionSelected: {
     borderBottomWidth: 2,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  headerSpacer: {
-    width: 40,
-    height: 40,
   },
 });
 

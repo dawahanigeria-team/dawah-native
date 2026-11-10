@@ -1,5 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
+import { AppMark } from "../src/components/atoms/AppMark";
+import { SocialSignIn } from "../src/components/molecules/SocialSignIn";
+import { statusCodes } from "@react-native-google-signin/google-signin";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -13,16 +15,22 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Loading, Text } from "../src/components/atoms";
 import { ENV } from "../src/config/env";
+import { ScreenHeader } from "../src/components/molecules";
 import { useTheme } from "../src/hooks/useTheme";
 import { addSentryBreadcrumb, captureSentryException } from "../src/services/config/sentry.config";
-import { ensureGoogleSigninConfigured } from "../src/services/googleSignIn.service";
+import { ensureGoogleSigninConfigured, signInWithGoogle } from "../src/services/googleSignIn.service";
 import { useAuthStore } from "../src/stores";
 import tw from "../src/theme/twrnc";
 import { boxShadow } from "../src/utils/shadow";
+import { toUserFacingError } from "../src/utils/userFacingError";
+
+const plainAuthMessage = (err: unknown, fallback: string): string => {
+  const { kind, message } = toUserFacingError(err, fallback);
+  return kind === "credentials" ? fallback : message;
+};
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -34,19 +42,15 @@ export default function SignUpScreen() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [usernameError, setUsernameError] = useState("");
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
-  const [confirmPasswordError, setConfirmPasswordError] = useState("");
 
   const [usernameFocused, setUsernameFocused] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
-  const [confirmPasswordFocused, setConfirmPasswordFocused] = useState(false);
 
   useEffect(() => {
     if (!ENV.GOOGLE_WEB_CLIENT_ID) {
@@ -104,28 +108,14 @@ export default function SignUpScreen() {
     return true;
   };
 
-  const validateConfirmPassword = (text: string): boolean => {
-    if (!text) {
-      setConfirmPasswordError("Please confirm your password");
-      return false;
-    }
-    if (text !== password) {
-      setConfirmPasswordError("Passwords do not match");
-      return false;
-    }
-    setConfirmPasswordError("");
-    return true;
-  };
-
   const handleSignUp = async () => {
     clearError();
 
     const isUsernameValid = validateUsername(username);
     const isEmailValid = validateEmail(email);
     const isPasswordValid = validatePassword(password);
-    const isConfirmPasswordValid = validateConfirmPassword(confirmPassword);
 
-    if (!isUsernameValid || !isEmailValid || !isPasswordValid || !isConfirmPasswordValid) {
+    if (!isUsernameValid || !isEmailValid || !isPasswordValid) {
       return;
     }
 
@@ -152,7 +142,7 @@ export default function SignUpScreen() {
 
       Alert.alert(
         "Sign Up Failed",
-        error.message || "Unable to create account. Please try again.",
+        plainAuthMessage(error, "Unable to create account. Please try again."),
         [{ text: "OK" }]
       );
     }
@@ -202,7 +192,7 @@ export default function SignUpScreen() {
       });
       Alert.alert(
         "Apple Sign In Failed",
-        error.message || "Unable to sign in with Apple. Please try again.",
+        plainAuthMessage(error, "Unable to sign in with Apple. Please try again."),
         [{ text: "OK" }]
       );
     }
@@ -211,24 +201,9 @@ export default function SignUpScreen() {
   const handleGoogleSignIn = async () => {
     clearError();
     try {
-      ensureGoogleSigninConfigured();
-      await GoogleSignin.hasPlayServices();
-      const response = await GoogleSignin.signIn();
-
-      const idToken = response.data?.idToken;
-      if (!idToken) {
-        throw new Error("No ID token received from Google");
-      }
-
-      const email = response.data?.user?.email || null;
-      const fullName = response.data?.user?.name || null;
-
-      await socialLogin({
-        provider: "google",
-        identityToken: idToken,
-        email,
-        fullName,
-      });
+      const credentials = await signInWithGoogle();
+      if (!credentials) return;
+      await socialLogin({ provider: "google", ...credentials });
 
       router.replace((returnToRoute || "/") as any);
     } catch (err: unknown) {
@@ -246,7 +221,7 @@ export default function SignUpScreen() {
       });
       Alert.alert(
         "Google Sign In Failed",
-        error.message || "Unable to sign in with Google. Please try again.",
+        plainAuthMessage(error, "Unable to sign in with Google. Please try again."),
         [{ text: "OK" }]
       );
     }
@@ -278,8 +253,7 @@ export default function SignUpScreen() {
       delay: number;
     }
   ) => (
-    <Animated.View
-      entering={FadeInDown.delay(options.delay).duration(400)}
+    <View
       style={tw`mb-4`}
     >
       <Text
@@ -337,7 +311,9 @@ export default function SignUpScreen() {
         {options.showToggle && options.setShowPassword && (
           <Pressable
             onPress={() => options.setShowPassword!(!options.showPassword)}
-            hitSlop={8}
+            hitSlop={13}
+            accessibilityRole="button"
+            accessibilityLabel={options.showPassword ? "Hide password" : "Show password"}
           >
             <Ionicons
               name={options.showPassword ? "eye-off-outline" : "eye-outline"}
@@ -347,7 +323,12 @@ export default function SignUpScreen() {
           </Pressable>
         )}
         {!options.showToggle && value.length > 0 && (
-          <Pressable onPress={() => setValue("")} hitSlop={8}>
+          <Pressable
+            onPress={() => setValue("")}
+            hitSlop={13}
+            accessibilityRole="button"
+            accessibilityLabel={`Clear ${label.toLowerCase()}`}
+          >
             <Ionicons
               name="close-circle"
               size={18}
@@ -364,90 +345,50 @@ export default function SignUpScreen() {
           {error}
         </Text>
       )}
-    </Animated.View>
+    </View>
   );
 
   return (
     <SafeAreaView
+      edges={["bottom", "left", "right"]}
       style={[
         tw`flex-1`,
         { backgroundColor: colors.system.background.primary },
       ]}
     >
+      <ScreenHeader
+        onBack={() => router.back()}
+        actions={[{ label: "Not now", accessibilityLabel: "Continue without signing in", onPress: () => router.replace("/(tabs)") }]}
+      />
       <KeyboardAvoidingView
         style={tw`flex-1`}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
           style={tw`flex-1`}
-          contentContainerStyle={tw`px-6 py-6 pb-32`}
+          contentContainerStyle={tw`px-6 pb-32 pt-2`}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Back Button */}
-          <Animated.View entering={FadeIn.duration(300)}>
-            <Pressable
-              onPress={() => router.back()}
-              style={[
-                tw`mb-6 self-start p-2 -ml-2 rounded-full`,
-                { backgroundColor: colors.system.fill.tertiary },
-              ]}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons
-                name="chevron-back"
-                size={24}
-                color={colors.system.label.primary}
-              />
-            </Pressable>
-          </Animated.View>
+          <View style={tw`mb-6`}>
+            <AppMark size={64} />
+            <Text variant="title1" color="label" style={tw`mt-4 mb-2`}>
+              Create your free account
+            </Text>
+            <Text variant="callout" color="secondaryLabel">
+              Keep your library, downloads and scholars on every device.
+            </Text>
+          </View>
 
-          {/* Logo/Brand */}
-          <Animated.View
-            entering={FadeInDown.delay(100).duration(400)}
-            style={tw`items-center mb-6`}
-          >
-            <View
-              style={[
-                tw`w-16 h-16 rounded-2xl items-center justify-center mb-4`,
-                { 
-                  backgroundColor: colors.brand.primary,
-                  // elevation 4 folded in: boxShadow renders on both platforms.
-                  boxShadow: boxShadow(colors.brand.primary, 0.3, 8, 4, 0),
-                },
-              ]}
-            >
-              <Text
-                style={{
-                  fontSize: 24,
-                  fontWeight: '700',
-                  color: colors.fixed.black,
-                }}
-              >
-                DN
-              </Text>
-            </View>
-            <Text
-              variant="title1"
-              weight="bold"
-              color="label"
-              style={{ textAlign: "center", marginBottom: 6 }}
-            >
-              Ahlan wa Sahlan!
-            </Text>
-            <Text
-              variant="subheadline"
-              color="secondaryLabel"
-              style={{ textAlign: "center" }}
-            >
-              Join dawahnigeria community
-            </Text>
-          </Animated.View>
+          <SocialSignIn
+            onApple={() => void handleAppleSignIn()}
+            onGoogle={() => void handleGoogleSignIn()}
+            disabled={isLoading}
+          />
 
           {/* Error Alert */}
           {error && (
-            <Animated.View
-              entering={FadeIn.duration(200)}
+            <View
               style={[
                 tw`rounded-xl p-3 mb-5 flex-row items-center`,
                 { backgroundColor: `${colors.semantic.red}15` },
@@ -463,9 +404,9 @@ export default function SignUpScreen() {
                 variant="subheadline"
                 style={{ color: colors.semantic.red, flex: 1 }}
               >
-                {error}
+                {plainAuthMessage(error, "Unable to create account. Please try again.")}
               </Text>
-            </Animated.View>
+            </View>
           )}
 
           {/* Username Input */}
@@ -510,7 +451,6 @@ export default function SignUpScreen() {
             password,
             (text) => {
               setPassword(text);
-              if (confirmPassword) validateConfirmPassword(confirmPassword);
             },
             passwordError,
             validatePassword,
@@ -527,30 +467,8 @@ export default function SignUpScreen() {
             }
           )}
 
-          {/* Confirm Password Input */}
-          {renderInput(
-            "Confirm Password",
-            "lock-closed-outline",
-            confirmPassword,
-            setConfirmPassword,
-            confirmPasswordError,
-            validateConfirmPassword,
-            confirmPasswordFocused,
-            setConfirmPasswordFocused,
-            {
-              placeholder: "Confirm your password",
-              secureTextEntry: true,
-              showToggle: true,
-              showPassword: showConfirmPassword,
-              setShowPassword: setShowConfirmPassword,
-              autoComplete: "password-new",
-              delay: 350,
-            }
-          )}
-
           {/* Sign Up Button */}
-          <Animated.View
-            entering={FadeInDown.delay(400).duration(400)}
+          <View
             style={tw`mt-2`}
           >
             <TouchableOpacity
@@ -568,108 +486,21 @@ export default function SignUpScreen() {
               ]}
             >
               {isLoading ? (
-                <Loading size="small" color={colors.fixed.black} />
+                <Loading size="small" color={colors.brand.onPrimary} />
               ) : (
                 <Text
                   variant="body"
                   weight="semibold"
-                  style={{ color: colors.fixed.black, fontSize: 16 }}
+                  style={{ color: colors.brand.onPrimary, fontSize: 16 }}
                 >
-                  Create Account
+                  Create account
                 </Text>
               )}
             </TouchableOpacity>
-          </Animated.View>
-
-          {/* Divider */}
-          <Animated.View
-            entering={FadeInDown.delay(450).duration(400)}
-            style={tw`flex-row items-center my-5`}
-          >
-            <View
-              style={[
-                tw`flex-1 h-px`,
-                { backgroundColor: colors.system.separator.primary },
-              ]}
-            />
-            <Text
-              variant="caption1"
-              color="tertiaryLabel"
-              style={{ marginHorizontal: 12 }}
-            >
-              or continue with
-            </Text>
-            <View
-              style={[
-                tw`flex-1 h-px`,
-                { backgroundColor: colors.system.separator.primary },
-              ]}
-            />
-          </Animated.View>
-
-          {/* Social Sign Up Buttons */}
-          <Animated.View
-            entering={FadeInDown.delay(500).duration(400)}
-            style={tw`flex-row gap-3 mb-6`}
-          >
-            {/* Google Sign Up */}
-            <TouchableOpacity
-              onPress={handleGoogleSignIn}
-              disabled={isLoading}
-              style={[
-                tw`flex-1 py-3 rounded-xl flex-row items-center justify-center`,
-                {
-                  backgroundColor: colors.system.background.secondary,
-                  borderWidth: 1,
-                  borderColor: colors.system.separator.primary,
-                  opacity: isLoading ? 0.7 : 1,
-                },
-              ]}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name="logo-google"
-                size={18}
-                color={colors.system.label.primary}
-                style={{ marginRight: 6 }}
-              />
-              <Text variant="subheadline" weight="semibold" color="label">
-                Google
-              </Text>
-            </TouchableOpacity>
-
-            {/* Apple Sign Up */}
-            {Platform.OS === "ios" && (
-              <TouchableOpacity
-                onPress={handleAppleSignIn}
-                disabled={isLoading}
-                style={[
-                  tw`flex-1 py-3 rounded-xl flex-row items-center justify-center`,
-                  {
-                    backgroundColor: colors.system.background.secondary,
-                    borderWidth: 1,
-                    borderColor: colors.system.separator.primary,
-                    opacity: isLoading ? 0.7 : 1,
-                  },
-                ]}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name="logo-apple"
-                  size={18}
-                  color={colors.system.label.primary}
-                  style={{ marginRight: 6 }}
-                />
-                <Text variant="subheadline" weight="semibold" color="label">
-                  Apple
-                </Text>
-              </TouchableOpacity>
-            )}
-          </Animated.View>
+          </View>
 
           {/* Sign In Link */}
-          <Animated.View
-            entering={FadeInDown.delay(550).duration(400)}
+          <View
             style={tw`flex-row items-center justify-center`}
           >
             <Text variant="subheadline" color="secondaryLabel">
@@ -684,11 +515,10 @@ export default function SignUpScreen() {
                 Sign In
               </Text>
             </Pressable>
-          </Animated.View>
+          </View>
 
           {/* Terms & Privacy */}
-          <Animated.View
-            entering={FadeInDown.delay(600).duration(400)}
+          <View
             style={tw`mt-8 items-center`}
           >
             <Text
@@ -711,7 +541,7 @@ export default function SignUpScreen() {
                 Privacy Policy
               </Text>
             </Text>
-          </Animated.View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

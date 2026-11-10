@@ -10,6 +10,7 @@ import { useAudioPlayback } from '../../hooks/useAudioPlayback'
 import { lectureDetailApi } from '../../services/api/lectureDetail.api'
 import { addSentryBreadcrumb, captureSentryException } from '../../services/config/sentry.config'
 import { downloadsService } from '../../services/downloads.service'
+import { reportPlaybackError, type PlaybackErrorEvent } from '../../services/playbackErrorReport'
 import { analytics } from '../../services/analytics.service'
 import TrackPlayer, {
   Event,
@@ -34,6 +35,9 @@ import {
   setAudioControls,
 } from '../../stores/playerStore'
 import type { Episode, PlayerState } from '../../types/types'
+import { shouldWriteProgress } from '../../utils/progressThrottle'
+import { historyService } from '../../services/history.service'
+import { saveResumePositionOnPause } from '../../features/resume/savePositionOnPause'
 
 interface AudioProviderProps {
   children: React.ReactNode
@@ -59,6 +63,7 @@ const detailToEpisode = (detail: {
   postedDate?: string
   updatedDate?: string
   albumId?: string
+  albumName?: string
   isReciter?: boolean
   reciter?: { name?: string; isReciter?: boolean }
 }): Episode => ({
@@ -68,6 +73,7 @@ const detailToEpisode = (detail: {
   coverUrl: detail.coverUrl ?? '',
   audioUrl: detail.audioUrl ?? '',
   seriesId: detail.albumId ?? '',
+  seriesTitle: detail.albumName || undefined,
   plays: detail.views ?? 0,
   liked: false,
   language: detail.language ?? 'Unknown',
@@ -145,6 +151,10 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   const hasRestoredRef = useRef(false)
   const isRestoringRef = useRef(false)
   const lastSnapshotAtRef = useRef(0)
+  const lastProgressWriteRef = useRef<{ at: number; episodeId: string | null }>({
+    at: 0,
+    episodeId: null,
+  })
   const appStateRef = useRef<AppStateStatus>(AppState.currentState)
   const audioControlsRef = useRef<ReturnType<typeof useAudioPlayback> | null>(null)
   const playbackErrorEvents = useMemo(() => [Event.PlaybackError], [])
@@ -213,7 +223,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
               }
 
               try {
-                const detail = await lectureDetailApi.getLectureDetail({ lectureId: id, useCache: true })
+                const detail = await lectureDetailApi.getLectureDetail({ lectureId: id, useCache: true, countView: false })
                 if (stopSupersededRestoration()) return
                 episodes.push(detailToEpisode(detail))
               } catch (error) {
@@ -380,6 +390,7 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
 
           playerStore.set(nextStateSnapshot)
           persistQueueSnapshot(nextStateSnapshot)
+          void historyService.recordPosition(currentState.currentEpisode, nextStateSnapshot.progress)
         } catch (error) {
           captureSentryException(error as Error, {
             component: 'AudioProvider',
@@ -397,6 +408,12 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
 
   const audioControls = useAudioPlayback({
     onPlaybackStatusUpdate: (status) => {
+      // Ahead of the foreground check: most long lectures are heard with the screen off.
+      const playingEpisode = playerStore.get().currentEpisode
+      if (playingEpisode && status.isPlaying) {
+        void historyService.recordPosition(playingEpisode, status.currentTime)
+      }
+
       if (appStateRef.current !== 'active') {
         return
       }
@@ -415,8 +432,22 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
         status.isPlaying ||
         status.currentTime < currentState.progress ||
         status.currentTime === 0
-      if (shouldUpdateProgress && status.currentTime !== currentState.progress) {
+      const nowMs = Date.now()
+      const episodeId = String(currentState.currentEpisode.id)
+      if (
+        shouldUpdateProgress &&
+        status.currentTime !== currentState.progress &&
+        shouldWriteProgress({
+          currentTime: status.currentTime,
+          storedProgress: currentState.progress,
+          nowMs,
+          lastWriteMs: lastProgressWriteRef.current.at,
+          episodeId,
+          lastWriteEpisodeId: lastProgressWriteRef.current.episodeId,
+        })
+      ) {
         updates.progress = status.currentTime
+        lastProgressWriteRef.current = { at: nowMs, episodeId }
       }
       if (status.duration !== currentState.duration && status.duration > 0) {
         updates.duration = status.duration
@@ -481,16 +512,20 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
     audioControlsRef.current = audioControls
   }, [audioControls])
 
-  const handlePlaybackError = useCallback((event: { code?: string; message?: string }) => {
-    const currentState = playerStore.get()
-    captureSentryException(new Error('TrackPlayer playback error'), {
-      component: 'AudioProvider',
-      action: 'playbackError',
-      trackId: currentState.currentEpisode?.id,
-      errorCode: event.code,
-      errorMessage: event.message,
-      level: 'error',
-    })
+  const handlePlaybackError = useCallback((event: PlaybackErrorEvent) => {
+    void reportPlaybackError(event, playerStore.get().currentEpisode?.id)
+
+    if (event.code === 'audio-source-error') {
+      // A failed AVPlayer/ExoPlayer source cannot recover by seeking the same
+      // failed item. End the spinner and let the listener retry or pick a track.
+      playerStore.set({
+        ...playerStore.get(),
+        isPlaying: false,
+        isLoading: false,
+        errorMessage: 'This audio could not be loaded. Please try again.',
+      })
+      return
+    }
 
     void (async () => {
       try {
@@ -581,6 +616,11 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
   }, [])
 
   useTrackPlayerEvents(progressEvents, handleProgressForSleepTimer)
+
+  useEffect(() => {
+    const subscription = saveResumePositionOnPause()
+    return () => subscription.remove()
+  }, [])
 
   useEffect(() => {
     if (!isInitializedRef.current) {

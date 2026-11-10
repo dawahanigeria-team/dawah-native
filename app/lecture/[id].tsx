@@ -8,9 +8,11 @@ import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
+import { useObserve } from "expo-observe";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useBackOrHome } from "../../src/navigation/useBackOrHome";
 import { useGuardedPush } from "../../src/navigation/useGuardedPush";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -20,27 +22,23 @@ import {
     useWindowDimensions,
     View,
 } from "react-native";
-import Animated, {
-    Extrapolate,
-    interpolate,
-    useAnimatedScrollHandler,
-    useAnimatedStyle,
-    useSharedValue,
-    withSequence,
-    withSpring,
-} from "react-native-reanimated";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button, Chip, Text, Touchable } from "../../src/components/atoms";
 import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
+import { SeekBar } from "../../src/components/molecules/SeekBar";
 import AddToPlaylistModal from "../../src/components/organisms/AddToPlaylistModal";
+import { UpNext } from "../../src/components/organisms/UpNext";
+import { useSleepTimer } from "../../src/hooks/useSleepTimer";
 import { useDownloadGate } from "../../src/hooks/useDownloadGate";
+import { OBSERVE_ROUTE } from "../../src/services/config/observe.config";
 import { useLectureDetail } from "../../src/hooks/useLectureDetail";
 import { useTheme } from "../../src/hooks/useTheme";
 import { addSentryBreadcrumb, captureSentryException } from "../../src/services/config/sentry.config";
 import { DownloadStatus } from "../../src/services/downloads/downloadQueue.service";
 import { linkingService } from "../../src/services/linking.service";
-import { authStore, useDownloadsStore, useFavoritesStore, usePlayerStore } from "../../src/stores";
+import { useEntity } from "simpler-state";
+import { authStore, playerStore, useDownloadsStore, useFavoritesStore, usePlayerStore } from "../../src/stores";
 import { designTokens } from "../../src/theme/designTokens";
 import tw from "../../src/theme/twrnc";
 import type { LectureDetail } from "../../src/types/api.types";
@@ -48,6 +46,12 @@ import type { Episode } from "../../src/types/types";
 import { formatRelativeDate } from "../../src/utils/formatDate";
 import { appendShareSignature } from "../../src/utils/shareMessage";
 import { boxShadow } from "../../src/utils/shadow";
+import {
+  buildTransportRow,
+  SKIP_BACK_SECONDS,
+  SKIP_FORWARD_SECONDS,
+  type TransportButton,
+} from "../../src/utils/transportRow";
 
 const HEADER_HEIGHT = 300;
 
@@ -61,6 +65,7 @@ const createEpisodeFromDetail = (detail: LectureDetail | null): Episode | null =
     coverUrl: detail.coverUrl || "",
     audioUrl: detail.audioUrl || "",
     seriesId: detail.albumId || "",
+    seriesTitle: detail.albumName || undefined,
     plays: detail.views || 0,
     liked: false,
     language: detail.language || "",
@@ -112,6 +117,25 @@ const formatReleaseDate = (rawDate?: string): string => {
   });
 };
 
+const HIT_SLOP = { top: 10, bottom: 10, left: 6, right: 6 };
+
+const downloadA11yLabel = (status: DownloadStatus | null, percent: number): string => {
+  switch (status) {
+    case DownloadStatus.COMPLETED:
+      return "Downloaded for offline listening";
+    case DownloadStatus.DOWNLOADING:
+      return `Downloading, ${Math.round(percent)} percent. Double tap to pause.`;
+    case DownloadStatus.PAUSED:
+      return "Download paused. Double tap to resume.";
+    case DownloadStatus.QUEUED:
+      return "Download queued";
+    case DownloadStatus.FAILED:
+      return "Download failed. Double tap to try again.";
+    default:
+      return "Download this lecture";
+  }
+};
+
 type ThemeColors = ReturnType<typeof useTheme>["colors"];
 
 interface LecturePlaybackControlsProps {
@@ -143,11 +167,20 @@ const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
     progress: currentProgress,
     duration: measuredDuration,
     playbackSpeed,
+    queue,
+    repeatMode,
+    isShuffled,
     setPlaybackSpeed,
+    setProgress,
+    setRepeatMode,
+    toggleShuffle,
+    seekForward,
+    seekBackward,
     playEpisode,
     togglePlayPause,
   } = usePlayerStore();
 
+  const sleepTimer = useSleepTimer();
   const isCurrentLecture = Boolean(episode && currentEpisode?.id === episode.id);
   const isCurrentlyPlaying = isCurrentLecture && isPlaying;
   const progress = isCurrentLecture ? currentProgress : 0;
@@ -157,7 +190,6 @@ const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
   const duration = isCurrentLecture && measuredDuration > 0
     ? measuredDuration
     : episode?.durationSec || 0;
-  const progressPercent = duration > 0 ? (progress / duration) * 100 : 0;
 
   const handlePlayPress = useCallback(() => {
     if (!episode || !canPlay) return;
@@ -179,61 +211,107 @@ const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [playbackSpeed, setPlaybackSpeed]);
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  const handleSeek = useCallback(
+    (seconds: number) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      void setProgress(seconds);
+    },
+    [setProgress],
+  );
+
+  const handleAdjust = useCallback(
+    (delta: number) => {
+      void (delta > 0 ? seekForward(delta) : seekBackward(-delta));
+    },
+    [seekForward, seekBackward],
+  );
+
+  const transport = useMemo(
+    () =>
+      buildTransportRow({
+        repeatMode,
+        isShuffled,
+        queueLength: queue.length,
+        isCurrentLecture,
+        onShuffle: () => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          void toggleShuffle();
+        },
+        onSkipBack: () => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          void seekBackward(SKIP_BACK_SECONDS);
+        },
+        onSkipForward: () => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          void seekForward(SKIP_FORWARD_SECONDS);
+        },
+        onSetRepeat: (mode) => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          setRepeatMode(mode);
+        },
+      }),
+    [repeatMode, isShuffled, queue.length, isCurrentLecture, toggleShuffle, seekBackward, seekForward, setRepeatMode],
+  );
+
+  const visibleLeft = transport.filter((b) => b.visible && b.side === 'left');
+  const visibleRight = transport.filter((b) => b.visible && b.side === 'right');
+  // Keeps the play button centred when shuffle is hidden.
+  const leftPadding = Math.max(0, visibleRight.length - visibleLeft.length);
+
+  const renderTransportButton = (button: TransportButton) => {
+    const tint = !button.enabled
+      ? colors.system.label.tertiary
+      : button.active
+        ? colors.brand.primary
+        : colors.system.label.secondary;
+    return (
+      <TouchableOpacity
+        key={button.id}
+        onPress={button.onPress}
+        disabled={!button.enabled}
+        accessibilityRole="button"
+        accessibilityLabel={button.accessibilityLabel}
+        accessibilityState={{ disabled: !button.enabled, selected: button.active }}
+        style={{ width: 52, minHeight: 48, alignItems: 'center', justifyContent: 'center' }}
+      >
+        <Ionicons name={button.icon} size={26} color={tint} />
+        <Text variant="caption2" style={{ color: tint }}>
+          {button.caption}
+        </Text>
+      </TouchableOpacity>
+    );
   };
 
   return (
     <View style={[tw`px-6 pb-8 pt-4`, { backgroundColor: colors.system.background.primary }]}>
-      {/* Progress Bar */}
-      <View style={tw`mb-2`}>
-        <View style={[tw`h-1 rounded-full overflow-hidden`, { backgroundColor: colors.system.fill.tertiary }]}>
-          <View
-            style={[
-              tw`h-full rounded-full`,
-              {
-                backgroundColor: colors.brand.primary,
-                width: `${progressPercent}%`
-              }
-            ]}
-          />
-        </View>
-        <View style={tw`flex-row justify-between mt-2`}>
-          <Text variant="caption2" color="tertiaryLabel">
-            {formatTime(progress)}
-          </Text>
-          <Text variant="caption2" color="tertiaryLabel">
-            {formatTime(duration)}
-          </Text>
-        </View>
-      </View>
+      <SeekBar
+        position={progress}
+        duration={duration}
+        enabled={isCurrentLecture && duration > 0}
+        onSeek={handleSeek}
+        onAdjust={handleAdjust}
+        adjustStep={SKIP_BACK_SECONDS}
+      />
 
       {/* Main Playback Controls */}
-      <View style={tw`flex-row items-center justify-center mt-4 mb-4`}>
-        {/* Shuffle */}
-        <TouchableOpacity
-          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-          style={tw`w-12 h-12 items-center justify-center`}
-        >
-          <Ionicons name="shuffle" size={24} color={colors.system.label.secondary} />
-        </TouchableOpacity>
+      <View style={tw`flex-row items-center justify-between mt-4 mb-4`}>
+        <View style={tw`flex-row items-center`}>
+          {Array.from({ length: leftPadding }, (_, i) => (
+            <View key={`pad-${i}`} style={{ width: 52 }} />
+          ))}
+          {visibleLeft.map(renderTransportButton)}
+        </View>
 
-        {/* Previous */}
-        <TouchableOpacity
-          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
-          style={tw`w-14 h-14 items-center justify-center mx-4`}
-        >
-          <Ionicons name="play-back" size={32} color={colors.system.label.primary} />
-        </TouchableOpacity>
-
-        {/* Play/Pause - Large Center Button */}
         <TouchableOpacity
           onPress={handlePlayPress}
           disabled={!canPlay}
+          accessibilityRole="button"
+          accessibilityLabel={
+            !canPlay ? "Audio unavailable" : isCurrentlyPlaying ? "Pause" : "Play"
+          }
+          accessibilityState={{ disabled: !canPlay }}
           style={[
-            tw`w-20 h-20 rounded-full items-center justify-center mx-6`,
+            tw`w-20 h-20 rounded-full items-center justify-center`,
             {
               backgroundColor: canPlay ? colors.brand.primary : colors.system.fill.tertiary,
               // elevation 8 folded in: boxShadow renders on both platforms.
@@ -249,31 +327,23 @@ const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
           />
         </TouchableOpacity>
 
-        {/* Next */}
-        <TouchableOpacity
-          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
-          style={tw`w-14 h-14 items-center justify-center mx-4`}
-        >
-          <Ionicons name="play-forward" size={32} color={colors.system.label.primary} />
-        </TouchableOpacity>
-
-        {/* Repeat */}
-        <TouchableOpacity
-          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-          style={tw`w-12 h-12 items-center justify-center`}
-        >
-          <Ionicons name="repeat" size={24} color={colors.system.label.secondary} />
-        </TouchableOpacity>
+        <View style={tw`flex-row items-center`}>{visibleRight.map(renderTransportButton)}</View>
       </View>
 
       {/* Secondary Actions */}
-      <View style={tw`flex-row items-center justify-between mt-2`}>
+      <View style={tw`flex-row items-start justify-between mt-2`}>
         {/* Download Button Group */}
-        <View style={tw`flex-row items-center`}>
+        <View style={tw`items-center min-w-[48px]`}>
         { (downloadStatus === DownloadStatus.DOWNLOADING ||
           downloadStatus === DownloadStatus.PAUSED ||
           downloadStatus === DownloadStatus.QUEUED) && (
-            <TouchableOpacity onPress={onCancelDownload} style={tw`mr-4`}>
+            <TouchableOpacity
+              onPress={onCancelDownload}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel download"
+              hitSlop={HIT_SLOP}
+              style={tw`mr-4`}
+            >
               <Ionicons name="close-circle-outline" size={24} color={colors.semantic.red} />
             </TouchableOpacity>
           )}
@@ -283,7 +353,10 @@ const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
               void onDownloadPress();
             }}
             disabled={episode === null}
-            style={tw`flex-row items-center`}
+            accessibilityRole="button"
+            accessibilityLabel={downloadA11yLabel(downloadStatus, downloadProgress)}
+            hitSlop={HIT_SLOP}
+            style={tw`items-center min-w-[48px]`}
           >
             <Ionicons
               name={
@@ -317,7 +390,7 @@ const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
                     ? "systemRed"
                     : "secondaryLabel"
               }
-              style={tw`ml-2`}
+              style={tw`mt-1`}
             >
               {downloadStatus === DownloadStatus.COMPLETED
                 ? "Downloaded"
@@ -334,24 +407,70 @@ const LecturePlaybackControls: React.FC<LecturePlaybackControlsProps> = ({
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity onPress={onShare} style={tw`flex-row items-center`}>
+        <TouchableOpacity
+          onPress={onShare}
+          accessibilityRole="button"
+          accessibilityLabel="Share this lecture"
+          hitSlop={HIT_SLOP}
+          style={tw`items-center min-w-[48px]`}
+        >
           <Ionicons name="share-outline" size={24} color={colors.system.label.secondary} />
-          <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
+          <Text variant="caption1" color="secondaryLabel" style={tw`mt-1`}>
             Share
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={onOpenAddToPlaylist} style={tw`flex-row items-center`}>
+        <TouchableOpacity
+          onPress={onOpenAddToPlaylist}
+          accessibilityRole="button"
+          accessibilityLabel="Add to playlist"
+          hitSlop={HIT_SLOP}
+          style={tw`items-center min-w-[48px]`}
+        >
           <Ionicons name="add-circle-outline" size={24} color={colors.system.label.secondary} />
-          <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
-            Add to Playlist
+          <Text variant="caption1" color="secondaryLabel" style={tw`mt-1`}>
+            Save
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={handleSpeedChange} style={tw`flex-row items-center`}>
+        <TouchableOpacity
+          onPress={handleSpeedChange}
+          accessibilityRole="button"
+          accessibilityLabel={`Playback speed ${playbackSpeed} times. Double tap to change.`}
+          hitSlop={HIT_SLOP}
+          style={tw`items-center min-w-[48px]`}
+        >
           <Ionicons name="speedometer-outline" size={24} color={colors.system.label.secondary} />
-          <Text variant="caption1" color="secondaryLabel" style={tw`ml-2`}>
+          <Text variant="caption1" color="secondaryLabel" style={tw`mt-1`}>
             {playbackSpeed}x
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={sleepTimer.press}
+          accessibilityRole="button"
+          accessibilityLabel={
+            sleepTimer.endOfTrack
+              ? "Sleep timer on, stops at end of lecture. Double tap to cancel."
+              : sleepTimer.minutesRemaining !== null
+                ? `Sleep timer on, ${sleepTimer.minutesRemaining} minutes left. Double tap to cancel.`
+                : "Set sleep timer"
+          }
+          accessibilityState={{ selected: sleepTimer.isArmed }}
+          hitSlop={HIT_SLOP}
+          style={tw`items-center min-w-[48px]`}
+        >
+          <Ionicons
+            name="moon-outline"
+            size={24}
+            color={sleepTimer.isArmed ? colors.brand.primary : colors.system.label.secondary}
+          />
+          <Text variant="caption1" color="secondaryLabel" style={tw`mt-1`}>
+            {sleepTimer.minutesRemaining !== null
+              ? `${sleepTimer.minutesRemaining}m`
+              : sleepTimer.endOfTrack
+                ? "End"
+                : "Sleep"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -365,6 +484,7 @@ const LectureDetailScreen: React.FC = () => {
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const goBack = useBackOrHome();
   const guardedPush = useGuardedPush();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
@@ -373,11 +493,40 @@ const LectureDetailScreen: React.FC = () => {
   // Local State & Animations
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [showAddToPlaylistModal, setShowAddToPlaylistModal] = useState(false);
-  const scrollY = useSharedValue(0);
-  const likeScale = useSharedValue(1);
 
   // Data Hooks
   const { lecture, loading, error, refetch } = useLectureDetail(lectureId);
+
+  // This screen is the full player. When the lecture it shows ends and the
+  // queue moves on, follow it rather than stay on a lecture no longer playing.
+  const playingId = useEntity(playerStore, (state) => state.currentEpisode?.id);
+  const previousPlayingId = useRef(playingId);
+  useEffect(() => {
+    const previous = previousPlayingId.current;
+    previousPlayingId.current = playingId;
+    if (playingId && previous === lectureId && playingId !== lectureId) {
+      router.replace(`/lecture/${playingId}`);
+    }
+  }, [playingId, lectureId, router]);
+
+  // This screen is the other way into the app: notification taps and
+  // dawahnigeria.com/dawahcast/l links open straight here without ever
+  // rendering Home. Without its own mark, every deep-link launch would record
+  // no time to interactive at all, and the metric would describe only the
+  // people who opened the app from the icon.
+  const { markInteractive } = useObserve();
+  const hasMarkedInteractive = useRef(false);
+
+  useEffect(() => {
+    if (hasMarkedInteractive.current) return;
+    if (loading) return;
+
+    hasMarkedInteractive.current = true;
+    markInteractive({
+      routeName: OBSERVE_ROUTE.lectureDetail,
+      params: { had_content: Boolean(lecture) },
+    });
+  }, [lecture, loading, markInteractive]);
 
   // Store Hooks
   const {
@@ -408,48 +557,6 @@ const LectureDetailScreen: React.FC = () => {
 
   const downloadStatus = episode ? getDownloadStatus(episode.id) : null;
   const downloadProgress = episode ? getDownloadProgress(episode.id) : 0;
-
-  // Animated styles
-  const headerAnimatedStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      scrollY.value,
-      [0, HEADER_HEIGHT / 2, HEADER_HEIGHT],
-      // Keep header elements (including back button) visible even at the top,
-      // and slightly increase opacity as the user scrolls.
-      [0.9, 0.95, 1],
-      Extrapolate.CLAMP
-    );
-    return { opacity };
-  });
-
-  const imageAnimatedStyle = useAnimatedStyle(() => {
-    const scale = interpolate(
-      scrollY.value,
-      [-100, 0, HEADER_HEIGHT],
-      [1.5, 1, 0.8],
-      Extrapolate.CLAMP
-    );
-    const translateY = interpolate(
-      scrollY.value,
-      [0, HEADER_HEIGHT],
-      [0, -HEADER_HEIGHT / 2],
-      Extrapolate.CLAMP
-    );
-    return {
-      transform: [{ scale }, { translateY }],
-    };
-  });
-
-  const likeAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: likeScale.value }],
-  }));
-
-  // Event handlers
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      scrollY.value = event.contentOffset.y;
-    },
-  });
 
   const handleDownloadPress = useCallback(async () => {
     if (!episode) return;
@@ -528,9 +635,6 @@ const LectureDetailScreen: React.FC = () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      // Animate the heart
-      likeScale.value = withSequence(withSpring(1.3), withSpring(1));
-
       // Toggle favorite (works offline!)
       await toggleFavorite(lectureId);
 
@@ -559,7 +663,7 @@ const LectureDetailScreen: React.FC = () => {
         lectureId,
       });
     }
-  }, [lectureId, toggleFavorite, liked, router, likeScale]);
+  }, [lectureId, toggleFavorite, liked, router]);
 
   const handleShare = useCallback(() => {
     if (!lecture) return;
@@ -642,18 +746,17 @@ const LectureDetailScreen: React.FC = () => {
         <Text variant="title2" weight="bold" color="label" style={tw`mt-4 text-center`}>
           {error || "Lecture not found"}
         </Text>
-        <Button variant="filled" size="large" style={tw`mt-6`} onPress={() => router.back()}>
+        <Button variant="filled" size="large" style={tw`mt-6`} onPress={() => goBack()}>
           Go Back
         </Button>
       </SafeAreaView>
     );
   }
 
-  // Render animated header that fades in on scroll
+  // Static controls remain visible without per-frame worklets.
   const renderHeader = () => (
-    <Animated.View
-      style={[
-        {
+    <View
+      style={{
           position: 'absolute',
           top: 0,
           left: 0,
@@ -662,34 +765,53 @@ const LectureDetailScreen: React.FC = () => {
           paddingTop: insets.top + designTokens.spacing.sm,
           paddingBottom: 12,
           paddingHorizontal: 16,
-        },
-        headerAnimatedStyle,
-      ]}
+        }}
     >
       <BlurView intensity={80} tint="prominent" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+      <LinearGradient
+        pointerEvents="none"
+        colors={[colors.overlay.darkHeavy, colors.overlay.darkHeavy, 'transparent']}
+        locations={[0, 0.9, 1]}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+      />
       <View style={tw`flex-row items-center justify-between`}>
-        <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.back(); }} style={tw`w-10 h-10 items-center justify-center`}>
-          <Ionicons name="chevron-back" size={28} color={colors.system.label.primary} />
+        <TouchableOpacity
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); goBack(); }}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          style={tw`w-11 h-11 items-center justify-center`}
+        >
+          <Ionicons name="chevron-back" size={28} color={colors.fixed.white} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/playlists'); }} style={tw`w-10 h-10 items-center justify-center ml-2`}>
-          <Ionicons name="list" size={24} color={colors.system.label.primary} />
+        <TouchableOpacity
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/playlists'); }}
+          accessibilityRole="button"
+          accessibilityLabel="Open my playlists"
+          style={tw`w-11 h-11 items-center justify-center`}
+        >
+          <Ionicons name="list" size={24} color={colors.fixed.white} />
         </TouchableOpacity>
         <View style={tw`flex-1 mx-3`}>
-          <Text variant="body" color="label" weight="semibold" numberOfLines={1} style={tw`text-center`}>
+          <Text variant="body" weight="semibold" numberOfLines={1} style={[tw`text-center`, { color: colors.fixed.white }]}>
             {lecture ? cleanTitle(lecture.title, lecture.lecturerName) : ''}
           </Text>
         </View>
-        <Animated.View style={likeAnimatedStyle}>
-          <TouchableOpacity onPress={handleLike} style={tw`w-10 h-10 items-center justify-center`}>
+        <View>
+          <TouchableOpacity
+            onPress={handleLike}
+            accessibilityRole="button"
+            accessibilityLabel={liked ? "Remove from favourites" : "Add to favourites"}
+            style={tw`w-11 h-11 items-center justify-center`}
+          >
             <Ionicons
               name={liked ? "heart" : "heart-outline"}
               size={26}
-              color={liked ? colors.semantic.red : colors.system.label.primary}
+              color={liked ? colors.semantic.red : colors.fixed.white}
             />
           </TouchableOpacity>
-        </Animated.View>
+        </View>
       </View>
-    </Animated.View>
+    </View>
   );
 
   const renderContent = () => {
@@ -745,7 +867,7 @@ const LectureDetailScreen: React.FC = () => {
             variant="filled"
             size="medium"
             style={tw`mt-6`}
-            onPress={() => router.back()}
+            onPress={() => goBack()}
           >
             Go back
           </Button>
@@ -754,15 +876,13 @@ const LectureDetailScreen: React.FC = () => {
     }
 
     return (
-      <Animated.ScrollView
+      <ScrollView
         contentContainerStyle={tw`pb-32`}
         showsVerticalScrollIndicator={false}
-        onScroll={scrollHandler}
-        scrollEventThrottle={16}
       >
-        {/* Hero Section with Parallax */}
+        {/* Hero Section */}
         <View style={{ height: HEADER_HEIGHT }}>
-          <Animated.View style={[{ height: HEADER_HEIGHT, width: SCREEN_WIDTH }, imageAnimatedStyle]}>
+          <View style={{ height: HEADER_HEIGHT, width: SCREEN_WIDTH }}>
             {lecture.coverUrl ? (
               <Image
                 source={{ uri: lecture.coverUrl }}
@@ -771,14 +891,14 @@ const LectureDetailScreen: React.FC = () => {
               />
             ) : (
               <View style={[tw`flex-1 items-center justify-center`, { backgroundColor: colors.system.fill.secondary }]}>
-                <Ionicons name="musical-notes-outline" size={64} color={colors.system.label.tertiary} />
+                <Ionicons name="headset-outline" size={64} color={colors.system.label.tertiary} />
               </View>
             )}
             <LinearGradient
               colors={['transparent', colors.overlay.darkStrong]}
               style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 80 }}
             />
-          </Animated.View>
+          </View>
         </View>
 
         {/* Content Section */}
@@ -863,10 +983,10 @@ const LectureDetailScreen: React.FC = () => {
           {/* Stats Cards */}
           <View style={[tw`flex-row mt-6`, { gap: 12 }]}>
             {[
-              { label: "Plays", value: lecture.views, icon: "play-circle" },
-              { label: "Downloads", value: lecture.downloads, icon: "download" },
-              { label: "Shares", value: lecture.shares, icon: "share-social" },
-            ].map((item) => (
+              { label: "Plays", value: lecture.views, icon: "play-circle", alwaysShow: true },
+              { label: "Downloads", value: lecture.downloads, icon: "download", alwaysShow: false },
+              { label: "Shares", value: lecture.shares, icon: "share-social", alwaysShow: false },
+            ].filter((item) => item.alwaysShow || (item.value ?? 0) > 0).map((item) => (
               <View
                 key={item.label}
                 style={[
@@ -961,8 +1081,8 @@ const LectureDetailScreen: React.FC = () => {
                 <Text variant="title3" color="label" weight="bold" style={tw`mb-3`}>
                   Details
                 </Text>
-                {meta.map((item: any) => (
-                  <View key={item.label} style={tw`flex-row items-center mb-3`}>
+                {meta.map((item: any, index: number) => (
+                  <View key={item.label} style={tw`flex-row items-center ${index < meta.length - 1 ? 'mb-3' : ''}`}>
                     <View style={[tw`w-8 h-8 rounded-full items-center justify-center mr-3`, { backgroundColor: colors.system.fill.secondary }]}>
                       <Ionicons name={item.icon} size={16} color={colors.system.label.secondary} />
                     </View>
@@ -1022,7 +1142,8 @@ const LectureDetailScreen: React.FC = () => {
             );
           })()}
         </View>
-      </Animated.ScrollView>
+        <UpNext lectureId={lectureId} />
+      </ScrollView>
     );
   };
 

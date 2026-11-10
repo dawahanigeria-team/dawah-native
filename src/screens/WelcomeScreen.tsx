@@ -1,19 +1,34 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { AppMark } from "../components/atoms/AppMark";
 import { Image } from "expo-image";
+import { useObserve } from "expo-observe";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Text } from "../components/atoms";
-import { useTheme } from "../hooks/useTheme";
+import { OBSERVE_ROUTE } from "../services/config/observe.config";
 import { type Lecturer, lecturersApi } from "../services/api/lecturers.api";
+import { designTokens } from "../theme/designTokens";
+
+// This screen is dark in both themes, so it cannot take the themed brand colour.
+const WELCOME_BRAND = designTokens.colorsDark.brand.primary;
 
 const FALLBACK_PORTRAITS = ["A", "Y", "H", "E", "N", "I"];
 
 export default function WelcomeScreen() {
-  const { colors } = useTheme();
   const [lecturers, setLecturers] = useState<Lecturer[]>([]);
+  const { markInteractive } = useObserve();
+
+  // Every first launch after install lands here, not on Home, so without this
+  // mark the new-install experience reports no time to interactive at all -
+  // which is the launch you most want measured. The entry actions are live on
+  // first paint; the portraits below are deliberately non-blocking enrichment,
+  // so there is nothing further to wait for.
+  useEffect(() => {
+    markInteractive({ routeName: OBSERVE_ROUTE.welcome });
+  }, [markInteractive]);
 
   useEffect(() => {
     // This enrichment starts after the welcome UI paints. A slow or offline
@@ -39,9 +54,7 @@ export default function WelcomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.brandRow}>
-          <View style={[styles.mark, { backgroundColor: colors.brand.primary }]}>
-            <Text style={styles.markText}>DN</Text>
-          </View>
+          <AppMark size={42} />
           <Text variant="title2" weight="bold" style={styles.whiteText}>
             dawahnigeria
           </Text>
@@ -64,7 +77,7 @@ export default function WelcomeScreen() {
             const image = lecturer?.img || lecturer?.rp_thumbnail;
             return (
               <View key={`${String(lecturer?.id ?? "fallback")}-${index}`} style={styles.portraitItem}>
-                <View style={[styles.portrait, { borderColor: `${colors.brand.primary}70` }]}>
+                <View style={[styles.portrait, { borderColor: `${WELCOME_BRAND}70` }]}>
                   {image ? (
                     <Image
                       source={{ uri: image }}
@@ -92,7 +105,7 @@ export default function WelcomeScreen() {
             onPress={() => router.push({ pathname: "/sign-up", params: { returnTo } })}
             style={({ pressed }) => [
               styles.primaryButton,
-              { backgroundColor: colors.brand.primary, opacity: pressed ? 0.86 : 1 },
+              { backgroundColor: WELCOME_BRAND, opacity: pressed ? 0.86 : 1 },
             ]}
             accessibilityRole="button"
           >
@@ -112,7 +125,7 @@ export default function WelcomeScreen() {
             </Text>
           </Pressable>
 
-          <Pressable onPress={goToPreferences} style={styles.guestButton}>
+          <Pressable onPress={goToPreferences} style={styles.guestButton} accessibilityRole="button">
             <Text variant="subheadline" style={styles.guestText}>
               Continue without an account
             </Text>
@@ -127,8 +140,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 18, paddingBottom: 24, gap: 26 },
   brandRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
-  mark: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  markText: { color: "#07110d", fontSize: 16, fontWeight: "800" },
   copy: { alignItems: "center", gap: 10 },
   title: { color: "#f7fbf8", textAlign: "center", lineHeight: 42, maxWidth: 390 },
   subtitle: { color: "#aebcb5", textAlign: "center", lineHeight: 23, maxWidth: 360 },

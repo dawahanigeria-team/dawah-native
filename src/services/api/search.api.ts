@@ -28,6 +28,8 @@ export interface SearchParams {
   sortBy?: 'relevance' | 'date' | 'popularity';
   field?: string;
   lecturer_nid?: string;
+  contentType?: 'lecture' | 'album' | 'recitation';
+  phrase?: string;
   signal?: AbortSignal;
 }
 
@@ -80,7 +82,7 @@ class SearchApiService {
       // Build request parameters
       const requestParams: Record<string, any> = {
         type: params.type,
-        value: sanitizedQuery,
+        value: params.phrase ? `${sanitizedQuery} "${params.phrase}"` : sanitizedQuery,
         page: params.page || 1,
         limit: params.limit || 50, // Default to 50 items per page
       };
@@ -93,7 +95,7 @@ class SearchApiService {
 
       if (params.language && params.language !== 'All') {
         const langId = getLanguageId(params.language);
-        requestParams.language = langId || params.language;
+        if (langId) requestParams.lang_id = langId;
       }
 
       if (params.category) {
@@ -101,7 +103,11 @@ class SearchApiService {
       }
 
       if (params.lecturer_nid) {
-        requestParams.lecturer_nid = params.lecturer_nid;
+        requestParams.rp_id = params.lecturer_nid;
+      }
+
+      if (params.contentType) {
+        requestParams.cat_id = params.contentType;
       }
 
       if (params.field) {

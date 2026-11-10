@@ -1,22 +1,28 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { useGuardedPush } from "../src/navigation/useGuardedPush";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Modal,
+  Pressable,
+  ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Text } from "../src/components/atoms";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { Button, Text } from "../src/components/atoms";
+import { toUserFacingError } from "../src/utils/userFacingError";
 import { ErrorBoundary } from "../src/components/atoms/ErrorBoundary";
 import { Dropdown } from "../src/components/atoms/Dropdown";
-import { Card } from "../src/components/molecules/Card";
 import { CardSkeleton } from "../src/components/molecules/Card.skeleton";
 import { FilterSection } from "../src/components/molecules/FilterSection";
+import { LectureRow } from "../src/components/molecules/LectureRow";
+import { searchLectureToRow } from "../src/components/molecules/lectureRowModel";
+import { ScreenHeader } from "../src/components/molecules/ScreenHeader";
 import { SearchBar } from "../src/components/molecules/SearchBar";
 import { surahs } from "../src/data/surahs";
 import { useLecturers } from "../src/hooks/useLecturers";
@@ -34,27 +40,19 @@ import {
   Language,
   SearchFilters,
   SortOption,
-  Topic,
 } from "../src/types/search";
-import { Episode } from "../src/types/types";
 
 const languages: Language[] = [
   "All",
   "English",
-  "Yoruba",
   "Hausa",
-  "Igala",
-  "Fulani",
+  "Yoruba",
+  "Arabic",
   "Igbo",
-];
-const topics: Topic[] = [
-  "All",
-  "Quran Recitation",
-  "Tafsir",
-  "Faith & Creed",
-  "Charity",
-  "Fajr Talk",
-  "Ramadan",
+  "Igala",
+  "Nupe",
+  "Ebira",
+  "Pidgin English",
 ];
 
 const sortOptions = [
@@ -79,6 +77,7 @@ export default function SearchScreenWithBoundary() {
 function SearchScreen() {
   const guardedPush = useGuardedPush();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const searchParams = useLocalSearchParams();
   const initialQuery = (searchParams.q as string) || "";
 
@@ -88,11 +87,12 @@ function SearchScreen() {
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<SearchFilters>({
     language: "All",
-    topic: "All",
     surah: "All",
     sortBy: "followers",
     lecturerId: undefined,
   });
+  const isFiltered =
+    filters.language !== "All" || Boolean(filters.lecturerId) || filters.surah !== "All";
 
   // Local state for search input - separate from actual search query
   const [searchInput, setSearchInput] = useState(initialQuery);
@@ -109,6 +109,7 @@ function SearchScreen() {
     data: apiResults,
     loading,
     error,
+    retry,
     setQuery,
     setFilters: setSearchFilters,
     loadMore,
@@ -184,7 +185,6 @@ function SearchScreen() {
       analytics.capture("search_performed", {
         query,
         language: filters.language,
-        topic: filters.topic,
       });
     }
     setActiveSection("overview");
@@ -195,10 +195,12 @@ function SearchScreen() {
     key: K,
     value: SearchFilters[K]
   ) => {
+    setActiveSection("overview");
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
   const updateSurahFilter = (value: string) => {
+    setActiveSection("overview");
     // @ts-ignore - Safe type assertion since FilterSection options are from surahs array
     setFilters((prev) => ({ ...prev, surah: value }));
   };
@@ -210,75 +212,10 @@ function SearchScreen() {
   const clearFilters = () => {
     setFilters({
       language: "All",
-      topic: "All",
       surah: "All",
       sortBy: "followers",
       lecturerId: undefined,
     });
-  };
-
-  // Convert API lecture to Episode format
-  const convertToEpisode = (lecture: SearchLecture): Episode => {
-    const parseDuration = (duration: string | undefined): number => {
-      if (!duration) return 0;
-      const parts = duration.split(":").map(Number);
-      if (parts.length === 3) {
-        return parts[0] * 3600 + parts[1] * 60 + parts[2];
-      } else if (parts.length === 2) {
-        return parts[0] * 60 + parts[1];
-      }
-      return 0;
-    };
-
-    // Support both new API fields and legacy fields
-    const id = String(
-      lecture.id ||
-        lecture.nid ||
-        `lecture-${lecture.mp3_url || lecture.AudioUrl || lecture.mp3_title || lecture.Title || "unknown"}`,
-    );
-    const title = lecture.mp3_title || lecture.Title || "Untitled Lecture";
-    const duration = lecture.mp3_duration || lecture.Duration;
-    const audioUrl = lecture.mp3_url || lecture.AudioUrl || "";
-    const coverUrl =
-      lecture.img ||
-      lecture.lec_img ||
-      lecture.rp_image ||
-      lecture.lecturer_image ||
-      lecture.CoverUrl ||
-      "";
-    const plays = parseInt(lecture.views || lecture.Plays || "0") || 0;
-    const language = lecture.language || lecture.Language || "Unknown";
-    const downloads =
-      parseInt(lecture.downloads || lecture.Downloads || "0") || 0;
-    // Pull the post date from any field the backend might use. Fall back to
-    // '' (NOT "now") so undated rows render without a misleading "just now".
-    const createdAt =
-      lecture.created_at ||
-      lecture.CreatedAt ||
-      (lecture as any).post_date ||
-      (lecture as any).updated_date ||
-      '';
-    // Map lecturer name from various possible fields
-    const lecturerName =
-      lecture.lecturer_name ||
-      lecture.rpname ||
-      lecture.ResourcePerson ||
-      undefined;
-
-    return {
-      id,
-      title,
-      durationSec: parseDuration(duration),
-      coverUrl,
-      audioUrl,
-      seriesId: "",
-      plays,
-      liked: false,
-      language,
-      downloads,
-      createdAt,
-      lecturerName,
-    };
   };
 
   const handleItemPress = (item: SearchLecture) => {
@@ -296,28 +233,6 @@ function SearchScreen() {
 
   const getItemKey = (item: SearchLecture, index: number) => {
     return `api-${String(item.id || item.nid || index)}-${index}`;
-  };
-
-  const renderSearchResult = (item: SearchLecture) => {
-    const resourcePerson =
-      item.lecturer_name || item.ResourcePerson || "Unknown Scholar";
-    const metaValue = resourcePerson;
-    const data = convertToEpisode(item);
-
-    return (
-      <Card
-        variant="landscape"
-        data={data}
-        onPress={() => handleItemPress(item)}
-        playOnPress={false}
-        showTime={true}
-        showMeta={true}
-        metaValue={metaValue}
-        titleNumberOfLines={2}
-        metaNumberOfLines={1}
-        showBadge={false}
-      />
-    );
   };
 
   const renderSectionHeader = (
@@ -493,17 +408,24 @@ function SearchScreen() {
     );
   };
 
-  const visibleLecturers =
-    activeSection === "lecturers" ? lecturerResults : lecturerResults.slice(0, 2);
-  const visibleAlbums =
-    activeSection === "albums" ? albumResults : albumResults.slice(0, 2);
+  // Scholar and album discovery cannot be filtered, so filtered searches show lectures alone.
+  const visibleLecturers = isFiltered
+    ? []
+    : activeSection === "lecturers"
+      ? lecturerResults
+      : lecturerResults.slice(0, 2);
+  const visibleAlbums = isFiltered
+    ? []
+    : activeSection === "albums"
+      ? albumResults
+      : albumResults.slice(0, 2);
   const visibleLectures =
     activeSection === "overview"
       ? filteredAndSortedResults.slice(0, 5)
       : activeSection === "lectures"
         ? filteredAndSortedResults
         : [];
-  const combinedTotal = lecturerTotal + totalResults + albumTotal;
+  const combinedTotal = isFiltered ? totalResults : lecturerTotal + totalResults + albumTotal;
   const currentSectionTotal =
     activeSection === "lecturers"
       ? lecturerTotal
@@ -547,7 +469,9 @@ function SearchScreen() {
         {error
           ? "Something went wrong"
           : actualSearchQuery || hasActiveFilters()
-            ? "No results found"
+            ? actualSearchQuery
+              ? `No results for “${actualSearchQuery}”`
+              : "No results found"
             : "Discover Islamic content"}
       </Text>
       <Text
@@ -556,113 +480,76 @@ function SearchScreen() {
         style={tw`text-center leading-6 max-w-sm`}
         accessibilityLabel={
           error
-            ? error.message
+            ? searchErrorMessage
             : actualSearchQuery || hasActiveFilters()
               ? "No results found. Try adjusting your search or filters"
               : "Search for lectures, Quranic recitations, and Islamic teachings"
         }
       >
         {error
-          ? error.message
+          ? searchErrorMessage
           : actualSearchQuery || hasActiveFilters()
             ? "Try adjusting your search terms or clearing some filters to find what you're looking for"
             : "Search for lectures, Quranic recitations, and Islamic teachings from trusted scholars"}
       </Text>
+      {error ? (
+        <Button
+          size="medium"
+          onPress={retry}
+          style={tw`mt-5`}
+          accessibilityLabel="Try the search again"
+        >
+          Try again
+        </Button>
+      ) : hasActiveFilters() ? (
+        <Button size="medium" onPress={clearFilters} style={tw`mt-5`}>
+          Clear filters
+        </Button>
+      ) : null}
     </View>
   );
 
-  const hasActiveFilters = () => {
-    return (
-      filters.language !== "All" ||
-      filters.topic !== "All" ||
-      (filters.lecturerId && filters.lecturerId !== "All") ||
-      (["Quran Recitation", "Tafsir"].includes(filters.topic) &&
-        filters.surah !== "All")
-    );
-  };
+  const searchErrorMessage = error
+    ? toUserFacingError(error, "Search is not available right now. Please try again.").message
+    : "";
+
+  const hasActiveFilters = () => isFiltered;
 
   const getActiveFilterCount = () => {
     let count = 0;
     if (filters.language !== "All") count++;
-    if (filters.topic !== "All") count++;
     if (filters.lecturerId && filters.lecturerId !== "All") count++;
-    if (
-      ["Quran Recitation", "Tafsir"].includes(filters.topic) &&
-      filters.surah !== "All"
-    )
-      count++;
+    if (filters.surah !== "All") count++;
     return count;
   };
 
+  const activeFilterCount = getActiveFilterCount();
+
+  const scholarFilterName = filters.lecturerId
+    ? lecturerCards.find((lecturer) => lecturer.id === filters.lecturerId)?.name
+    : undefined;
+  const activeFilterChips = [
+    filters.language !== "All" && { label: filters.language, clear: () => updateFilter("language", "All") },
+    scholarFilterName && { label: scholarFilterName, clear: () => updateFilter("lecturerId", undefined) },
+    filters.surah !== "All" && { label: filters.surah, clear: () => updateFilter("surah", "All") },
+  ].filter(Boolean) as { label: string; clear: () => void }[];
+
   return (
     <SafeAreaView
+      edges={["left", "right", "bottom"]}
       style={[tw`flex-1`, { backgroundColor: colors.system.background.primary }]}
     >
-      {/* Header */}
-      <View style={tw`flex-row items-center justify-between px-5 py-4`}>
-        <View style={tw`flex-row items-center flex-1`}>
-          {/* Back Button */}
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={tw`mr-3 w-10 h-10 items-center justify-center rounded-full`}
-            accessibilityLabel="Go back"
-            accessibilityRole="button"
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name="arrow-back"
-              size={24}
-              color={colors.system.label.primary}
-            />
-          </TouchableOpacity>
-
-          {/* Page Title */}
-          <Text variant="title1" color="label" weight="bold">
-            Search
-          </Text>
-        </View>
-
-        {/* Filter Button */}
-        <TouchableOpacity
-          style={[
-            tw`flex-row items-center px-4 py-2.5 rounded-full min-h-[44px]`,
-            { backgroundColor: colors.system.background.secondary },
-          ]}
-          onPress={toggleFilters}
-          accessibilityLabel="Toggle filters"
-          accessibilityRole="button"
-        >
-          <Ionicons
-            name="options"
-            size={18}
-            color={colors.system.label.primary}
-          />
-          <Text
-            variant="subheadline"
-            color="label"
-            weight="medium"
-            style={tw`ml-2`}
-          >
-            Filter
-          </Text>
-          {getActiveFilterCount() > 0 && (
-            <View
-              style={[
-                tw`w-5 h-5 rounded-full items-center justify-center ml-2`,
-                { backgroundColor: colors.brand.primary },
-              ]}
-            >
-              <Text
-                variant="caption2"
-                weight="bold"
-                style={{ color: colors.fixed.black }}
-              >
-                {getActiveFilterCount()}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
+      <ScreenHeader
+        title="Search"
+        actions={[
+          {
+            label: activeFilterCount > 0 ? `Filters (${activeFilterCount})` : "Filters",
+            accessibilityLabel:
+              activeFilterCount > 0 ? `Toggle filters, ${activeFilterCount} active` : "Toggle filters",
+            onPress: toggleFilters,
+          },
+        ]}
+      />
 
       {/* Search Bar */}
       <View style={tw`px-5 pb-5`}>
@@ -671,9 +558,32 @@ function SearchScreen() {
           value={searchInput}
           onChangeText={setSearchInput}
           onSearch={handleSearch}
-          onMicPress={() => {}}
         />
       </View>
+
+      {activeFilterChips.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={tw`px-5 pb-3`}
+          style={tw`grow-0`}
+        >
+          {activeFilterChips.map((chip) => (
+            <TouchableOpacity
+              key={chip.label}
+              onPress={chip.clear}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove ${chip.label} filter`}
+              style={[styles.activeFilter, { backgroundColor: `${colors.brand.primary}22` }]}
+            >
+              <Text variant="subheadline" weight="semibold" color="brand">
+                {chip.label}
+              </Text>
+              <Ionicons name="close" size={15} color={colors.brand.primary} />
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
 
       {/* Results summary and lecture sorting */}
       <View style={tw`px-5 mb-5`}>
@@ -711,7 +621,7 @@ function SearchScreen() {
         }
         keyExtractor={(item, index) => getItemKey(item, index)}
         renderItem={({ item }) => (
-          <View style={tw`px-5`}>{renderSearchResult(item)}</View>
+          <LectureRow lecture={searchLectureToRow(item)} onPress={() => handleItemPress(item)} />
         )}
         ListHeaderComponent={
           <View style={tw`px-5`}>
@@ -732,84 +642,7 @@ function SearchScreen() {
               </TouchableOpacity>
             )}
 
-            {showFilters && (activeSection === "overview" || activeSection === "lectures") ? (
-            <View
-              style={[
-                tw`pt-6 pb-4 mb-6 mx-1 rounded-xl`,
-                {
-                  backgroundColor: colors.system.background.secondary,
-                  borderWidth: StyleSheet.hairlineWidth,
-                  borderColor: colors.system.separator.primary,
-                },
-              ]}
-            >
-              {/* Filter Header */}
-              <View style={tw`flex-row items-center justify-between px-5 mb-6`}>
-                <Text variant="title2" color="label" weight="bold">
-                  Filters
-                </Text>
-                {hasActiveFilters() && (
-                  <TouchableOpacity
-                    onPress={clearFilters}
-                    style={[
-                      tw`px-3 py-1 rounded-lg min-h-[44px] justify-center`,
-                      { backgroundColor: colors.system.fill.tertiary },
-                    ]}
-                  >
-                    <Text variant="subheadline" color="brand" weight="semibold">
-                      Clear All
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {/* Language Filter */}
-              <FilterSection
-                title="Language"
-                options={languages}
-                selectedValue={filters.language}
-                onSelect={(value) => updateFilter("language", value as Language)}
-              />
-
-              {/* Topic Filter */}
-              <FilterSection
-                title="Topics"
-                options={topics}
-                selectedValue={filters.topic}
-                onSelect={(value) => updateFilter("topic", value as Topic)}
-              />
-
-              {/* Scholar Filter */}
-              <FilterSection
-                title="Scholar"
-                options={["All", ...lecturerCards.map((l) => l.name)]}
-                selectedValue={
-                  filters.lecturerId
-                    ? lecturerCards.find((l) => l.id === filters.lecturerId)
-                        ?.name || "All"
-                    : "All"
-                }
-                onSelect={(name) => {
-                  const lecturer = lecturerCards.find((l) => l.name === name);
-                  updateFilter("lecturerId", lecturer ? lecturer.id : undefined);
-                }}
-                searchable={true}
-              />
-
-              {/* Surah Filter - show when Quran Recitation or Tafsir is selected */}
-              {["Quran Recitation", "Tafsir"].includes(filters.topic) && (
-                <FilterSection
-                  title="Surah"
-                  options={[...surahs]}
-                  selectedValue={filters.surah}
-                  onSelect={updateSurahFilter}
-                  searchable={true}
-                />
-              )}
-            </View>
-            ) : null}
-
-            {(activeSection === "overview" || activeSection === "lecturers") && (
+            {!isFiltered && (activeSection === "overview" || activeSection === "lecturers") && (
               <View style={tw`mb-6`}>
                 {renderSectionHeader(
                   "Scholars",
@@ -855,7 +688,7 @@ function SearchScreen() {
         ListFooterComponent={
           hasVisibleResults ? (
             <View style={tw`px-5`}>
-              {activeSection === "overview" && (
+              {activeSection === "overview" && !isFiltered && (
                 <View style={tw`pt-5`}>
                   {renderSectionHeader(
                     "Albums",
@@ -901,6 +734,118 @@ function SearchScreen() {
         maxToRenderPerBatch={5}
         windowSize={5}
       />
+
+      <Modal
+        visible={showFilters}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowFilters(false)}
+      >
+        <View style={[styles.sheetBackdrop, { backgroundColor: colors.overlay.darkMedium }]}>
+          <Pressable
+            style={tw`flex-1`}
+            onPress={() => setShowFilters(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Close filters"
+          />
+          <View
+            style={[
+              styles.sheet,
+              {
+                backgroundColor: colors.system.background.secondary,
+                paddingBottom: insets.bottom + 16,
+              },
+            ]}
+          >
+            <View style={[styles.sheetHandle, { backgroundColor: colors.system.separator.primary }]} />
+            <View style={styles.sheetHeader}>
+              <Text variant="title1" accessibilityRole="header">
+                Filters
+              </Text>
+              {hasActiveFilters() && (
+                <TouchableOpacity
+                  onPress={clearFilters}
+                  accessibilityRole="button"
+                  style={styles.sheetClear}
+                >
+                  <Text variant="subheadline" weight="semibold" color="brand">
+                    Clear all
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <ScrollView keyboardShouldPersistTaps="handled">
+              <FilterSection
+                title="Language"
+                options={languages}
+                selectedValue={filters.language}
+                onSelect={(value) => updateFilter("language", value as Language)}
+              />
+              <FilterSection
+                title="Scholar"
+                options={["All", ...lecturerCards.map((l) => l.name)]}
+                selectedValue={scholarFilterName ?? "All"}
+                onSelect={(name) => {
+                  const lecturer = lecturerCards.find((l) => l.name === name);
+                  updateFilter("lecturerId", lecturer ? lecturer.id : undefined);
+                }}
+                searchable={true}
+              />
+              <FilterSection
+                title="Surah"
+                options={[...surahs]}
+                selectedValue={filters.surah}
+                onSelect={updateSurahFilter}
+                searchable={true}
+              />
+            </ScrollView>
+            <View style={tw`px-4 pt-2`}>
+              <Button size="large" borderRadius="full" fullWidth onPress={() => setShowFilters(false)}>
+                {actualSearchQuery && !loading ? `Show ${totalResults} results` : "Show results"}
+              </Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  activeFilter: {
+    minHeight: 44,
+    paddingHorizontal: 14,
+    marginRight: 8,
+    borderRadius: 22,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  sheetBackdrop: {
+    flex: 1,
+  },
+  sheet: {
+    maxHeight: "85%",
+    paddingTop: 10,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
+  sheetHandle: {
+    alignSelf: "center",
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    marginBottom: 8,
+  },
+  sheetHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  sheetClear: {
+    minHeight: 44,
+    justifyContent: "center",
+  },
+});

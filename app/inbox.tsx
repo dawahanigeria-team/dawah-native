@@ -4,7 +4,6 @@
  */
 
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { router } from "expo-router";
 import { useGuardedPush } from "../src/navigation/useGuardedPush";
 import { useState, useCallback } from "react";
 import {
@@ -17,6 +16,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../src/components/atoms";
+import { ScreenHeader } from "../src/components/molecules";
 import { useAnnouncements } from "../src/hooks/useAnnouncements";
 import { useTheme } from "../src/hooks/useTheme";
 import { designTokens } from "../src/theme/designTokens";
@@ -243,66 +243,23 @@ export default function InboxScreen() {
 
   return (
     <SafeAreaView
+      edges={["bottom", "left", "right"]}
       style={[
         tw`flex-1`,
         { backgroundColor: colors.system.background.primary },
       ]}
     >
-      {/* Header */}
-      <View style={tw`px-4 py-3 flex-row items-center justify-between`}>
-        <View style={tw`flex-row items-center flex-1`}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={tw`mr-3`}
-            accessibilityLabel="Go back"
-            accessibilityRole="button"
-          >
-            <Ionicons
-              name="arrow-back"
-              size={24}
-              color={colors.system.label.primary}
-            />
-          </TouchableOpacity>
-          <View>
-            <Text
-              style={{
-                fontSize: designTokens.typography.fontSize.title2,
-                fontWeight: designTokens.typography.fontWeight.bold,
-                color: colors.system.label.primary,
-              }}
-            >
-              Inbox
-            </Text>
-            {unreadCount > 0 && (
-              <Text
-                style={[
-                  styles.headerSubtitle,
-                  {
-                    fontSize: designTokens.typography.fontSize.caption1,
-                    color: colors.system.label.secondary,
-                  },
-                ]}
-              >
-                {unreadCount} unread
-              </Text>
-            )}
-          </View>
-        </View>
-
-        {/* Settings button */}
-        <TouchableOpacity
-          onPress={() => guardedPush("/notifications")}
-          style={tw`p-2`}
-          accessibilityLabel="Notification settings"
-          accessibilityRole="button"
-        >
-          <Ionicons
-            name="settings-outline"
-            size={22}
-            color={colors.system.label.primary}
-          />
-        </TouchableOpacity>
-      </View>
+      <ScreenHeader
+        title="Inbox"
+        subtitle={unreadCount > 0 ? `${unreadCount} unread` : undefined}
+        actions={[
+          {
+            icon: "settings-outline",
+            accessibilityLabel: "Notification settings",
+            onPress: () => guardedPush("/notifications"),
+          },
+        ]}
+      />
 
       {/* Content */}
       {loading ? (
@@ -394,9 +351,6 @@ const resolveIconName = (icon?: string): keyof typeof Ionicons.glyphMap => {
 const styles = StyleSheet.create({
   itemDivider: {
     borderBottomWidth: 1,
-  },
-  headerSubtitle: {
-    marginTop: 2,
   },
   listContent: {
     paddingBottom: 20,

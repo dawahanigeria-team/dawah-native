@@ -1,6 +1,5 @@
 import * as Haptics from "expo-haptics";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useGuardedPush } from "../../src/navigation/useGuardedPush";
 import React, { useCallback, useEffect, useState } from "react";
@@ -8,21 +7,24 @@ import { FlashList } from "../../src/components/adapters/flashListCompat";
 import {
   ActivityIndicator,
   Share,
-  TouchableOpacity,
   View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button, Text } from "../../src/components/atoms";
+import { LectureRow } from "../../src/components/molecules/LectureRow";
+import { searchLectureToRow } from "../../src/components/molecules/lectureRowModel";
+import { ScreenHeader } from "../../src/components/molecules/ScreenHeader";
 import { ApiError } from "../../src/services/api/base.api";
 import { lectureDetailApi } from "../../src/services/api/lectureDetail.api";
 import { linkingService } from "../../src/services/linking.service";
 import { playlistApi } from "../../src/services/api/playlist.api";
-import { usePlayerStore } from "../../src/stores";
+import { usePlayerActions } from "../../src/stores";
 import { useAuthStore } from "../../src/stores/authStore";
 import { useTheme } from "../../src/hooks/useTheme";
 import tw from "../../src/theme/twrnc";
 import { SearchLecture } from "../../src/types/api.types";
+import { mapWithConcurrency } from "../../src/utils/mapWithConcurrency";
 import { Episode } from "../../src/types/types";
 import { appendShareSignature } from "../../src/utils/shareMessage";
 
@@ -94,7 +96,7 @@ const PlaylistDetailScreen: React.FC = () => {
   const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
   const playlistId = id ?? "";
   const { isAuthenticated, user } = useAuthStore();
-  const { playQueue } = usePlayerStore();
+  const { playQueue } = usePlayerActions();
   const { colors } = useTheme();
 
   const [playlistName] = useState(name || "");
@@ -156,9 +158,11 @@ const PlaylistDetailScreen: React.FC = () => {
         const audioIds = response.data.flatMap((item: any) => item.audio || []);
 
         // Fetch details for each audio ID
-        const lectureDetailsPromises = audioIds.map(async (audioId: number) => {
+        // Four at a time, as Library does: one request per lecture at once
+        // overwhelmed slow connections on long playlists.
+        const lectureDetails = await mapWithConcurrency(audioIds, 4, async (audioId: number) => {
           try {
-            const lectureDetail = await lectureDetailApi.getLectureDetail({ lectureId: audioId });
+            const lectureDetail = await lectureDetailApi.getLectureDetail({ lectureId: audioId, countView: false });
             // Map LectureDetail to SearchLecture format
             const searchLecture: SearchLecture = {
               id: lectureDetail.id,
@@ -185,7 +189,7 @@ const PlaylistDetailScreen: React.FC = () => {
           }
         });
 
-        const fetchedLectures = (await Promise.all(lectureDetailsPromises)).filter(Boolean) as SearchLecture[];
+        const fetchedLectures = lectureDetails.filter(Boolean) as SearchLecture[];
         setPlaylistContents(fetchedLectures);
 
         // Playlist name and privacy are now passed via navigation params
@@ -232,36 +236,30 @@ const PlaylistDetailScreen: React.FC = () => {
         <Text style={[tw`mt-4 text-lg font-bold text-center`, { color: colors.system.label.primary }]}>
           {error}
         </Text>
-        <Button variant="filled" size="large" style={tw`mt-6`} onPress={() => router.back()}>
-          Go Back
+        <Button variant="filled" size="large" style={tw`mt-6`} onPress={() => void fetchPlaylistDetails()}>
+          Try again
+        </Button>
+        <Button variant="plain" size="large" style={tw`mt-2`} onPress={() => router.back()}>
+          Go back
         </Button>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={[tw`flex-1`, { backgroundColor: colors.system.background.primary }]}>
-      <View style={tw`flex-row items-center p-4`}>
-        <TouchableOpacity onPress={() => router.back()} style={tw`mr-4`}>
-          <Ionicons name="arrow-back" size={24} color={colors.system.label.primary} />
-        </TouchableOpacity>
-        <Text style={[tw`text-xl font-bold flex-1`, { color: colors.system.label.primary }]} numberOfLines={1}>
-          {playlistName || "Playlist"}
-        </Text>
-        <TouchableOpacity
-          onPress={handleShare}
-          style={tw`w-10 h-10 items-center justify-center`}
-          accessibilityRole="button"
-          accessibilityLabel="Share playlist"
-        >
-          <Ionicons name="share-outline" size={24} color={colors.system.label.primary} />
-        </TouchableOpacity>
-      </View>
+    <SafeAreaView
+      edges={["left", "right", "bottom"]}
+      style={[tw`flex-1`, { backgroundColor: colors.system.background.primary }]}
+    >
+      <ScreenHeader
+        title={playlistName || "Playlist"}
+        actions={[{ icon: "share-outline", accessibilityLabel: "Share playlist", onPress: handleShare }]}
+      />
 
       {playlistContents.length > 0 && (
         <View style={tw`flex-row gap-3 px-4 pb-3`}>
           <Button variant="filled" size="large" style={tw`flex-1`} onPress={handlePlayAll}>
-            Play All
+            Play all
           </Button>
           <Button variant="plain" size="large" style={tw`flex-1`} onPress={handleShuffle}>
             Shuffle
@@ -271,7 +269,7 @@ const PlaylistDetailScreen: React.FC = () => {
 
       {playlistContents.length === 0 ? (
         <View style={tw`flex-1 items-center justify-center`}>
-          <Ionicons name="musical-notes-outline" size={64} color={colors.system.label.tertiary} />
+          <Ionicons name="headset-outline" size={64} color={colors.system.label.tertiary} />
           <Text style={[tw`mt-4`, { color: colors.system.label.secondary }]}>This playlist is empty.</Text>
         </View>
       ) : (
@@ -279,23 +277,12 @@ const PlaylistDetailScreen: React.FC = () => {
           data={playlistContents}
           keyExtractor={(item: SearchLecture) => item.id || item.nid?.toString() || ''}
           renderItem={({ item }: { item: SearchLecture }) => (
-            <TouchableOpacity
-              style={[tw`flex-row items-center p-4 border-b`, { borderColor: colors.system.separator.primary }]}
+            <LectureRow
+              lecture={searchLectureToRow(item)}
               onPress={() => {
                 guardedPush(`/lecture/${item.id || item.nid}`);
               }}
-            >
-              <Image
-                source={{ uri: item.img || item.CoverUrl || "https://via.placeholder.com/50" }}
-                style={tw`w-12 h-12 rounded-md mr-3`}
-                contentFit="cover"
-              />
-              <View style={tw`flex-1`}>
-                <Text style={[tw`font-semibold`, { color: colors.system.label.primary }]}>{item.Title}</Text>
-                <Text style={[tw`text-sm`, { color: colors.system.label.secondary }]}>{item.lecturer_name || item.rpname}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.system.label.tertiary} />
-            </TouchableOpacity>
+            />
           )}
         />
       )}

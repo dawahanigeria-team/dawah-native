@@ -1,9 +1,11 @@
-import * as Notifications from "expo-notifications";
-import { Stack, usePathname, useRouter } from "expo-router";
+import { useEntity } from "simpler-state";
+import { ObserveRoot } from "expo-observe";
+import { Stack, usePathname, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { Newsreader_500Medium } from "@expo-google-fonts/newsreader/500Medium";
 import { useFonts } from "expo-font";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { InteractionManager, Linking, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -12,21 +14,30 @@ import { logger } from "../src/utils/logger";
 
 import { ErrorBoundary } from "../src/components/atoms";
 import { MiniPlayer } from "../src/components/organisms";
+import { shouldShowMiniPlayer as shouldShowMiniPlayerOn } from "../src/navigation/miniPlayerVisibility";
 import { AudioProvider } from "../src/components/providers/AudioProvider";
 import { UpdatesProvider } from "../src/components/providers/UpdatesProvider";
 import { usePushNotifications } from "../src/hooks/usePushNotifications";
 import { analytics } from "../src/services/analytics.service";
+import { initObserve, setObserveAudience } from "../src/services/config/observe.config";
 import { addSentryBreadcrumb, captureSentryException, initSentry, Sentry } from "../src/services/config/sentry.config";
 import { downloadsService } from "../src/services/downloads.service";
 import { linkingService } from "../src/services/linking.service";
-import { getNotificationRouteFromData } from "../src/services/notifications.service";
+import { useNotificationObserver } from "../src/hooks/useNotificationObserver";
 import { userService } from "../src/services/user.service";
-import { initializeAuth } from "../src/stores/authStore";
+import { authStore, initializeAuth, subscribeToAuthChange } from "../src/stores/authStore";
 import { fetchFavorites } from "../src/stores/favoritesStore";
-import { usePlayerActions, usePlayerStore } from "../src/stores";
+import { playerStore } from "../src/stores";
 
 // Initialize Sentry as early as possible
 initSentry();
+
+// Must run before ObserveRoot mounts: the expo-router integration reads this
+// config once at mount and throws if it is enabled afterwards.
+initObserve();
+
+// A lecture opened from a cold-start link must have a real Back destination.
+export const unstable_settings = { initialRouteName: "(tabs)" };
 
 const NAVIGATION_DEDUPE_WINDOW_MS = 1500;
 const PLAYER_NAVIGATION_PENDING_TIMEOUT_MS = 10000;
@@ -53,7 +64,13 @@ const normalizeInternalRoute = (route: string | null | undefined): string | null
 function useSafeRoutePush() {
   const pathname = usePathname();
   const router = useRouter();
+  const navigationRef = useRef({ pathname, router });
+  useLayoutEffect(() => {
+    navigationRef.current = { pathname, router };
+  }, [pathname, router]);
 
+  // Listener lifetime must not depend on the route it navigates to. Otherwise
+  // Back reads the launch notification / URL again and reopens that screen.
   return useCallback(
     (rawRoute: string, source: string) => {
       const route = normalizeInternalRoute(rawRoute);
@@ -62,7 +79,7 @@ function useSafeRoutePush() {
         return;
       }
 
-      const currentRoute = normalizeInternalRoute(pathname);
+      const currentRoute = normalizeInternalRoute(navigationRef.current.pathname);
       if (currentRoute === route) {
         return;
       }
@@ -78,42 +95,10 @@ function useSafeRoutePush() {
 
       recentNavigationState.route = route;
       recentNavigationState.timestamp = now;
-      router.push(route as any);
+      navigationRef.current.router.push(route as any);
     },
-    [pathname, router],
+    [],
   );
-}
-
-function useNotificationObserver() {
-  const safePush = useSafeRoutePush();
-
-  useEffect(() => {
-    const redirect = (notification: Notifications.Notification) => {
-      const data = notification.request.content.data as Record<string, unknown>;
-      const url = getNotificationRouteFromData(data);
-      if (url) {
-        safePush(url, "notification");
-      }
-    };
-
-    Notifications.getLastNotificationResponseAsync().then((response) => {
-      if (response?.notification) {
-        redirect(response.notification);
-      }
-    }).catch(() => {
-      // Can fail on some Android devices with notification permission issues.
-    });
-
-    const subscription = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        redirect(response.notification);
-      }
-    );
-
-    return () => {
-      subscription.remove();
-    };
-  }, [safePush]);
 }
 
 /**
@@ -134,15 +119,15 @@ function AppSessionTracker() {
 
 function RootLayout() {
   const pathname = usePathname();
+  const segments = useSegments();
   const safePush = useSafeRoutePush();
   const hasInitializedApp = useRef(false);
   const { isDark } = useTheme();
-  const { expandPlayer } = usePlayerActions();
-  const { currentEpisode } = usePlayerStore();
+  const currentEpisode = useEntity(playerStore, (state) => state.currentEpisode);
   const currentEpisodeRef = useRef<typeof currentEpisode | null>(null);
   const pendingPlayerNavigationRef = useRef(false);
   const pendingPlayerNavigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [, fontError] = useFonts(Ionicons.font);
+  const [, fontError] = useFonts({ ...Ionicons.font, Newsreader_500Medium });
 
   const clearPendingPlayerNavigationTimeout = useCallback(() => {
     const timeout = pendingPlayerNavigationTimeoutRef.current;
@@ -152,7 +137,7 @@ function RootLayout() {
   }, []);
 
   usePushNotifications();
-  useNotificationObserver();
+  useNotificationObserver(safePush);
 
   useEffect(() => {
     if (fontError) {
@@ -175,6 +160,16 @@ function RootLayout() {
     addSentryBreadcrumb("Route changed", "navigation", { pathname });
   }, [pathname]);
 
+  // Fires only when authentication actually flips, so this is a handful of
+  // calls per install rather than one per render.
+  useEffect(
+    () =>
+      subscribeToAuthChange((isAuthenticated) => {
+        setObserveAudience({ authState: isAuthenticated ? "signed_in" : "guest" });
+      }),
+    [],
+  );
+
   // Initialize user, auth, and favorites on app start
   useEffect(() => {
     if (hasInitializedApp.current) {
@@ -191,6 +186,12 @@ function RootLayout() {
         await initializeAuth();
         if (!isMounted) return;
         logger.debug('Auth initialized');
+
+        // Signed-in and guest users take different code paths, so a startup
+        // number that averages the two hides whichever one is slow.
+        setObserveAudience({
+          authState: authStore.get().isAuthenticated ? "signed_in" : "guest",
+        });
 
         // Ensure user ID exists (creates guest ID if needed)
         await userService.getUserId();
@@ -242,8 +243,8 @@ function RootLayout() {
   }, [currentEpisode]);
 
   useEffect(() => {
+    let cancelled = false;
     const navigateToPlayer = () => {
-      expandPlayer();
       const episodeId = currentEpisodeRef.current?.id;
       if (episodeId) {
         clearPendingPlayerNavigationTimeout();
@@ -263,7 +264,7 @@ function RootLayout() {
     const handleDeepLink = async () => {
       // Check if app was opened with a URL
       const initialUrl = await linkingService.getInitialURL();
-      if (initialUrl) {
+      if (initialUrl && !cancelled) {
         logger.debug('App opened with URL:', initialUrl);
         const isPlayerNotification =
           initialUrl.startsWith('trackplayer://notification.click') ||
@@ -306,10 +307,11 @@ function RootLayout() {
     });
 
     return () => {
+      cancelled = true;
       clearPendingPlayerNavigationTimeout();
       subscription.remove();
     };
-  }, [clearPendingPlayerNavigationTimeout, expandPlayer, safePush]);
+  }, [clearPendingPlayerNavigationTimeout, safePush]);
 
   useEffect(() => {
     if (!pendingPlayerNavigationRef.current) {
@@ -321,9 +323,8 @@ function RootLayout() {
     }
     clearPendingPlayerNavigationTimeout();
     pendingPlayerNavigationRef.current = false;
-    expandPlayer();
     safePush(`/lecture/${episodeId}`, "pending_player_navigation");
-  }, [clearPendingPlayerNavigationTimeout, currentEpisode?.id, expandPlayer, safePush]);
+  }, [clearPendingPlayerNavigationTimeout, currentEpisode?.id, safePush]);
 
   useEffect(() => {
     return () => {
@@ -331,8 +332,7 @@ function RootLayout() {
     };
   }, [clearPendingPlayerNavigationTimeout]);
 
-  // Hide mini player on lecture detail page since it has full playback controls
-  const shouldShowMiniPlayer = !pathname.startsWith("/lecture/");
+  const shouldShowMiniPlayer = shouldShowMiniPlayerOn(pathname, segments);
 
   return (
     <SafeAreaProvider>
@@ -340,49 +340,49 @@ function RootLayout() {
         <AudioProvider>
           <StatusBar style={isDark ? "light" : "dark"} />
           <View style={{ flex: 1 }}>
-            <Stack screenOptions={{ headerShown: false }}>
+            <Stack screenOptions={{ headerShown: false, animation: "none" }}>
               <Stack.Screen name="(tabs)" />
               <Stack.Screen
                 name="charts"
                 options={{
                   headerShown: false,
                   presentation: "modal",
-                  animation: "slide_from_bottom",
+                  animation: "none",
                 }}
               />
               <Stack.Screen
                 name="sign-in"
                 options={{
                   presentation: "modal",
-                  animation: "slide_from_bottom",
+                  animation: "none",
                 }}
               />
               <Stack.Screen
                 name="sign-up"
                 options={{
                   presentation: "modal",
-                  animation: "slide_from_bottom",
+                  animation: "none",
                 }}
               />
               <Stack.Screen
                 name="edit-profile"
                 options={{
                   presentation: "modal",
-                  animation: "slide_from_bottom",
+                  animation: "none",
                 }}
               />
               <Stack.Screen
                 name="listening-preferences"
                 options={{
                   presentation: "modal",
-                  animation: "slide_from_bottom",
+                  animation: "none",
                 }}
               />
               <Stack.Screen
                 name="about"
                 options={{
                   presentation: "modal",
-                  animation: "slide_from_bottom",
+                  animation: "none",
                 }}
               />
             </Stack>
@@ -406,4 +406,7 @@ function RootLayoutWithProviders() {
   );
 }
 
-export default Sentry.wrap(RootLayoutWithProviders);
+// ObserveRoot is outermost so its first-render mark is taken at the earliest
+// render of the tree; it also provides the router integration that fills in
+// `routeName` for every markInteractive call below it.
+export default ObserveRoot.wrap(Sentry.wrap(RootLayoutWithProviders));

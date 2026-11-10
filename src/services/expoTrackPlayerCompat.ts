@@ -131,6 +131,26 @@ let jumpBackwardInterval = 15
 let playlistKey: string | null = null
 let isLockScreenActive = false
 let shouldResumeWhenLoaded = false
+let lastPlaybackError: string | null = null
+
+// A stream that dies minutes in is almost always the network dropping, not a
+// broken file. Reload and seek back before telling the listener it failed.
+const SOURCE_RECOVERY_DELAYS_MS = [2000, 5000, 10000]
+let sourceRecoveryAttempts = 0
+let sourceRecoveryTimer: ReturnType<typeof setTimeout> | null = null
+let sourceRecoveryPosition = 0
+let sourceRecoveryToken = 0
+
+const cancelSourceRecovery = () => {
+  if (sourceRecoveryTimer) clearTimeout(sourceRecoveryTimer)
+  sourceRecoveryTimer = null
+  sourceRecoveryToken += 1
+}
+
+const resetSourceRecovery = () => {
+  cancelSourceRecovery()
+  sourceRecoveryAttempts = 0
+}
 
 const emit = (event: string, payload: unknown) => {
   const eventListeners = listeners.get(event)
@@ -152,6 +172,7 @@ const setProgress = (nextProgress: Progress) => {
 }
 
 const mapAudioStatusToState = (audioStatus: AudioStatus): PlaybackState['state'] => {
+  if (audioStatus.error) return State.Error
   if (audioStatus.playing) {
     return State.Playing
   }
@@ -205,6 +226,11 @@ const createCompatAudioPlayer = (): AudioPlayer => {
       error: error instanceof Error ? error.message : String(error),
     })
 
+    // `NativeAudioModule` declares `readonly AudioPlayer`
+    // (expo-audio/build/AudioModule.types.d.ts) and tsc resolves it. The rule
+    // cannot see through expo-audio's `export type *` re-exports, so it reports
+    // a member that is really there.
+    // eslint-disable-next-line import/namespace
     const LegacyAudioPlayer = AudioModule.AudioPlayer as unknown as new (
       source: null,
       updateInterval: number,
@@ -220,6 +246,20 @@ const ensurePlayer = (): AudioPlayer => {
 
   player = createCompatAudioPlayer()
   _playerStatusSubscription = player.addListener('playbackStatusUpdate', (audioStatus: AudioStatus) => {
+    if (audioStatus.error) {
+      if (sourceRecoveryTimer) return
+      if (tryScheduleSourceRecovery()) return
+      shouldResumeWhenLoaded = false
+      setPlaybackState(State.Error)
+      if (lastPlaybackError !== audioStatus.error) {
+        lastPlaybackError = audioStatus.error
+        emit(Event.PlaybackError, { code: 'audio-source-error', message: audioStatus.error })
+      }
+      return
+    }
+    // Periodic native status may omit an already-reported source error.
+    if (lastPlaybackError && !audioStatus.playing) return
+    lastPlaybackError = null
     if (shouldResumeWhenLoaded && audioStatus.isLoaded && !audioStatus.playing) {
       try {
         player?.play()
@@ -229,6 +269,9 @@ const ensurePlayer = (): AudioPlayer => {
     }
     if (audioStatus.playing || audioStatus.didJustFinish) {
       shouldResumeWhenLoaded = false
+    }
+    if (audioStatus.playing && audioStatus.currentTime > sourceRecoveryPosition) {
+      sourceRecoveryAttempts = 0
     }
 
     setProgress({
@@ -305,6 +348,42 @@ const setLockScreenState = (active: boolean, track?: Track) => {
   isLockScreenActive = false
 }
 
+const tryScheduleSourceRecovery = (): boolean => {
+  const wasStreaming = state === State.Playing || state === State.Buffering
+  if (!wasStreaming || progress.position <= 0 || activeTrackIndex < 0) return false
+  if (sourceRecoveryAttempts >= SOURCE_RECOVERY_DELAYS_MS.length) return false
+
+  const index = activeTrackIndex
+  const position = progress.position
+  sourceRecoveryPosition = position
+  const token = ++sourceRecoveryToken
+  setPlaybackState(State.Buffering)
+  sourceRecoveryTimer = setTimeout(() => {
+    sourceRecoveryTimer = null
+    void reloadAt(index, position, token).catch(() => {
+      // The next status update reports the failure or schedules another try.
+    })
+  }, SOURCE_RECOVERY_DELAYS_MS[sourceRecoveryAttempts])
+  sourceRecoveryAttempts += 1
+  return true
+}
+
+const reloadAt = async (index: number, position: number, token: number): Promise<void> => {
+  if (token !== sourceRecoveryToken || index !== activeTrackIndex) return
+  const track = queue[index]
+  const source = encodeMediaUrl(typeof track?.url === 'string' ? track.url.trim() : '')
+  if (!source) return
+
+  const currentPlayer = ensurePlayer()
+  lastPlaybackError = null
+  await currentPlayer.replace(source)
+  if (token !== sourceRecoveryToken || lastPlaybackError) return
+  await currentPlayer.seekTo(position)
+  setProgress({ ...progress, position })
+  shouldResumeWhenLoaded = true
+  currentPlayer.play()
+}
+
 const activateTrack = async (index: number, autoPlay: boolean): Promise<void> => {
   if (index < 0 || index >= queue.length) {
     const error = new Error(`Track index ${index} is out of bounds`)
@@ -323,6 +402,8 @@ const activateTrack = async (index: number, autoPlay: boolean): Promise<void> =>
     throw error
   }
 
+  lastPlaybackError = null
+  resetSourceRecovery()
   setPlaybackState(State.Loading)
   await currentPlayer.replace(source)
   activeTrackIndex = index
@@ -426,6 +507,7 @@ const TrackPlayer = {
 
   async reset(options?: ResetOptions): Promise<void> {
     const shouldRelease = options?.release === true
+    resetSourceRecovery()
 
     // Capture local refs before any await to prevent race conditions
     // with concurrent releasePlayer() calls nulling out the globals.
@@ -507,6 +589,7 @@ const TrackPlayer = {
 
   async pause(): Promise<void> {
     const currentPlayer = ensurePlayer()
+    cancelSourceRecovery()
     shouldResumeWhenLoaded = false
     currentPlayer.pause()
     setPlaybackState(State.Paused)
@@ -515,6 +598,7 @@ const TrackPlayer = {
 
   async stop(): Promise<void> {
     const currentPlayer = ensurePlayer()
+    resetSourceRecovery()
     shouldResumeWhenLoaded = false
     currentPlayer.pause()
     await currentPlayer.seekTo(0)
@@ -682,6 +766,7 @@ const TrackPlayer = {
  * to ensure MediaCodec resources are freed on Android.
  */
 export const releasePlayer = () => {
+  resetSourceRecovery()
   if (_playerStatusSubscription) {
     _playerStatusSubscription.remove()
     _playerStatusSubscription = null

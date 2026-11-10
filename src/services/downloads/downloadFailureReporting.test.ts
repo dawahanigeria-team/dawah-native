@@ -25,7 +25,7 @@ describe('shouldReportDownloadFailure', () => {
 
   test('stays quiet for refusals, which are outcomes rather than faults', () => {
     expect(shouldReportDownloadFailure(new DownloadAuthRequiredError('Sign in'))).toBe(false);
-    expect(shouldReportDownloadFailure(new DownloadLimitReachedError('No downloads left'))).toBe(
+    expect(shouldReportDownloadFailure(new DownloadLimitReachedError('No downloads left', 5, 5))).toBe(
       false,
     );
   });

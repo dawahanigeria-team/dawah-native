@@ -1,6 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
 import AsyncStorage from "expo-sqlite/kv-store";
-import { entity } from "simpler-state";
+import { entity, useEntity } from "simpler-state";
 import type { AudioPlaybackControls } from "../hooks/useAudioPlayback";
 import { addSentryBreadcrumb, captureSentryException } from "../services/config/sentry.config";
 import { downloadsService, isExpectedDownloadRefusal } from "../services/downloads.service";
@@ -308,7 +308,8 @@ const persistQueueSnapshot = (state: PlayerState) => {
 // Defined as standalone constants to ensure closure capture
 // ----------------------------------------------------------------------
 
-const playEpisode = async (episode: Episode) => {
+const playEpisode = async (episode: Episode, options: { startAt?: number } = {}) => {
+  const startAt = options.startAt ?? 0;
   const requestId = beginPlaybackRequest();
   logger.debug('🎮 PlayerStore: playEpisode called with:', episode.title);
 
@@ -331,7 +332,9 @@ const playEpisode = async (episode: Episode) => {
   }
 
   try {
-    const wasPlaying = playerStore.get().isPlaying;
+    const previousState = playerStore.get();
+    const wasPlaying = previousState.isPlaying;
+    const needsSourceReload = Boolean(previousState.errorMessage);
 
     setAndPersistPlayerState({
       ...playerStore.get(),
@@ -343,7 +346,7 @@ const playEpisode = async (episode: Episode) => {
     const currentState = playerStore.get();
 
     // Check if we're already playing this episode
-    if (currentState.currentEpisode?.id === episode.id) {
+    if (currentState.currentEpisode?.id === episode.id && !needsSourceReload) {
       logger.debug('📱 PlayerStore: Same episode already loaded');
 
       // If it was paused, resume; if it was playing, just show mini player
@@ -381,7 +384,7 @@ const playEpisode = async (episode: Episode) => {
       currentQueueIndex: 0,
       currentEpisode: episode,
       isPlaying: false,
-      progress: 0,
+      progress: startAt,
       duration: episode.durationSec,
       isExpanded: false,
       isLoading: true,
@@ -412,6 +415,9 @@ const playEpisode = async (episode: Episode) => {
       await TrackPlayer.add(tracks, { activate: false });
       await TrackPlayer.setPlaylistKey(buildPlaylistKey(queue));
       await TrackPlayer.skip(0);
+      if (startAt > 0) {
+        await TrackPlayer.seekTo(startAt);
+      }
 
       if (requestId !== currentPlayRequestId) return;
 
@@ -425,7 +431,7 @@ const playEpisode = async (episode: Episode) => {
 
       // Add to history
       try {
-        await historyService.addToHistory(episode, 0);
+        await historyService.addToHistory(episode, startAt);
         logger.debug('📚 Added lecture to history');
       } catch (error) {
         logger.error('Failed to add to history', error as Error, {
@@ -474,12 +480,19 @@ const playEpisode = async (episode: Episode) => {
     const isTimeout = message.toLowerCase().includes('timeout');
     const isSourceUnavailable = message === AUDIO_SOURCE_UNAVAILABLE_MESSAGE;
 
-    if (isSourceUnavailable) {
-      logger.warn('PlayerStore: Audio source unavailable', {
-        episodeId: episode.id,
-        title: episode.title,
-        audioUrl: episode.audioUrl,
-      });
+    // Both have their own on-screen message below. logger.error would still
+    // file them in Sentry, which the isTimeout guard further down means to avoid.
+    if (isSourceUnavailable || isTimeout) {
+      logger.warn(
+        isSourceUnavailable
+          ? 'PlayerStore: Audio source unavailable'
+          : 'PlayerStore: Audio took too long to start',
+        {
+          episodeId: episode.id,
+          title: episode.title,
+          audioUrl: episode.audioUrl,
+        },
+      );
     } else {
       logger.error('❌ PlayerStore: Failed to play episode', err, {
         episodeId: episode.id,
@@ -665,7 +678,13 @@ const playPrevious = async () => {
   }
 };
 
-const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: boolean = false) => {
+const playQueue = async (
+  episodes: Episode[],
+  startIndex: number = 0,
+  shuffle: boolean = false,
+  options: { startAt?: number } = {},
+) => {
+  const startAt = options.startAt ?? 0;
   const requestId = beginPlaybackRequest();
   logger.debug('🎵 PlayerStore: playQueue called with', episodes.length, 'episodes, startIndex:', startIndex);
 
@@ -731,6 +750,9 @@ const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: b
     await TrackPlayer.setPlaylistKey(buildPlaylistKey(filteredQueue));
     if (requestId !== currentPlayRequestId) return;
     await TrackPlayer.skip(safeFilteredStartIndex);
+    if (startAt > 0) {
+      await TrackPlayer.seekTo(startAt);
+    }
     if (requestId !== currentPlayRequestId) return;
     await TrackPlayer.play();
     await waitForPlaybackReady(PLAYBACK_START_TIMEOUT_MS, requestId);
@@ -745,19 +767,32 @@ const playQueue = async (episodes: Episode[], startIndex: number = 0, shuffle: b
       isShuffled: shuffle,
       isPlaying: true,
       isLoading: false,
-      progress: 0,
+      progress: startAt,
     };
     setAndPersistPlayerState(nextState);
     persistQueueSnapshot(nextState);
   } catch (error) {
     if (requestId !== currentPlayRequestId) return;
-    logger.error('Failed to play queue', error as Error);
-    captureSentryException(error as Error, { action: 'playQueue', episodeCount: episodes.length });
+    const message = (error as Error)?.message ?? '';
+    const isSourceUnavailable = message === AUDIO_SOURCE_UNAVAILABLE_MESSAGE;
+    const isTimeout = message.toLowerCase().includes('timeout');
+
+    if (isSourceUnavailable || isTimeout) {
+      logger.warn('PlayerStore: Queue could not start playback', {
+        reason: message,
+        episodeCount: episodes.length,
+      });
+    } else {
+      logger.error('Failed to play queue', error as Error);
+      captureSentryException(error as Error, { action: 'playQueue', episodeCount: episodes.length });
+    }
     setAndPersistPlayerState({
       ...playerStore.get(),
       isPlaying: false,
       isLoading: false,
-      errorMessage: 'Failed to play audio. Please try again.',
+      errorMessage: isSourceUnavailable
+        ? AUDIO_SOURCE_UNAVAILABLE_USER_MESSAGE
+        : 'Failed to play audio. Please try again.',
     });
   }
 };
@@ -766,6 +801,10 @@ const togglePlayPause = async () => {
   try {
     const currentState = playerStore.get();
     if (!currentState.currentEpisode) return;
+    if (currentState.errorMessage) {
+      await playEpisode(currentState.currentEpisode);
+      return;
+    }
 
     playerStore.set({
       ...currentState,
@@ -963,26 +1002,18 @@ const downloadEpisode = async (episode: Episode) => {
 };
 
 const closePlayer = () => {
-  if (!audioControls) {
-    logger.error('❌ PlayerStore: Audio controls not initialized', new Error('Audio controls not initialized'));
-    return;
-  }
-
-  try {
-    audioControls.stop();
-    audioControls.unload();
-    void TrackPlayer.reset();
-    void clearQueueSnapshot();
-
-    setAndPersistPlayerState({
-      ...initialState,
-    });
-  } catch (error) {
-    logger.error('Failed to close player', error as Error);
-    setAndPersistPlayerState({
-      ...initialState,
-    });
-  }
+  // Closing is valid even before AudioProvider has attached its controls.
+  // Invalidate pending loads/restoration before they can reopen the player.
+  beginPlaybackRequest();
+  setAndPersistPlayerState({ ...initialState });
+  // stop(), unload(), and reset() previously raced three native resets against
+  // one another. Reset already pauses and clears the native queue/controls.
+  void Promise.resolve().then(() => TrackPlayer.reset()).catch(error => {
+    logger.error('Failed to reset closed player', error as Error);
+  });
+  void clearQueueSnapshot().catch(error => {
+    logger.error('Failed to clear closed player queue', error as Error);
+  });
 };
 
 const addToQueue = async (episodes: Episode | Episode[]) => {
@@ -1023,6 +1054,38 @@ const addToQueue = async (episodes: Episode | Episode[]) => {
     await TrackPlayer.setPlaylistKey(buildPlaylistKey(queue));
   } catch (error) {
     logger.error('Failed to add tracks to queue', error as Error);
+  }
+};
+
+const skipToQueueIndex = async (index: number) => {
+  const currentState = playerStore.get();
+  const queue = Array.isArray(currentState.queue) ? currentState.queue : [];
+  const target = queue[index];
+  if (!target || index === currentState.currentQueueIndex) return;
+
+  try {
+    await ensureTrackPlayerReady();
+    // A restored session keeps the queue in the store but not in the native player.
+    const playerQueue = await TrackPlayer.getQueue();
+    if (playerQueue.length !== queue.length) {
+      await TrackPlayer.reset();
+      await TrackPlayer.add(buildQueue(queue, resolvePlaybackUri), { activate: false });
+      await TrackPlayer.setPlaylistKey(buildPlaylistKey(queue));
+    }
+    await TrackPlayer.skip(index);
+    await TrackPlayer.play();
+
+    const nextState = {
+      ...playerStore.get(),
+      currentQueueIndex: index,
+      currentEpisode: target,
+      isPlaying: true,
+      progress: 0,
+    };
+    setAndPersistPlayerState(nextState);
+    persistQueueSnapshot(nextState);
+  } catch (error) {
+    logger.error('Failed to skip to queue item', error as Error, { index });
   }
 };
 
@@ -1306,6 +1369,7 @@ const actions = {
   closePlayer,
   addToQueue,
   removeFromQueue,
+  skipToQueueIndex,
   toggleShuffle,
   setRepeatMode,
   clearQueue,
@@ -1335,7 +1399,7 @@ export const usePlayerStore = () => {
   // Get state from the store. simpler-state's .use() is a React hook
   // and should not be wrapped in try-catch as that can corrupt React's
   // internal hook tracking (causing areHookInputsEqual to fail).
-  const rawState = playerStore.use();
+  const rawState = useEntity(playerStore);
 
   // Merge with initialState to ensure all properties are always defined.
   // This prevents "Cannot read property 'X' of undefined" errors when the

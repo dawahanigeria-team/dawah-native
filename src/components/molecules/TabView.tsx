@@ -130,7 +130,7 @@ export const TabView: React.FC<TabViewProps> = ({
                           fontSize: designTokens.typography.fontSize.caption1,
                           color: isActive
                             ? colors.system.label.secondary
-                            : colors.system.label.quaternary,
+                            : colors.system.label.tertiary,
                         },
                       ]}
                     >

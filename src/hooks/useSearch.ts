@@ -3,6 +3,7 @@
  * Provides optimized search with debouncing, caching, and state management
  */
 
+import { resolveSearchFacets } from '../features/search/searchFacets';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '../services/api/base.api';
 import { searchApi } from '../services/api/search.api';
@@ -144,19 +145,18 @@ export function useSearch<T = any>(
 
       try {
         // Map UI filters to API params
+        const facets = searchType === 'lectures' ? resolveSearchFacets(searchFilters) : null;
         const apiParams: any = {
-          type: searchType,
+          type: facets ? 'all' : searchType,
           query: searchQuery,
           page,
           quick: enableQuickSearch && page === 1,
-          ...searchFilters
+          ...searchFilters,
+          contentType: facets?.contentType,
+          phrase: facets?.phrase,
         };
         
         // Handle specific filter mappings if needed
-        if (searchFilters.topic && searchFilters.topic !== 'All') {
-          apiParams.category = searchFilters.topic;
-        }
-        
         if (searchFilters.lecturerId) {
           apiParams.lecturer_nid = searchFilters.lecturerId;
         }
@@ -399,12 +399,13 @@ export function useSearchSuggestions(partialQuery: string, enabled = true) {
  * Recent searches hook
  */
 export function useRecentSearches() {
-  const [recentSearches, setRecentSearches] = useState<string[]>([]);
-
-  useEffect(() => {
-    // Load recent searches on mount
-    setRecentSearches(searchApi.getRecentSearches());
-  }, []);
+  // Read once as the initial value rather than in a mount effect.
+  // `getRecentSearches` returns a copy of an in-memory array synchronously, so
+  // there is nothing to wait for - the effect only cost a render showing an
+  // empty list before the real one arrived.
+  const [recentSearches, setRecentSearches] = useState<string[]>(() =>
+    searchApi.getRecentSearches(),
+  );
 
   const clearRecent = useCallback(() => {
     searchApi.clearRecentSearches();

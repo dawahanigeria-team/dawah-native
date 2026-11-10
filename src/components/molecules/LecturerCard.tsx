@@ -103,7 +103,7 @@ export const LecturerCard: React.FC<LecturerCardProps> = ({
               { backgroundColor: colors.brand.primary }
             ]}
           >
-            <Ionicons name="checkmark" size={13} color="white" />
+            <Ionicons name="checkmark" size={13} color={colors.brand.onPrimary} />
           </View>
         )}
       </View>

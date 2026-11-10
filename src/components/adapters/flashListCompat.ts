@@ -1,16 +1,5 @@
-import { FlashList as NativeFlashList } from "@shopify/flash-list";
-import { FlatList, UIManager } from "react-native";
-
-const supportsAutoLayoutView = Boolean(
-  UIManager.getViewManagerConfig?.("AutoLayoutView"),
-);
-
-/**
- * FlashList can crash on some Android builds when AutoLayoutView is unavailable.
- * Fall back to FlatList so route rendering remains safe in production.
- */
-export const FlashList = (
-  supportsAutoLayoutView ? NativeFlashList : FlatList
-) as typeof NativeFlashList;
-
+// FlashList v2 is JS-only on the New Architecture used by this app.
+// AutoLayoutView belonged to v1; probing for it silently disabled recycling
+// on every v2 build. Keep this import path stable for existing screens.
+export { FlashList } from "@shopify/flash-list";
 export type { FlashListProps, ListRenderItem } from "@shopify/flash-list";

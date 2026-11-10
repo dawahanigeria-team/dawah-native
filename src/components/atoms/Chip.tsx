@@ -107,25 +107,25 @@ export const Chip: React.FC<ChipProps> = memo(
           return {
             paddingHorizontal: designTokens.spacing.sm,
             paddingVertical: designTokens.spacing.xs,
-            minHeight: 28,
+            minHeight: designTokens.hitTargets.minimum,
           };
         case "medium":
           return {
             paddingHorizontal: designTokens.spacing.md,
             paddingVertical: 6,
-            minHeight: 32,
+            minHeight: designTokens.hitTargets.minimum,
           };
         case "large":
           return {
             paddingHorizontal: designTokens.spacing.lg,
             paddingVertical: designTokens.spacing.sm,
-            minHeight: 40,
+            minHeight: designTokens.hitTargets.minimum,
           };
         default:
           return {
             paddingHorizontal: designTokens.spacing.md,
             paddingVertical: 6,
-            minHeight: 32,
+            minHeight: designTokens.hitTargets.minimum,
           };
       }
     };
@@ -158,6 +158,7 @@ export const Chip: React.FC<ChipProps> = memo(
 
     const combinedStyle: ViewStyle = {
       alignSelf: "flex-start",
+      justifyContent: "center",
       borderRadius: designTokens.borderRadius[borderRadius],
       opacity: disabled ? 0.6 : 1,
       marginRight: designTokens.spacing.sm,
@@ -169,7 +170,7 @@ export const Chip: React.FC<ChipProps> = memo(
 
     // For selected chips on brand primary background, use black text for contrast
     const isSelected = selected && !disabled;
-    const textStyle = isSelected ? { color: colors.fixed.black } : undefined;
+    const textStyle = isSelected ? { color: colors.brand.onPrimary } : undefined;
 
     return (
       <Touchable

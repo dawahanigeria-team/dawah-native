@@ -279,3 +279,93 @@ describe('expoTrackPlayerCompat', () => {
     expect(expoAudioMock.AudioModule.AudioPlayer).toHaveBeenCalledWith(null, 250, true)
   })
 })
+
+
+test('native source failures end loading immediately and report once', async () => {
+  await TrackPlayer.reset()
+  const player = jest.requireMock('expo-audio').__player
+  const onError = jest.fn()
+  const sub = TrackPlayer.addEventListener(Event.PlaybackError, onError)
+  await TrackPlayer.add({ id: 'broken', url: 'https://example.com/missing.mp3', title: 'Missing' })
+  player.emitStatus({ error: 'HTTP 404', isLoaded: false, isBuffering: true })
+  player.emitStatus({ error: 'HTTP 404', isLoaded: false, isBuffering: true })
+  expect(await TrackPlayer.getPlaybackState()).toEqual({ state: State.Error })
+  player.emitStatus({ error: null, isLoaded: false, isBuffering: true })
+  expect(await TrackPlayer.getPlaybackState()).toEqual({ state: State.Error })
+  expect(onError).toHaveBeenCalledTimes(1)
+  sub.remove()
+})
+
+describe('mid-stream source failures', () => {
+  const startStreaming = async (positionSeconds: number) => {
+    await TrackPlayer.reset()
+    const player = jest.requireMock('expo-audio').__player
+    await TrackPlayer.add({ id: 'long', url: 'https://example.com/long.mp3', title: 'Long' })
+    await TrackPlayer.play()
+    player.currentTime = positionSeconds
+    player.emitStatus({ playing: true, currentTime: positionSeconds })
+    return player
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  test('reload the track at the last position once the network is back', async () => {
+    const player = await startStreaming(180)
+    const onError = jest.fn()
+    const sub = TrackPlayer.addEventListener(Event.PlaybackError, onError)
+    player.replace.mockClear()
+    player.seekTo.mockClear()
+
+    player.emitStatus({ error: 'Source error', isLoaded: false, isBuffering: true })
+
+    expect(onError).not.toHaveBeenCalled()
+    expect(await TrackPlayer.getPlaybackState()).toEqual({ state: State.Buffering })
+
+    await jest.advanceTimersByTimeAsync(2000)
+
+    expect(player.replace).toHaveBeenCalledWith('https://example.com/long.mp3')
+    expect(player.seekTo).toHaveBeenCalledWith(180)
+    expect(player.play).toHaveBeenCalled()
+    expect(onError).not.toHaveBeenCalled()
+    sub.remove()
+  })
+
+  test('report the failure once the retries run out', async () => {
+    const player = await startStreaming(180)
+    const onError = jest.fn()
+    const sub = TrackPlayer.addEventListener(Event.PlaybackError, onError)
+    player.replace.mockClear()
+    player.replace.mockImplementation(() => {
+      player.emitStatus({ error: 'Source error', isLoaded: false, isBuffering: true })
+    })
+
+    player.emitStatus({ error: 'Source error', isLoaded: false, isBuffering: true })
+    await jest.advanceTimersByTimeAsync(60_000)
+
+    expect(player.replace).toHaveBeenCalledTimes(3)
+    expect(onError).toHaveBeenCalledTimes(1)
+    expect(await TrackPlayer.getPlaybackState()).toEqual({ state: State.Error })
+    sub.remove()
+    player.replace.mockReset()
+  })
+
+  test('do not resume a track the listener paused while waiting', async () => {
+    const player = await startStreaming(180)
+    player.replace.mockClear()
+
+    player.emitStatus({ error: 'Source error', isLoaded: false, isBuffering: true })
+    await TrackPlayer.pause()
+    await jest.advanceTimersByTimeAsync(20_000)
+
+    expect(player.replace).not.toHaveBeenCalled()
+    expect(await TrackPlayer.getPlaybackState()).toEqual({ state: State.Paused })
+  })
+})
+
+afterAll(() => releasePlayer())
