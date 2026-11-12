@@ -220,13 +220,11 @@ export interface LectureDetail {
   title: string;
   description?: string;
   audioUrl: string;
-  amrUrl?: string;
   coverUrl: string;
   backdropUrl?: string;
   durationSec: number;
   durationLabel?: string;
   mp3Size?: string;
-  amrSize?: string;
   categories: string[];
   categoryIds: string[];
   albumId?: string;
