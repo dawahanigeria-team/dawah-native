@@ -8,6 +8,18 @@ import { API_CONFIG } from '../config/api.config';
 import { apiClient, ApiError } from './base.api';
 import { logger } from '@/utils/logger';
 
+// The legacy uploader wrote "Language: X." and "Size: N MB [MP3] | N MB [AMR]"
+// into every description. Language is shown on its own, and the AMR copies
+// were not carried over to R2.
+const UPLOADER_METADATA_LINE = /^\s*(Language:\s*[^\n]*\.|Size:.*\[(MP3|AMR)\].*)\s*$/i;
+
+const stripUploaderMetadata = (description: string): string =>
+  description
+    .split('\n')
+    .filter((line) => !UPLOADER_METADATA_LINE.test(line))
+    .join('\n')
+    .trim();
+
 export interface LectureDetailParams {
   lectureId: string | number;
   useCache?: boolean;
@@ -144,15 +156,13 @@ class LectureDetailApiService {
     const lecture: LectureDetail = {
       id: String(item.nid ?? lectureId),
       title: item.Title ?? 'Untitled Lecture',
-      description: item.description ?? '',
+      description: stripUploaderMetadata(item.description ?? ''),
       audioUrl: item.audio ?? '',
-      amrUrl: item.amr_url || '',
       coverUrl: item.img || item.lec_img || '',
       backdropUrl: item.lec_img || item.img || '',
       durationSec: durationSeconds,
       durationLabel: item.duration ?? '',
       mp3Size: item.mp3_size ?? '',
-      amrSize: item.amr_size ?? '',
       categories: this.parseCategories(item.cats),
       categoryIds: Array.isArray(item.cat_id) ? item.cat_id : [],
       albumId: item.album_id ? String(item.album_id) : '',
