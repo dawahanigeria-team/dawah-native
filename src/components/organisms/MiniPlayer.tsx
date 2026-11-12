@@ -13,12 +13,6 @@ import {
   ViewStyle,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import Animated, {
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../hooks/useTheme";
 import { playerStore, resolveEpisodeArtistName, usePlayerActions } from "../../stores/playerStore";
@@ -86,7 +80,6 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
 
     const [imageError, setImageError] = useState(false);
     const [miniProgressTrackWidth, setMiniProgressTrackWidth] = useState(screenWidth);
-    const opacity = useSharedValue(1);
 
     // Check if we're on a screen where the bottom tab bar is actually visible.
     // This should stay in sync with `shouldShowTabs` in `app/(tabs)/_layout.tsx`:
@@ -98,8 +91,6 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
       pathname === "/profile";
 
     const tabBarHeight = useMemo(() => getTabBarHeight(insets.bottom), [insets.bottom]);
-
-    const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
     const handleMiniProgressTouch = useCallback(
       (event: GestureResponderEvent) => {
@@ -123,12 +114,6 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
     const handleExpand = () => {
       router.push(`/lecture/${currentEpisode.id}`);
       onExpand?.();
-    };
-
-    const handleClose = () => {
-      opacity.set(withTiming(0, { duration: 200 }, () => {
-        runOnJS(closePlayer)();
-      }));
     };
 
     const renderMiniPlayer = () => (
@@ -228,7 +213,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
             )}
             {/* The expanded player used to be the only way to stop and dismiss playback. */}
             <Touchable
-              onPress={handleClose}
+              onPress={closePlayer}
               style={styles.closeButton}
               accessibilityLabel="Close player"
               accessibilityRole="button"
@@ -253,7 +238,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
           },
         ]}
       >
-        <Animated.View
+        <View
           pointerEvents="auto"
           style={[
             styles.player,
@@ -262,11 +247,10 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
               borderTopColor: colors.system.separator.primary,
               boxShadow: boxShadow(colors.system.label.primary, 0.1, 8, -2, 0),
             },
-            animatedStyle,
           ]}
         >
           {renderMiniPlayer()}
-        </Animated.View>
+        </View>
       </GestureHandlerRootView>
     );
   }
