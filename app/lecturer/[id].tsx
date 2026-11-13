@@ -23,6 +23,8 @@ import {
 } from "../../src/components/molecules";
 import { TabView } from "../../src/components/molecules/TabView";
 import { resolveLecturesListState } from "../../src/features/lecturer/lecturesListState";
+import { buildLecturerAbout } from "../../src/features/lecturer/lecturerAbout";
+import { LecturerAboutSheet } from "../../src/features/lecturer/LecturerAboutSheet";
 import { useDebounce } from "../../src/hooks/useDebounce";
 import { useFollowGate } from "../../src/hooks/useFollowGate";
 import { useTheme } from "../../src/hooks/useTheme";
@@ -253,6 +255,7 @@ function LecturerDetailScreen() {
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   // Follow state
   const [isFollowing, setIsFollowing] = useState(false);
@@ -915,6 +918,7 @@ function LecturerDetailScreen() {
   const favorites = lecturer.favorites ?? 0;
   const shares = lecturer.share ?? 0;
   const comments = lecturer.comment ?? 0;
+  const about = buildLecturerAbout({ ...lecturer, name: lecturerName }, lectures[0]);
 
   // Define tabs
   const tabs = [
@@ -1064,7 +1068,7 @@ function LecturerDetailScreen() {
           {lecturerImage ? (
             <Image
               source={{ uri: lecturerImage }}
-              style={tw`w-32 h-32 rounded-2xl shadow-lg`}
+              style={tw`w-24 h-24 rounded-2xl shadow-lg`}
               contentFit="cover"
               cachePolicy={IMAGE_CACHE_POLICY}
               allowDownscaling
@@ -1073,7 +1077,7 @@ function LecturerDetailScreen() {
           ) : (
             <View
               style={[
-                tw`w-32 h-32 rounded-2xl items-center justify-center shadow-lg`,
+                tw`w-24 h-24 rounded-2xl items-center justify-center shadow-lg`,
                 { backgroundColor: getPlaceholderColor(lecturerId) },
               ]}
             >
@@ -1090,7 +1094,6 @@ function LecturerDetailScreen() {
                 tw`text-2xl font-bold mb-1`,
                 { color: colors.system.label.primary },
               ]}
-              numberOfLines={2}
             >
               {lecturerName}
             </Text>
@@ -1099,7 +1102,7 @@ function LecturerDetailScreen() {
                 The web detail page renders `count` whenever it is defined, so
                 hiding zeros here would have the two platforms disagree about
                 the same lecturer. */}
-            <View style={tw`flex-row items-center mb-3`}>
+            <View style={tw`flex-row items-center`}>
               <View style={tw`flex-row items-center mr-3`}>
                 <Ionicons
                   name="heart"
@@ -1146,77 +1149,93 @@ function LecturerDetailScreen() {
                 </Text>
               </View>
             </View>
-
-            {/* Follow Button */}
-            <TouchableOpacity
-              onPress={() => {
-                void handleFollowPress();
-              }}
-              disabled={followDisabled}
-              activeOpacity={0.7}
-              style={[
-                tw`flex-row items-center justify-center px-6 min-h-[44px] rounded-full`,
-                followButtonStyle,
-              ]}
-            >
-              {isFollowLoading ? (
-                <ActivityIndicator
-                  size="small"
-                  color={
-                    isFollowing
-                      ? colors.system.label.primary
-                      : colors.brand.onPrimary
-                  }
-                />
-              ) : (
-                <>
-                  {isFollowing ? (
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={18}
-                      color={colors.brand.primary}
-                      style={tw`mr-1.5`}
-                    />
-                  ) : !canFollowMore ? (
-                    <Ionicons
-                      name="lock-closed"
-                      size={14}
-                      color={colors.brand.onPrimary}
-                      style={tw`mr-1.5`}
-                    />
-                  ) : null}
-                  <Text
-                    style={[
-                      tw`text-base font-semibold`,
-                      {
-                        color: isFollowing
-                          ? colors.system.label.primary
-                          : colors.brand.onPrimary,
-                      },
-                    ]}
-                  >
-                    {isFollowing ? "Following" : "Follow"}
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
           </View>
         </View>
 
-        {/* Bio Section - Full Width Below */}
-        {lecturer.bio && (
-          <View style={tw`mt-4`}>
+        <View style={tw`flex-row items-center mt-4`}>
+          {/* Follow Button */}
+          <TouchableOpacity
+            onPress={() => {
+              void handleFollowPress();
+            }}
+            disabled={followDisabled}
+            activeOpacity={0.7}
+            style={[
+              tw`flex-1 flex-row items-center justify-center px-6 min-h-[44px] rounded-full`,
+              followButtonStyle,
+            ]}
+          >
+            {isFollowLoading ? (
+              <ActivityIndicator
+                size="small"
+                color={
+                  isFollowing
+                    ? colors.system.label.primary
+                    : colors.brand.onPrimary
+                }
+              />
+            ) : (
+              <>
+                {isFollowing ? (
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={18}
+                    color={colors.brand.primary}
+                    style={tw`mr-1.5`}
+                  />
+                ) : !canFollowMore ? (
+                  <Ionicons
+                    name="lock-closed"
+                    size={14}
+                    color={colors.brand.onPrimary}
+                    style={tw`mr-1.5`}
+                  />
+                ) : null}
+                <Text
+                  style={[
+                    tw`text-base font-semibold`,
+                    {
+                      color: isFollowing
+                        ? colors.system.label.primary
+                        : colors.brand.onPrimary,
+                    },
+                  ]}
+                >
+                  {isFollowing ? "Following" : "Follow"}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setAboutOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`About ${about.displayName}`}
+            activeOpacity={0.7}
+            style={[
+              tw`flex-row items-center justify-center px-5 min-h-[44px] rounded-full ml-3`,
+              styles.outlinedButton,
+              {
+                backgroundColor: colors.system.background.secondary,
+                borderColor: colors.system.separator.primary,
+              },
+            ]}
+          >
+            <Ionicons
+              name="information-circle-outline"
+              size={18}
+              color={colors.system.label.primary}
+              style={tw`mr-1.5`}
+            />
             <Text
               style={[
-                tw`text-sm leading-5`,
-                { color: colors.system.label.secondary },
+                tw`text-base font-semibold`,
+                { color: colors.system.label.primary },
               ]}
-              numberOfLines={3}
             >
-              {lecturer.bio}
+              About
             </Text>
-          </View>
-        )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Tabs */}
@@ -1406,6 +1425,11 @@ function LecturerDetailScreen() {
       {activeTab === "songs"
         ? renderSongsList()
         : renderAlbumsList()}
+      <LecturerAboutSheet
+        about={about}
+        visible={aboutOpen}
+        onClose={() => setAboutOpen(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -1413,6 +1437,9 @@ function LecturerDetailScreen() {
 const styles = StyleSheet.create({
   stickyHeader: {
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  outlinedButton: {
+    borderWidth: 1.5,
   },
   initialsText: {
     fontSize: 36,
