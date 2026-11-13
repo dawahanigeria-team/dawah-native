@@ -23,13 +23,11 @@ import {
 } from "../../src/components/molecules";
 import { TabView } from "../../src/components/molecules/TabView";
 import { resolveLecturesListState } from "../../src/features/lecturer/lecturesListState";
+import { buildLecturerAbout } from "../../src/features/lecturer/lecturerAbout";
+import { LecturerAboutSheet } from "../../src/features/lecturer/LecturerAboutSheet";
 import { useDebounce } from "../../src/hooks/useDebounce";
 import { useFollowGate } from "../../src/hooks/useFollowGate";
 import { useTheme } from "../../src/hooks/useTheme";
-import {
-  buildLecturerPlaylistSearchKey,
-  shouldFetchLecturerPlaylists,
-} from "../../src/features/lecturer/playlistTabState";
 import { ApiError } from "../../src/services/api/base.api";
 import { Album, albumsApi } from "../../src/services/api/albums.api";
 import {
@@ -56,7 +54,6 @@ import {
 } from "../../src/services/notifications.service";
 import { useAuthStore, usePlayerActions } from "../../src/stores";
 import tw from "../../src/theme/twrnc";
-import { SearchPlaylist } from "../../src/types/api.types";
 import { Episode } from "../../src/types/types";
 import {
   getInitials,
@@ -69,7 +66,7 @@ import {
 } from "../../src/utils/lecturerFollowAuth";
 
 // Tab types
-type TabType = "songs" | "albums" | "playlists";
+type TabType = "songs" | "albums";
 
 type LecturerDetails = Lecturer & {
   rpname?: string;
@@ -253,21 +250,12 @@ function LecturerDetailScreen() {
   const [loadingMoreAlbums, setLoadingMoreAlbums] = useState(false);
   const isAlbumLoadingRef = useRef(false);
 
-  // Playlist Pagination states
-  const [playlists, setPlaylists] = useState<SearchPlaylist[]>([]);
-  const [playlistsLoading, setPlaylistsLoading] = useState(false);
-  const [currentPlaylistPage, setCurrentPlaylistPage] = useState(1);
-  const [hasMorePlaylists, setHasMorePlaylists] = useState(true);
-  const [loadingMorePlaylists, setLoadingMorePlaylists] = useState(false);
-  const isPlaylistLoadingRef = useRef(false);
-  const [lastLoadedPlaylistSearchKey, setLastLoadedPlaylistSearchKey] =
-    useState<string | null>(null);
-
   // Tab state
   const [activeTab, setActiveTab] = useState<TabType>("songs");
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   // Follow state
   const [isFollowing, setIsFollowing] = useState(false);
@@ -557,117 +545,6 @@ function LecturerDetailScreen() {
       }
     };
   }, [lecturerId, fetchLecturerDetails, fetchLecturerLectures, fetchAlbums]);
-
-  const playlistQueryName = lecturer?.rpname || lecturer?.name || "";
-  const playlistSearchKey = buildLecturerPlaylistSearchKey(
-    lecturerId,
-    playlistQueryName,
-  );
-
-  useEffect(() => {
-    setPlaylists([]);
-    setCurrentPlaylistPage(1);
-    setHasMorePlaylists(true);
-    setLoadingMorePlaylists(false);
-    setPlaylistsLoading(false);
-    isPlaylistLoadingRef.current = false;
-    setLastLoadedPlaylistSearchKey(null);
-  }, [playlistSearchKey]);
-
-  const fetchPlaylists = useCallback(
-    async (page = 1, appendData = false) => {
-    if (isPlaylistLoadingRef.current) return;
-
-    // Need lecturer name to search
-    const queryName = lecturer?.rpname || lecturer?.name;
-    const currentPlaylistKey = buildLecturerPlaylistSearchKey(
-      lecturerId,
-      queryName,
-    );
-    if (!queryName) {
-      setPlaylistsLoading(false);
-      return;
-    }
-
-    try {
-      isPlaylistLoadingRef.current = true;
-      if (appendData) {
-        setLoadingMorePlaylists(true);
-      } else {
-        setPlaylistsLoading(true);
-      }
-
-      addSentryBreadcrumb("Fetching playlists for lecturer", "http", {
-        lecturerId,
-        queryName,
-        page,
-      });
-
-      const response = await searchApi.searchPlaylists(queryName, page);
-
-      if (appendData) {
-        setPlaylists((prev) => {
-          const existingIds = new Set(prev.map((p) => p.id));
-          const newPlaylists = response.data.filter(
-            (p) => !existingIds.has(p.id),
-          );
-          return [...prev, ...newPlaylists];
-        });
-      } else {
-        setPlaylists(response.data);
-      }
-
-      const hasMore = response.data.length >= PAGE_SIZE;
-      setHasMorePlaylists(hasMore);
-      setCurrentPlaylistPage(page);
-      if (!appendData) {
-        setLastLoadedPlaylistSearchKey(currentPlaylistKey);
-      }
-    } catch (err: unknown) {
-      const error =
-        err instanceof Error ? err : new Error("Failed to fetch playlists");
-      console.error("Failed to fetch playlists:", error);
-      // Don't show full error for empty search results
-      setHasMorePlaylists(false);
-    } finally {
-      setPlaylistsLoading(false);
-      setLoadingMorePlaylists(false);
-      isPlaylistLoadingRef.current = false;
-    }
-    },
-    [lecturer?.name, lecturer?.rpname, lecturerId],
-  );
-
-  const loadMorePlaylists = () => {
-    if (
-      !hasMorePlaylists ||
-      loadingMorePlaylists ||
-      playlistsLoading ||
-      isPlaylistLoadingRef.current
-    )
-      return;
-    fetchPlaylists(currentPlaylistPage + 1, true);
-  };
-
-  // Fetch playlists when tab changes
-  useEffect(() => {
-    if (shouldFetchLecturerPlaylists({
-      activeTab,
-      playlistsLoading,
-      queryName: playlistQueryName,
-      currentSearchKey: playlistSearchKey,
-      lastLoadedSearchKey: lastLoadedPlaylistSearchKey,
-    })) {
-      fetchPlaylists();
-    }
-  }, [
-    activeTab,
-    fetchPlaylists,
-    lastLoadedPlaylistSearchKey,
-    playlistQueryName,
-    playlistSearchKey,
-    playlistsLoading,
-  ]);
 
   // Debounce search query to avoid excessive filtering
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
@@ -1041,6 +918,7 @@ function LecturerDetailScreen() {
   const favorites = lecturer.favorites ?? 0;
   const shares = lecturer.share ?? 0;
   const comments = lecturer.comment ?? 0;
+  const about = buildLecturerAbout({ ...lecturer, name: lecturerName }, lectures[0]);
 
   // Define tabs
   const tabs = [
@@ -1053,11 +931,6 @@ function LecturerDetailScreen() {
       key: "albums" as TabType,
       title: "Albums",
       count: tabCount(lecturer?.total_albums, albums.length),
-    },
-    {
-      key: "playlists" as TabType,
-      title: "Playlists",
-      count: playlists.length,
     },
   ];
 
@@ -1178,126 +1051,6 @@ function LecturerDetailScreen() {
     );
   };
 
-  const renderPlaylistFooter = () => {
-    if (!loadingMorePlaylists) return null;
-    return (
-      <View style={tw`py-4 items-center`}>
-        <ActivityIndicator size="small" color={colors.brand.primary} />
-        <Text
-          style={[tw`mt-2 text-xs`, { color: colors.system.label.secondary }]}
-        >
-          Loading more playlists...
-        </Text>
-      </View>
-    );
-  };
-
-  const renderPlaylistItem = ({ item }: { item: SearchPlaylist }) => {
-    const handlePlaylistPress = () => {
-      // Navigate to playlist detail page
-      guardedPush(`/playlist/${item.id}`);
-    };
-
-    return (
-      <TouchableOpacity
-        style={[
-          tw`flex-row items-start p-4 rounded-lg mb-3`,
-          { backgroundColor: colors.system.background.secondary },
-        ]}
-        onPress={handlePlaylistPress}
-      >
-        {item.coverUrl ? (
-          <Image
-            source={{ uri: item.coverUrl }}
-            style={tw`w-16 h-16 rounded-lg`}
-            contentFit="cover"
-            cachePolicy={IMAGE_CACHE_POLICY}
-            allowDownscaling
-            recyclingKey={`playlist-${item.id}`}
-          />
-        ) : (
-          <View
-            style={[
-              tw`w-16 h-16 rounded-lg items-center justify-center`,
-              { backgroundColor: colors.system.fill.secondary },
-            ]}
-          >
-            <Ionicons
-              name="list"
-              size={24}
-              color={colors.system.label.tertiary}
-            />
-          </View>
-        )}
-        <View style={tw`flex-1 ml-4`}>
-          <Text
-            style={[
-              tw`font-semibold mb-1`,
-              { color: colors.system.label.primary },
-            ]}
-            numberOfLines={2}
-          >
-            {item.title}
-          </Text>
-          <Text style={[tw`text-sm`, { color: colors.system.label.secondary }]}>
-            {item.itemCount || 0} items
-            {item.userName ? ` • by ${item.userName}` : ""}
-          </Text>
-        </View>
-        <View style={tw`justify-center ml-2`}>
-          <Ionicons
-            name="chevron-forward"
-            size={20}
-            color={colors.system.label.tertiary}
-          />
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
-  const renderPlaylistsList = () => {
-    if (playlistsLoading) {
-      return (
-        <View style={tw`py-10 items-center`}>
-          <ActivityIndicator size="small" color={colors.brand.primary} />
-          <Text style={[tw`mt-2`, { color: colors.system.label.secondary }]}>
-            Loading playlists...
-          </Text>
-        </View>
-      );
-    }
-
-    if (playlists.length === 0) {
-      return (
-        <View style={tw`py-10 items-center`}>
-          <Text
-            style={[tw`text-center`, { color: colors.system.label.secondary }]}
-          >
-            No playlists found for this scholar
-          </Text>
-        </View>
-      );
-    }
-
-    return (
-      <FlatList
-        data={playlists}
-        renderItem={renderPlaylistItem}
-        keyExtractor={(item) => item.id.toString()}
-        stickyHeaderIndices={[0]}
-        contentContainerStyle={tw`px-5 pb-20`}
-        onEndReached={loadMorePlaylists}
-        onEndReachedThreshold={0.5}
-        keyboardDismissMode="on-drag"
-        ListHeaderComponent={headerContent}
-        ListFooterComponent={renderPlaylistFooter}
-        initialNumToRender={SECONDARY_LIST_INITIAL_NUM_TO_RENDER}
-        maxToRenderPerBatch={SECONDARY_LIST_MAX_TO_RENDER_PER_BATCH}
-        windowSize={SECONDARY_LIST_WINDOW_SIZE}
-      />
-    );
-  };
-
   const headerContent = (
     <View
       style={[
@@ -1315,7 +1068,7 @@ function LecturerDetailScreen() {
           {lecturerImage ? (
             <Image
               source={{ uri: lecturerImage }}
-              style={tw`w-32 h-32 rounded-2xl shadow-lg`}
+              style={tw`w-24 h-24 rounded-2xl shadow-lg`}
               contentFit="cover"
               cachePolicy={IMAGE_CACHE_POLICY}
               allowDownscaling
@@ -1324,7 +1077,7 @@ function LecturerDetailScreen() {
           ) : (
             <View
               style={[
-                tw`w-32 h-32 rounded-2xl items-center justify-center shadow-lg`,
+                tw`w-24 h-24 rounded-2xl items-center justify-center shadow-lg`,
                 { backgroundColor: getPlaceholderColor(lecturerId) },
               ]}
             >
@@ -1341,7 +1094,6 @@ function LecturerDetailScreen() {
                 tw`text-2xl font-bold mb-1`,
                 { color: colors.system.label.primary },
               ]}
-              numberOfLines={2}
             >
               {lecturerName}
             </Text>
@@ -1350,7 +1102,7 @@ function LecturerDetailScreen() {
                 The web detail page renders `count` whenever it is defined, so
                 hiding zeros here would have the two platforms disagree about
                 the same lecturer. */}
-            <View style={tw`flex-row items-center mb-3`}>
+            <View style={tw`flex-row items-center`}>
               <View style={tw`flex-row items-center mr-3`}>
                 <Ionicons
                   name="heart"
@@ -1397,77 +1149,93 @@ function LecturerDetailScreen() {
                 </Text>
               </View>
             </View>
-
-            {/* Follow Button */}
-            <TouchableOpacity
-              onPress={() => {
-                void handleFollowPress();
-              }}
-              disabled={followDisabled}
-              activeOpacity={0.7}
-              style={[
-                tw`flex-row items-center justify-center px-6 min-h-[44px] rounded-full`,
-                followButtonStyle,
-              ]}
-            >
-              {isFollowLoading ? (
-                <ActivityIndicator
-                  size="small"
-                  color={
-                    isFollowing
-                      ? colors.system.label.primary
-                      : colors.brand.onPrimary
-                  }
-                />
-              ) : (
-                <>
-                  {isFollowing ? (
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={18}
-                      color={colors.brand.primary}
-                      style={tw`mr-1.5`}
-                    />
-                  ) : !canFollowMore ? (
-                    <Ionicons
-                      name="lock-closed"
-                      size={14}
-                      color={colors.brand.onPrimary}
-                      style={tw`mr-1.5`}
-                    />
-                  ) : null}
-                  <Text
-                    style={[
-                      tw`text-base font-semibold`,
-                      {
-                        color: isFollowing
-                          ? colors.system.label.primary
-                          : colors.brand.onPrimary,
-                      },
-                    ]}
-                  >
-                    {isFollowing ? "Following" : "Follow"}
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
           </View>
         </View>
 
-        {/* Bio Section - Full Width Below */}
-        {lecturer.bio && (
-          <View style={tw`mt-4`}>
+        <View style={tw`flex-row items-center mt-4`}>
+          {/* Follow Button */}
+          <TouchableOpacity
+            onPress={() => {
+              void handleFollowPress();
+            }}
+            disabled={followDisabled}
+            activeOpacity={0.7}
+            style={[
+              tw`flex-1 flex-row items-center justify-center px-6 min-h-[44px] rounded-full`,
+              followButtonStyle,
+            ]}
+          >
+            {isFollowLoading ? (
+              <ActivityIndicator
+                size="small"
+                color={
+                  isFollowing
+                    ? colors.system.label.primary
+                    : colors.brand.onPrimary
+                }
+              />
+            ) : (
+              <>
+                {isFollowing ? (
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={18}
+                    color={colors.brand.primary}
+                    style={tw`mr-1.5`}
+                  />
+                ) : !canFollowMore ? (
+                  <Ionicons
+                    name="lock-closed"
+                    size={14}
+                    color={colors.brand.onPrimary}
+                    style={tw`mr-1.5`}
+                  />
+                ) : null}
+                <Text
+                  style={[
+                    tw`text-base font-semibold`,
+                    {
+                      color: isFollowing
+                        ? colors.system.label.primary
+                        : colors.brand.onPrimary,
+                    },
+                  ]}
+                >
+                  {isFollowing ? "Following" : "Follow"}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setAboutOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`About ${about.displayName}`}
+            activeOpacity={0.7}
+            style={[
+              tw`flex-row items-center justify-center px-5 min-h-[44px] rounded-full ml-3`,
+              styles.outlinedButton,
+              {
+                backgroundColor: colors.system.background.secondary,
+                borderColor: colors.system.separator.primary,
+              },
+            ]}
+          >
+            <Ionicons
+              name="information-circle-outline"
+              size={18}
+              color={colors.system.label.primary}
+              style={tw`mr-1.5`}
+            />
             <Text
               style={[
-                tw`text-sm leading-5`,
-                { color: colors.system.label.secondary },
+                tw`text-base font-semibold`,
+                { color: colors.system.label.primary },
               ]}
-              numberOfLines={3}
             >
-              {lecturer.bio}
+              About
             </Text>
-          </View>
-        )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Tabs */}
@@ -1656,9 +1424,12 @@ function LecturerDetailScreen() {
 
       {activeTab === "songs"
         ? renderSongsList()
-        : activeTab === "albums"
-          ? renderAlbumsList()
-          : renderPlaylistsList()}
+        : renderAlbumsList()}
+      <LecturerAboutSheet
+        about={about}
+        visible={aboutOpen}
+        onClose={() => setAboutOpen(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -1666,6 +1437,9 @@ function LecturerDetailScreen() {
 const styles = StyleSheet.create({
   stickyHeader: {
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  outlinedButton: {
+    borderWidth: 1.5,
   },
   initialsText: {
     fontSize: 36,

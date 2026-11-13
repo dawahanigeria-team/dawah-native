@@ -430,6 +430,7 @@ export interface LecturerLecture {
   rpname: string;
   rp_image: string;
   is_reciter: boolean;
+  updated_date?: string;
 }
 
 // Export singleton instance
