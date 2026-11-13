@@ -62,6 +62,7 @@ import {
   getInitials,
   getPlaceholderColor,
 } from "../../src/utils/colorPlaceholder";
+import { tabCount } from "../../src/features/lecturer/tabCount";
 import {
   buildLecturerFollowReturnTo,
   parseAutoFollowFlag,
@@ -1043,8 +1044,16 @@ function LecturerDetailScreen() {
 
   // Define tabs
   const tabs = [
-    { key: "songs" as TabType, title: "Lectures", count: lectures.length },
-    { key: "albums" as TabType, title: "Albums", count: albums.length },
+    {
+      key: "songs" as TabType,
+      title: "Lectures",
+      count: tabCount(lecturer?.total_audio, lectures.length),
+    },
+    {
+      key: "albums" as TabType,
+      title: "Albums",
+      count: tabCount(lecturer?.total_albums, albums.length),
+    },
     {
       key: "playlists" as TabType,
       title: "Playlists",

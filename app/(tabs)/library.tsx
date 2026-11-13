@@ -3,6 +3,7 @@ import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { FlashList } from "../../src/components/adapters/flashListCompat";
 import { Text, TouchableOpacity, View, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useIsFocused } from "expo-router";
 import { Card } from "../../src/components/molecules/Card";
 import { LectureRow } from "../../src/components/molecules/LectureRow";
 import { episodeToRow } from "../../src/components/molecules/lectureRowModel";
@@ -62,6 +63,9 @@ function LibraryScreen() {
   const { isAuthenticated } = useAuthStore();
   const { colors } = useTheme();
   const [activeTab, setActiveTab] = useState<LibraryTab>("Downloads");
+  // The tab screen stays mounted, so without this a lecture played or liked
+  // elsewhere never appears until the user switches Library tabs.
+  const isFocused = useIsFocused();
   const [historyEpisodes, setHistoryEpisodes] = useState<Episode[]>([]);
   const [likedEpisodes, setLikedEpisodes] = useState<Episode[]>([]);
   const [playlists, setPlaylists] = useState<UserPlaylist[]>([]);
@@ -180,17 +184,17 @@ function LibraryScreen() {
   // refetch on every render.
   // Load history when History tab is active
   useEffect(() => {
-    if (activeTab === 'History') {
+    if (isFocused && activeTab === 'History') {
       loadHistory();
     }
-  }, [activeTab]);
+  }, [activeTab, isFocused]);
 
   // Load favorites when Liked tab is active
   useEffect(() => {
-    if (activeTab === 'Liked') {
+    if (isFocused && activeTab === 'Liked') {
       loadFavorites();
     }
-  }, [activeTab]);
+  }, [activeTab, isFocused]);
 
   // Load playlists when Playlists tab is active
   useEffect(() => {

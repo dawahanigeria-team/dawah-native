@@ -174,8 +174,9 @@ class FavoritesApiService {
         },
         {
           timeout: API_CONFIG.TIMEOUTS.DEFAULT,
-          useCache: true,
-          cacheTTL: 300, // Cache for 5 minutes
+          // A like is a POST, which never clears this GET's cache, so a cached
+          // read here undoes the like the user just made.
+          useCache: false,
         }
       );
 
