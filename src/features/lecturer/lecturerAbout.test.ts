@@ -120,3 +120,9 @@ test('drops facts with no data and keeps a genuine zero', () => {
     { key: 'albums', label: '0 albums' },
   ]);
 });
+
+test('a language in the trailing brackets is not shown as a place', () => {
+  expect(
+    buildLecturerAbout({ name: 'Malam Aminu Daurawa (Hausa)' }),
+  ).toMatchObject({ displayName: 'Malam Aminu Daurawa', place: null, language: 'Hausa' });
+});

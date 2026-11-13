@@ -1,5 +1,6 @@
 import type { Lecturer, LecturerLecture } from '../../services/api/lecturers.api';
 import { parseLectureDate } from '../../utils/formatDate';
+import { LANGUAGE_MAP } from '../../utils/languages';
 
 export type LecturerAbout = {
   fullName: string;
@@ -30,16 +31,19 @@ export function buildLecturerAbout(
   let rest = fullName.replace(TRAILING_HONORIFIC, '');
   const placeMatch = rest.match(TRAILING_PLACE);
   if (placeMatch) rest = rest.slice(0, placeMatch.index);
+  const bracketed = placeMatch ? placeMatch[1].trim() : null;
+  const bracketedLanguage = bracketed && bracketed in LANGUAGE_MAP ? bracketed : null;
   const uploaded = parseLectureDate(latestLecture?.updated_date);
 
   return {
     fullName,
     displayName: rest.trim(),
-    place: placeMatch ? placeMatch[1].trim() : null,
+    place: bracketedLanguage ? null : bracketed,
     isLate: /rahimahu\s*llah/i.test(fullName),
     language:
       (lecturer.language !== UNKNOWN_LANGUAGE && lecturer.language) ||
       latestLecture?.lang ||
+      bracketedLanguage ||
       null,
     lectures: lecturer.total_audio ?? null,
     albums: lecturer.total_albums ?? null,
