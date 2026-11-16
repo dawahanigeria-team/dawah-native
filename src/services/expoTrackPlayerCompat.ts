@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Platform } from 'react-native'
 import { logger } from '../utils/logger'
 import { encodeMediaUrl } from '../utils/mediaUrl'
+import { playTracker } from './playEvents'
 
 export const State = {
   None: 'none',
@@ -430,6 +431,7 @@ const activateTrack = async (index: number, autoPlay: boolean): Promise<void> =>
 }
 
 const handleTrackFinished = async (): Promise<void> => {
+  playTracker.startNewListen()
   if (!queue.length || activeTrackIndex < 0) {
     setPlaybackState(State.Ended)
     emit(Event.PlaybackQueueEnded, {})
@@ -507,6 +509,7 @@ const TrackPlayer = {
 
   async reset(options?: ResetOptions): Promise<void> {
     const shouldRelease = options?.release === true
+    playTracker.startNewListen()
     resetSourceRecovery()
 
     // Capture local refs before any await to prevent race conditions
