@@ -36,6 +36,7 @@ import {
 } from '../../stores/playerStore'
 import type { Episode, PlayerState } from '../../types/types'
 import { shouldWriteProgress } from '../../utils/progressThrottle'
+import { playTracker } from '../../services/playEvents'
 import { historyService } from '../../services/history.service'
 import { saveResumePositionOnPause } from '../../features/resume/savePositionOnPause'
 
@@ -412,6 +413,9 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
       const playingEpisode = playerStore.get().currentEpisode
       if (playingEpisode && status.isPlaying) {
         void historyService.recordPosition(playingEpisode, status.currentTime)
+      }
+      if (playingEpisode) {
+        playTracker.tick({ lectureId: String(playingEpisode.id), isPlaying: status.isPlaying, nowMs: Date.now() })
       }
 
       if (appStateRef.current !== 'active') {
