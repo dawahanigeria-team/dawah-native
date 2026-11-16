@@ -271,12 +271,6 @@ function RootLayout() {
           initialUrl.startsWith('dawahnigeria://notification.click');
         if (isPlayerNotification) {
           navigateToPlayer();
-          return;
-        }
-        const parsed = linkingService.parseURL(initialUrl);
-        if (parsed && parsed.path) {
-          logger.debug('Navigating to:', parsed.path);
-          safePush(`/${parsed.path}`, "deep_link_initial");
         }
       }
     };
@@ -297,12 +291,6 @@ function RootLayout() {
         event.url?.startsWith('dawahnigeria://notification.click');
       if (isPlayerNotification) {
         navigateToPlayer();
-        return;
-      }
-      const parsed = linkingService.parseURL(event.url);
-      if (parsed && parsed.path) {
-        logger.debug('Navigating to:', parsed.path);
-        safePush(`/${parsed.path}`, "deep_link_runtime");
       }
     });
 

@@ -165,6 +165,7 @@ export class LinkingService {
       const mappings: Record<string, string> = {
         'l/': 'lecture/',      // /dawahcast/l/123 → lecture/123
         'a/': 'album/',        // /dawahcast/a/123 → album/123 (includes Quran reciters)
+        'pl/': 'playlist/',    // /dawahcast/pl/123 → playlist/123
         'p/': 'playlist/',     // /dawahcast/p/123 → playlist/123
         'rp/': 'lecturer/',    // /dawahcast/rp/123 → lecturer/123
       };
