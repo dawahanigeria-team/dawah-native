@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import AsyncStorage from 'expo-sqlite/kv-store';
-import { apiClient } from './api/base.api';
+import { API_CONFIG } from './config/api.config';
 
 /**
  * Charts rank lectures by these events, so a play is real listening: 30
@@ -21,13 +21,19 @@ export const createPlayTracker = (report: (lectureId: string) => void) => {
   let reported = false;
   let lastPlayingAt: number | null = null;
 
+  const startNewListen = () => {
+    heardMs = 0;
+    reported = false;
+    lastPlayingAt = null;
+  };
+
   return {
+    /** A finished track (including a repeat-one restart) or a player reset ends the listen. */
+    startNewListen,
     tick({ lectureId: id, isPlaying, nowMs }: Tick) {
       if (id !== lectureId) {
         lectureId = id;
-        heardMs = 0;
-        reported = false;
-        lastPlayingAt = null;
+        startNewListen();
       }
       if (!isPlaying) {
         lastPlayingAt = null;
@@ -67,13 +73,24 @@ const getDeviceId = (): Promise<string> => {
   return deviceIdPromise;
 };
 
-const sendPlayEvent = async (lectureId: string) => {
+// Plain fetch, not apiClient: that client cancels a request when another one
+// to the same URL starts, which would drop plays reported back to back, and it
+// reports every failure to Sentry, which a best-effort counter does not merit.
+export const sendPlayEvent = async (lectureId: string): Promise<void> => {
   try {
-    await apiClient.post(
-      '/api/play_event_api.php',
-      { lecture_id: Number(lectureId), platform: Platform.OS, device_id: await getDeviceId() },
-      { retry: false },
-    );
+    await fetch(`${API_CONFIG.BASE_URL}/api/play_event_api.php`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-project': API_CONFIG.X_PROJECT_KEY,
+        'User-Agent': API_CONFIG.USER_AGENT,
+      },
+      body: JSON.stringify({
+        lecture_id: Number(lectureId),
+        platform: Platform.OS,
+        device_id: await getDeviceId(),
+      }),
+    });
   } catch {
     // A missed play only makes a chart slightly low; never worth a user-facing error.
   }
