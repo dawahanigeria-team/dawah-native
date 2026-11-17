@@ -162,7 +162,7 @@ const PlaylistDetailScreen: React.FC = () => {
         // overwhelmed slow connections on long playlists.
         const lectureDetails = await mapWithConcurrency(audioIds, 4, async (audioId: number) => {
           try {
-            const lectureDetail = await lectureDetailApi.getLectureDetail({ lectureId: audioId, countView: false });
+            const lectureDetail = await lectureDetailApi.getLectureDetail({ lectureId: audioId });
             // Map LectureDetail to SearchLecture format
             const searchLecture: SearchLecture = {
               id: lectureDetail.id,

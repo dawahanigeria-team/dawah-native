@@ -23,8 +23,6 @@ const stripUploaderMetadata = (description: string): string =>
 export interface LectureDetailParams {
   lectureId: string | number;
   useCache?: boolean;
-  /** False for background reads (Library, queue restore) so they don't register a play view. */
-  countView?: boolean;
 }
 
 interface LectureDetailCacheEntry {
@@ -69,7 +67,7 @@ class LectureDetailApiService {
    * Fetch lecture detail
    */
   async getLectureDetail(params: LectureDetailParams): Promise<LectureDetail> {
-    const { lectureId, useCache = true, countView = true } = params;
+    const { lectureId, useCache = true } = params;
     const cacheKey = lectureId.toString();
     const now = Date.now();
 
@@ -85,7 +83,7 @@ class LectureDetailApiService {
 
       const response = await apiClient.get<any>(
         '/api/leclistingapi.php',
-        countView ? { lecid: lectureId } : { lecid: lectureId, count: 0 },
+        { lecid: lectureId, count: 0 },
         {
           timeout: API_CONFIG.TIMEOUTS.DEFAULT,
           useCache,

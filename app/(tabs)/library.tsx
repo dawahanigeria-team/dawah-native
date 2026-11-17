@@ -115,7 +115,7 @@ function LibraryScreen() {
 
       // Four at a time: a serial loop made 20 likes cost ~20 round trips.
       const lectures = await mapWithConcurrency(favoriteIdsToLoad, 4, (lectureId) =>
-        lectureDetailApi.getLectureDetail({ lectureId, countView: false }).catch((err) => {
+        lectureDetailApi.getLectureDetail({ lectureId }).catch((err) => {
           console.warn(`Failed to load lecture ${lectureId}:`, err);
           return undefined;
         }),
