@@ -43,3 +43,8 @@ test('keeps a real description written around the generated lines', async () => 
     ),
   ).toBe('A reminder on patience.');
 });
+
+test('sends count=0 so opening a lecture does not register a play', async () => {
+  await load('x');
+  expect(mockGet.mock.calls[0][1]).toEqual({ lecid: 30000, count: 0 });
+});
