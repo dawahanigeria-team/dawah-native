@@ -18,6 +18,7 @@ import { FlashList } from "../../src/components/adapters/flashListCompat";
 import { Text } from "../../src/components/atoms";
 import { ErrorBoundary } from "../../src/components/atoms/ErrorBoundary";
 import { ContinueHero } from "../../src/components/organisms/ContinueHero";
+import { SpecialFeatureRows } from "../../src/components/organisms/SpecialFeatureRows";
 import { LectureRow } from "../../src/components/molecules/LectureRow";
 import { episodeToRow } from "../../src/components/molecules/lectureRowModel";
 import { CardSkeleton } from "../../src/components/molecules/Card.skeleton";
@@ -26,6 +27,7 @@ import { usePopularLecturesWithCache } from "../../src/hooks/usePopularLecturesW
 import { useQuranAlbums } from "../../src/hooks/useQuranAlbums";
 import { useContinueListening } from "../../src/hooks/useContinueListening";
 import { useRecent } from "../../src/hooks/useRecent";
+import { useSpecialFeatures } from "../../src/hooks/useSpecialFeatures";
 import { useTheme } from "../../src/hooks/useTheme";
 import { OBSERVE_ROUTE } from "../../src/services/config/observe.config";
 import { QuranAlbum } from "../../src/services/api/quran.api";
@@ -96,6 +98,8 @@ function HomeScreen() {
   const { albums: quranAlbumsRaw, loading: quranLoading } = useQuranAlbums({
     limit: HOME_SECTION_LIMIT,
   });
+
+  const { groups: specialFeatures } = useSpecialFeatures();
 
   const quranAlbums = useMemo(() => {
     const seen = new Set<string>();
@@ -233,6 +237,10 @@ function HomeScreen() {
         reciterName: album.name,
       },
     } as any);
+  }, [guardedPush]);
+
+  const handleSpecialFeatureSeeAll = useCallback((groupName: string) => {
+    guardedPush({ pathname: "/feature/[name]", params: { name: groupName } } as any);
   }, [guardedPush]);
 
   // Render Section Header
@@ -575,6 +583,13 @@ function HomeScreen() {
             </>
           )}
         </View>
+
+        <SpecialFeatureRows
+          groups={specialFeatures}
+          rowLimit={HOME_SECTION_LIMIT}
+          onOpenLecture={handleCarouselItemPress}
+          onSeeAll={handleSpecialFeatureSeeAll}
+        />
 
         {/* Quran Recitations */}
         <View style={tw`mt-8`}>
