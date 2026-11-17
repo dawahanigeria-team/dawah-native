@@ -78,3 +78,56 @@ test('with existing playlists, New playlist opens the form', async () => {
   expect(root.root.findAllByType(TextInput)).toHaveLength(1);
   act(() => root.unmount());
 });
+
+test.each([
+  ['an unsuccessful response', () => api.addAudioToPlaylist.mockResolvedValueOnce({ success: false, message: 'Server busy' } as any)],
+  ['a rejected request', () => api.addAudioToPlaylist.mockRejectedValueOnce(new Error('offline'))],
+])('a failed add after create is retried on the new playlist, not by creating again (%s)', async (_label, failFirstAdd) => {
+  api.getUserPlaylists.mockResolvedValue({ success: true, message: '', playlists: [] } as any);
+  api.createPlaylist.mockResolvedValue({ success: true, message: '', data: { id: 99, nid: 99 } });
+  failFirstAdd();
+  api.addAudioToPlaylist.mockResolvedValueOnce({ success: true, message: '' } as any);
+  const onAudioAdded = jest.fn();
+
+  let root!: TestRenderer.ReactTestRenderer;
+  await act(async () => {
+    root = TestRenderer.create(
+      <AddToPlaylistModal isVisible onClose={jest.fn()} audioId="555" onAudioAdded={onAudioAdded} />,
+    );
+  });
+
+  await act(async () => { root.root.findByType(TextInput).props.onChangeText('Quran'); });
+  await act(async () => { await pressByText(root, 'Create & add'); });
+
+  expect(onAudioAdded).not.toHaveBeenCalled();
+  expect(root.root.findAllByType(TextInput)).toHaveLength(0);
+
+  await act(async () => { await pressByText(root, 'Quran'); });
+
+  expect(api.createPlaylist).toHaveBeenCalledTimes(1);
+  expect(api.addAudioToPlaylist.mock.calls).toEqual([['99', '555'], ['99', '555']]);
+  expect(onAudioAdded).toHaveBeenCalledTimes(1);
+  act(() => root.unmount());
+});
+
+test('Cancel discards the draft name', async () => {
+  api.getUserPlaylists.mockResolvedValue({
+    success: true, message: '',
+    playlists: [{ id: '1', name: 'Tafsir', count: 0, is_private: '0', user_id: '1', created_at: '', updated_at: '' }],
+  } as any);
+
+  let root!: TestRenderer.ReactTestRenderer;
+  await act(async () => {
+    root = TestRenderer.create(
+      <AddToPlaylistModal isVisible onClose={jest.fn()} audioId="555" onAudioAdded={jest.fn()} />,
+    );
+  });
+
+  await act(async () => { await pressByText(root, 'New playlist'); });
+  await act(async () => { root.root.findByType(TextInput).props.onChangeText('Draft'); });
+  await act(async () => { await pressByText(root, 'Cancel'); });
+  await act(async () => { await pressByText(root, 'New playlist'); });
+
+  expect(root.root.findByType(TextInput).props.value).toBe('');
+  act(() => root.unmount());
+});

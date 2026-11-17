@@ -38,7 +38,7 @@ const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
   audioId,
   onAudioAdded,
 }) => {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
   const colors = useThemeColors();
   const [playlists, setPlaylists] = useState<UserPlaylist[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,20 +101,31 @@ const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
     const name = newName.trim();
     if (!name) return;
     setSavingTo('new');
+    let playlistId: string | null = null;
     try {
       const response = await playlistApi.createPlaylist(name, false);
-      const playlistId = createdPlaylistId(response);
+      playlistId = createdPlaylistId(response);
       if (!playlistId) {
         Alert.alert('Error', response.message || 'Failed to create playlist.');
-        return;
       }
-      await addAudio(playlistId);
     } catch (error) {
       console.error('Error creating playlist from modal:', error);
       Alert.alert('Error', 'Could not create the playlist. Please try again.');
     } finally {
       setSavingTo(null);
     }
+    if (!playlistId) return;
+
+    // The playlist now exists on the server. List it before adding the lecture,
+    // so a failed add is retried by tapping it rather than by creating again.
+    const now = new Date().toISOString();
+    setPlaylists((prev) => [
+      { id: playlistId!, name, count: 0, is_private: '0', user_id: String(user?.id ?? ''), created_at: now, updated_at: now },
+      ...prev,
+    ]);
+    setShowCreate(false);
+    setNewName('');
+    await handleAddAudio(playlistId);
   };
 
   const busy = savingTo !== null;
@@ -201,7 +212,10 @@ const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
                     <View style={tw`flex-row justify-end items-center mt-3`}>
                       {playlists.length > 0 && (
                         <TouchableOpacity
-                          onPress={() => setShowCreate(false)}
+                          onPress={() => {
+                            setNewName('');
+                            setShowCreate(false);
+                          }}
                           disabled={busy}
                           accessibilityRole="button"
                           style={[tw`px-4 mr-2 justify-center`, styles.button]}
