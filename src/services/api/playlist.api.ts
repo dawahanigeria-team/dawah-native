@@ -4,6 +4,7 @@ import {
   CreatePlaylistRequest,
   CreatePlaylistResponse,
   PlaylistDataResponse,
+  UserPlaylist,
   UserPlaylistsResponse,
 } from "../../types/api.types";
 import {
@@ -13,6 +14,14 @@ import {
 import { userService } from "../user.service";
 import { apiClient, ApiError } from "./base.api";
 import { logger } from '@/utils/logger';
+
+// playlistApi.php returns each playlist's lecture ids as `audio` and no count.
+export const withLectureCount = (
+  playlist: UserPlaylist & { audio?: unknown }
+): UserPlaylist => ({
+  ...playlist,
+  count: Array.isArray(playlist.audio) ? playlist.audio.length : Number(playlist.count) || 0,
+});
 
 class PlaylistApiService {
   private async getUserId(): Promise<string> {
@@ -119,7 +128,7 @@ class PlaylistApiService {
       );
 
       logger.debug("User playlists fetched successfully:", response.data);
-      return { ...response.data, playlists: response.data.data || [] };
+      return { ...response.data, playlists: (response.data.data || []).map(withLectureCount) };
     } catch (error) {
       console.error("❌ Failed to fetch user playlists:", error);
       captureSentryException(error as Error, {
