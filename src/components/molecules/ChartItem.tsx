@@ -50,15 +50,10 @@ export const ChartItem: React.FC<ChartItemProps> = memo(({ item, index, selected
     }
   };
 
-  const getImageSource = () => {
-    if (selectedChartType === 'lecturer') {
-      return item.rp_thumbnail || item.img || 'https://via.placeholder.com/60';
-    } else if (selectedChartType === 'album' || selectedChartType === 'playlist') {
-      return item.alb_thumbnail || item.img || 'https://via.placeholder.com/60';
-    } else if (selectedChartType === 'lecture') {
-      return item.lec_thumbnail || item.img || 'https://via.placeholder.com/60';
-    }
-    return 'https://via.placeholder.com/60'; // Generic fallback
+  const getImageSource = (): string | undefined => {
+    if (selectedChartType === 'lecturer') return item.rp_thumbnail || item.img;
+    if (selectedChartType === 'lecture') return item.lec_thumbnail || item.img;
+    return item.alb_thumbnail || item.img;
   };
 
   const getTitle = () => {
@@ -76,7 +71,9 @@ export const ChartItem: React.FC<ChartItemProps> = memo(({ item, index, selected
     } else if (selectedChartType === 'lecturer') {
       return item.categories || item.language || 'Lecturer';
     } else if (selectedChartType === 'playlist') {
-      return item.user_id ? `User ID: ${item.user_id}` : 'No details available';
+      const count = item.lecture_count;
+      if (count === undefined) return 'No details available';
+      return `${count} ${count === 1 ? 'lecture' : 'lectures'}`;
     }
     return 'No details available';
   };
@@ -93,7 +90,7 @@ export const ChartItem: React.FC<ChartItemProps> = memo(({ item, index, selected
         <Text variant="headline" weight="bold" style={{ marginRight: spacing.md }}>
           {index + 1}.
         </Text>
-      {imageSource && (
+      {imageSource ? (
         <Image
           source={{ uri: imageSource }}
           style={imageStyle}
@@ -102,6 +99,10 @@ export const ChartItem: React.FC<ChartItemProps> = memo(({ item, index, selected
           allowDownscaling
           recyclingKey={`chart-${selectedChartType}-${String(item.id ?? item.rp_id ?? item.user_id ?? index)}`}
         />
+      ) : (
+        <View style={[imageStyle, { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.system.background.secondary }]}>
+          <Icon name={selectedChartType === 'playlist' ? 'list' : 'musical-notes'} size="md" color="tertiaryLabel" />
+        </View>
       )}
       <View style={{ flex: 1, marginLeft: spacing.md }}>
         <Text variant="body" weight="medium" numberOfLines={2}>

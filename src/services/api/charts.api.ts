@@ -49,6 +49,7 @@ export interface ChartItem {
   key_name?: string;
   user_id?: number;
   is_private?: number;
+  lecture_count?: number;
 }
 
 export type ChartPeriod = 'daily' | 'weekly' | 'monthly';
@@ -99,6 +100,8 @@ const normalizePlaylistChartItem = (item: any): ChartItem => ({
   name: item.name,
   user_id: item.user_id,
   is_private: item.is_private,
+  img: item.playlist_thumbnail || item.img,
+  lecture_count: item.lecture_count ?? item.audio?.length,
   charts: item.charts,
   views: item.views,
   share: item.share,
