@@ -71,7 +71,8 @@ export const ChartItem: React.FC<ChartItemProps> = memo(({ item, index, selected
     } else if (selectedChartType === 'lecturer') {
       return item.categories || item.language || 'Lecturer';
     } else if (selectedChartType === 'playlist') {
-      const count = item.lecture_count ?? 0;
+      const count = item.lecture_count;
+      if (count === undefined) return 'No details available';
       return `${count} ${count === 1 ? 'lecture' : 'lectures'}`;
     }
     return 'No details available';
