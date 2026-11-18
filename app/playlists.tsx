@@ -101,7 +101,7 @@ export default function PlaylistsScreen() {
   return (
     <SafeAreaView edges={['bottom', 'left', 'right']} style={{ flex: 1, backgroundColor: colors.system.background.primary }}>
       <ScreenHeader title="Playlists" />
-      <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.lg }}>
+      <View style={{ flex: 1, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg }}>
         {!isAuthenticated ? (
           <View style={{ marginTop: spacing.lg, alignItems: 'center' }}>
             <Text style={{ color: colors.system.label.secondary, marginBottom: spacing.md }}>
