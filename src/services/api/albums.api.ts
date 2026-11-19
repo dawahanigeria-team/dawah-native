@@ -7,6 +7,7 @@ import { API_CONFIG } from '../config/api.config';
 import { apiClient, ApiError } from './base.api';
 import { addSentryBreadcrumb, captureSentryException } from '../config/sentry.config';
 import { logger } from '@/utils/logger';
+import { lectureImage } from '@/utils/lectureImage';
 
 export interface Album {
   id: string | number;
@@ -42,6 +43,7 @@ export interface AlbumTrack {
   trackNumber?: number;
   plays?: number;
   albumId?: string;
+  coverUrl?: string;
 }
 
 export const parseAlbumTrackDuration = (duration: string | number | undefined): number => {
@@ -225,7 +227,7 @@ class AlbumsApiService {
       const album: Album = {
         id: albumId,
         title: firstLecture.album_name || 'Untitled Album',
-        coverUrl: firstLecture.lec_img || firstLecture.mp3_thumbnail,
+        coverUrl: lectureImage(firstLecture),
         lecturerId: String(firstLecture.rp_id || ''),
         lecturerName: firstLecture.rp || firstLecture.rp_name,
         trackCount: lecturesArray.length,
@@ -385,6 +387,7 @@ class AlbumsApiService {
       trackNumber: track.track_number || track.trackNumber || undefined,
       plays: parseInt(String(track.views || track.plays || track.favorites || track.Plays || '0')),
       albumId: String(track.album_id || track.albumId || ''),
+      coverUrl: lectureImage(track) || undefined,
     }));
   }
 }

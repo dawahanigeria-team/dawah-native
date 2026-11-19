@@ -1,5 +1,6 @@
 import type { SearchLecture } from '../../types/api.types';
 import type { Episode } from '../../types/types';
+import { lectureImage } from '@/utils/lectureImage';
 
 export type LectureLeading =
   | { kind: 'artwork'; url: string | null; position?: number }
@@ -133,7 +134,7 @@ export const searchLectureToRow = (lecture: SearchLecture, options: { position?:
   scholar: text(lecture.lecturer_name, lecture.rpname, lecture.ResourcePerson),
   durationSec: parseClockDuration(lecture.mp3_duration ?? lecture.duration ?? lecture.Duration),
   meta: playsMeta(lecture.views ?? lecture.Plays),
-  leading: { kind: 'artwork', url: text(lecture.img, lecture.lec_img, lecture.CoverUrl), position: options.position },
+  leading: { kind: 'artwork', url: text(lectureImage(lecture), lecture.CoverUrl), position: options.position },
 });
 
 export type ChartWindow = 'daily' | 'weekly' | 'monthly';
@@ -147,8 +148,9 @@ const CHART_WINDOW_LABEL: Record<ChartWindow, string> = {
 interface ChartLectureShape {
   id: number;
   mp3_title?: string;
-  lec_thumbnail?: string;
   img?: string;
+  mp3_thumbnail?: string;
+  lec_thumbnail?: string;
   language?: string;
   charts?: Record<ChartWindow, number>;
 }
@@ -166,6 +168,6 @@ export const chartLectureToRow = (
     meta: [text(item.language), `${compactCount(count)} plays ${CHART_WINDOW_LABEL[context.period]}`]
       .filter(Boolean)
       .join(' • '),
-    leading: { kind: 'artwork', url: text(item.lec_thumbnail, item.img), position: context.position },
+    leading: { kind: 'artwork', url: text(lectureImage(item)), position: context.position },
   };
 };

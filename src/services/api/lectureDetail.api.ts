@@ -7,6 +7,7 @@ import type { LectureDetail, LectureDetailApiItem } from '../../types/api.types'
 import { API_CONFIG } from '../config/api.config';
 import { apiClient, ApiError } from './base.api';
 import { logger } from '@/utils/logger';
+import { lectureImage } from '@/utils/lectureImage';
 
 // The legacy uploader wrote "Language: X." and "Size: N MB [MP3] | N MB [AMR]"
 // into every description. Language is shown on its own, and the AMR copies
@@ -148,7 +149,7 @@ class LectureDetailApiService {
       return asString;
     })();
 
-    const lecturerImage = item.reciter_image || item.lec_img || item.img || '';
+    const lecturerImage = item.reciter_image || lectureImage(item);
     const speakerName = this.pickSpeakerName(item);
 
     const lecture: LectureDetail = {
@@ -156,8 +157,8 @@ class LectureDetailApiService {
       title: item.Title ?? 'Untitled Lecture',
       description: stripUploaderMetadata(item.description ?? ''),
       audioUrl: item.audio ?? '',
-      coverUrl: item.img || item.lec_img || '',
-      backdropUrl: item.lec_img || item.img || '',
+      coverUrl: lectureImage(item),
+      backdropUrl: lectureImage(item),
       durationSec: durationSeconds,
       durationLabel: item.duration ?? '',
       mp3Size: item.mp3_size ?? '',

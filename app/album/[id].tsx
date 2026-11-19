@@ -103,7 +103,7 @@ const AlbumDetailScreen: React.FC = () => {
     title: track.title,
     audioUrl: track.audioUrl,
     durationSec: parseAlbumTrackDuration(track.duration),
-    coverUrl: currentAlbum.coverUrl || '',
+    coverUrl: track.coverUrl || currentAlbum.coverUrl || '',
     lecturerName: currentAlbum.lecturerName || 'Unknown Scholar',
     plays: track.plays || 0,
     liked: false,

@@ -5,6 +5,7 @@
 
 import { API_CONFIG } from '../config/api.config';
 import { apiClient, ApiError } from './base.api';
+import { lectureImage } from '@/utils/lectureImage';
 
 export interface RamadanAlbum {
   id: string;
@@ -374,8 +375,8 @@ class RamadanApiService {
       const album: RamadanAlbum = {
         id: albumId,
         name: (firstLecture.album_name as string) || 'Unknown',
-        img: (firstLecture.lec_img as string) || (firstLecture.mp3_thumbnail as string) || '',
-        alb_thumbnail: (firstLecture.alb_thumbnail as string) || (firstLecture.lec_img as string) || '',
+        img: lectureImage(firstLecture),
+        alb_thumbnail: (firstLecture.alb_thumbnail as string) || lectureImage(firstLecture),
         lec_no: lecturesArray.length,
         language: (firstLecture.lang as string) || 'Hausa',
         views: 0,
