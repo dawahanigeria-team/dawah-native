@@ -6,25 +6,14 @@ const DC_THUMB = 'https://media.dawahnigeria.com/dc_images/thumbnails/569.jpg';
 
 describe('imageUrlForSlot', () => {
   describe('dnimages', () => {
-    it('drops a row from the 1920px large to the 248px thumbnail', () => {
-      expect(imageUrlForSlot(DN_LARGE, 'row')).toBe(
-        'https://media.dawahnigeria.com/dnimages/thumbnail/307.jpeg',
-      );
-    });
-
-    it('keeps a hero on large', () => {
-      expect(imageUrlForSlot(DN_LARGE, 'hero')).toBe(DN_LARGE);
-    });
-
-    it('keeps a card on large while medium is ungenerated', () => {
-      // MEDIA_HAS_MEDIUM defaults false: requesting medium now would 404 and
-      // expo-image would render a blank frame rather than falling back.
-      expect(imageUrlForSlot(DN_LARGE, 'card')).toBe(DN_LARGE);
-    });
-
-    it('re-slots a URL that already names a variant', () => {
+    // thumbnail/<id> and large/<id> are different pictures, so a swap would
+    // change what the lecture shows.
+    it('never swaps the variant, at any slot', () => {
       const thumb = 'https://media.dawahnigeria.com/dnimages/thumbnail/307.jpeg';
-      expect(imageUrlForSlot(thumb, 'hero')).toBe(DN_LARGE);
+      for (const slot of ['row', 'card', 'hero'] as const) {
+        expect(imageUrlForSlot(DN_LARGE, slot)).toBe(DN_LARGE);
+        expect(imageUrlForSlot(thumb, slot)).toBe(thumb);
+      }
     });
   });
 

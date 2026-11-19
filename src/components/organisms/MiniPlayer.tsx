@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../hooks/useTheme";
 import { playerStore, resolveEpisodeArtistName, usePlayerActions } from "../../stores/playerStore";
 import { designTokens } from "../../theme/designTokens";
+import { imageUrlForSlot } from "../../utils/imageUrl";
 import { getTabBarHeight } from "../../utils/layout";
 import { getInitials, getPlaceholderStyle } from "../../utils/colorPlaceholder";
 import { Loading } from "../atoms/Loading";
@@ -78,7 +79,8 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
     const { togglePlayPause, closePlayer, setProgress } = usePlayerActions();
     const { colors } = useTheme();
 
-    const [imageError, setImageError] = useState(false);
+    // Per URL, so one broken cover doesn't hide every later episode's art.
+    const [failedCoverUrl, setFailedCoverUrl] = useState<string | null>(null);
     const [miniProgressTrackWidth, setMiniProgressTrackWidth] = useState(screenWidth);
 
     // Check if we're on a screen where the bottom tab bar is actually visible.
@@ -109,6 +111,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
     // Resolve the display name: filters out placeholders like "DawahNigeria"
     // and picks the best available name (rpname, reciter_name, etc.)
     const displayArtistName = resolveEpisodeArtistName(currentEpisode);
+    const coverUrl = imageUrlForSlot(currentEpisode.coverUrl, 'row');
 
     // The full player is the lecture screen, so tapping the bar opens it.
     const handleExpand = () => {
@@ -147,12 +150,13 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = memo(
         <Pressable style={styles.miniPlayerContent} onPress={handleExpand}>
           {/* Album Art */}
           <View style={styles.albumArt}>
-            {currentEpisode.coverUrl && !imageError ? (
+            {coverUrl && coverUrl !== failedCoverUrl ? (
               <Image
-                source={{ uri: currentEpisode.coverUrl }}
+                source={{ uri: coverUrl }}
+                recyclingKey={currentEpisode.id}
                 style={styles.albumImage}
                 contentFit="cover"
-                onError={() => setImageError(true)}
+                onError={() => setFailedCoverUrl(coverUrl)}
               />
             ) : (
               <View
