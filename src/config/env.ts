@@ -7,7 +7,6 @@ interface EnvConfig {
   API_BASE_URL: string;
   API_PROJECT_KEY: string;
   MEDIA_BASE_URL: string;
-  MEDIA_HAS_MEDIUM: boolean;
   PUSH_NOTIFICATIONS_REGISTER_URL: string;
   GOOGLE_WEB_CLIENT_ID: string;
   GOOGLE_IOS_CLIENT_ID: string;
@@ -24,7 +23,6 @@ export const ENV: EnvConfig = {
   // Whether /dnimages/medium/ derivatives have been generated on the media
   // server. Defaults to false: see imageUrl.ts for why requesting a variant
   // before it exists is worse than serving an oversized one.
-  MEDIA_HAS_MEDIUM: process.env.EXPO_PUBLIC_MEDIA_HAS_MEDIUM === 'true',
   PUSH_NOTIFICATIONS_REGISTER_URL: process.env.EXPO_PUBLIC_PUSH_REGISTER_URL || '',
   // Fallbacks, not just defaults. EXPO_PUBLIC_* values are inlined into the JS
   // bundle when it is built, so an OTA published without the environment
