@@ -54,7 +54,6 @@ test('stores only the queue metadata needed for offline restoration', () => {
     title: 'Lecture',
     durationSec: 60,
     coverUrl: 'cover-small',
-    coverUrlLarge: 'cover-large',
     audioUrl: 'https://example.com/audio.mp3',
     seriesId: 'series-1',
     plays: 10,
@@ -71,6 +70,5 @@ test('stores only the queue metadata needed for offline restoration', () => {
     audioUrl: 'https://example.com/audio.mp3',
     lecturerName: 'Scholar',
   })
-  expect(snapshot).not.toHaveProperty('coverUrlLarge')
   expect(snapshot).not.toHaveProperty('raw')
 })

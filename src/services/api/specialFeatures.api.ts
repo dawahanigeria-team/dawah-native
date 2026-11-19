@@ -9,6 +9,7 @@ import type { Episode } from '../../types/types';
 import { durationToSeconds } from '../../utils/quran';
 import { API_CONFIG } from '../config/api.config';
 import { apiClient } from './base.api';
+import { lectureImage } from '@/utils/lectureImage';
 
 const ENDPOINT = '/administer/api/spcl_ftr_api.php';
 const CACHE_TTL_S = 30 * 60;
@@ -34,8 +35,7 @@ function toLecture(raw: any): SpecialFeatureLecture | null {
       id: String(id),
       title: raw.mp3_title || raw.Title || 'Untitled Lecture',
       durationSec: durationToSeconds(raw.mp3_duration || raw.duration),
-      coverUrl: raw.lec_thumbnail || raw.mp3_thumbnail || raw.img || '',
-      coverUrlLarge: raw.lec_img || undefined,
+      coverUrl: lectureImage(raw),
       audioUrl,
       seriesId: '',
       plays: Number(raw.views) || 0,

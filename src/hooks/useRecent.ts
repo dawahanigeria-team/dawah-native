@@ -11,6 +11,7 @@ import { SearchLecture } from '../types/api.types';
 import { Episode } from '../types/types';
 import { ApiError } from '../services/api/base.api';
 import { logger } from '@/utils/logger';
+import { lectureImage } from '@/utils/lectureImage';
 
 const PLACEHOLDER_SPEAKER_NAMES = new Set([
   'dawahnigeria',
@@ -115,8 +116,7 @@ export const useRecent = (
               durationSec: parseDuration(
                 lecture.duration || lecture.mp3_duration || '0:00:00',
               ),
-              coverUrl: lecture.img || lecture.CoverUrl || anyLec.lec_img || '',
-              coverUrlLarge: anyLec.lec_img || undefined,
+              coverUrl: lectureImage(anyLec) || lecture.CoverUrl || '',
               audioUrl:
                 lecture.audio || lecture.mp3_url || lecture.AudioUrl || '',
               seriesId: lecture.keyword || '',

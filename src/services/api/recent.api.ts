@@ -24,6 +24,7 @@ import { SearchLecture } from '../../types/api.types';
 import { API_CONFIG } from '../config/api.config';
 import { apiClient, ApiError } from './base.api';
 import { logger } from '@/utils/logger';
+import { lectureImage } from '@/utils/lectureImage';
 
 export interface RecentLecturesParams {
   page?: number;
@@ -99,7 +100,7 @@ function normalizeItem(raw: any): SearchLecture {
   if (!item.audio && item.mp3_url) item.audio = item.mp3_url;
   if (!item.duration && item.mp3_duration) item.duration = item.mp3_duration;
   if (!item.post_date && item.updated_date) item.post_date = item.updated_date;
-  if (!item.img && item.lec_img) item.img = item.lec_img;
+  item.img = lectureImage(item) || undefined;
   if (item.lang_id != null && item.langid == null) item.langid = item.lang_id;
   return item as SearchLecture;
 }

@@ -8,6 +8,7 @@ import { apiClient, ApiError } from './base.api';
 import { addSentryBreadcrumb, captureSentryException } from '../config/sentry.config';
 import { logger } from '@/utils/logger';
 import { getSurahNumber, sortRecitationsInQuranOrder } from '@/utils/quran';
+import { lectureImage } from '@/utils/lectureImage';
 
 export interface QuranAlbum {
   id: string;
@@ -49,6 +50,7 @@ export interface QuranRecitation {
   trackNumber?: number;
   plays?: number;
   surahNumber?: number;
+  coverUrl?: string;
 }
 
 export interface QuranAlbumDetail {
@@ -203,8 +205,8 @@ class QuranApiService {
       const album: QuranAlbum = {
         id: albumId,
         name: firstLecture.album_name || 'Unknown Reciter',
-        img: firstLecture.lec_img || firstLecture.mp3_thumbnail || '',
-        alb_thumbnail: firstLecture.alb_thumbnail || firstLecture.lec_img || '',
+        img: lectureImage(firstLecture),
+        alb_thumbnail: firstLecture.alb_thumbnail || lectureImage(firstLecture),
         lec_no: lecturesArray.length,
         language: firstLecture.lang || 'Arabic',
         views: 0,
@@ -225,6 +227,7 @@ class QuranApiService {
         audioUrl: lecture.audio || lecture.mp3_url || lecture.AudioUrl || lecture.mp3 || '',
         trackNumber: index + 1,
         plays: parseInt(String(lecture.views || lecture.plays || lecture.favorites || '0')),
+        coverUrl: lectureImage(lecture) || undefined,
         surahNumber: getSurahNumber(
           lecture.title || lecture.lectitle || lecture.Title || '',
           Number(lecture.surah_number) || undefined,

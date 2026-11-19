@@ -6,6 +6,7 @@ import { Icon } from '../atoms/Icon';
 import { useTheme } from '../../hooks/useTheme';
 import { ChartItem as ChartItemType, ChartPeriod } from '../../services/api/charts.api';
 import { Image } from 'expo-image';
+import { lectureImage } from '@/utils/lectureImage';
 
 interface ChartItemProps {
   item: ChartItemType;
@@ -52,7 +53,7 @@ export const ChartItem: React.FC<ChartItemProps> = memo(({ item, index, selected
 
   const getImageSource = (): string | undefined => {
     if (selectedChartType === 'lecturer') return item.rp_thumbnail || item.img;
-    if (selectedChartType === 'lecture') return item.lec_thumbnail || item.img;
+    if (selectedChartType === 'lecture') return lectureImage(item);
     return item.alb_thumbnail || item.img;
   };
 
