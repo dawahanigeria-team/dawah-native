@@ -401,7 +401,7 @@ const QuranReciterScreen: React.FC = () => {
       title: recitation.title,
       durationSec: durationToSeconds(recitation.duration),
       audioUrl: recitation.audioUrl,
-      coverUrl: recitation.coverUrl || album.alb_thumbnail || album.img,
+      coverUrl: recitation.coverUrl || '',
       seriesId: album.id,
       seriesTitle: album.name,
       plays: recitation.plays || 0,
