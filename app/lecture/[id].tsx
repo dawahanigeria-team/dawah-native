@@ -1077,11 +1077,12 @@ const LectureDetailScreen: React.FC = () => {
             const durationSec = Math.round(measuredDuration > 0 ? measuredDuration : lecture.durationSec);
             const meta = [
               durationSec > 0 && { label: "Duration", value: formatTime(durationSec), icon: "time-outline" },
-              lecture.albumName && {
+              lecture.albumId && {
                 label: "Album",
-                value: lecture.albumName,
+                // 1,212 album ids have lectures but no album record; the album screen calls these the same.
+                value: lecture.albumName || "Untitled Album",
                 icon: "albums-outline",
-                onPress: lecture.albumId ? () => guardedPush(`/album/${lecture.albumId}`) : undefined,
+                onPress: () => guardedPush(`/album/${lecture.albumId}`),
               },
               releasedValue && { label: "Released", value: releasedValue, icon: "calendar-outline" },
             ].filter(Boolean);
