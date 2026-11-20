@@ -44,6 +44,7 @@ import tw from "../../src/theme/twrnc";
 import type { LectureDetail } from "../../src/types/api.types";
 import type { Episode } from "../../src/types/types";
 import { formatRelativeDate } from "../../src/utils/formatDate";
+import { formatTime } from "../../src/utils/formatTime";
 import { appendShareSignature } from "../../src/utils/shareMessage";
 import { boxShadow } from "../../src/utils/shadow";
 import {
@@ -500,6 +501,9 @@ const LectureDetailScreen: React.FC = () => {
   // This screen is the full player. When the lecture it shows ends and the
   // queue moves on, follow it rather than stay on a lecture no longer playing.
   const playingId = useEntity(playerStore, (state) => state.currentEpisode?.id);
+  const measuredDuration = useEntity(playerStore, (state) =>
+    state.currentEpisode?.id === lectureId ? state.duration : 0,
+  );
   const previousPlayingId = useRef(playingId);
   useEffect(() => {
     const previous = previousPlayingId.current;
@@ -1068,9 +1072,17 @@ const LectureDetailScreen: React.FC = () => {
             const releasedValue = releasedDateLabel && relative
               ? `${releasedDateLabel} · ${relative}`
               : releasedDateLabel;
+            // ~40% of recent uploads have a catalogue duration of "0"; the
+            // player's measured length is the only real one for those.
+            const durationSec = Math.round(measuredDuration > 0 ? measuredDuration : lecture.durationSec);
             const meta = [
-              lecture.durationLabel && { label: "Duration", value: lecture.durationLabel, icon: "time-outline" },
-              lecture.albumName && { label: "Album", value: lecture.albumName, icon: "albums-outline" },
+              durationSec > 0 && { label: "Duration", value: formatTime(durationSec), icon: "time-outline" },
+              lecture.albumName && {
+                label: "Album",
+                value: lecture.albumName,
+                icon: "albums-outline",
+                onPress: lecture.albumId ? () => guardedPush(`/album/${lecture.albumId}`) : undefined,
+              },
               releasedValue && { label: "Released", value: releasedValue, icon: "calendar-outline" },
             ].filter(Boolean);
 
@@ -1082,7 +1094,16 @@ const LectureDetailScreen: React.FC = () => {
                   Details
                 </Text>
                 {meta.map((item: any, index: number) => (
-                  <View key={item.label} style={tw`flex-row items-center ${index < meta.length - 1 ? 'mb-3' : ''}`}>
+                  <Touchable
+                    key={item.label}
+                    disabled={!item.onPress}
+                    onPress={item.onPress}
+                    scaleOnPress={Boolean(item.onPress)}
+                    accessibilityRole={item.onPress ? "link" : undefined}
+                    accessibilityLabel={`${item.label}: ${item.value}`}
+                    accessibilityHint={item.onPress ? "Opens the album" : undefined}
+                    style={tw`flex-row items-center ${index < meta.length - 1 ? 'mb-3' : ''}`}
+                  >
                     <View style={[tw`w-8 h-8 rounded-full items-center justify-center mr-3`, { backgroundColor: colors.system.fill.secondary }]}>
                       <Ionicons name={item.icon} size={16} color={colors.system.label.secondary} />
                     </View>
@@ -1090,11 +1111,14 @@ const LectureDetailScreen: React.FC = () => {
                       <Text variant="caption1" color="tertiaryLabel">
                         {item.label}
                       </Text>
-                      <Text variant="subheadline" color="label" weight="medium">
+                      <Text variant="subheadline" color={item.onPress ? "brand" : "label"} weight="medium">
                         {item.value}
                       </Text>
                     </View>
-                  </View>
+                    {item.onPress && (
+                      <Ionicons name="chevron-forward" size={16} color={colors.system.label.tertiary} style={tw`ml-2`} />
+                    )}
+                  </Touchable>
                 ))}
               </View>
             );
