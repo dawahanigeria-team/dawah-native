@@ -253,6 +253,8 @@ export interface LectureDetail {
     isReciter?: boolean;
   };
   raw?: LectureDetailApiItem;
+  /** Built offline from the saved download; counts are unknown, not zero. */
+  fromDownload?: boolean;
 }
 
 // Category Response

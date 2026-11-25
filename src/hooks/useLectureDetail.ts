@@ -1,6 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { lectureDetailApi } from '../services/api/lectureDetail.api';
+import { downloadsService, type DownloadMetadata } from '../services/downloads.service';
 import type { LectureDetail } from '../types/api.types';
+
+export const lectureFromDownload = (download: DownloadMetadata): LectureDetail => ({
+  id: download.lectureId,
+  title: download.title,
+  audioUrl: download.audioUrl ?? '',
+  coverUrl: download.coverUrl ?? '',
+  durationSec: download.duration || 0,
+  categories: [],
+  categoryIds: [],
+  views: 0,
+  favorites: 0,
+  shares: 0,
+  downloads: 0,
+  comments: 0,
+  lecturerName: download.lecturerName,
+  fromDownload: true,
+});
 
 export interface UseLectureDetailResult {
   lecture: LectureDetail | null;
@@ -45,9 +63,18 @@ export const useLectureDetail = (lectureId?: string | number): UseLectureDetailR
           setLecture(detail);
         }
       } catch (err: any) {
+        // A downloaded lecture must still open offline; its saved metadata is enough to play it.
+        await downloadsService.ensureInitialized();
+        const download = downloadsService.isDownloaded(String(id))
+          ? downloadsService.getDownloadMetadata(String(id))
+          : null;
         if (isMountedRef.current && currentRequestIdRef.current === id) {
-          setError(err?.message || 'Failed to load lecture details');
-          setLecture(null);
+          if (download) {
+            setLecture(lectureFromDownload(download));
+          } else {
+            setError(err?.message || 'Failed to load lecture details');
+            setLecture(null);
+          }
         }
       } finally {
         if (isMountedRef.current && currentRequestIdRef.current === id) {
