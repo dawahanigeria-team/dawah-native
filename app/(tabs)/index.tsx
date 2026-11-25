@@ -114,7 +114,15 @@ function HomeScreen() {
   const { playEpisode, togglePlayPause } = usePlayerActions();
   const currentEpisodeId = useEntity(playerStore, (state) => state.currentEpisode?.id);
   const isPlaying = useEntity(playerStore, (state) => state.isPlaying);
-  const continueListening = useContinueListening(currentEpisodeId, isPlaying);
+  const isLoadingPlayback = useEntity(playerStore, (state) => state.isLoading);
+  const playerFailed = useEntity(playerStore, (state) => Boolean(state.errorMessage));
+  // Read while paused only, so Home does not re-render on every playback tick.
+  const pausedProgress = useEntity(playerStore, (state) => (state.isPlaying ? 0 : state.progress));
+  const continueListening = useContinueListening({
+    id: currentEpisodeId,
+    active: isPlaying || isLoadingPlayback,
+    progress: pausedProgress,
+  });
   const [feedTab, setFeedTab] = useState<FeedTab>("popular");
 
   const [popularEpisodes, setPopularEpisodes] = useState<Episode[]>([]);
@@ -459,8 +467,8 @@ function HomeScreen() {
               episode={continueListening.episode}
               positionSec={continueListening.positionSec}
               onResume={() =>
-                // Already loaded and paused: resume where the player is, which is fresher than history.
-                continueListening.episode.id === currentEpisodeId
+                // A healthy paused player resumes in place; a failed one would retry from the top.
+                continueListening.episode.id === currentEpisodeId && !playerFailed
                   ? void togglePlayPause()
                   : void playEpisode(continueListening.episode, {
                       startAt: continueListening.positionSec,
