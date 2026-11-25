@@ -114,7 +114,7 @@ function HomeScreen() {
   const { playEpisode, togglePlayPause } = usePlayerActions();
   const currentEpisodeId = useEntity(playerStore, (state) => state.currentEpisode?.id);
   const isPlaying = useEntity(playerStore, (state) => state.isPlaying);
-  const continueListening = useContinueListening(currentEpisodeId);
+  const continueListening = useContinueListening(currentEpisodeId, isPlaying);
   const [feedTab, setFeedTab] = useState<FeedTab>("popular");
 
   const [popularEpisodes, setPopularEpisodes] = useState<Episode[]>([]);
@@ -459,9 +459,12 @@ function HomeScreen() {
               episode={continueListening.episode}
               positionSec={continueListening.positionSec}
               onResume={() =>
-                void playEpisode(continueListening.episode, {
-                  startAt: continueListening.positionSec,
-                })
+                // Already loaded and paused: resume where the player is, which is fresher than history.
+                continueListening.episode.id === currentEpisodeId
+                  ? void togglePlayPause()
+                  : void playEpisode(continueListening.episode, {
+                      startAt: continueListening.positionSec,
+                    })
               }
               onOpen={() => handleCarouselItemPress(continueListening.episode)}
             />

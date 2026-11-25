@@ -25,10 +25,16 @@ const toEpisode = (item: HistoryItem): Episode => ({
   createdAt: item.playedAt,
 });
 
-/** The lecture to offer on Home. The one already in the mini player is left out. */
+/**
+ * The lecture to offer on Home. Only a lecture that is playing right now is left out:
+ * the last session's lecture is restored paused into the mini player at launch, and is
+ * exactly the one to continue.
+ */
 export const useContinueListening = (
-  currentLectureId?: string,
+  currentLectureId: string | undefined,
+  isPlaying: boolean,
 ): ContinueListeningItem | null => {
+  const playingLectureId = isPlaying ? currentLectureId : undefined;
   const [history, setHistory] = useState<HistoryItem[]>([]);
 
   useFocusEffect(
@@ -40,13 +46,13 @@ export const useContinueListening = (
       return () => {
         active = false;
       };
-      // Re-read when the player changes lecture or closes, since Home stays focused meanwhile.
+      // Re-read when playback starts, pauses or changes lecture, since Home stays focused meanwhile.
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentLectureId]),
+    }, [playingLectureId]),
   );
 
   return useMemo(() => {
-    const item = pickResumable(history, currentLectureId);
+    const item = pickResumable(history, playingLectureId);
     return item ? { episode: toEpisode(item), positionSec: item.progress } : null;
-  }, [history, currentLectureId]);
+  }, [history, playingLectureId]);
 };
