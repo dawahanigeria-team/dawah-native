@@ -987,7 +987,7 @@ const LectureDetailScreen: React.FC = () => {
           {/* Stats Cards */}
           <View style={[tw`flex-row mt-6`, { gap: 12 }]}>
             {[
-              { label: "Plays", value: lecture.views, icon: "play-circle", alwaysShow: true },
+              { label: "Plays", value: lecture.views, icon: "play-circle", alwaysShow: !lecture.fromDownload },
               { label: "Downloads", value: lecture.downloads, icon: "download", alwaysShow: false },
               { label: "Shares", value: lecture.shares, icon: "share-social", alwaysShow: false },
             ].filter((item) => item.alwaysShow || (item.value ?? 0) > 0).map((item) => (
