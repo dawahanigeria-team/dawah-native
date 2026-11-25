@@ -6,7 +6,8 @@ import type { LectureDetail } from '../types/api.types';
 export const lectureFromDownload = (download: DownloadMetadata): LectureDetail => ({
   id: download.lectureId,
   title: download.title,
-  audioUrl: download.audioUrl ?? '',
+  // Any non-empty value lets the player resolve the local file by id, as the Library does.
+  audioUrl: download.audioUrl || 'offline',
   coverUrl: download.coverUrl ?? '',
   durationSec: download.duration || 0,
   categories: [],

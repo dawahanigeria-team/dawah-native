@@ -58,6 +58,21 @@ test('a downloaded lecture opens from its saved metadata when the request fails'
   });
 });
 
+test('a download saved without an audio URL is still playable', async () => {
+  jest.mocked(downloadsService.isDownloaded).mockReturnValue(true);
+  jest.mocked(downloadsService.getDownloadMetadata).mockReturnValue({
+    lectureId: '253432',
+    title: 'Concept of Funeral rights 1a',
+    lecturerName: "Ustadh Sa'eed Hamzah (Lagos)",
+    duration: 300,
+    downloadedAt: '2026-11-25T09:40:00.000Z',
+  });
+
+  const result = await render('253432');
+
+  expect(result().lecture?.audioUrl).toBe('offline');
+});
+
 test('a lecture that is not downloaded still shows the request error', async () => {
   jest.mocked(downloadsService.isDownloaded).mockReturnValue(false);
 
